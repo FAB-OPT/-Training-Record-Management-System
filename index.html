@@ -3953,7 +3953,6 @@ function renderManual() {
 function openEvalModal(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId); if(!t) return;
   selectedEvalMethod=''; selectedEvalResult='';
-  const canQuiz = isModuleComplete(t);
   showModal('บันทึกผลการประเมิน', `
     <div style="background:var(--primary-light);border-radius:8px;padding:12px 14px;margin-bottom:16px;border:1px solid #F5C4A4">
       <div style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name}</div>
@@ -3978,10 +3977,6 @@ function openEvalModal(trainingId) {
       <label class="form-label">หมายเหตุ / ข้อสังเกต</label>
       <textarea class="form-textarea" id="eval-note" placeholder="บันทึกเพิ่มเติม..."></textarea>
     </div>
-    ${canQuiz?`<hr class="section-divider"><div class="info-box" style="display:flex;align-items:center;justify-content:space-between">
-      <div><strong>ข้อสอบออนไลน์</strong><div style="font-size:12px;margin-top:2px">สอนครบทุกหัวข้อแล้ว · สามารถทำข้อสอบได้</div></div>
-      <button class="btn btn-navy" onclick="openQuiz('${trainingId}')">เริ่มสอบ →</button>
-    </div>`:`<div class="warn-box" style="margin-top:4px">สอนยังไม่ครบทุกหัวข้อใน Module นี้ · ยังไม่สามารถทำข้อสอบได้</div>`}
   `, () => {
     if(!selectedEvalMethod){notify('กรุณาเลือกวิธีการประเมิน','error');return;}
     if(!selectedEvalResult){notify('กรุณาเลือกผลการประเมิน','error');return;}
