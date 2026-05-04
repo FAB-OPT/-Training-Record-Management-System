@@ -209,6 +209,26 @@
   .page-sub { color: var(--text2); font-size: 14px; margin-top: 6px; font-weight: 400; }
   .breadcrumb { font-size: 12px; color: var(--text3); margin-bottom: 6px; }
 
+  /* Hero header (dark gradient with orange glow) */
+  .page-hero {
+    background: linear-gradient(135deg,#1D1D1F 0%,#2C2C2E 100%);
+    border-radius: 18px; padding: 24px 28px; margin-bottom: 20px;
+    color: #fff; display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    position: relative; overflow: hidden;
+  }
+  .page-hero::before {
+    content: ''; position: absolute; top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle,rgba(255,107,26,.35),transparent 70%);
+    pointer-events: none;
+  }
+  .page-hero-body { position: relative; min-width: 0; flex: 1; }
+  .page-hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: 4px; }
+  .page-hero-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15; }
+  .page-hero-sub { font-size: 13px; color: rgba(255,255,255,.7); margin-top: 6px; font-weight: 500; }
+  .page-hero .btn { position: relative; flex-shrink: 0; }
+
   /* ==================== CARDS ==================== */
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; transition: all 0.2s; }
   .card:hover { border-color: var(--border2); box-shadow: var(--shadow-sm); }
@@ -666,6 +686,16 @@
     body.branch-user .hamburger { display: none; }
     body.branch-user #topbar-report-btn { display: flex; align-items: center; gap: 5px; background: var(--accent); border: none; color: white; font-family: 'Sarabun',sans-serif; font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
     .notif { top: 64px !important; right: 10px !important; max-width: calc(100vw - 20px); }
+
+    /* Hero header smaller on mobile */
+    .page-hero { flex-direction: column; align-items: stretch; padding: 18px 18px; border-radius: 14px; }
+    .page-hero-title { font-size: 21px; }
+    .page-hero-sub { font-size: 12.5px; }
+    .page-hero .btn { width: 100%; justify-content: center; }
+
+    /* Manual: near-fullscreen book on mobile */
+    .manual-card { margin: 0 -12px; border-radius: 0 !important; border-left: none; border-right: none; }
+    .manual-frame { padding-top: 0 !important; height: calc(100vh - 200px); min-height: 480px; border-radius: 0 !important; }
   }
 
   @media (max-width: 480px) {
@@ -2828,7 +2858,13 @@ function renderDashboard() {
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
   const passRate = evaled.length ? Math.round(evaled.filter(t=>isEvalPass(t.eval.result)).length/evaled.length*100) : 0;
   return `
-  <div class="page-header"><div class="page-header-left"><div class="page-title">แดชบอร์ด</div><div class="page-sub">ภาพรวมการสอนงานของสาขา · อัปเดต ${fmtDate(new Date().toISOString())}</div></div></div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">ภาพรวม</div>
+      <div class="page-hero-title">แดชบอร์ด</div>
+      <div class="page-hero-sub">ภาพรวมการสอนงานของสาขา · อัปเดต ${fmtDate(new Date().toISOString())}</div>
+    </div>
+  </div>
   ${(()=>{
     const activeEmps = emps.filter(e=>e.status==='active');
     const grpBadge = {'พนักงานบริการ':'badge-green','พนักงานครัว':'badge-red','ทีมผู้จัดการสาขา':'badge-blue'};
@@ -3330,8 +3366,14 @@ function renderEmployees() {
   const bid = getBranchId(); const emps = getBranchEmployees(bid);
   return `
 
-  <div class="page-header"><div class="page-header-left"><div class="page-title">รายชื่อพนักงาน</div><div class="page-sub">${BRANCH_MASTER[bid].name}</div></div>
-  <button class="btn btn-navy" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button></div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">ทีมงานสาขา</div>
+      <div class="page-hero-title">รายชื่อพนักงาน</div>
+      <div class="page-hero-sub">${BRANCH_MASTER[bid].name}</div>
+    </div>
+    <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
+  </div>
   <div class="card">
     <div class="search-bar"><input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()"></div>
     <div class="table-wrap"><table>
@@ -3442,14 +3484,13 @@ function renderTrainings() {
   else if (filter === 'expired') rows = expired;
   const tabBtn = (key, label, count) => `<button onclick="setTrainFilter('${key}')" class="train-tab ${filter===key?'active':''}" style="border:none;background:${filter===key?'var(--text)':'transparent'};color:${filter===key?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${filter===key?'rgba(255,255,255,.18)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
   return `
-  <div class="page-hero" style="background:linear-gradient(135deg,#1D1D1F 0%,#2C2C2E 100%);border-radius:18px;padding:24px 28px;margin-bottom:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 8px 24px rgba(0,0,0,0.12);position:relative;overflow:hidden">
-    <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(255,107,26,.35),transparent 70%);pointer-events:none"></div>
-    <div style="position:relative">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:4px">การสอนงาน</div>
-      <div style="font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1.15">บันทึกการสอน &amp; ประเมินผล</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px;font-weight:500">ประวัติการสอนงานและสถานะการประเมินของสาขา</div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">การสอนงาน</div>
+      <div class="page-hero-title">บันทึกการสอน &amp; ประเมินผล</div>
+      <div class="page-hero-sub">ประวัติการสอนงานและสถานะการประเมินของสาขา</div>
     </div>
-    <button class="btn btn-accent" onclick="openAddTraining()" style="position:relative">+ บันทึกการสอนงาน</button>
+    <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat-card"><div class="stat-icon-wrap stat-icon-yellow">⏳</div><div class="stat-info"><div class="stat-value">${pending.length}</div><div class="stat-label">รอการประเมิน</div></div></div>
@@ -3879,14 +3920,28 @@ function openEditTraining(id) {
 }
 
 // ==================== MANUAL ====================
+function openManualFullscreen() {
+  const f = document.getElementById('manual-iframe');
+  if (!f) return;
+  if (f.requestFullscreen) f.requestFullscreen();
+  else if (f.webkitRequestFullscreen) f.webkitRequestFullscreen();
+  else if (f.webkitEnterFullscreen) f.webkitEnterFullscreen(); // iOS Safari
+  else window.open('https://heyzine.com/flip-book/b958610e1d.html', '_blank');
+}
+
 function renderManual() {
   return `
-  <div class="page-header">
-    <div><div class="page-title">คู่มือการสอนงาน</div><div class="page-sub">e-Book คู่มือมาตรฐานการสอนงาน · พลิกอ่านได้เหมือนหนังสือจริง</div></div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">การสอนงาน</div>
+      <div class="page-hero-title">คู่มือการสอนงาน</div>
+    </div>
+    <button class="btn btn-accent manual-fs-btn" onclick="openManualFullscreen()">⛶ เต็มจอ</button>
   </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <div style="position:relative;width:100%;padding-top:62%;background:#000;border-radius:var(--radius);overflow:hidden">
+  <div class="card manual-card" style="padding:0;overflow:hidden">
+    <div class="manual-frame" style="position:relative;width:100%;padding-top:62%;background:#000;border-radius:var(--radius);overflow:hidden">
       <iframe
+        id="manual-iframe"
         src="https://heyzine.com/flip-book/b958610e1d.html"
         style="position:absolute;inset:0;width:100%;height:100%;border:0"
         allowfullscreen
