@@ -2518,13 +2518,14 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [] };
 try {
   const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
   if (_c && _c.employees && _c.trainings) {
     DB.employees = _c.employees;
     DB.trainings = _c.trainings;
     DB.quizResults = _c.quizResults || [];
+    DB.customQuiz = _c.customQuiz || [];
   }
 } catch(_) {}
 
@@ -2568,7 +2569,11 @@ async function gsLoad() {
     const localPending = DB.trainings.filter(t => !serverIds.has(t.id));
     DB.trainings = [...serverTrainings, ...localPending];
     DB.quizResults = data.quizResults || [];
-    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults})); } catch(_) {}
+    DB.customQuiz = (data.customQuiz || []).map(q => {
+      q.opts = parseJSON(q.opts, q.opts);
+      return q;
+    });
+    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz})); } catch(_) {}
   } catch(err) {
     console.error('GS load error:', err);
     notify('โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรช', 'error');
@@ -2857,6 +2862,7 @@ function buildAdminNav() {
     <div class="nav-item" id="nav-admin-employees" onclick="showPage('admin-employees')"><span class="nav-icon">◼</span> จัดการพนักงาน</div>
     <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> ประวัติการสอนงาน</div>
     <div class="nav-item" id="nav-admin-evaluations" onclick="showPage('admin-evaluations')"><span class="nav-icon">◼</span> ผลการประเมิน</div>
+    <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
     <div class="nav-section-label" style="margin-top:8px">รายงาน</div>
     <div class="nav-item" id="nav-admin-reports" onclick="showPage('admin-reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
 }
@@ -2874,7 +2880,7 @@ function showPage(page) {
     'admin-dashboard': renderAdminDashboard, 'admin-branches': renderAdminBranches,
     'admin-employees': renderAdminEmployees,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
-    'admin-reports': renderAdminReports,
+    'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
   };
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
   if (currentUser && currentUser.type === 'branch') {
@@ -4167,7 +4173,8 @@ function openQuiz(trainingId) {
   const moduleQs = QUIZ_BANK[t.moduleId] || [];
   const groupKey = MODULES[t.moduleId]?.quizGroup;
   const poolQs = (groupKey && QUIZ_BANK_POOL[groupKey]) || [];
-  const allQ = [...moduleQs, ...poolQs];
+  const customQs = DB.customQuiz.filter(q => q.moduleId === t.moduleId);
+  const allQ = [...moduleQs, ...poolQs, ...customQs];
   if (allQ.length === 0) { notify('ยังไม่มีคำถามสำหรับ Module นี้', 'error'); return; }
   // Shuffle questions, then for each question shuffle the options
   const picked = shuffleArray(allQ).slice(0, Math.min(5, allQ.length));
@@ -4697,6 +4704,253 @@ function filterAdminEvals() {
   else if(result) rows = rows.filter(t=>String(t.eval.result)===result);
   const tbody = document.getElementById('admin-evals-tbody');
   if(tbody) tbody.innerHTML = renderAdminEvalRows(rows);
+}
+
+// ==================== ADMIN QUIZ MANAGEMENT ====================
+function getQuizCount(moduleId) {
+  const base = (QUIZ_BANK[moduleId] || []).length;
+  const groupKey = MODULES[moduleId]?.quizGroup;
+  const pool = (groupKey && QUIZ_BANK_POOL[groupKey] || []).length;
+  const custom = DB.customQuiz.filter(q => q.moduleId === moduleId).length;
+  return { base, pool, custom, total: base + pool + custom };
+}
+
+function renderAdminQuiz() {
+  const modules = Object.keys(MODULES);
+  const groups = { Service: modules.filter(m=>MODULES[m].group==='Service'), Cook: modules.filter(m=>MODULES[m].group==='Cook') };
+  const renderGroupCard = (label, mods) => `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">${label} (${mods.length} Module)</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Module</th><th>หัวข้อ</th><th>คำถามรวม</th><th style="text-align:right">จัดการ</th></tr></thead>
+        <tbody>${mods.map(mid=>{
+          const m = MODULES[mid]; const c = getQuizCount(mid);
+          return `<tr>
+            <td style="font-weight:700">${m.name}<div style="font-size:11px;color:var(--text3);font-family:monospace">${mid}</div></td>
+            <td style="font-size:12px;color:var(--text2)">${m.subtopics.length} หัวข้อย่อย</td>
+            <td>
+              <span class="badge badge-navy">${c.total} ข้อ</span>
+              <div style="font-size:11px;color:var(--text3);margin-top:3px">เริ่มต้น ${c.base} · กลุ่ม ${c.pool} · เพิ่มเอง ${c.custom}</div>
+            </td>
+            <td style="white-space:nowrap;text-align:right">
+              <button class="btn btn-sm btn-outline" onclick="openQuizListModal('${mid}')">ดูคำถาม</button>
+              <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openAddQuizModal('${mid}')">+ เพิ่ม</button>
+              <button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openAiQuizModal('${mid}')">🤖 AI สร้าง</button>
+            </td>
+          </tr>`;}).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">Admin · ข้อสอบ</div>
+      <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
+      <div class="page-hero-sub">เพิ่ม / ลบ / สร้างด้วย AI · คำถามที่เพิ่มจะรวมในข้อสอบทันที</div>
+    </div>
+    <button class="btn btn-outline" onclick="openAiSettingsModal()">⚙️ ตั้งค่า AI</button>
+  </div>
+  ${renderGroupCard('Service', groups.Service)}
+  ${renderGroupCard('Cook', groups.Cook)}`;
+}
+
+function getAllQuestionsForModule(mid) {
+  const base = (QUIZ_BANK[mid] || []).map(q => ({...q, source:'base'}));
+  const groupKey = MODULES[mid]?.quizGroup;
+  const pool = (groupKey ? (QUIZ_BANK_POOL[groupKey] || []) : []).map(q => ({...q, source:'pool'}));
+  const custom = DB.customQuiz.filter(q => q.moduleId === mid).map(q => ({...q, source:'custom'}));
+  return [...base, ...pool, ...custom];
+}
+
+function openQuizListModal(mid) {
+  const all = getAllQuestionsForModule(mid);
+  const m = MODULES[mid];
+  const srcBadge = { base: '<span class="badge badge-gray">เริ่มต้น</span>', pool: '<span class="badge badge-blue">กลุ่ม</span>', custom: '<span class="badge badge-green">เพิ่มเอง</span>' };
+  showModal(`คำถามทั้งหมด · ${m.name}`, `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${all.length} ข้อ · เฉพาะคำถามที่ "เพิ่มเอง" สามารถลบได้</div>
+    ${all.length===0?'<p class="text-muted">ยังไม่มีคำถาม</p>':all.map((q,i)=>`
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface)">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div style="font-size:13.5px;font-weight:700;color:var(--text);flex:1">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
+          <div style="display:flex;gap:6px;align-items:flex-start">
+            ${srcBadge[q.source]||''}
+            ${q.source==='custom'?`<button class="btn btn-sm btn-danger" onclick="deleteCustomQuiz('${q.id}','${mid}')">ลบ</button>`:''}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px">
+          ${['A','B','C','D'].map(k=>`<div style="padding:6px 10px;background:${q.ans===k?'var(--green-light)':'var(--surface2)'};border-radius:6px;color:${q.ans===k?'#1F7A33':'var(--text2)'};font-weight:${q.ans===k?'700':'400'}"><b>${k}.</b> ${q.opts[k]||''}${q.ans===k?' ✓':''}</div>`).join('')}
+        </div>
+      </div>`).join('')}
+  `, null, 'ปิด');
+}
+
+function deleteCustomQuiz(id, mid) {
+  if (!confirm('ลบคำถามนี้?')) return;
+  DB.customQuiz = DB.customQuiz.filter(q => q.id !== id);
+  gsDel('customQuiz', id);
+  closeModal();
+  openQuizListModal(mid);
+  notify('ลบคำถามแล้ว');
+}
+
+function openAddQuizModal(mid) {
+  const m = MODULES[mid];
+  showModal(`+ เพิ่มคำถาม · ${m.name}`, `
+    <div class="form-full"><label class="form-label">คำถาม <span class="req">*</span></label>
+      <textarea class="form-textarea" id="aq-q" placeholder="พิมพ์คำถาม..." rows="2"></textarea></div>
+    ${['A','B','C','D'].map(k=>`<div class="form-full"><label class="form-label">ตัวเลือก ${k} <span class="req">*</span></label><input class="form-input" id="aq-${k}" placeholder="ตัวเลือก ${k}"></div>`).join('')}
+    <div class="form-full"><label class="form-label">คำตอบที่ถูก <span class="req">*</span></label>
+      <select class="form-select" id="aq-ans"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div>
+  `, () => {
+    const q = document.getElementById('aq-q').value.trim();
+    const opts = { A: document.getElementById('aq-A').value.trim(), B: document.getElementById('aq-B').value.trim(), C: document.getElementById('aq-C').value.trim(), D: document.getElementById('aq-D').value.trim() };
+    const ans = document.getElementById('aq-ans').value;
+    if (!q || !opts.A || !opts.B || !opts.C || !opts.D) { notify('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
+    const newQ = { id: genId('CQ'), moduleId: mid, q, opts, ans, createdAt: new Date().toISOString() };
+    DB.customQuiz.push(newQ);
+    gsSave('customQuiz', newQ.id, newQ);
+    closeModal();
+    if (currentPage === 'admin-quiz') showPage('admin-quiz');
+    notify('เพิ่มคำถามสำเร็จ');
+  }, 'บันทึก');
+}
+
+function openAiSettingsModal() {
+  const cur = localStorage.getItem('opt_anthropic_key') || '';
+  showModal('⚙️ ตั้งค่า AI', `
+    <div class="form-full">
+      <label class="form-label">Anthropic API Key</label>
+      <input class="form-input" id="ai-key" placeholder="sk-ant-..." value="${cur}" type="password">
+      <div style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.5">
+        Key เก็บใน browser (localStorage) เท่านั้น ไม่ถูกส่งไปที่ server อื่น<br>
+        ใช้สำหรับเรียก Claude API เพื่อสร้างข้อสอบ · สมัครฟรีที่ <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a>
+      </div>
+    </div>
+  `, () => {
+    const k = document.getElementById('ai-key').value.trim();
+    if (k) localStorage.setItem('opt_anthropic_key', k);
+    else localStorage.removeItem('opt_anthropic_key');
+    closeModal();
+    notify('บันทึกการตั้งค่าแล้ว');
+  }, 'บันทึก');
+}
+
+function openAiQuizModal(mid) {
+  const key = localStorage.getItem('opt_anthropic_key');
+  if (!key) {
+    showModal('🤖 ต้องตั้งค่า AI ก่อน', `
+      <p style="margin-bottom:12px">ยังไม่ได้ตั้ง Anthropic API Key — กรุณาเข้าไปตั้งค่าก่อนใช้งาน AI สร้างข้อสอบ</p>
+      <button class="btn btn-accent" onclick="closeModal();openAiSettingsModal()">เปิดหน้าตั้งค่า</button>
+    `, null, 'ปิด');
+    return;
+  }
+  const m = MODULES[mid];
+  showModal(`🤖 สร้างข้อสอบด้วย AI · ${m.name}`, `
+    <div class="form-full">
+      <label class="form-label">หัวข้อย่อยที่ครอบคลุม</label>
+      <div style="font-size:12px;color:var(--text2);background:var(--surface2);padding:10px 14px;border-radius:8px">
+        ${m.subtopics.map(s=>`<div>• ${s}</div>`).join('')}
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">จำนวน <span class="req">*</span></label>
+        <select class="form-select" id="aq-n">
+          <option value="5">5 ข้อ</option><option value="10" selected>10 ข้อ</option><option value="15">15 ข้อ</option><option value="20">20 ข้อ</option>
+        </select>
+      </div>
+      <div><label class="form-label">โฟกัสเพิ่มเติม</label>
+        <input class="form-input" id="aq-focus" placeholder="เช่น เน้นความปลอดภัย (ไม่บังคับ)">
+      </div>
+    </div>
+    <div id="ai-result" style="margin-top:16px"></div>
+  `, async () => {
+    const n = parseInt(document.getElementById('aq-n').value);
+    const focus = document.getElementById('aq-focus').value.trim();
+    const resBox = document.getElementById('ai-result');
+    if (!resBox) return;
+    if (resBox.dataset.questions) {
+      // Second click = save
+      try {
+        const qs = JSON.parse(resBox.dataset.questions);
+        const checked = qs.filter((_,i)=>document.getElementById('ai-q-'+i)?.checked);
+        if (!checked.length) { notify('เลือกอย่างน้อย 1 ข้อ', 'error'); return; }
+        const records = checked.map(q => ({ id: genId('CQ'), moduleId: mid, q: q.q, opts: q.opts, ans: q.ans, createdAt: new Date().toISOString() }));
+        records.forEach(r => { DB.customQuiz.push(r); gsSave('customQuiz', r.id, r); });
+        closeModal();
+        if (currentPage === 'admin-quiz') showPage('admin-quiz');
+        notify(`บันทึก ${records.length} ข้อสำเร็จ`);
+      } catch(e) { notify('Error: ' + e.message, 'error'); }
+      return;
+    }
+    resBox.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">⏳ กำลังเรียก Claude API...</div>';
+    try {
+      const generated = await generateQuizWithAi(mid, n, focus);
+      if (!generated.length) throw new Error('ไม่ได้คำถามจาก AI');
+      resBox.dataset.questions = JSON.stringify(generated);
+      resBox.innerHTML = `
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">✓ สร้างได้ ${generated.length} ข้อ — เลือกที่ต้องการบันทึก แล้วกด "บันทึกที่เลือก"</div>
+        <div style="margin-bottom:8px"><button class="btn btn-sm btn-outline" onclick="document.querySelectorAll('[id^=ai-q-]').forEach(c=>c.checked=true)">เลือกทั้งหมด</button></div>
+        ${generated.map((q,i)=>`
+          <label style="display:block;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--surface);cursor:pointer">
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <input type="checkbox" id="ai-q-${i}" checked style="margin-top:4px;accent-color:var(--accent)">
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:13.5px;margin-bottom:6px">${i+1}. ${q.q}</div>
+                ${['A','B','C','D'].map(k=>`<div style="font-size:12px;color:${q.ans===k?'#1F7A33':'var(--text2)'};font-weight:${q.ans===k?'700':'400'}"><b>${k}.</b> ${q.opts[k]} ${q.ans===k?'✓':''}</div>`).join('')}
+              </div>
+            </div>
+          </label>`).join('')}
+      `;
+      const footerBtn = document.querySelector('.modal-footer .btn:last-child');
+      if (footerBtn) footerBtn.textContent = 'บันทึกที่เลือก';
+    } catch(e) {
+      resBox.innerHTML = `<div style="background:var(--red-light);color:var(--red);padding:12px 14px;border-radius:8px;font-size:13px">❌ ${e.message}</div>`;
+    }
+  }, 'สร้างข้อสอบ');
+}
+
+async function generateQuizWithAi(mid, n, focus) {
+  const m = MODULES[mid];
+  const key = localStorage.getItem('opt_anthropic_key');
+  const prompt = `คุณเป็นผู้สร้างข้อสอบสำหรับ Santa Fe Steak (ร้านอาหาร) — สร้างข้อสอบ ${n} ข้อ สำหรับ Module: "${m.name}" (กลุ่ม: ${m.group})
+
+หัวข้อย่อยที่ต้องครอบคลุม:
+${m.subtopics.map(s=>`- ${s}`).join('\n')}
+${focus ? `\nโฟกัสเพิ่มเติม: ${focus}` : ''}
+
+ข้อกำหนด:
+- คำถามภาษาไทย ชัดเจน เกี่ยวกับการปฏิบัติงานจริงในร้านอาหาร
+- 4 ตัวเลือก A B C D ความยาวใกล้เคียงกัน
+- คำตอบที่ถูกต้องกระจาย A/B/C/D อย่างสมดุล
+- หลีกเลี่ยงตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"
+
+ตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:
+[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error('Claude API error ' + resp.status + ': ' + errText.slice(0,200));
+  }
+  const data = await resp.json();
+  const text = data.content?.[0]?.text || '';
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error('AI ไม่ได้ตอบเป็น JSON');
+  const arr = JSON.parse(jsonMatch[0]);
+  return arr.filter(q => q.q && q.opts?.A && q.opts?.B && q.opts?.C && q.opts?.D && ['A','B','C','D'].includes(q.ans));
 }
 
 function renderAdminReports() {
