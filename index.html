@@ -2518,7 +2518,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] } };
 try {
   const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
   if (_c && _c.employees && _c.trainings) {
@@ -2526,6 +2526,7 @@ try {
     DB.trainings = _c.trainings;
     DB.quizResults = _c.quizResults || [];
     DB.customQuiz = _c.customQuiz || [];
+    DB.quizMeta = _c.quizMeta || { deleted: [], disabled: [] };
   }
 } catch(_) {}
 
@@ -2573,7 +2574,11 @@ async function gsLoad() {
       q.opts = parseJSON(q.opts, q.opts);
       return q;
     });
-    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz})); } catch(_) {}
+    if (data.quizMeta) {
+      const m = parseJSON(data.quizMeta, null);
+      if (m) DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [] };
+    }
+    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta})); } catch(_) {}
   } catch(err) {
     console.error('GS load error:', err);
     notify('โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรช', 'error');
@@ -2857,6 +2862,7 @@ function buildAdminNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-section-label">ภาพรวม</div>
     <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> Dashboard ทั้งระบบ</div>
+    <div class="nav-item" id="nav-admin-branch-dashboard" onclick="showPage('admin-branch-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ดสาขา</div>
     <div class="nav-section-label" style="margin-top:8px">จัดการข้อมูล</div>
     <div class="nav-item" id="nav-admin-branches" onclick="showPage('admin-branches')"><span class="nav-icon">◼</span> สาขาทั้งหมด</div>
     <div class="nav-item" id="nav-admin-employees" onclick="showPage('admin-employees')"><span class="nav-icon">◼</span> จัดการพนักงาน</div>
@@ -2878,15 +2884,21 @@ function showPage(page) {
     'dashboard': renderDashboard, 'employees': renderEmployees,
     'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
     'admin-dashboard': renderAdminDashboard, 'admin-branches': renderAdminBranches,
+    'admin-branch-dashboard': renderAdminBranchDashboard,
     'admin-employees': renderAdminEmployees,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
   };
+  if (page !== 'admin-branch-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
   if (currentUser && currentUser.type === 'branch') {
     document.querySelectorAll('#main-content .topbar').forEach(el => el.remove());
   }
-  if (page === 'dashboard') { _dashMonth = null; renderDashMonthChart(getBranchId()); renderDashPosPage(getBranchId()); }
+  if (page === 'dashboard' || (page === 'admin-branch-dashboard' && _viewBranchOverride)) {
+    _dashMonth = null;
+    renderDashMonthChart(getBranchId());
+    renderDashPosPage(getBranchId());
+  }
   updateBottomNav(page);
 }
 
@@ -2908,7 +2920,9 @@ function updateBottomNav(page) {
 }
 
 // ==================== HELPERS ====================
-function getBranchId() { return currentUser.branchId; }
+let _viewBranchOverride = null;
+function getBranchId() { return _viewBranchOverride || currentUser.branchId; }
+function setViewBranch(bid) { _viewBranchOverride = bid || null; }
 function getBranchEmployees(bid) { return DB.employees[bid] || []; }
 function getBranchTrainings(bid) { return DB.trainings.filter(t => t.branchId === bid); }
 function getEmployee(id) {
@@ -4170,12 +4184,8 @@ function updateQuizProgress() {
 
 function openQuiz(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
-  const moduleQs = QUIZ_BANK[t.moduleId] || [];
-  const groupKey = MODULES[t.moduleId]?.quizGroup;
-  const poolQs = (groupKey && QUIZ_BANK_POOL[groupKey]) || [];
-  const customQs = DB.customQuiz.filter(q => q.moduleId === t.moduleId);
-  const allQ = [...moduleQs, ...poolQs, ...customQs];
-  if (allQ.length === 0) { notify('ยังไม่มีคำถามสำหรับ Module นี้', 'error'); return; }
+  const allQ = getAllQuestionsForModule(t.moduleId).filter(q => isQuizActive(q.uid));
+  if (allQ.length === 0) { notify('ยังไม่มีคำถามที่เปิดใช้งานสำหรับ Module นี้', 'error'); return; }
   // Shuffle questions, then for each question shuffle the options
   const picked = shuffleArray(allQ).slice(0, Math.min(5, allQ.length));
   const SRC = ['A','B','C','D'];
@@ -4706,13 +4716,48 @@ function filterAdminEvals() {
   if(tbody) tbody.innerHTML = renderAdminEvalRows(rows);
 }
 
+// ==================== ADMIN: BRANCH DASHBOARD VIEWER ====================
+function renderAdminBranchDashboard() {
+  const branches = Object.keys(BRANCH_MASTER).sort();
+  const sel = _viewBranchOverride || '';
+  const opts = '<option value="">— เลือกสาขา —</option>' + branches.map(id => `<option value="${id}" ${id===sel?'selected':''}>${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  if (!sel) {
+    return `
+    <div class="page-hero">
+      <div class="page-hero-body">
+        <div class="page-hero-eyebrow">Admin · ภาพรวม</div>
+        <div class="page-hero-title">แดชบอร์ดสาขา</div>
+        <div class="page-hero-sub">ดูแดชบอร์ดของแต่ละสาขาแยกแบบที่พนักงานสาขาเห็น</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">เลือกสาขาที่ต้องการดู</span></div>
+      <select class="form-select" onchange="if(this.value){setViewBranch(this.value);showPage('admin-branch-dashboard');}">${opts}</select>
+    </div>`;
+  }
+  const b = BRANCH_MASTER[sel];
+  // renderDashboard injects its own .page-hero — strip it so the admin one shows alone
+  const dashHtml = renderDashboard().replace(/<div class="page-hero">[\s\S]*?<\/div>\s*<\/div>/, '');
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">Admin · แดชบอร์ดสาขา</div>
+      <div class="page-hero-title">${sel} ${b.name.replace(sel+' ','')}</div>
+      <div class="page-hero-sub">ผู้จัดการเขต: ${b.manager}</div>
+    </div>
+    <select class="form-select" style="max-width:280px" onchange="setViewBranch(this.value);showPage('admin-branch-dashboard');">${opts}</select>
+  </div>
+  ${dashHtml}`;
+}
+
 // ==================== ADMIN QUIZ MANAGEMENT ====================
 function getQuizCount(moduleId) {
-  const base = (QUIZ_BANK[moduleId] || []).length;
-  const groupKey = MODULES[moduleId]?.quizGroup;
-  const pool = (groupKey && QUIZ_BANK_POOL[groupKey] || []).length;
-  const custom = DB.customQuiz.filter(q => q.moduleId === moduleId).length;
-  return { base, pool, custom, total: base + pool + custom };
+  const all = getAllQuestionsForModule(moduleId);
+  const active = all.filter(q => isQuizActive(q.uid));
+  const base = all.filter(q => q.source === 'base').length;
+  const pool = all.filter(q => q.source === 'pool').length;
+  const custom = all.filter(q => q.source === 'custom').length;
+  return { base, pool, custom, total: all.length, active: active.length };
 }
 
 function renderAdminQuiz() {
@@ -4729,13 +4774,12 @@ function renderAdminQuiz() {
             <td style="font-weight:700">${m.name}<div style="font-size:11px;color:var(--text3);font-family:monospace">${mid}</div></td>
             <td style="font-size:12px;color:var(--text2)">${m.subtopics.length} หัวข้อย่อย</td>
             <td>
-              <span class="badge badge-navy">${c.total} ข้อ</span>
+              <span class="badge badge-green">เปิด ${c.active}</span>
+              <span class="badge badge-gray" style="margin-left:4px">รวม ${c.total}</span>
               <div style="font-size:11px;color:var(--text3);margin-top:3px">เริ่มต้น ${c.base} · กลุ่ม ${c.pool} · เพิ่มเอง ${c.custom}</div>
             </td>
             <td style="white-space:nowrap;text-align:right">
-              <button class="btn btn-sm btn-outline" onclick="openQuizListModal('${mid}')">ดูคำถาม</button>
-              <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openAddQuizModal('${mid}')">+ เพิ่ม</button>
-              <button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openAiQuizModal('${mid}')">🤖 AI สร้าง</button>
+              <button class="btn btn-sm btn-navy" onclick="openQuizListModal('${mid}')">จัดการคำถาม</button>
             </td>
           </tr>`;}).join('')}
         </tbody>
@@ -4754,43 +4798,101 @@ function renderAdminQuiz() {
   ${renderGroupCard('Cook', groups.Cook)}`;
 }
 
-function getAllQuestionsForModule(mid) {
-  const base = (QUIZ_BANK[mid] || []).map(q => ({...q, source:'base'}));
+function getAllQuestionsForModule(mid, includeDeleted) {
+  const base = (QUIZ_BANK[mid] || []).map((q, i) => ({...q, source:'base', uid: q.id || `base_${mid}_${i}`}));
   const groupKey = MODULES[mid]?.quizGroup;
-  const pool = (groupKey ? (QUIZ_BANK_POOL[groupKey] || []) : []).map(q => ({...q, source:'pool'}));
-  const custom = DB.customQuiz.filter(q => q.moduleId === mid).map(q => ({...q, source:'custom'}));
-  return [...base, ...pool, ...custom];
+  const pool = (groupKey ? (QUIZ_BANK_POOL[groupKey] || []) : []).map((q, i) => ({...q, source:'pool', uid: `pool_${groupKey}_${i}`}));
+  const custom = DB.customQuiz.filter(q => q.moduleId === mid).map(q => ({...q, source:'custom', uid: q.id}));
+  const all = [...base, ...pool, ...custom];
+  if (includeDeleted) return all;
+  const deleted = new Set(DB.quizMeta?.deleted || []);
+  return all.filter(q => !deleted.has(q.uid));
+}
+
+function isQuizActive(uid) {
+  const meta = DB.quizMeta || { disabled: [] };
+  return !(meta.disabled || []).includes(uid);
+}
+
+function toggleQuizActive(uid, mid) {
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  const arr = DB.quizMeta.disabled = DB.quizMeta.disabled || [];
+  const idx = arr.indexOf(uid);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(uid);
+  saveQuizMeta();
+  openQuizListModal(mid);
+}
+
+function deleteQuizQuestion(uid, source, mid, refresh) {
+  if (!confirm('ลบคำถามนี้?')) return;
+  if (source === 'custom') {
+    DB.customQuiz = DB.customQuiz.filter(q => q.id !== uid);
+    gsDel('customQuiz', uid);
+  } else {
+    if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+    DB.quizMeta.deleted = DB.quizMeta.deleted || [];
+    if (!DB.quizMeta.deleted.includes(uid)) DB.quizMeta.deleted.push(uid);
+    saveQuizMeta();
+  }
+  notify('ลบคำถามแล้ว');
+  if (refresh) refresh();
+}
+
+function saveQuizMeta() {
+  gsSave('quizMeta', 'main', DB.quizMeta);
+  try {
+    const c = JSON.parse(localStorage.getItem('opt_db_cache') || '{}');
+    c.quizMeta = DB.quizMeta;
+    localStorage.setItem('opt_db_cache', JSON.stringify(c));
+  } catch(_) {}
 }
 
 function openQuizListModal(mid) {
   const all = getAllQuestionsForModule(mid);
   const m = MODULES[mid];
+  const activeCount = all.filter(q => isQuizActive(q.uid)).length;
   const srcBadge = { base: '<span class="badge badge-gray">เริ่มต้น</span>', pool: '<span class="badge badge-blue">กลุ่ม</span>', custom: '<span class="badge badge-green">เพิ่มเอง</span>' };
-  showModal(`คำถามทั้งหมด · ${m.name}`, `
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${all.length} ข้อ · เฉพาะคำถามที่ "เพิ่มเอง" สามารถลบได้</div>
-    ${all.length===0?'<p class="text-muted">ยังไม่มีคำถาม</p>':all.map((q,i)=>`
-      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface)">
-        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px">
+  showModal(`จัดการคำถาม · ${m.name}`, `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px">
+      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ปิดข้อสอบหรือลบได้ทุกข้อ</div>
+      <button class="btn btn-sm btn-accent" onclick="openAddQuizChooser('${mid}')">+ เพิ่มคำถาม</button>
+    </div>
+    ${all.length===0?'<p class="text-muted" style="text-align:center;padding:20px">ยังไม่มีคำถาม</p>':all.map((q,i)=>{
+      const active = isQuizActive(q.uid);
+      return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface);opacity:${active?1:0.55}">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;align-items:flex-start">
           <div style="font-size:13.5px;font-weight:700;color:var(--text);flex:1">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
-          <div style="display:flex;gap:6px;align-items:flex-start">
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
             ${srcBadge[q.source]||''}
-            ${q.source==='custom'?`<button class="btn btn-sm btn-danger" onclick="deleteCustomQuiz('${q.id}','${mid}')">ลบ</button>`:''}
+            <button class="btn btn-sm ${active?'btn-outline':'btn-green'}" onclick="toggleQuizActive('${q.uid}','${mid}')" title="${active?'ปิดใช้งาน':'เปิดใช้งาน'}">${active?'⏸ ปิด':'▶ เปิด'}</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openQuizListModal('${mid}'))">ลบ</button>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px">
           ${['A','B','C','D'].map(k=>`<div style="padding:6px 10px;background:${q.ans===k?'var(--green-light)':'var(--surface2)'};border-radius:6px;color:${q.ans===k?'#1F7A33':'var(--text2)'};font-weight:${q.ans===k?'700':'400'}"><b>${k}.</b> ${q.opts[k]||''}${q.ans===k?' ✓':''}</div>`).join('')}
         </div>
-      </div>`).join('')}
+      </div>`;}).join('')}
   `, null, 'ปิด');
 }
 
-function deleteCustomQuiz(id, mid) {
-  if (!confirm('ลบคำถามนี้?')) return;
-  DB.customQuiz = DB.customQuiz.filter(q => q.id !== id);
-  gsDel('customQuiz', id);
-  closeModal();
-  openQuizListModal(mid);
-  notify('ลบคำถามแล้ว');
+function openAddQuizChooser(mid) {
+  const m = MODULES[mid];
+  showModal(`+ เพิ่มคำถาม · ${m.name}`, `
+    <p style="margin-bottom:18px;color:var(--text2);font-size:13.5px">เลือกวิธีเพิ่มคำถาม</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <button onclick="closeModal();openAddQuizModal('${mid}')" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:24px 18px;cursor:pointer;text-align:left;font-family:'Sarabun',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <div style="font-size:32px;margin-bottom:8px">✍️</div>
+        <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">เพิ่มเอง</div>
+        <div style="font-size:12px;color:var(--text2)">พิมพ์คำถาม + 4 ตัวเลือก + เฉลย</div>
+      </button>
+      <button onclick="closeModal();openAiQuizModal('${mid}')" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:24px 18px;cursor:pointer;text-align:left;font-family:'Sarabun',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <div style="font-size:32px;margin-bottom:8px">🤖</div>
+        <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">AI คิดให้</div>
+        <div style="font-size:12px;color:var(--text2)">Claude สร้างคำถามจากหัวข้อ</div>
+      </button>
+    </div>
+  `, null, 'ปิด');
 }
 
 function openAddQuizModal(mid) {
@@ -4810,8 +4912,8 @@ function openAddQuizModal(mid) {
     DB.customQuiz.push(newQ);
     gsSave('customQuiz', newQ.id, newQ);
     closeModal();
-    if (currentPage === 'admin-quiz') showPage('admin-quiz');
     notify('เพิ่มคำถามสำเร็จ');
+    openQuizListModal(mid);
   }, 'บันทึก');
 }
 
@@ -4877,8 +4979,8 @@ function openAiQuizModal(mid) {
         const records = checked.map(q => ({ id: genId('CQ'), moduleId: mid, q: q.q, opts: q.opts, ans: q.ans, createdAt: new Date().toISOString() }));
         records.forEach(r => { DB.customQuiz.push(r); gsSave('customQuiz', r.id, r); });
         closeModal();
-        if (currentPage === 'admin-quiz') showPage('admin-quiz');
         notify(`บันทึก ${records.length} ข้อสำเร็จ`);
+        openQuizListModal(mid);
       } catch(e) { notify('Error: ' + e.message, 'error'); }
       return;
     }
