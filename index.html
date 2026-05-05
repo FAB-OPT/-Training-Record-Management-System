@@ -402,12 +402,22 @@
   .eval-result-btn.fail.selected { background: var(--red-light); border-color: var(--red); }
 
   /* QUIZ */
-  .quiz-q { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
-  .quiz-q:last-child { border-bottom: none; }
-  .quiz-q p { font-weight: 700; margin-bottom: 12px; color: var(--primary); }
-  .quiz-options label { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 6px; cursor: pointer; font-size: 13.5px; margin-bottom: 6px; border: 1.5px solid var(--border); transition: all 0.15s; background: var(--surface2); }
-  .quiz-options label:hover { border-color: var(--accent); background: var(--accent-light); }
-  .quiz-options input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; }
+  /* ==================== QUIZ ==================== */
+  .quiz-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding: 14px 18px; background: var(--surface2); border-radius: 12px; }
+  .quiz-progress-bar { flex: 1; height: 8px; background: var(--surface3); border-radius: 999px; overflow: hidden; }
+  .quiz-progress-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent-hover)); border-radius: 999px; transition: width 0.3s ease; }
+  .quiz-progress-text { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .quiz-q { margin-bottom: 20px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; transition: border-color 0.2s; }
+  .quiz-q-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--text); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 800; margin-right: 10px; }
+  .quiz-q p { font-weight: 700; margin-bottom: 16px; color: var(--text); font-size: 15px; line-height: 1.5; display: flex; align-items: flex-start; }
+  .quiz-q.answered { border-color: var(--accent); }
+  .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+  .quiz-opt { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; cursor: pointer; font-size: 14px; border: 1.5px solid var(--border); transition: all 0.18s; background: var(--white); user-select: none; }
+  .quiz-opt:hover { border-color: var(--border2); background: var(--surface2); transform: translateX(2px); }
+  .quiz-opt input { display: none; }
+  .quiz-opt-letter { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; background: var(--surface3); color: var(--text2); border-radius: 8px; font-weight: 800; font-size: 13px; flex-shrink: 0; transition: all 0.18s; }
+  .quiz-opt.selected { border-color: var(--accent); background: var(--accent-light); }
+  .quiz-opt.selected .quiz-opt-letter { background: var(--accent); color: #fff; }
 
   /* SEARCH */
   .search-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
@@ -3995,38 +4005,92 @@ function selectEvalResult(result) {
   selectedEvalResult = result;
 }
 
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let _quizState = null;
+
+function selectQuizOpt(qi, optKey, optEl) {
+  _quizState.answers[qi] = optKey;
+  const card = optEl.closest('.quiz-q');
+  card.querySelectorAll('.quiz-opt').forEach(o => o.classList.remove('selected'));
+  optEl.classList.add('selected');
+  card.classList.add('answered');
+  updateQuizProgress();
+}
+
+function updateQuizProgress() {
+  if (!_quizState) return;
+  const answered = Object.keys(_quizState.answers).length;
+  const total = _quizState.questions.length;
+  const pct = Math.round(answered / total * 100);
+  const fill = document.getElementById('quiz-fill');
+  const txt = document.getElementById('quiz-progress-text');
+  if (fill) fill.style.width = pct + '%';
+  if (txt) txt.textContent = `${answered} / ${total} ข้อ`;
+}
+
 function openQuiz(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
   const allQ = QUIZ_BANK[t.moduleId] || [];
-  const shuffled = [...allQ].sort(() => Math.random()-0.5);
-  const questions = shuffled.slice(0, Math.min(5, shuffled.length));
-  quizAnswers = {};
+  // Shuffle questions, then for each question shuffle the options
+  const picked = shuffleArray(allQ).slice(0, Math.min(5, allQ.length));
+  const SRC = ['A','B','C','D'];
+  const questions = picked.map(q => {
+    const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
+    const opts = order.map((srcKey, idx) => ({
+      newKey: SRC[idx],
+      text: q.opts[srcKey],
+      isCorrect: srcKey === q.ans,
+    }));
+    return {
+      q: q.q.replace(/^\d+[\.\s]+/, ''),
+      opts,
+      correctNew: opts.find(o => o.isCorrect)?.newKey,
+    };
+  });
+  _quizState = { questions, answers: {}, trainingId };
   closeModal();
-  const LABELS = ['A','B','C','D'];
   showModal('ข้อสอบ: ' + (MODULES[t.moduleId]?.name||t.moduleId), `
-    <div style="margin-bottom:16px;padding:10px 14px;background:var(--primary-light);border-radius:6px;font-size:13px;color:var(--primary);font-weight:600">
-      ${questions.length} ข้อ · เลือกคำตอบที่ถูกต้อง · เกณฑ์ผ่าน 80%
+    <div class="quiz-progress">
+      <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="quiz-fill" style="width:0%"></div></div>
+      <div class="quiz-progress-text" id="quiz-progress-text">0 / ${questions.length} ข้อ</div>
     </div>
-    ${questions.map((q,i)=>`<div class="quiz-q">
-      <p>ข้อ ${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</p>
+    <div style="margin-bottom:16px;padding:12px 16px;background:var(--accent-light);border-radius:10px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
+      📋 ${questions.length} ข้อ · เกณฑ์ผ่าน 80% · เลือกคำตอบให้ครบทุกข้อ
+    </div>
+    ${questions.map((q,i)=>`<div class="quiz-q" id="qcard-${i}">
+      <p><span class="quiz-q-num">${i+1}</span><span>${q.q}</span></p>
       <div class="quiz-options">
-        ${LABELS.map(l=>`<label><input type="radio" name="q${i}" value="${l}" onchange="quizAnswers[${i}]='${l}'"> ${l}. ${q.opts[l]||''}</label>`).join('')}
+        ${q.opts.map(o=>`<label class="quiz-opt" onclick="selectQuizOpt(${i},'${o.newKey}',this)">
+          <span class="quiz-opt-letter">${o.newKey}</span>
+          <span style="flex:1">${o.text}</span>
+        </label>`).join('')}
       </div>
     </div>`).join('')}
   `, () => {
-    let score=0;
-    questions.forEach((q,i)=>{ if(quizAnswers[i]===q.ans) score++; });
+    const unanswered = questions.length - Object.keys(_quizState.answers).length;
+    if (unanswered > 0) { notify(`เหลืออีก ${unanswered} ข้อที่ยังไม่ตอบ`, 'error'); return; }
+    let score = 0;
+    questions.forEach((q,i)=>{ if(_quizState.answers[i] === q.correctNew) score++; });
     const pct = Math.round(score/questions.length*100);
     const passed = pct >= 80;
     const _qr={trainingId, score, total:questions.length, pct, date:new Date().toISOString()};
     DB.quizResults.push(_qr); gsSave('quizResults', genId('QR'), _qr);
+    _quizState = null;
     closeModal();
     showModal('ผลการสอบ', `
-      <div style="text-align:center;padding:24px 0">
-        <div style="font-size:56px;margin-bottom:16px">${passed?'🏆':'📚'}</div>
-        <div style="font-size:48px;font-weight:800;color:${passed?'var(--green)':'var(--red)'};font-family:monospace">${pct}%</div>
-        <div style="font-size:16px;color:var(--text2);margin-top:4px">${score} จาก ${questions.length} ข้อ</div>
-        <div style="margin-top:16px"><span class="badge ${passed?'badge-green':'badge-red'}" style="font-size:14px;padding:8px 20px">${passed?'✓ ผ่านเกณฑ์':'✗ ไม่ผ่านเกณฑ์ (ต้องได้ 80% ขึ้นไป)'}</span></div>
+      <div style="text-align:center;padding:28px 0">
+        <div style="font-size:64px;margin-bottom:12px">${passed?'🏆':'📚'}</div>
+        <div style="font-size:54px;font-weight:800;color:${passed?'var(--green)':'var(--red)'};font-family:monospace;letter-spacing:-1px">${pct}%</div>
+        <div style="font-size:16px;color:var(--text2);margin-top:6px;font-weight:500">${score} จาก ${questions.length} ข้อ</div>
+        <div style="margin-top:20px"><span class="badge ${passed?'badge-green':'badge-red'}" style="font-size:14px;padding:10px 22px">${passed?'✓ ผ่านเกณฑ์':'✗ ไม่ผ่านเกณฑ์ (ต้องได้ 80% ขึ้นไป)'}</span></div>
       </div>
     `, null, 'ปิด');
   }, 'ส่งคำตอบ');
