@@ -689,6 +689,39 @@
     .table-wrap table { min-width: 520px; }
     .table-wrap td, .table-wrap th { white-space: nowrap; }
 
+    /* Responsive cards: turn marked tables into stacked cards */
+    table.cards-on-mobile { display: block; min-width: 0 !important; }
+    table.cards-on-mobile thead { display: none; }
+    table.cards-on-mobile tbody { display: block; }
+    table.cards-on-mobile tr {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    table.cards-on-mobile tr:hover td { background: transparent !important; }
+    table.cards-on-mobile td {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0 !important; border: none !important;
+      font-size: 13px; gap: 10px; min-width: 0;
+      white-space: normal !important;
+    }
+    table.cards-on-mobile td::before {
+      content: attr(data-label);
+      font-size: 11px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: .4px;
+      flex-shrink: 0;
+    }
+    table.cards-on-mobile td[data-label=""]::before { content: none; }
+    table.cards-on-mobile td > * { text-align: right; min-width: 0; }
+    table.cards-on-mobile td[data-label="actions"] { justify-content: flex-end; flex-wrap: wrap; gap: 6px; padding-top: 10px !important; border-top: 1px solid var(--border) !important; margin-top: 6px; }
+    table.cards-on-mobile td[data-label="actions"]::before { display: none; }
+    /* When a card-table is inside .table-wrap, drop the wrap's border/scroll */
+    .table-wrap:has(table.cards-on-mobile) { border: none !important; overflow: visible !important; border-radius: 0 !important; }
+
     /* Branch user: hide hamburger, show report btn, move notif */
     body.branch-user .hamburger { display: none; }
     body.branch-user #topbar-report-btn { display: flex; align-items: center; gap: 5px; background: var(--accent); border: none; color: white; font-family: 'Sarabun',sans-serif; font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
@@ -3520,7 +3553,7 @@ function renderEmployees() {
   </div>
   <div class="card">
     <div class="search-bar"><input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()"></div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ประเภท</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
       <tbody id="emp-tbody">${renderEmpRows(emps)}</tbody>
     </table></div>
@@ -3534,19 +3567,19 @@ function renderEmpRows(emps) {
     const grp = getPositionGroup(e.position);
     const color = grpHex[grp]||'#9CA3AF';
     return `<tr>
-    <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-    <td><strong>${e.name}</strong></td>
-    <td>
-      <div style="display:flex;align-items:center;gap:6px">
+    <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
+    <td data-label="ชื่อ"><strong>${e.name}</strong></td>
+    <td data-label="ประเภท">
+      <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
         <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
         <span style="font-size:12px;font-weight:600;color:${color}">${grp}</span>
       </div>
     </td>
-    <td style="font-size:12.5px;color:var(--text2)">${e.position}</td>
-    <td style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
-    <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-    <td><span class="badge ${e.status==='active'?'badge-green':'badge-red'}">${e.status==='active'?'กำลังทำงาน':'ลาออก'}</span></td>
-    <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
+    <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${e.position}</td>
+    <td data-label="วันเริ่มงาน" style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
+    <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
+    <td data-label="สถานะ"><span class="badge ${e.status==='active'?'badge-green':'badge-red'}">${e.status==='active'?'กำลังทำงาน':'ลาออก'}</span></td>
+    <td data-label="actions" style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
 
@@ -3648,7 +3681,7 @@ function renderTrainings() {
       ${tabBtn('done','ประเมินแล้ว',done.length)}
       ${tabBtn('expired','หมดเวลา',expired.length)}
     </div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr><th>วันที่ / เวลา</th><th>Module หลัก</th><th>หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
@@ -3661,13 +3694,13 @@ function renderTrainings() {
         const canQuiz = moduleComplete && !t.eval;
         const prog = getSubtopicProgress(t);
         return `<tr>
-          <td style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
-          <td style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId}</td>
-          <td><span class="badge ${moduleComplete?'badge-green':'badge-navy'}">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></td>
-          <td style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name}<div style="color:var(--text3);font-size:11px">${e.position} · ${calcTenureShort(e.startDate)}</div>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
-          <td style="font-size:12.5px">${t.trainerName}</td>
-          <td>${badge}</td>
-          <td style="white-space:nowrap">
+          <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
+          <td data-label="Module" style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId}</td>
+          <td data-label="หัวข้อ"><span class="badge ${moduleComplete?'badge-green':'badge-navy'}">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></td>
+          <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name}<div style="color:var(--text3);font-size:11px">${e.position} · ${calcTenureShort(e.startDate)}</div>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
+          <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
+          <td data-label="สถานะ">${badge}</td>
+          <td data-label="actions" style="white-space:nowrap">
             ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:''}
             <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
