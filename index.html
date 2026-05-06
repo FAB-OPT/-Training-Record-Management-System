@@ -2861,8 +2861,7 @@ function buildBranchNav() {
 function buildAdminNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-section-label">ภาพรวม</div>
-    <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> Dashboard ทั้งระบบ</div>
-    <div class="nav-item" id="nav-admin-branch-dashboard" onclick="showPage('admin-branch-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ดสาขา</div>
+    <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-section-label" style="margin-top:8px">จัดการข้อมูล</div>
     <div class="nav-item" id="nav-admin-branches" onclick="showPage('admin-branches')"><span class="nav-icon">◼</span> สาขาทั้งหมด</div>
     <div class="nav-item" id="nav-admin-employees" onclick="showPage('admin-employees')"><span class="nav-icon">◼</span> จัดการพนักงาน</div>
@@ -2884,17 +2883,16 @@ function showPage(page) {
     'dashboard': renderDashboard, 'employees': renderEmployees,
     'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
     'admin-dashboard': renderAdminDashboard, 'admin-branches': renderAdminBranches,
-    'admin-branch-dashboard': renderAdminBranchDashboard,
     'admin-employees': renderAdminEmployees,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
   };
-  if (page !== 'admin-branch-dashboard') _viewBranchOverride = null;
+  if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
   if (currentUser && currentUser.type === 'branch') {
     document.querySelectorAll('#main-content .topbar').forEach(el => el.remove());
   }
-  if (page === 'dashboard' || (page === 'admin-branch-dashboard' && _viewBranchOverride)) {
+  if (page === 'dashboard' || (page === 'admin-dashboard' && _viewBranchOverride)) {
     _dashMonth = null;
     renderDashMonthChart(getBranchId());
     renderDashPosPage(getBranchId());
@@ -4289,13 +4287,38 @@ function exportReport(type) {
 
 // ==================== ADMIN ====================
 function renderAdminDashboard() {
+  const branches = Object.keys(BRANCH_MASTER).sort();
+  const sel = _viewBranchOverride || '';
+  const branchOpts = '<option value="">📊 ทั้งระบบ (ทุกสาขา)</option>' + branches.map(id => `<option value="${id}" ${id===sel?'selected':''}>${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  // Branch view → reuse the branch dashboard render (strip its inner hero)
+  if (sel) {
+    const b = BRANCH_MASTER[sel];
+    const dashHtml = renderDashboard().replace(/<div class="page-hero">[\s\S]*?<\/div>\s*<\/div>/, '');
+    return `
+    <div class="page-hero">
+      <div class="page-hero-body">
+        <div class="page-hero-eyebrow">Admin · แดชบอร์ดสาขา</div>
+        <div class="page-hero-title">${sel} ${b.name.replace(sel+' ','')}</div>
+        <div class="page-hero-sub">ผู้จัดการเขต: ${b.manager}</div>
+      </div>
+      <select class="form-select" style="max-width:280px" onchange="setViewBranch(this.value);showPage('admin-dashboard');">${branchOpts}</select>
+    </div>
+    ${dashHtml}`;
+  }
+  // System-wide view
   const allEmps=Object.values(DB.employees).flat();
   const allTrains=DB.trainings;
   const ev=allTrains.filter(t=>t.eval); const ps=ev.filter(t=>isEvalPass(t.eval.result));
   const pending=allTrains.filter(t=>!t.eval&&!isEvalDeadlinePassed(t.date));
   return `
-  <div class="topbar"><div class="topbar-title">Admin · ผู้ดูแลระบบ</div><div class="topbar-user"><div class="topbar-avatar">AD</div>Administrator</div></div>
-  <div class="page-header"><div><div class="page-title">Dashboard ทั้งระบบ</div><div class="page-sub">ภาพรวมการสอนงานทุกสาขา · ${fmtDate(new Date().toISOString())}</div></div></div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">Admin · ภาพรวม</div>
+      <div class="page-hero-title">แดชบอร์ด</div>
+      <div class="page-hero-sub">ภาพรวมการสอนงานทุกสาขา · ${fmtDate(new Date().toISOString())}</div>
+    </div>
+    <select class="form-select" style="max-width:280px" onchange="setViewBranch(this.value);showPage('admin-dashboard');">${branchOpts}</select>
+  </div>
   ${_empToFix&&_empToFix.length?`<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px">⚠ พบพนักงาน <strong>${_empToFix.length} คน</strong> ที่ไม่มี ID ใน Sheets — ระบบกำหนด ID ให้อัตโนมัติแล้ว กรุณาเปิด Google Sheets → sheet <strong>employees</strong> แล้วลบแถวที่คอลัมน์ <code>id</code> ว่างออก (แถวเก่า) จากนั้นกด Sync</div>`:''}
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-icon-wrap stat-icon-blue">🏪</div><div class="stat-info"><div class="stat-value stat-value-blue">${Object.keys(BRANCH_MASTER).length}</div><div class="stat-label">สาขาทั้งหมด</div></div></div>
@@ -4714,40 +4737,6 @@ function filterAdminEvals() {
   else if(result) rows = rows.filter(t=>String(t.eval.result)===result);
   const tbody = document.getElementById('admin-evals-tbody');
   if(tbody) tbody.innerHTML = renderAdminEvalRows(rows);
-}
-
-// ==================== ADMIN: BRANCH DASHBOARD VIEWER ====================
-function renderAdminBranchDashboard() {
-  const branches = Object.keys(BRANCH_MASTER).sort();
-  const sel = _viewBranchOverride || '';
-  const opts = '<option value="">— เลือกสาขา —</option>' + branches.map(id => `<option value="${id}" ${id===sel?'selected':''}>${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
-  if (!sel) {
-    return `
-    <div class="page-hero">
-      <div class="page-hero-body">
-        <div class="page-hero-eyebrow">Admin · ภาพรวม</div>
-        <div class="page-hero-title">แดชบอร์ดสาขา</div>
-        <div class="page-hero-sub">ดูแดชบอร์ดของแต่ละสาขาแยกแบบที่พนักงานสาขาเห็น</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">เลือกสาขาที่ต้องการดู</span></div>
-      <select class="form-select" onchange="if(this.value){setViewBranch(this.value);showPage('admin-branch-dashboard');}">${opts}</select>
-    </div>`;
-  }
-  const b = BRANCH_MASTER[sel];
-  // renderDashboard injects its own .page-hero — strip it so the admin one shows alone
-  const dashHtml = renderDashboard().replace(/<div class="page-hero">[\s\S]*?<\/div>\s*<\/div>/, '');
-  return `
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-eyebrow">Admin · แดชบอร์ดสาขา</div>
-      <div class="page-hero-title">${sel} ${b.name.replace(sel+' ','')}</div>
-      <div class="page-hero-sub">ผู้จัดการเขต: ${b.manager}</div>
-    </div>
-    <select class="form-select" style="max-width:280px" onchange="setViewBranch(this.value);showPage('admin-branch-dashboard');">${opts}</select>
-  </div>
-  ${dashHtml}`;
 }
 
 // ==================== ADMIN QUIZ MANAGEMENT ====================
