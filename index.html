@@ -682,6 +682,7 @@
     .dash-stat-grid svg { width: 46px !important; height: 46px !important; }
     .dash-top-grid, .dash-bot-grid { grid-template-columns: 1fr !important; }
     .dash-emp-inner { grid-template-columns: 1fr !important; gap: 16px !important; }
+    .dash-emp-groups { grid-template-columns: 1fr !important; gap: 12px !important; }
 
     /* Table horizontal scroll on mobile */
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -3100,84 +3101,70 @@ function renderDashboard() {
     </div>
     <div class="dash-top-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch">
       <div class="card" style="margin:0">
-        <div class="card-header"><span class="card-title">ข้อมูลพนักงาน</span><span style="font-size:11px;color:var(--text3)">กดประเภทเพื่อดูรายชื่อ</span></div>
-        <div class="dash-emp-inner" style="display:grid;grid-template-columns:140px 1fr 1fr;gap:24px;align-items:start">
-          <!-- แยกตามประเภท: legend only -->
-          <div>
-            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">แยกตามประเภท</div>
-            <div style="display:flex;flex-direction:column;gap:5px">
-              ${pieGroups.map(({g,n,color})=>`
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:8px;cursor:pointer;background:${color}0D;border-left:3px solid ${color}" onclick="showEmpGroupModal('${bid}','${g.replace(/'/g,"\\'")}')">
-                  <span style="font-size:11px;font-weight:600;color:${color}">${g.replace('พนักงาน','').replace('ทีม','')}</span>
-                  <div style="display:flex;align-items:center;gap:4px">
-                    <span style="font-size:14px;font-weight:800;color:${color}">${n}</span>
-                    <span style="font-size:10px;color:${color};opacity:.6">คน›</span>
+        <div class="card-header"><span class="card-title">ข้อมูลพนักงาน</span><span style="font-size:11px;color:var(--text3)">กดเพื่อดูรายชื่อ</span></div>
+        <!-- 3 columns by group, each lists its positions -->
+        <div class="dash-emp-groups" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+          ${pieGroups.map(({g,n,color})=>{
+            const positions = (POSITION_BY_GROUP[g] || []).map(pos => ({pos, cnt: activeEmps.filter(e=>e.position===pos).length})).filter(x=>x.cnt>0).sort((a,b)=>b.cnt-a.cnt);
+            const grpPct = totalActive ? Math.round(n/totalActive*100) : 0;
+            const maxC = Math.max(...positions.map(p=>p.cnt), 1);
+            return `<div style="border:1px solid ${color}33;background:${color}08;border-radius:12px;padding:14px 14px 12px;display:flex;flex-direction:column">
+              <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding-bottom:10px;border-bottom:1px solid ${color}22;margin-bottom:10px" onclick="showEmpGroupModal('${bid}','${g.replace(/'/g,"\\'")}')">
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.6px">${g.replace('พนักงาน','').replace('ทีม','')}</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:2px">${grpPct}% ของพนักงาน</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div style="font-size:24px;font-weight:800;color:${color};line-height:1;letter-spacing:-0.5px">${n}</div>
+                  <div style="font-size:10px;color:${color};opacity:.7">คน</div>
+                </div>
+              </div>
+              ${positions.length ? positions.map(({pos,cnt})=>{
+                const pct = n ? Math.round(cnt/n*100) : 0;
+                const barW = Math.round(cnt/maxC*100);
+                return `<div style="cursor:pointer;margin-bottom:8px" onclick="showEmpPositionModal('${bid}','${pos.replace(/'/g,"\\'")}')">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                    <span style="font-size:11.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${pos}</span>
+                    <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:6px">
+                      <span style="font-size:12px;font-weight:800;color:${color}">${cnt}</span>
+                      <span style="font-size:10px;color:${color};opacity:.6">${pct}%</span>
+                    </div>
                   </div>
-                </div>`).join('')}
-            </div>
-          </div>
-          <!-- แยกตามตำแหน่ง: vertical bars sorted desc -->
-          <div>
-            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">แยกตามตำแหน่ง</div>
-            ${(()=>{
-              const allPos=Object.keys(POSITION_BY_GROUP).flatMap(g=>POSITION_BY_GROUP[g].map(pos=>({pos,color:grpHex[g]||'#9CA3AF',cnt:activeEmps.filter(e=>e.position===pos).length}))).filter(({cnt})=>cnt>0).sort((a,b)=>b.cnt-a.cnt);
-              if(!allPos.length) return '<p class="text-muted">ไม่มีข้อมูล</p>';
-              const maxC=Math.max(...allPos.map(x=>x.cnt),1);
-              return `<div style="display:flex;flex-direction:column;gap:7px">
-                ${allPos.map(({pos,cnt,color})=>{
-                  const pct=totalActive?Math.round(cnt/totalActive*100):0;
-                  const barW=Math.round(cnt/maxC*100);
-                  return `<div style="cursor:pointer" onclick="showEmpPositionModal('${bid}','${pos.replace(/'/g,"\\'")}')">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                      <span style="font-size:11px;font-weight:600;color:var(--text)">${pos}</span>
-                      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px">
-                        <span style="font-size:12px;font-weight:800;color:${color}">${cnt} คน</span>
-                        <span style="font-size:11px;font-weight:700;color:${color};opacity:.7">${pct}%</span>
-                      </div>
-                    </div>
-                    <div style="height:10px;background:var(--surface2);border-radius:5px;overflow:hidden">
-                      <div style="height:100%;width:${barW}%;background:${color};border-radius:5px;transition:width .4s"></div>
-                    </div>
-                  </div>`;
-                }).join('')}
-              </div>`;
-            })()}
-          </div>
-          <!-- แยกตามอายุงาน: vertical bars -->
-          <div>
-            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">แยกตามอายุงาน</div>
-            ${(()=>{
-              const bk=[['< 3 เดือน',0,3,'#9CA3AF'],['3–6 เดือน',3,6,'#F59E0B'],['6–12 เดือน',6,12,'#3B82F6'],['1–2 ปี',12,24,'#22C55E'],['> 2 ปี',24,9999,'#8B5CF6']];
-              const gm=e=>{
-                if(!e.startDate) return -1;
-                const s=new Date(e.startDate); if(isNaN(s)) return -1;
-                const n=new Date(new Date().getTime()+7*60*60*1000);
-                let y=n.getFullYear()-s.getFullYear(), mo=n.getMonth()-s.getMonth();
-                if(n.getDate()<s.getDate()) mo--;
-                if(mo<0){y--;mo+=12;} return y*12+mo;
-              };
-              const counts=bk.map(([,mn,mx])=>activeEmps.filter(e=>{const m=gm(e);return m>=mn&&m<mx;}).length);
-              const maxC=Math.max(...counts,1);
-              return `<div style="display:flex;flex-direction:column;gap:9px">
-                ${bk.map(([lbl,mn,mx,col],i)=>{
-                  const pct=totalActive?Math.round(counts[i]/totalActive*100):0;
-                  const barW=Math.round(counts[i]/maxC*100);
-                  return `<div style="cursor:pointer" onclick="showEmpTenureModal('${bid}','${lbl}',${mn},${mx})">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                      <span style="font-size:11px;font-weight:600;color:var(--text)">${lbl}</span>
-                      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px">
-                        <span style="font-size:12px;font-weight:800;color:${col}">${counts[i]} คน</span>
-                        <span style="font-size:10px;color:${col};opacity:.7">${pct}%</span>
-                      </div>
-                    </div>
-                    <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
-                      <div style="height:100%;width:${barW}%;background:${col};border-radius:4px;transition:width .4s"></div>
-                    </div>
-                  </div>`;
-                }).join('')}
-              </div>`;
-            })()}
-          </div>
+                  <div style="height:6px;background:${color}1A;border-radius:3px;overflow:hidden">
+                    <div style="height:100%;width:${barW}%;background:${color};border-radius:3px;transition:width .4s"></div>
+                  </div>
+                </div>`;
+              }).join('') : '<div style="font-size:11.5px;color:var(--text3);padding:8px 0;text-align:center">ไม่มีข้อมูล</div>'}
+            </div>`;
+          }).join('')}
+        </div>
+        <!-- แยกตามอายุงาน: full row at bottom -->
+        <div>
+          <div style="font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">แยกตามอายุงาน</div>
+          ${(()=>{
+            const bk=[['< 3 เดือน',0,3,'#9CA3AF'],['3–6 เดือน',3,6,'#F59E0B'],['6–12 เดือน',6,12,'#3B82F6'],['1–2 ปี',12,24,'#22C55E'],['> 2 ปี',24,9999,'#8B5CF6']];
+            const gm=e=>{
+              if(!e.startDate) return -1;
+              const s=new Date(e.startDate); if(isNaN(s)) return -1;
+              const n=new Date(new Date().getTime()+7*60*60*1000);
+              let y=n.getFullYear()-s.getFullYear(), mo=n.getMonth()-s.getMonth();
+              if(n.getDate()<s.getDate()) mo--;
+              if(mo<0){y--;mo+=12;} return y*12+mo;
+            };
+            const counts=bk.map(([,mn,mx])=>activeEmps.filter(e=>{const m=gm(e);return m>=mn&&m<mx;}).length);
+            return `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+              ${bk.map(([lbl,mn,mx,col],i)=>{
+                const pct=totalActive?Math.round(counts[i]/totalActive*100):0;
+                return `<div style="cursor:pointer;background:${col}10;border:1px solid ${col}33;border-radius:10px;padding:10px 12px" onclick="showEmpTenureModal('${bid}','${lbl}',${mn},${mx})">
+                  <div style="font-size:10.5px;color:var(--text2);font-weight:600;margin-bottom:6px">${lbl}</div>
+                  <div style="display:flex;align-items:baseline;gap:6px">
+                    <span style="font-size:20px;font-weight:800;color:${col};line-height:1;letter-spacing:-0.4px">${counts[i]}</span>
+                    <span style="font-size:10.5px;color:${col};opacity:.75;font-weight:600">${pct}%</span>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`;
+          })()}
         </div>
       </div>
       <div class="card" style="margin:0;display:flex;flex-direction:column">
