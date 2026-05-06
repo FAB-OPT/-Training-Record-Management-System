@@ -2533,12 +2533,13 @@ try {
 // ==================== GOOGLE SHEETS ====================
 const GS_URL = 'https://script.google.com/macros/s/AKfycbzv_7Ez3hKNVpyLoxDMHr3EgmF83jIUulNETfOoEOyHr5OFxrHgFh1fTJ3wzgyXr36S/exec';
 
+let _empToFix = [];
 async function gsLoad() {
   try {
     const resp = await fetch(GS_URL + '?action=load');
     const data = await resp.json();
     DB.employees = {};
-    const _empToFix = [];
+    _empToFix = [];
     (data.employees || []).forEach(e => {
       if (!e) return;
       const bid = String(e.branchId || '').trim();
