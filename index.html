@@ -4241,7 +4241,10 @@ function renderCourseHistory() {
       <div class="page-hero-title">ประวัติการอบรมหลักสูตร</div>
       <div class="page-hero-sub">${BRANCH_MASTER[bid]?.name || 'สาขา'}</div>
     </div>
-    <button class="btn btn-accent" onclick="openAddCourseHistory()">+ เพิ่มรายการ</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>
+      <button class="btn btn-accent" onclick="openAddCourseHistory()">+ เพิ่มรายการ</button>
+    </div>
   </div>
   <div class="card">
     <div class="search-bar"><input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / ตำแหน่ง..." oninput="filterCourseHistory()"></div>
@@ -4373,6 +4376,7 @@ function renderAdminCourseHistory() {
       <div class="page-hero-title">ประวัติการอบรมหลักสูตรทั้งระบบ</div>
       <div class="page-hero-sub">${list.length} รายการ</div>
     </div>
+    <button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>
   </div>
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -4426,6 +4430,211 @@ function filterAdminCourseHistory() {
   });
   list.sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
   document.getElementById('ach-tbody').innerHTML = renderAdminCourseHistoryRows(list);
+}
+
+// ---------- COURSE HISTORY: EXCEL IMPORT ----------
+let _chExcelData = [];
+
+const _THAI_MONTHS = {
+  'ม.ค.':1,'มกราคม':1,'ก.พ.':2,'กุมภาพันธ์':2,'มี.ค.':3,'มีนาคม':3,
+  'เม.ย.':4,'เมษายน':4,'พ.ค.':5,'พฤษภาคม':5,'มิ.ย.':6,'มิถุนายน':6,
+  'ก.ค.':7,'กรกฎาคม':7,'ส.ค.':8,'สิงหาคม':8,'ก.ย.':9,'กันยายน':9,
+  'ต.ค.':10,'ตุลาคม':10,'พ.ย.':11,'พฤศจิกายน':11,'ธ.ค.':12,'ธันวาคม':12,
+};
+function parseCourseDate(val) {
+  if (!val) return '';
+  if (val instanceof Date && !isNaN(val)) return val.toISOString().slice(0,10);
+  const s = String(val).trim();
+  if (!s) return '';
+  // Thai date "20 พ.ย. 2025" or "20 พฤศจิกายน 2568"
+  const tm = s.match(/^(\d{1,2})\s+([฀-๿\.]+)\s+(\d{4})$/);
+  if (tm) {
+    const day = parseInt(tm[1], 10);
+    const mon = _THAI_MONTHS[tm[2]];
+    let year = parseInt(tm[3], 10);
+    if (year > 2400) year -= 543; // BE → AD
+    if (mon) return `${year}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  }
+  return parseExcelDate(s);
+}
+
+function _chExtractBranchCode(v) {
+  if (!v) return '';
+  const m = String(v).match(/(\d{4})/);
+  return m ? m[1] : '';
+}
+
+function _chPick(row, keys) {
+  for (const k of keys) {
+    if (row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+  }
+  // case-insensitive fallback
+  const lower = {};
+  Object.keys(row).forEach(k => lower[k.toLowerCase().trim()] = row[k]);
+  for (const k of keys) {
+    const v = lower[k.toLowerCase().trim()];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+}
+
+function openCourseHistoryImport() {
+  showModal('📥 Import ประวัติการอบรมหลักสูตรจาก Excel', `
+    <div class="info-box" style="margin-bottom:16px">
+      <strong>คอลัมน์ที่รองรับ</strong><br>
+      <code>Brand | รหัสพนักงาน | ชื่อ นามสกุล | ตำแหน่ง | สาขา | หลักสูตร | รุ่นที่ | วันที่อบรม</code>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">
+        จะจับคู่พนักงานจาก <strong>รหัสพนักงาน</strong> (ตรงกับที่บันทึกในระบบ)<br>
+        ถ้าไม่พบจะข้ามรายการนั้น
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="form-label">เลือกไฟล์ Excel (.xlsx, .xls, .csv)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="file" id="ch-excel-file" accept=".xlsx,.xls,.csv" class="form-input" onchange="previewCourseHistoryExcel(this)">
+        <button class="btn btn-outline btn-sm" onclick="downloadCourseHistoryTemplate()" style="white-space:nowrap">↓ Template</button>
+      </div>
+    </div>
+    <div id="ch-excel-preview" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title">พรีวิวข้อมูล (<span id="ch-preview-count">0</span> แถว)</div>
+        <div id="ch-excel-error-count" style="font-size:12px;color:var(--red)"></div>
+      </div>
+      <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+        <table><thead><tr>
+          <th>#</th><th>สาขา</th><th>รหัสพนักงาน</th><th>ชื่อ</th>
+          <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th><th>✓</th>
+        </tr></thead>
+        <tbody id="ch-excel-tbody"></tbody></table>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:6px;font-size:12px" id="ch-excel-summary"></div>
+    </div>
+  `, () => { doImportCourseHistoryExcel(); }, 'นำเข้าข้อมูล');
+}
+
+function previewCourseHistoryExcel(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const dataRows = XLSX.utils.sheet_to_json(ws, {raw:false, dateNF:'YYYY-MM-DD'});
+      if (!dataRows.length) { notify('ไฟล์ไม่มีข้อมูล','error'); return; }
+      _chExcelData = dataRows;
+
+      let ok = 0, errors = 0;
+      const rowsHtml = dataRows.map((row, i) => {
+        const empCode = _chPick(row, ['รหัสพนักงาน','EmpCode','emp_code','empCode']);
+        const empNameRaw = _chPick(row, ['ชื่อ นามสกุล (ใส่คำนำหน้า)','ชื่อ-นามสกุล','ชื่อ นามสกุล','ชื่อ','FullnameThai','name']);
+        const positionRaw = _chPick(row, ['ตำแหน่ง','PositionName','position']);
+        const branchRaw = _chPick(row, ['สาขา','OrgUnitName','branch']);
+        const courseName = _chPick(row, ['หลักสูตร','course','CourseName']);
+        const batchNo = _chPick(row, ['รุ่นที่','batch','BatchNo','รุ่น']);
+        const dateRaw = _chPick(row, ['วันที่อบรม (วันที่)','วันที่อบรม','วันที่','date','CourseDate','TrainingDate']);
+
+        const bid = _chExtractBranchCode(branchRaw);
+        const courseDate = parseCourseDate(dateRaw);
+        const matchedEmp = empCode ? _findEmpByCode(empCode) : null;
+
+        const valid = !!(empCode && courseName && courseDate && (matchedEmp || bid));
+        if (valid) ok++; else errors++;
+
+        const matchBadge = matchedEmp
+          ? `<span class="badge badge-green" style="font-size:10px">✓ พบในระบบ</span>`
+          : `<span class="badge badge-red" style="font-size:10px">ไม่พบรหัสพนักงาน</span>`;
+
+        return `<tr style="background:${valid?'':'rgba(192,57,43,0.04)'}">
+          <td style="color:var(--text3);font-size:12px">${i+1}</td>
+          <td><span class="badge ${BRANCH_MASTER[bid]?'badge-navy':'badge-gray'}" style="font-size:11px">${bid||'—'}</span></td>
+          <td style="font-family:monospace;font-size:12px">${empCode||'—'}<br>${matchBadge}</td>
+          <td style="font-size:12.5px">${(matchedEmp&&matchedEmp.name)||empNameRaw||'—'}</td>
+          <td style="font-size:12px">${courseName||'<span style="color:var(--red)">—</span>'}</td>
+          <td style="text-align:center"><span class="badge badge-blue" style="font-size:11px">${batchNo||'—'}</span></td>
+          <td style="font-size:12px">${courseDate?fmtDate(courseDate):'<span style="color:var(--red)">—</span>'}</td>
+          <td style="text-align:center">${valid?'<span style="color:var(--green);font-weight:700">✓</span>':'<span style="color:var(--red);font-weight:700">✗</span>'}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('ch-excel-tbody').innerHTML = rowsHtml;
+      document.getElementById('ch-preview-count').textContent = dataRows.length;
+      document.getElementById('ch-excel-error-count').textContent = errors > 0 ? '⚠ ' + errors + ' แถวมีปัญหา' : '';
+      document.getElementById('ch-excel-summary').innerHTML =
+        '<strong>สรุป:</strong> ทั้งหมด ' + dataRows.length + ' แถว · ' +
+        '<span style="color:var(--green)">นำเข้าได้ ' + ok + ' รายการ</span>' +
+        (errors > 0 ? ' · <span style="color:var(--red)">ข้าม ' + errors + ' แถว</span>' : '');
+      document.getElementById('ch-excel-preview').style.display = 'block';
+    } catch (err) {
+      console.error(err);
+      notify('อ่านไฟล์ไม่ได้ กรุณาตรวจสอบรูปแบบ','error');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function _findEmpByCode(code) {
+  const c = String(code||'').trim();
+  if (!c) return null;
+  for (const bid in DB.employees) {
+    const found = (DB.employees[bid]||[]).find(e => String(e.empCode||'').trim() === c || String(e.id||'').trim() === c);
+    if (found) return found;
+  }
+  return null;
+}
+
+function doImportCourseHistoryExcel() {
+  if (!_chExcelData.length) { notify('ไม่มีข้อมูลที่จะนำเข้า','error'); return; }
+  let added = 0, skipped = 0;
+  const batch = [];
+  _chExcelData.forEach(row => {
+    const empCode = _chPick(row, ['รหัสพนักงาน','EmpCode','emp_code','empCode']);
+    const empNameRaw = _chPick(row, ['ชื่อ นามสกุล (ใส่คำนำหน้า)','ชื่อ-นามสกุล','ชื่อ นามสกุล','ชื่อ','FullnameThai','name']);
+    const positionRaw = _chPick(row, ['ตำแหน่ง','PositionName','position']);
+    const branchRaw = _chPick(row, ['สาขา','OrgUnitName','branch']);
+    const courseName = _chPick(row, ['หลักสูตร','course','CourseName']);
+    const batchNo = _chPick(row, ['รุ่นที่','batch','BatchNo','รุ่น']);
+    const dateRaw = _chPick(row, ['วันที่อบรม (วันที่)','วันที่อบรม','วันที่','date','CourseDate','TrainingDate']);
+
+    if (!empCode || !courseName) { skipped++; return; }
+    const courseDate = parseCourseDate(dateRaw);
+    if (!courseDate) { skipped++; return; }
+
+    const matched = _findEmpByCode(empCode);
+    const bid = (matched && matched.branchId) || _chExtractBranchCode(branchRaw);
+    if (!bid) { skipped++; return; }
+
+    const rec = {
+      id: genId('CH'),
+      branchId: bid,
+      empId: matched ? matched.id : '',
+      empCode,
+      empName: (matched && matched.name) || empNameRaw || '',
+      position: (matched && matched.position) || positionRaw || '',
+      courseName, batchNo, courseDate,
+      createdAt: new Date().toISOString(),
+    };
+    DB.courseHistory.push(rec);
+    batch.push(rec);
+    added++;
+  });
+
+  if (batch.length) gsSaveMany('courseHistory', batch);
+  closeModal();
+  showPage(currentPage);
+  notify(`นำเข้าสำเร็จ: เพิ่ม ${added} รายการ${skipped?', ข้าม '+skipped+' แถว':''}`);
+  _chExcelData = [];
+}
+
+function downloadCourseHistoryTemplate() {
+  if (typeof XLSX === 'undefined') { notify('กรุณารอสักครู่ กำลังโหลด SheetJS...','error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Brand','รหัสพนักงาน','ชื่อ นามสกุล (ใส่คำนำหน้า)','ตำแหน่ง','สาขา','หลักสูตร','รุ่นที่','วันที่อบรม (วันที่)'],
+    ['Santa Fe','601840','นางสาว ธารทิพย์ นาเจริญ','Assistant Manager','5076 บิ๊กซี ติวานนท์','Admin Operations Level 2',2,'2025-11-20'],
+    ['Santa Fe','530685','นาย สุทธิพงศ์ แซ่โก','Restaurant General Manager','5065 เกตเวย์ เอกมัย','ผู้ประกอบกิจการ',1,'2025-10-15'],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'CourseHistory');
+  XLSX.writeFile(wb, 'course_history_template.xlsx');
 }
 
 // ==================== EVALUATIONS (merged into renderTrainings) ====================
