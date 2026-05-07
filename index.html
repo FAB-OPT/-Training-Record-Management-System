@@ -4455,6 +4455,20 @@ function parseCourseDate(val) {
     if (year > 2400) year -= 543; // BE → AD
     if (mon) return `${year}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   }
+  // DD/MM/YYYY (with optional BE year, may include time after space)
+  const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slash) {
+    const day = parseInt(slash[1], 10);
+    const mon = parseInt(slash[2], 10);
+    let year = parseInt(slash[3], 10);
+    if (year > 2400) year -= 543; // BE → AD
+    if (mon >= 1 && mon <= 12 && day >= 1 && day <= 31) {
+      return `${year}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    }
+  }
+  // ISO with optional time
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   return parseExcelDate(s);
 }
 
@@ -4531,7 +4545,7 @@ function previewCourseHistoryExcel(input) {
         const branchRaw = _chPick(row, ['สาขา','OrgUnitName','branch']);
         const courseName = _chPick(row, ['หลักสูตร','course','CourseName']);
         const batchNo = _chPick(row, ['รุ่นที่','batch','BatchNo','รุ่น']);
-        const dateRaw = _chPick(row, ['วันที่อบรม (วันที่)','วันที่อบรม','วันที่','date','CourseDate','TrainingDate']);
+        const dateRaw = _chPick(row, ['ประทับเวลา','วันที่อบรม (วันที่)','วันที่อบรม','วันที่','date','CourseDate','TrainingDate','Timestamp']);
 
         const bid = _chExtractBranchCode(branchRaw);
         const courseDate = parseCourseDate(dateRaw);
@@ -4593,7 +4607,7 @@ function doImportCourseHistoryExcel() {
     const branchRaw = _chPick(row, ['สาขา','OrgUnitName','branch']);
     const courseName = _chPick(row, ['หลักสูตร','course','CourseName']);
     const batchNo = _chPick(row, ['รุ่นที่','batch','BatchNo','รุ่น']);
-    const dateRaw = _chPick(row, ['วันที่อบรม (วันที่)','วันที่อบรม','วันที่','date','CourseDate','TrainingDate']);
+    const dateRaw = _chPick(row, ['ประทับเวลา','วันที่อบรม (วันที่)','วันที่อบรม','วันที่','date','CourseDate','TrainingDate','Timestamp']);
 
     if (!empCode || !courseName) { skipped++; return; }
     const courseDate = parseCourseDate(dateRaw);
