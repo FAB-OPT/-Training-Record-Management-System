@@ -4262,7 +4262,7 @@ function renderCourseHistoryRows(list) {
       <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${(e&&e.empCode)||c.empCode||'—'}</td>
       <td data-label="ชื่อ"><strong>${(e&&e.name)||c.empName||'—'}</strong></td>
       <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${(e&&e.position)||c.position||'—'}</td>
-      <td data-label="สาขา"><span class="badge badge-navy">${c.branchId||'—'}</span></td>
+      <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${BRANCH_MASTER[c.branchId]?.name || c.branchId || '—'}</td>
       <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
       <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
       <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
@@ -4398,7 +4398,7 @@ function renderAdminCourseHistoryRows(list) {
       <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${(e&&e.empCode)||c.empCode||'—'}</td>
       <td data-label="ชื่อ"><strong>${(e&&e.name)||c.empName||'—'}</strong></td>
       <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${(e&&e.position)||c.position||'—'}</td>
-      <td data-label="สาขา"><span class="badge badge-navy">${c.branchId||'—'}</span></td>
+      <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${BRANCH_MASTER[c.branchId]?.name || c.branchId || '—'}</td>
       <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
       <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
       <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
