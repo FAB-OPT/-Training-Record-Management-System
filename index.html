@@ -3175,7 +3175,7 @@ function renderDashboard() {
         <div>
           <div style="font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">แยกตามอายุงาน</div>
           ${(()=>{
-            const bk=[['< 3 เดือน',0,3,'#9CA3AF'],['3–6 เดือน',3,6,'#F59E0B'],['6–12 เดือน',6,12,'#3B82F6'],['1–2 ปี',12,24,'#22C55E'],['> 2 ปี',24,9999,'#8B5CF6']];
+            const bk=[['น้อยกว่า 3 เดือน',0,3,'#9CA3AF'],['3–6 เดือน',3,6,'#F59E0B'],['6–12 เดือน',6,12,'#3B82F6'],['1–2 ปี',12,24,'#22C55E'],['มากกว่า 2 ปี',24,9999,'#8B5CF6']];
             const gm=e=>{
               if(!e.startDate) return -1;
               const s=new Date(e.startDate); if(isNaN(s)) return -1;
@@ -3351,17 +3351,22 @@ function showPassRateModal(bid) {
       + '</tbody></table></div>' : ''), null, 'ปิด');
 }
 
+function _empRowWithHistoryBtn(e, withPos) {
+  const cells = `
+    <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
+    <td style="font-weight:600">${e.name}</td>
+    ${withPos?`<td style="font-size:12px;color:var(--text2)">${e.position}</td>`:''}
+    <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
+    <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="showEmpTrainingHistoryModal('${e.id}')">ประวัติการสอน</button></td>`;
+  return `<tr>${cells}</tr>`;
+}
+
 function showEmpGroupModal(bid, group) {
   const es = getBranchEmployees(bid).filter(e=>e.status==='active'&&getPositionGroup(e.position)===group);
   showModal(`${group} (${es.length} คน)`, `
     <div class="table-wrap"><table>
-      <thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th></tr></thead>
-      <tbody>${es.length?es.map(e=>`<tr>
-        <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-        <td style="font-weight:600">${e.name}</td>
-        <td style="font-size:12px;color:var(--text2)">${e.position}</td>
-        <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-      </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">ไม่มีพนักงาน</td></tr>'}</tbody>
+      <thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th><th></th></tr></thead>
+      <tbody>${es.length?es.map(e=>_empRowWithHistoryBtn(e,true)).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">ไม่มีพนักงาน</td></tr>'}</tbody>
     </table></div>`, null, 'ปิด');
 }
 
@@ -3369,13 +3374,48 @@ function showEmpPositionModal(bid, pos) {
   const es = getBranchEmployees(bid).filter(e=>e.status==='active'&&e.position===pos);
   showModal(`${pos} (${es.length} คน)`, `
     <div class="table-wrap"><table>
-      <thead><tr><th>รหัส</th><th>ชื่อ</th><th>อายุงาน</th></tr></thead>
-      <tbody>${es.length?es.map(e=>`<tr>
-        <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-        <td style="font-weight:600">${e.name}</td>
-        <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-      </tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:24px">ไม่มีพนักงาน</td></tr>'}</tbody>
+      <thead><tr><th>รหัส</th><th>ชื่อ</th><th>อายุงาน</th><th></th></tr></thead>
+      <tbody>${es.length?es.map(e=>_empRowWithHistoryBtn(e,false)).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">ไม่มีพนักงาน</td></tr>'}</tbody>
     </table></div>`, null, 'ปิด');
+}
+
+function showEmpTrainingHistoryModal(empId) {
+  const e = getEmployee(empId);
+  if (!e) { notify('ไม่พบพนักงาน','error'); return; }
+  const trains = DB.trainings.filter(t => (t.traineeIds||[]).includes(String(e.id)) || (t.traineeIds||[]).includes(e.id))
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const grpHex = {'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
+  const color = grpHex[getPositionGroup(e.position)] || '#9CA3AF';
+  const evCount = trains.filter(t=>t.eval).length;
+  const passCount = trains.filter(t=>t.eval && isEvalPass(t.eval.result)).length;
+  showModal(`ประวัติการสอน · ${e.name}`, `
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:${color}10;border-left:3px solid ${color};border-radius:10px;margin-bottom:16px">
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;color:var(--text)">${e.name}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${e.position} · อายุงาน ${calcTenureShort(e.startDate)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px">บันทึก / ผ่าน</div>
+        <div style="font-size:18px;font-weight:800;color:${color}">${trains.length} <span style="font-size:11px;color:var(--text3)">/</span> ${passCount}/${evCount}</div>
+      </div>
+    </div>
+    ${trains.length===0?'<p class="text-muted" style="text-align:center;padding:24px 0">ยังไม่มีบันทึกการสอน</p>':`
+    <div class="table-wrap"><table>
+      <thead><tr><th>วันที่</th><th>Module</th><th>หัวข้อ</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
+      <tbody>${trains.map(t=>{
+        const badge = t.eval
+          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result).split(' ')[0]}</span>`
+          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
+        return `<tr>
+          <td style="font-size:12px;white-space:nowrap">${fmtDate(t.date)}</td>
+          <td style="font-weight:700;font-size:12.5px">${MODULES[t.moduleId]?.name||t.moduleId}</td>
+          <td><span class="badge badge-navy">${(t.subtopics||[]).length} หัวข้อ</span></td>
+          <td style="font-size:12px;color:var(--text2)">${t.trainerName||'—'}</td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`}
+  `, null, 'ปิด');
 }
 
 function showPositionTrainingModal(bid, pos) {
@@ -3528,13 +3568,8 @@ function showEmpTenureModal(bid, label, minMo, maxMo) {
   });
   showModal(`${label} (${es.length} คน)`, `
     <div class="table-wrap"><table>
-      <thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th></tr></thead>
-      <tbody>${es.length ? es.map(e=>`<tr>
-        <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-        <td style="font-weight:600">${e.name}</td>
-        <td style="font-size:12px;color:var(--text2)">${e.position}</td>
-        <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-      </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">ไม่มีพนักงาน</td></tr>'}</tbody>
+      <thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th><th></th></tr></thead>
+      <tbody>${es.length ? es.map(e=>_empRowWithHistoryBtn(e,true)).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">ไม่มีพนักงาน</td></tr>'}</tbody>
     </table></div>`, null, 'ปิด');
 }
 
