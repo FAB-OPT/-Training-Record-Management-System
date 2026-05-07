@@ -2903,8 +2903,7 @@ function buildAdminNav() {
     <div class="nav-section-label">ภาพรวม</div>
     <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-section-label" style="margin-top:8px">จัดการข้อมูล</div>
-    <div class="nav-item" id="nav-admin-branches" onclick="showPage('admin-branches')"><span class="nav-icon">◼</span> สาขาทั้งหมด</div>
-    <div class="nav-item" id="nav-admin-employees" onclick="showPage('admin-employees')"><span class="nav-icon">◼</span> จัดการพนักงาน</div>
+    <div class="nav-item" id="nav-admin-manage" onclick="showPage('admin-manage')"><span class="nav-icon">◼</span> จัดการสาขา &amp; พนักงาน</div>
     <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึก &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
@@ -2915,6 +2914,7 @@ function buildAdminNav() {
 function showPage(page) {
   if (page === 'evaluations') page = 'trainings';
   if (page === 'admin-evaluations') page = 'admin-trainings';
+  if (page === 'admin-branches' || page === 'admin-employees') page = 'admin-manage';
   currentPage = page;
   closeSidebar();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -2924,8 +2924,8 @@ function showPage(page) {
     'dashboard': renderDashboard, 'employees': renderEmployees,
     'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
     'course-history': renderCourseHistory,
-    'admin-dashboard': renderAdminDashboard, 'admin-branches': renderAdminBranches,
-    'admin-employees': renderAdminEmployees,
+    'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
+    'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
@@ -4907,15 +4907,45 @@ function renderAdminSystemExtras() {
   </div>`;
 }
 
-function renderAdminBranches() {
+let _adminManageTab = 'branches';
+function setAdminManageTab(tab) {
+  _adminManageTab = tab;
+  document.getElementById('main-content').innerHTML = renderAdminManage();
+}
+
+function renderAdminManage() {
+  const branchCount = Object.keys(BRANCH_MASTER).length;
+  const empCount = Object.values(DB.employees).flat().length;
+  const tab = _adminManageTab;
+  const tabBtn = (key, label, count) => `<button onclick="setAdminManageTab('${key}')" style="border:none;background:${tab===key?'var(--text)':'transparent'};color:${tab===key?'#fff':'var(--text2)'};padding:9px 18px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:7px">${label}<span style="font-size:11px;opacity:.85;background:${tab===key?'rgba(255,255,255,.18)':'var(--surface3)'};padding:2px 8px;border-radius:999px;font-weight:700">${count}</span></button>`;
+
+  const headerAction = tab === 'branches'
+    ? `<button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>`
+    : `<div style="display:flex;gap:10px"><button class="btn btn-outline" onclick="openExcelImport()">📥 Import จาก Excel</button><button class="btn btn-navy" onclick="adminAddEmpGlobal()">+ เพิ่มพนักงาน</button></div>`;
+
+  return `
+  <div class="topbar"><div class="topbar-title">Admin · จัดการสาขา &amp; พนักงาน</div></div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">การจัดการ</div>
+      <div class="page-hero-title">จัดการสาขา &amp; พนักงาน</div>
+      <div class="page-hero-sub">${branchCount} สาขา · ${empCount} พนักงาน</div>
+    </div>
+    ${headerAction}
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${tabBtn('branches', 'สาขา', branchCount)}
+      ${tabBtn('employees', 'พนักงาน', empCount)}
+    </div>
+  </div>
+  ${tab === 'branches' ? _renderAdminBranchesPanel() : _renderAdminEmployeesPanel()}`;
+}
+
+function _renderAdminBranchesPanel() {
   const mgrs = [...new Set(Object.values(BRANCH_MASTER).map(b=>b.manager))].sort();
   const mgrOptions = mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
   return `
-  <div class="topbar"><div class="topbar-title">Admin · จัดการสาขา</div></div>
-  <div class="page-header">
-    <div><div class="page-title">สาขาทั้งหมด</div><div class="page-sub">${Object.keys(BRANCH_MASTER).length} สาขา</div></div>
-    <button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>
-  </div>
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <input class="search-input" id="branch-search" placeholder="ค้นหารหัส / ชื่อสาขา..." oninput="filterBranches()" style="flex:1;min-width:200px">
@@ -4934,6 +4964,37 @@ function renderAdminBranches() {
     </div>
   </div>`;
 }
+
+function _renderAdminEmployeesPanel() {
+  const allEmps = Object.values(DB.employees).flat();
+  const branchOptions = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} — ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input class="search-input" id="admin-emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterAdminEmployees()" style="flex:1;min-width:200px">
+      <select class="form-select" id="admin-emp-branch-filter" onchange="filterAdminEmployees()" style="width:280px">
+        <option value="">— ทุกสาขา —</option>
+        ${branchOptions}
+      </select>
+      <select class="form-select" id="admin-emp-status-filter" onchange="filterAdminEmployees()" style="width:160px">
+        <option value="">— ทุกสถานะ —</option>
+        <option value="active">กำลังทำงาน</option>
+        <option value="resigned">ลาออก</option>
+      </select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
+        <tbody id="admin-emp-tbody">${renderAdminEmpRows(allEmps)}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderAdminBranches() { _adminManageTab = 'branches'; return renderAdminManage(); }
+function renderAdminEmployees() { _adminManageTab = 'employees'; return renderAdminManage(); }
 
 function renderBranchRows(entries) {
   if(!entries.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่พบสาขา</td></tr>';
@@ -5608,41 +5669,7 @@ function renderAdminReports() {
 }
 
 // ==================== ADMIN EMPLOYEES ====================
-function renderAdminEmployees() {
-  const allEmps = Object.values(DB.employees).flat();
-  const branchOptions = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} — ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
-  return `
-  <div class="topbar"><div class="topbar-title">Admin · จัดการพนักงาน</div></div>
-  <div class="page-header">
-    <div><div class="page-title">จัดการพนักงาน</div><div class="page-sub">พนักงานทั้งหมดในระบบ ${allEmps.length} คน</div></div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-outline" onclick="openExcelImport()">📥 Import จาก Excel</button>
-      <button class="btn btn-navy" onclick="adminAddEmpGlobal()">+ เพิ่มพนักงาน</button>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:16px">
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <input class="search-input" id="admin-emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterAdminEmployees()" style="flex:1;min-width:200px">
-      <select class="form-select" id="admin-emp-branch-filter" onchange="filterAdminEmployees()" style="width:280px">
-        <option value="">— ทุกสาขา —</option>
-        ${branchOptions}
-      </select>
-      <select class="form-select" id="admin-emp-status-filter" onchange="filterAdminEmployees()" style="width:160px">
-        <option value="">— ทุกสถานะ —</option>
-        <option value="active">กำลังทำงาน</option>
-        <option value="resigned">ลาออก</option>
-      </select>
-    </div>
-  </div>
-  <div class="card">
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
-        <tbody id="admin-emp-tbody">${renderAdminEmpRows(allEmps)}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
+// renderAdminEmployees merged into renderAdminManage (admin-manage page)
 
 function renderAdminEmpRows(emps) {
   if(!emps.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่พบรายชื่อพนักงาน</td></tr>';
