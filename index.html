@@ -4246,7 +4246,7 @@ function renderCourseHistory() {
     <div class="search-bar"><input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / ตำแหน่ง..." oninput="filterCourseHistory()"></div>
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
-        <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th>
+        <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th>
         <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th>
       </tr></thead>
       <tbody id="ch-tbody">${renderCourseHistoryRows(list)}</tbody>
@@ -4255,13 +4255,14 @@ function renderCourseHistory() {
 }
 
 function renderCourseHistoryRows(list) {
-  if (!list.length) return '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
+  if (!list.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
   return list.map(c => {
     const e = getEmployee(c.empId);
     return `<tr>
       <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${(e&&e.empCode)||c.empCode||'—'}</td>
       <td data-label="ชื่อ"><strong>${(e&&e.name)||c.empName||'—'}</strong></td>
       <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${(e&&e.position)||c.position||'—'}</td>
+      <td data-label="สาขา"><span class="badge badge-navy">${c.branchId||'—'}</span></td>
       <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
       <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
       <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
