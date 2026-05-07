@@ -308,7 +308,7 @@
   /* ==================== MODAL ==================== */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
-  .modal { background: var(--white); border-radius: 18px; width: 600px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+  .modal { background: var(--white); border-radius: 18px; width: 760px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
   .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--white); z-index: 1; }
   .modal-title { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
   .modal-close { background: var(--surface2); border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 6px 10px; line-height: 1; border-radius: 8px; transition: all 0.15s; }
@@ -3015,7 +3015,22 @@ function notify(msg, type='success') {
   const n = document.getElementById('notif'); n.textContent = (type==='success'?'✓ ':'✗ ') + msg;
   n.className = 'notif ' + type + ' show'; setTimeout(() => n.classList.remove('show'), 3000);
 }
-function isEvalDeadlinePassed(trainingDate) { const d = new Date(trainingDate); d.setDate(d.getDate()+7); return new Date() > d; }
+const EVAL_DEADLINE_DAYS = 14;
+function isEvalDeadlinePassed(trainingDate) { const d = new Date(trainingDate); d.setDate(d.getDate()+EVAL_DEADLINE_DAYS); return new Date() > d; }
+function showEvalExpiredWarning(trainingDate) {
+  const d = new Date(trainingDate); d.setDate(d.getDate()+EVAL_DEADLINE_DAYS);
+  showModal('⏰ หมดระยะเวลาประเมิน', `
+    <div style="text-align:center;padding:20px 0">
+      <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">ไม่สามารถประเมินได้แล้ว</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6">
+        การประเมินผลต้องทำภายใน <strong>${EVAL_DEADLINE_DAYS} วัน</strong> นับจากวันสอน<br>
+        วันสอน: ${fmtDate(trainingDate)}<br>
+        ครบกำหนด: ${fmtDate(d.toISOString())}
+      </div>
+    </div>
+  `, null, 'ปิด');
+}
 function getAccumulatedSubtopics(branchId, moduleId, traineeIds) {
   const tidSet = new Set((traineeIds || []).filter(Boolean));
   return new Set(
@@ -3051,7 +3066,6 @@ function renderDashboard() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">ภาพรวม</div>
       <div class="page-hero-title">แดชบอร์ด</div>
       <div class="page-hero-sub">ภาพรวมการสอนงานของสาขา · อัปเดต ${fmtDate(new Date().toISOString())}</div>
     </div>
@@ -3096,7 +3110,9 @@ function renderDashboard() {
       <div style="background:linear-gradient(180deg,#FFFFFF 0%,#FAFBFF 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#0A84FF';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(10,132,255,0.14)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showAllEmployeesModal('${bid}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
           <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">พนักงานทั้งหมด</span>
-          <div style="width:38px;height:38px;border-radius:12px;background:#E5F1FF;display:flex;align-items:center;justify-content:center;color:#0A84FF;font-size:18px">👥</div>
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#0A84FF,#5AC8FA);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(10,132,255,.3)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
         </div>
         <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${emps.length}</div>
         <div style="font-size:12.5px;color:#8E8E93;font-weight:500">${totalActive} ทำงาน · ${emps.length-totalActive} ลาออก</div>
@@ -3104,7 +3120,9 @@ function renderDashboard() {
       <div style="background:linear-gradient(180deg,#FFFFFF 0%,#F7FEF9 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#28A745';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(40,167,69,0.14)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showPage('trainings')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
           <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">บันทึกการสอน</span>
-          <div style="width:38px;height:38px;border-radius:12px;background:#E5F7EB;display:flex;align-items:center;justify-content:center;color:#28A745;font-size:18px">📚</div>
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#28A745,#5CD773);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(40,167,69,.3)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
         </div>
         <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${trains.length}</div>
         <div style="font-size:12.5px;color:#8E8E93;font-weight:500">${evaled.length} ประเมินแล้ว · ${trains.length-evaled.length} รอ</div>
@@ -3112,24 +3130,24 @@ function renderDashboard() {
       <div style="background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F2 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#FF6B1A';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(255,107,26,0.18)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showPendingModal('${bid}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
           <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">รอประเมินผล</span>
-          <div style="width:38px;height:38px;border-radius:12px;background:#FFF1E6;display:flex;align-items:center;justify-content:center;color:#FF6B1A;font-size:18px">⏳</div>
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#FF6B1A,#FF9F40);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,107,26,.3)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
         </div>
         <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${pending.length}</div>
         <div style="font-size:12.5px;color:#8E8E93;font-weight:500">ภายใน 14 วันนับจากวันสอน</div>
       </div>
       <div style="background:linear-gradient(180deg,#FFFFFF 0%,#FBF8FF 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#AF52DE';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(175,82,222,0.16)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showPassRateModal('${bid}')">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px;margin-bottom:18px">อัตราผ่านประเมิน</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+            <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">อัตราผ่านประเมิน</span>
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#AF52DE,#D680F5);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(175,82,222,.3)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+          </div>
           <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${passRate}%</div>
           <div style="font-size:12.5px;color:#8E8E93;font-weight:500">${evaled.filter(t=>isEvalPass(t.eval.result)).length}/${evaled.length} ครั้ง</div>
         </div>
-        <svg width="64" height="64" viewBox="0 0 80 80" style="flex-shrink:0">
-          <circle cx="40" cy="40" r="30" fill="none" stroke="#F0E6FA" stroke-width="8"/>
-          <circle cx="40" cy="40" r="30" fill="none" stroke="#AF52DE" stroke-width="8"
-            stroke-dasharray="${Math.round(passRate/100*188.5)} 188.5"
-            stroke-linecap="round" transform="rotate(-90 40 40)"/>
-          <text x="40" y="45" text-anchor="middle" font-size="14" font-weight="800" fill="#AF52DE">${passRate}%</text>
-        </svg>
       </div>
     </div>
     <div class="dash-top-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch">
@@ -3226,13 +3244,14 @@ function renderDashboard() {
         const dotCol=isSv?grpHex['พนักงานบริการ']:grpHex['พนักงานครัว'];
         const icon=isSv?'🍽':'🍳';
         const badge=t.eval?`<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`:isEvalDeadlinePassed(t.date)?'<span class="badge badge-gray">หมดเวลา</span>':'<span class="badge badge-yellow">รอประเมิน</span>';
-        return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        return `<div onclick="viewTraining('${t.id}')" style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
           <div style="width:32px;height:32px;border-radius:8px;background:${dotCol}15;border:1.5px solid ${dotCol}40;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;margin-top:2px">${icon}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:700;color:var(--primary);line-height:1.3">${mod?.name||'—'}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:3px">${fmtDate(t.date)} · ${(t.traineeIds||[]).length} คน · ${t.trainerName||''}</div>
             <div style="margin-top:5px">${badge}</div>
           </div>
+          <div style="display:flex;align-items:center;color:var(--text3);font-size:14px">›</div>
         </div>`;
       }).join('')}
     </div></div>`;
@@ -3353,11 +3372,11 @@ function showPassRateModal(bid) {
 
 function _empRowWithHistoryBtn(e, withPos) {
   const cells = `
-    <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-    <td style="font-weight:600">${e.name}</td>
-    ${withPos?`<td style="font-size:12px;color:var(--text2)">${e.position}</td>`:''}
-    <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-    <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="showEmpTrainingHistoryModal('${e.id}')">ประวัติการสอน</button></td>`;
+    <td style="font-family:monospace;font-size:12px;color:var(--text2);white-space:nowrap">${e.empCode||'—'}</td>
+    <td style="font-weight:600;white-space:nowrap">${e.name}</td>
+    ${withPos?`<td style="font-size:12px;color:var(--text2);white-space:nowrap">${e.position}</td>`:''}
+    <td style="white-space:nowrap"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
+    <td style="text-align:right;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="showEmpTrainingHistoryModal('${e.id}')">ประวัติการสอน</button></td>`;
   return `<tr>${cells}</tr>`;
 }
 
@@ -3421,35 +3440,68 @@ function showEmpTrainingHistoryModal(empId) {
 function showPositionTrainingModal(bid, pos) {
   const ts = getBranchTrainings(bid).filter(t=>(t.traineeIds||[]).some(tid=>{const e=getEmployee(tid);return e&&e.position===pos;}));
   if(!ts.length){showModal('การสอน: '+pos,'<p class="text-muted" style="text-align:center;padding:24px 0">ยังไม่มีบันทึกการสอน</p>',null,'ปิด');return;}
-  const byMod={};
+  const byMod={}; const empMap={};
   ts.forEach(t=>{
-    if(!byMod[t.moduleId]) byMod[t.moduleId]={name:MODULES[t.moduleId]?.name||t.moduleId,subtopics:{},sessions:[],evaled:0,passed:0};
+    if(!byMod[t.moduleId]) byMod[t.moduleId]={name:MODULES[t.moduleId]?.name||t.moduleId,subtopics:{},sessions:[],evaled:0,passed:0,empIds:new Set()};
     const d=byMod[t.moduleId];
     d.sessions.push(t);
     if(t.eval){d.evaled++;if(isEvalPass(t.eval.result))d.passed++;}
     (t.subtopics||[]).forEach(s=>{d.subtopics[s]=(d.subtopics[s]||0)+1;});
+    (t.traineeIds||[]).forEach(tid=>{
+      const e=getEmployee(tid);
+      if(e&&e.position===pos){
+        d.empIds.add(e.id);
+        if(!empMap[e.id]) empMap[e.id]={emp:e,modules:new Set(),total:0,passed:0,evaled:0};
+        empMap[e.id].modules.add(t.moduleId);
+        empMap[e.id].total++;
+        if(t.eval){empMap[e.id].evaled++;if(isEvalPass(t.eval.result))empMap[e.id].passed++;}
+      }
+    });
   });
   const grpHexM={'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
   const sampleEmp=getBranchEmployees(bid).find(e=>e.position===pos);
   const col=grpHexM[getPositionGroup(sampleEmp?.position||pos)]||'#6366F1';
-  showModal('การสอน: '+pos+' ('+ts.length+' ครั้ง)', `
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${Object.entries(byMod).sort((a,b)=>b[1].sessions.length-a[1].sessions.length).map(([id,d])=>{
-        const pr=d.evaled?Math.round(d.passed/d.evaled*100):null;
-        const barCol=pr===null?'#9CA3AF':pr>=80?'#22C55E':pr>=50?'#F59E0B':'#EF4444';
-        return `<div style="border:1px solid ${col}20;border-radius:10px;padding:12px;background:${col}04">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:700;color:var(--primary)">${d.name}</span>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:11px;color:var(--text3)">${d.sessions.length} ครั้ง</span>
-              <span style="font-size:13px;font-weight:800;color:${barCol}">${pr!==null?pr+'%':'—'}</span>
+  const empList=Object.values(empMap).sort((a,b)=>b.total-a.total);
+  showModal('การสอน: '+pos+' ('+ts.length+' ครั้ง · '+empList.length+' คน)', `
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">พนักงานที่ผ่านการสอน (${empList.length} คน)</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${empList.map(({emp,modules,total,passed,evaled})=>`
+          <div onclick="showEmpTrainingHistoryModal('${emp.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:${col}08;border:1px solid ${col}22;border-radius:10px;cursor:pointer;transition:all .15s" onmouseenter="this.style.background='${col}14'" onmouseleave="this.style.background='${col}08'">
+            <div style="min-width:0">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${emp.name}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${modules.size} Module · อายุงาน ${calcTenureShort(emp.startDate)}</div>
             </div>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px">
-            ${Object.entries(d.subtopics).sort((a,b)=>b[1]-a[1]).map(([s,cnt])=>`<span style="font-size:11px;background:${col}0F;color:var(--text2);padding:3px 9px;border-radius:12px;border:1px solid ${col}25">${s} <span style="font-weight:700;color:${col}">${cnt}</span></span>`).join('')}
-          </div>
-        </div>`;
-      }).join('')}
+            <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:8px">
+              <div>
+                <div style="font-size:14px;font-weight:800;color:${col}">${total} <span style="font-size:10px;color:var(--text3);font-weight:600">ครั้ง</span></div>
+                <div style="font-size:10.5px;color:var(--text2)">ผ่าน ${passed}/${evaled}</div>
+              </div>
+              <span style="font-size:14px;color:${col};opacity:.6">›</span>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">สอนแยกตาม Module</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${Object.entries(byMod).sort((a,b)=>b[1].sessions.length-a[1].sessions.length).map(([id,d])=>{
+          const pr=d.evaled?Math.round(d.passed/d.evaled*100):null;
+          const barCol=pr===null?'#9CA3AF':pr>=80?'#22C55E':pr>=50?'#F59E0B':'#EF4444';
+          return `<div style="border:1px solid ${col}20;border-radius:10px;padding:12px;background:${col}04">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:13px;font-weight:700;color:var(--primary)">${d.name}</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:11px;color:var(--text3)">${d.empIds.size} คน · ${d.sessions.length} ครั้ง</span>
+                <span style="font-size:13px;font-weight:800;color:${barCol}">${pr!==null?pr+'%':'—'}</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              ${Object.entries(d.subtopics).sort((a,b)=>b[1]-a[1]).map(([s,cnt])=>`<span style="font-size:11px;background:${col}0F;color:var(--text2);padding:3px 9px;border-radius:12px;border:1px solid ${col}25">${s} <span style="font-weight:700;color:${col}">${cnt}</span></span>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`, null, 'ปิด');
 }
 
@@ -3565,7 +3617,7 @@ function showEmpTenureModal(bid, label, minMo, maxMo) {
   const es = getBranchEmployees(bid).filter(e => {
     if (e.status !== 'active') return false;
     const m = getMonths(e); return m >= minMo && m < maxMo;
-  });
+  }).sort((a,b) => getMonths(a) - getMonths(b));
   showModal(`${label} (${es.length} คน)`, `
     <div class="table-wrap"><table>
       <thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th><th></th></tr></thead>
@@ -3737,7 +3789,7 @@ function renderTrainings() {
           <td data-label="สถานะ">${badge}</td>
           <td data-label="actions" style="white-space:nowrap">
             ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:''}
-            ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:''}
+            ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.7" onclick="showEvalExpiredWarning('${t.date}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
             ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
           </td>
@@ -4021,7 +4073,7 @@ function toggleCheck(el) { setTimeout(()=>{ el.classList.toggle('checked', el.qu
 
 function viewTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
-  const deadline = new Date(t.date); deadline.setDate(deadline.getDate()+7);
+  const deadline = new Date(t.date); deadline.setDate(deadline.getDate()+EVAL_DEADLINE_DAYS);
   const canEval = !t.eval && !isEvalDeadlinePassed(t.date);
   showModal('รายละเอียดการสอนงาน', `
     <div class="detail-row"><div class="detail-key">Module</div><div class="detail-val"><strong>${MODULES[t.moduleId]?.name}</strong></div></div>
@@ -4039,7 +4091,7 @@ function viewTraining(id) {
       </div>
       <div style="font-size:12px;color:var(--text2)">วันที่/เวลาประเมิน: ${fmtDateTime(t.eval.evalDate)}</div>
       ${t.eval.note?`<div style="font-size:13px;margin-top:6px;color:var(--text)">${t.eval.note}</div>`:''}
-    </div>` : isEvalDeadlinePassed(t.date) ? `<div class="warn-box">หมดระยะเวลาประเมิน (เกิน 7 วันแล้ว)</div>`
+    </div>` : isEvalDeadlinePassed(t.date) ? `<div class="warn-box">หมดระยะเวลาประเมิน (เกิน ${EVAL_DEADLINE_DAYS} วันแล้ว)</div>`
     : `<div class="info-box">รอการประเมิน · ต้องประเมินภายใน ${fmtDate(deadline.toISOString())}</div>`}
     ${canEval?`<button class="btn btn-navy" style="margin-top:14px;width:100%" onclick="closeModal();openEvalModal('${id}')">ดำเนินการประเมินผล →</button>`:''}
   `, null, 'ปิด');
