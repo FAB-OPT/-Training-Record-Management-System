@@ -4551,7 +4551,7 @@ function previewCourseHistoryExcel(input) {
         const courseDate = parseCourseDate(dateRaw);
         const matchedEmp = empCode ? _findEmpByCode(empCode) : null;
 
-        const valid = !!(empCode && courseName && courseDate && (matchedEmp || bid));
+        const valid = !!(empCode && courseName && courseDate && matchedEmp);
         if (valid) ok++; else errors++;
 
         const matchBadge = matchedEmp
@@ -4614,16 +4614,15 @@ function doImportCourseHistoryExcel() {
     if (!courseDate) { skipped++; return; }
 
     const matched = _findEmpByCode(empCode);
-    const bid = (matched && matched.branchId) || _chExtractBranchCode(branchRaw);
-    if (!bid) { skipped++; return; }
+    if (!matched) { skipped++; return; }
 
     const rec = {
       id: genId('CH'),
-      branchId: bid,
-      empId: matched ? matched.id : '',
+      branchId: matched.branchId,
+      empId: matched.id,
       empCode,
-      empName: (matched && matched.name) || empNameRaw || '',
-      position: (matched && matched.position) || positionRaw || '',
+      empName: matched.name,
+      position: matched.position || positionRaw || '',
       courseName, batchNo, courseDate,
       createdAt: new Date().toISOString(),
     };
