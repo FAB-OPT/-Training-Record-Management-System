@@ -2552,7 +2552,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] } };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [] };
 try {
   const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
   if (_c && _c.employees && _c.trainings) {
@@ -2561,6 +2561,7 @@ try {
     DB.quizResults = _c.quizResults || [];
     DB.customQuiz = _c.customQuiz || [];
     DB.quizMeta = _c.quizMeta || { deleted: [], disabled: [] };
+    DB.courseHistory = _c.courseHistory || [];
   }
 } catch(_) {}
 
@@ -2613,7 +2614,10 @@ async function gsLoad() {
       const m = parseJSON(data.quizMeta, null);
       if (m) DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [] };
     }
-    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta})); } catch(_) {}
+    if (Array.isArray(data.courseHistory)) {
+      DB.courseHistory = data.courseHistory.map(c => ({...c, branchId: String(c.branchId||'').trim()}));
+    }
+    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
   } catch(err) {
     console.error('GS load error:', err);
     notify('โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรช', 'error');
@@ -2888,6 +2892,7 @@ function buildBranchNav() {
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">◼</span> รายชื่อพนักงาน</div>
     <div class="nav-section-label" style="margin-top:8px">การสอนงาน</div>
     <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึก &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-manual" onclick="showPage('manual')"><span class="nav-icon">◼</span> คู่มือการสอนงาน</div>
     <div class="nav-section-label" style="margin-top:8px">รายงาน</div>
     <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
@@ -2901,6 +2906,7 @@ function buildAdminNav() {
     <div class="nav-item" id="nav-admin-branches" onclick="showPage('admin-branches')"><span class="nav-icon">◼</span> สาขาทั้งหมด</div>
     <div class="nav-item" id="nav-admin-employees" onclick="showPage('admin-employees')"><span class="nav-icon">◼</span> จัดการพนักงาน</div>
     <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> ประวัติการสอนงาน</div>
+    <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-admin-evaluations" onclick="showPage('admin-evaluations')"><span class="nav-icon">◼</span> ผลการประเมิน</div>
     <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
     <div class="nav-section-label" style="margin-top:8px">รายงาน</div>
@@ -2917,9 +2923,11 @@ function showPage(page) {
   const pages = {
     'dashboard': renderDashboard, 'employees': renderEmployees,
     'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
+    'course-history': renderCourseHistory,
     'admin-dashboard': renderAdminDashboard, 'admin-branches': renderAdminBranches,
     'admin-employees': renderAdminEmployees,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
+    'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
@@ -4215,6 +4223,209 @@ function renderManual() {
         title="คู่มือการสอนงาน"></iframe>
     </div>
   </div>`;
+}
+
+// ==================== COURSE HISTORY (ประวัติการอบรมหลักสูตร) ====================
+function _branchCourseHistory(bid) {
+  if (bid === 'ALL') return DB.courseHistory.slice();
+  return DB.courseHistory.filter(c => c.branchId === bid);
+}
+
+function renderCourseHistory() {
+  const bid = getBranchId();
+  const list = _branchCourseHistory(bid).slice().sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">การฝึกอบรม</div>
+      <div class="page-hero-title">ประวัติการอบรมหลักสูตร</div>
+      <div class="page-hero-sub">${BRANCH_MASTER[bid]?.name || 'สาขา'}</div>
+    </div>
+    <button class="btn btn-accent" onclick="openAddCourseHistory()">+ เพิ่มรายการ</button>
+  </div>
+  <div class="card">
+    <div class="search-bar"><input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / ตำแหน่ง..." oninput="filterCourseHistory()"></div>
+    <div class="table-wrap"><table class="cards-on-mobile">
+      <thead><tr>
+        <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th>
+        <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th>
+        <th style="text-align:right">จัดการ</th>
+      </tr></thead>
+      <tbody id="ch-tbody">${renderCourseHistoryRows(list)}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderCourseHistoryRows(list) {
+  if (!list.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
+  return list.map(c => {
+    const e = getEmployee(c.empId);
+    return `<tr>
+      <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${(e&&e.empCode)||c.empCode||'—'}</td>
+      <td data-label="ชื่อ"><strong>${(e&&e.name)||c.empName||'—'}</strong></td>
+      <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${(e&&e.position)||c.position||'—'}</td>
+      <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
+      <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
+      <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
+      <td data-label="actions" style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="openEditCourseHistory('${c.id}')">แก้ไข</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteCourseHistory('${c.id}')">ลบ</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterCourseHistory() {
+  const q = (document.getElementById('ch-search').value||'').toLowerCase();
+  const bid = getBranchId();
+  const list = _branchCourseHistory(bid).filter(c => {
+    const e = getEmployee(c.empId);
+    const hay = [(e&&e.name)||c.empName, (e&&e.position)||c.position, c.courseName, c.batchNo].join(' ').toLowerCase();
+    return hay.includes(q);
+  }).sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  document.getElementById('ch-tbody').innerHTML = renderCourseHistoryRows(list);
+}
+
+function _courseHistoryFormHtml(bid, c) {
+  const emps = (getBranchEmployees(bid)||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  const empOpts = emps.map(e=>`<option value="${e.id}"${c&&c.empId===e.id?' selected':''}>${e.empCode?e.empCode+' · ':''}${e.name} (${e.position||'-'})</option>`).join('');
+  return `
+    <div class="form-row">
+      <div><label class="form-label">พนักงาน <span class="req">*</span></label>
+        <select class="form-select" id="ch-emp"><option value="">— เลือกพนักงาน —</option>${empOpts}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label>
+        <input class="form-input" id="ch-course" placeholder="เช่น Admin Operations Level 2" value="${c?.courseName||''}">
+      </div>
+      <div><label class="form-label">รุ่นที่</label>
+        <input class="form-input" id="ch-batch" placeholder="เช่น 2" value="${c?.batchNo||''}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่อบรม <span class="req">*</span></label>
+        <input class="form-input" type="date" id="ch-date" value="${c?.courseDate||''}">
+      </div>
+    </div>`;
+}
+
+function openAddCourseHistory() {
+  const bid = getBranchId();
+  if (bid === 'ALL') { notify('กรุณาเลือกสาขาก่อน','error'); return; }
+  showModal('เพิ่มประวัติการอบรมหลักสูตร', _courseHistoryFormHtml(bid, null), () => {
+    const empId = document.getElementById('ch-emp').value;
+    const courseName = document.getElementById('ch-course').value.trim();
+    const batchNo = document.getElementById('ch-batch').value.trim();
+    const courseDate = document.getElementById('ch-date').value;
+    if (!empId || !courseName || !courseDate) { notify('กรุณากรอกข้อมูลที่จำเป็น','error'); return; }
+    const e = getEmployee(empId);
+    const rec = {
+      id: genId('CH'),
+      branchId: bid,
+      empId,
+      empCode: e?.empCode || '',
+      empName: e?.name || '',
+      position: e?.position || '',
+      courseName, batchNo, courseDate,
+      createdAt: new Date().toISOString(),
+    };
+    DB.courseHistory.push(rec);
+    gsSave('courseHistory', rec.id, rec);
+    closeModal(); showPage('course-history'); notify('เพิ่มประวัติการอบรมสำเร็จ');
+  });
+}
+
+function openEditCourseHistory(id) {
+  const c = DB.courseHistory.find(x=>x.id===id); if (!c) return;
+  showModal('แก้ไขประวัติการอบรมหลักสูตร', _courseHistoryFormHtml(c.branchId, c), () => {
+    const empId = document.getElementById('ch-emp').value;
+    const courseName = document.getElementById('ch-course').value.trim();
+    const batchNo = document.getElementById('ch-batch').value.trim();
+    const courseDate = document.getElementById('ch-date').value;
+    if (!empId || !courseName || !courseDate) { notify('กรุณากรอกข้อมูลที่จำเป็น','error'); return; }
+    const e = getEmployee(empId);
+    c.empId = empId;
+    c.empCode = e?.empCode || c.empCode || '';
+    c.empName = e?.name || c.empName || '';
+    c.position = e?.position || c.position || '';
+    c.courseName = courseName; c.batchNo = batchNo; c.courseDate = courseDate;
+    gsSave('courseHistory', c.id, c);
+    closeModal(); showPage(currentPage); notify('อัปเดตสำเร็จ');
+  });
+}
+
+function deleteCourseHistory(id) {
+  if (!confirm('ยืนยันลบรายการนี้?')) return;
+  DB.courseHistory = DB.courseHistory.filter(x=>x.id!==id);
+  gsDel('courseHistory', id);
+  showPage(currentPage); notify('ลบรายการสำเร็จ');
+}
+
+function renderAdminCourseHistory() {
+  const list = DB.courseHistory.slice().sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  const branchOpts = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} · ${BRANCH_MASTER[id].name}</option>`).join('');
+  return `
+  <div class="topbar"><div class="topbar-title">Admin · ประวัติการอบรมหลักสูตร</div></div>
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-eyebrow">การฝึกอบรม</div>
+      <div class="page-hero-title">ประวัติการอบรมหลักสูตรทั้งระบบ</div>
+      <div class="page-hero-sub">${list.length} รายการ</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <select class="form-select" id="ach-branch" onchange="filterAdminCourseHistory()" style="width:240px">
+        <option value="">— ทุกสาขา —</option>${branchOpts}
+      </select>
+      <input class="search-input" id="ach-search" placeholder="ค้นหาชื่อ / หลักสูตร..." oninput="filterAdminCourseHistory()" style="flex:1;min-width:200px">
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table class="cards-on-mobile">
+      <thead><tr>
+        <th>สาขา</th><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th>
+        <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th>
+        <th style="text-align:right">จัดการ</th>
+      </tr></thead>
+      <tbody id="ach-tbody">${renderAdminCourseHistoryRows(list)}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderAdminCourseHistoryRows(list) {
+  if (!list.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีข้อมูล</td></tr>';
+  return list.map(c => {
+    const e = getEmployee(c.empId);
+    return `<tr>
+      <td data-label="สาขา"><span class="badge badge-navy">${c.branchId||'—'}</span></td>
+      <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${(e&&e.empCode)||c.empCode||'—'}</td>
+      <td data-label="ชื่อ"><strong>${(e&&e.name)||c.empName||'—'}</strong></td>
+      <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${(e&&e.position)||c.position||'—'}</td>
+      <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
+      <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
+      <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
+      <td data-label="actions" style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="openEditCourseHistory('${c.id}')">แก้ไข</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteCourseHistory('${c.id}')">ลบ</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAdminCourseHistory() {
+  const branch = document.getElementById('ach-branch').value;
+  const q = (document.getElementById('ach-search').value||'').toLowerCase();
+  let list = DB.courseHistory.slice();
+  if (branch) list = list.filter(c => c.branchId === branch);
+  if (q) list = list.filter(c => {
+    const e = getEmployee(c.empId);
+    const hay = [(e&&e.name)||c.empName, (e&&e.position)||c.position, c.courseName, c.batchNo].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  list.sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  document.getElementById('ach-tbody').innerHTML = renderAdminCourseHistoryRows(list);
 }
 
 // ==================== EVALUATIONS (merged into renderTrainings) ====================
