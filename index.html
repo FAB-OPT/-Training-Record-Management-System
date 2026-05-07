@@ -4241,10 +4241,6 @@ function renderCourseHistory() {
       <div class="page-hero-title">ประวัติการอบรมหลักสูตร</div>
       <div class="page-hero-sub">${BRANCH_MASTER[bid]?.name || 'สาขา'}</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>
-      <button class="btn btn-accent" onclick="openAddCourseHistory()">+ เพิ่มรายการ</button>
-    </div>
   </div>
   <div class="card">
     <div class="search-bar"><input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / ตำแหน่ง..." oninput="filterCourseHistory()"></div>
@@ -4252,7 +4248,6 @@ function renderCourseHistory() {
       <thead><tr>
         <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th>
         <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th>
-        <th style="text-align:right">จัดการ</th>
       </tr></thead>
       <tbody id="ch-tbody">${renderCourseHistoryRows(list)}</tbody>
     </table></div>
@@ -4260,7 +4255,7 @@ function renderCourseHistory() {
 }
 
 function renderCourseHistoryRows(list) {
-  if (!list.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
+  if (!list.length) return '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
   return list.map(c => {
     const e = getEmployee(c.empId);
     return `<tr>
@@ -4270,10 +4265,6 @@ function renderCourseHistoryRows(list) {
       <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
       <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
       <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
-      <td data-label="actions" style="text-align:right;white-space:nowrap">
-        <button class="btn btn-sm btn-outline" onclick="openEditCourseHistory('${c.id}')">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteCourseHistory('${c.id}')">ลบ</button>
-      </td>
     </tr>`;
   }).join('');
 }
