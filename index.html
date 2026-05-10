@@ -823,10 +823,6 @@
     <div class="bottom-nav-icon">📚</div>
     <div class="bottom-nav-label">การสอน</div>
   </div>
-  <div class="bottom-nav-item" id="bnav-manual" onclick="showPage('manual');updateBottomNav('manual')">
-    <div class="bottom-nav-icon">📖</div>
-    <div class="bottom-nav-label">คู่มือ</div>
-  </div>
   <div class="bottom-nav-item" id="bnav-logout" onclick="logout()">
     <div class="bottom-nav-icon">↩</div>
     <div class="bottom-nav-label">ออกจากระบบ</div>
@@ -2917,7 +2913,6 @@ function buildBranchNav() {
     <div class="nav-section-label" style="margin-top:8px">การสอนงาน</div>
     <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึก &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
-    <div class="nav-item" id="nav-manual" onclick="showPage('manual')"><span class="nav-icon">◼</span> คู่มือการสอนงาน</div>
     <div class="nav-section-label" style="margin-top:8px">รายงาน</div>
     <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
 }
@@ -2939,6 +2934,7 @@ function showPage(page) {
   if (page === 'evaluations') page = 'trainings';
   if (page === 'admin-evaluations') page = 'admin-trainings';
   if (page === 'admin-branches' || page === 'admin-employees') page = 'admin-manage';
+  if (page === 'manual') page = 'trainings';
   currentPage = page;
   closeSidebar();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -3099,8 +3095,8 @@ function renderDashboard() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">แดชบอร์ด</div>
-      <div class="page-hero-sub">ภาพรวมการสอนงานของสาขา · อัปเดต ${fmtDate(new Date().toISOString())}</div>
+      <div class="page-hero-title">ภาพรวมการสอนงานของสาขา</div>
+      <div class="page-hero-sub">อัปเดต ${fmtDate(new Date().toISOString())}</div>
     </div>
   </div>
   ${(()=>{
@@ -3665,9 +3661,7 @@ function renderEmployees() {
 
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">ทีมงานสาขา</div>
-      <div class="page-hero-title">รายชื่อพนักงาน</div>
-      <div class="page-hero-sub">${BRANCH_MASTER[bid].name}</div>
+      <div class="page-hero-title">จัดการรายชื่อพนักงาน</div>
     </div>
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
@@ -3783,9 +3777,7 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">การสอนงาน</div>
-      <div class="page-hero-title">บันทึกการสอน &amp; ประเมินผล</div>
-      <div class="page-hero-sub">ประวัติการสอนงานและสถานะการประเมินของสาขา</div>
+      <div class="page-hero-title">ประวัติการสอนงานและการประเมินของสาขา</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
@@ -3849,6 +3841,11 @@ function openAddTraining() {
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
 
   showModal('บันทึกการสอนงาน', `
+    <div style="margin-bottom:14px">
+      <button type="button" class="btn btn-outline" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openManualModal()">
+        📖 ดูคู่มือการสอนงาน
+      </button>
+    </div>
     <div class="form-row">
       <div><label class="form-label">วันที่และเวลาที่สอน <span class="req">*</span></label><input class="form-input" type="datetime-local" id="tr-date" value="${now}"></div>
       <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label><input class="form-input" id="tr-trainer" placeholder="ชื่อผู้สอน"></div>
@@ -4226,6 +4223,26 @@ function openManualFullscreen() {
   else window.open('https://heyzine.com/flip-book/b958610e1d.html', '_blank');
 }
 
+function openManualModal() {
+  let ov = document.getElementById('manual-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'manual-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div style="background:#000;border-radius:14px;width:100%;max-width:1200px;height:90vh;position:relative;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.5)">
+      <button onclick="closeManualModal()" style="position:absolute;top:12px;right:12px;z-index:2;width:36px;height:36px;border-radius:999px;border:none;background:rgba(255,255,255,0.95);color:#1F1814;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3)">✕</button>
+      <iframe src="https://heyzine.com/flip-book/b958610e1d.html" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen scrolling="no" title="คู่มือการสอนงาน"></iframe>
+    </div>`;
+  ov.style.display = 'flex';
+}
+function closeManualModal() {
+  const ov = document.getElementById('manual-overlay');
+  if (ov) ov.remove();
+}
+
 function renderManual() {
   return `
   <div class="page-hero">
@@ -4261,9 +4278,7 @@ function renderCourseHistory() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">การฝึกอบรม</div>
       <div class="page-hero-title">ประวัติการอบรมหลักสูตร</div>
-      <div class="page-hero-sub">${BRANCH_MASTER[bid]?.name || 'สาขา'}</div>
     </div>
   </div>
   <div class="card">
