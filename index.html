@@ -3146,10 +3146,11 @@ function calcTenureShort(startDate) {
   let months = now.getMonth() - start.getMonth();
   if(now.getDate() < start.getDate()) months--;
   if(months < 0) { years--; months += 12; }
-  if(years < 0) return '<1m';
-  if(years === 0) return months + 'ด.';
-  if(months === 0) return years + 'ปี';
-  return years + 'ปี ' + months + 'ด.';
+  if(years < 0) return 'ยังไม่เริ่มงาน';
+  if(years === 0 && months === 0) return 'น้อยกว่า 1 เดือน';
+  if(years === 0) return months + ' เดือน';
+  if(months === 0) return years + ' ปี';
+  return years + ' ปี ' + months + ' เดือน';
 }
 function genId(prefix) { return prefix + Date.now().toString().slice(-6); }
 function notify(msg, type='success') {
