@@ -3729,9 +3729,48 @@ function showEmpTenureModal(bid, label, minMo, maxMo) {
     </table></div>`, null, 'ปิด');
 }
 
+// ==================== SORT HELPERS ====================
+function _sortHeader(key, label, sortState, setterName, align) {
+  const active = sortState.key === key;
+  const arrow = active ? (sortState.dir === 'asc' ? '▲' : '▼') : '⇅';
+  const arrowColor = active ? 'var(--accent)' : 'var(--text4)';
+  const alignStyle = align === 'right' ? 'text-align:right;' : (align === 'center' ? 'text-align:center;' : '');
+  return `<th style="cursor:pointer;user-select:none;${alignStyle}" onclick="${setterName}('${key}')">${label} <span style="color:${arrowColor};font-size:10px;font-weight:400">${arrow}</span></th>`;
+}
+function _toggleSort(state, key) {
+  if (state.key === key) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+  else { state.key = key; state.dir = 'asc'; }
+  return state;
+}
+function _cmp(a, b, dir) {
+  if (a == null) a = '';
+  if (b == null) b = '';
+  if (typeof a === 'number' && typeof b === 'number') return (a - b) * (dir === 'asc' ? 1 : -1);
+  return String(a).localeCompare(String(b), 'th') * (dir === 'asc' ? 1 : -1);
+}
+
 // ==================== EMPLOYEES ====================
 let _empGroupFilter = 'all';
+let _empSort = { key: 'name', dir: 'asc' };
 function setEmpGroupFilter(g) { _empGroupFilter = g; document.getElementById('main-content').innerHTML = renderEmployees(); }
+function setEmpSort(key) { _toggleSort(_empSort, key); document.getElementById('main-content').innerHTML = renderEmployees(); }
+function _sortEmps(emps) {
+  const k = _empSort.key, dir = _empSort.dir;
+  const get = (e) => {
+    switch (k) {
+      case 'empCode': return e.empCode || '';
+      case 'name': return e.name || '';
+      case 'group': return getPositionGroup(e.position);
+      case 'position': return e.position || '';
+      case 'startDate': return e.startDate || '';
+      case 'status': return e.status || '';
+    }
+    return '';
+  };
+  // 'tenure' is derived from startDate; asc = least tenure first = newest startDate first
+  if (k === 'tenure') return emps.slice().sort((a,b) => _cmp(b.startDate||'', a.startDate||'', dir));
+  return emps.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+}
 
 function renderEmployees() {
   const bid = getBranchId(); const emps = getBranchEmployees(bid);
@@ -3768,8 +3807,17 @@ function renderEmployees() {
       <input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:200px;margin-left:auto">
     </div>
     <div class="table-wrap"><table class="cards-on-mobile">
-      <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ประเภท</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
-      <tbody id="emp-tbody">${renderEmpRows(rows)}</tbody>
+      <thead><tr>
+        ${_sortHeader('empCode','รหัสพนักงาน',_empSort,'setEmpSort')}
+        ${_sortHeader('name','ชื่อ - นามสกุล',_empSort,'setEmpSort')}
+        ${_sortHeader('group','ประเภท',_empSort,'setEmpSort')}
+        ${_sortHeader('position','ตำแหน่ง',_empSort,'setEmpSort')}
+        ${_sortHeader('startDate','วันเริ่มงาน',_empSort,'setEmpSort')}
+        ${_sortHeader('tenure','อายุงาน',_empSort,'setEmpSort')}
+        ${_sortHeader('status','สถานะ',_empSort,'setEmpSort')}
+        <th style="text-align:right">จัดการ</th>
+      </tr></thead>
+      <tbody id="emp-tbody">${renderEmpRows(_sortEmps(rows))}</tbody>
     </table></div>
   </div>`;
 }
@@ -3805,7 +3853,7 @@ function filterEmployees() {
     if (wantGroup && getPositionGroup(e.position) !== wantGroup) return false;
     return e.name.toLowerCase().includes(q) || e.position.toLowerCase().includes(q);
   });
-  document.getElementById('emp-tbody').innerHTML = renderEmpRows(emps);
+  document.getElementById('emp-tbody').innerHTML = renderEmpRows(_sortEmps(emps));
 }
 
 function openAddEmployee() {
@@ -3866,7 +3914,25 @@ function openEditEmployee(id) {
 
 // ==================== TRAININGS ====================
 let _trainFilter = 'all';
+let _trainSort = { key: 'date', dir: 'desc' };
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function setTrainSort(key) { _toggleSort(_trainSort, key); document.getElementById('main-content').innerHTML = renderTrainings(); }
+function _sortTrainings(list) {
+  const k = _trainSort.key, dir = _trainSort.dir;
+  const get = (t) => {
+    switch (k) {
+      case 'date': return t.date || '';
+      case 'module': return MODULES[t.moduleId]?.name || t.moduleId || '';
+      case 'trainer': return t.trainerName || '';
+      case 'status':
+        if (t.eval) return '2_' + (getEvalResultLabel(t.eval.result) || '');
+        if (isEvalDeadlinePassed(t.date)) return '3_expired';
+        return '1_pending';
+    }
+    return '';
+  };
+  return list.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+}
 
 function renderTrainings() {
   const bid = getBranchId(); const trains = getBranchTrainings(bid);
@@ -3878,6 +3944,7 @@ function renderTrainings() {
   if (filter === 'pending') rows = pending;
   else if (filter === 'done') rows = done;
   else if (filter === 'expired') rows = expired;
+  rows = _sortTrainings(rows);
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
@@ -3899,7 +3966,15 @@ function renderTrainings() {
       ${tabBtn('expired','หมดเวลา',expired.length)}
     </div>
     <div class="table-wrap"><table class="cards-on-mobile">
-      <thead><tr><th>วันที่ / เวลา</th><th>Module หลัก</th><th>หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+      <thead><tr>
+        ${_sortHeader('date','วันที่ / เวลา',_trainSort,'setTrainSort')}
+        ${_sortHeader('module','Module หลัก',_trainSort,'setTrainSort')}
+        <th>หัวข้อย่อย</th>
+        <th>พนักงาน</th>
+        ${_sortHeader('trainer','ผู้สอน',_trainSort,'setTrainSort')}
+        ${_sortHeader('status','สถานะ',_trainSort,'setTrainSort')}
+        <th>จัดการ</th>
+      </tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`
@@ -4380,7 +4455,9 @@ function _branchCourseHistory(bid) {
 let _chGroupFilter = 'all';
 let _chSearch = '';
 let _chExpanded = new Set();
+let _chSort = { key: 'latestDate', dir: 'desc' };
 function setChGroupFilter(g) { _chGroupFilter = g; document.getElementById('main-content').innerHTML = renderCourseHistory(); }
+function setChSort(key) { _toggleSort(_chSort, key); document.getElementById('main-content').innerHTML = renderCourseHistory(); }
 function toggleChEmpExpand(key) {
   if (_chExpanded.has(key)) _chExpanded.delete(key); else _chExpanded.add(key);
   document.getElementById('main-content').innerHTML = renderCourseHistory();
@@ -4425,7 +4502,19 @@ function _chGetGroupedFiltered() {
     g.latestDate = g.items[0].courseDate || '';
     groups.push(g);
   });
-  groups.sort((a,b) => (b.latestDate||'').localeCompare(a.latestDate||''));
+  const k = _chSort.key, dir = _chSort.dir;
+  const get = (g) => {
+    switch (k) {
+      case 'empCode': return g.empCode || '';
+      case 'empName': return g.empName || '';
+      case 'position': return g.position || '';
+      case 'branch': return BRANCH_MASTER[g.branchId]?.name || g.branchId || '';
+      case 'count': return g.items.length;
+      case 'latestDate': return g.latestDate || '';
+    }
+    return '';
+  };
+  groups.sort((a,b) => _cmp(get(a), get(b), dir));
   return groups;
 }
 
@@ -4467,8 +4556,12 @@ function renderCourseHistory() {
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
         <th style="width:32px"></th>
-        <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th>
-        <th style="text-align:center">จำนวนหลักสูตร</th><th>อบรมล่าสุด</th>
+        ${_sortHeader('empCode','รหัสพนักงาน',_chSort,'setChSort')}
+        ${_sortHeader('empName','ชื่อ - นามสกุล',_chSort,'setChSort')}
+        ${_sortHeader('position','ตำแหน่ง',_chSort,'setChSort')}
+        ${_sortHeader('branch','สาขา',_chSort,'setChSort')}
+        ${_sortHeader('count','จำนวนหลักสูตร',_chSort,'setChSort','center')}
+        ${_sortHeader('latestDate','อบรมล่าสุด',_chSort,'setChSort')}
       </tr></thead>
       <tbody id="ch-tbody">${renderCourseHistoryGroupedRows(groups)}</tbody>
     </table></div>
