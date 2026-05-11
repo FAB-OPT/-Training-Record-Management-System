@@ -949,7 +949,6 @@
     </div>
     <div class="nav" id="sidebar-nav"></div>
     <div class="sidebar-footer">
-      <button class="btn-sync" id="sync-btn" onclick="syncData()">⟳ ซิงค์ข้อมูลจาก Sheets</button>
       <button class="btn-theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark/light mode">
         <span id="theme-toggle-icon">🌙</span>
         <span id="theme-toggle-label">Dark Mode</span>
@@ -3225,7 +3224,6 @@ function renderDashboard() {
           </div>
         </div>
         <div class="dash-stat-value">${emps.length}</div>
-        <div class="dash-stat-sub">${totalActive} ทำงาน · ${emps.length-totalActive} ลาออก</div>
       </div>
       <div class="dash-stat-tile" style="--tile-accent:#28A745" onclick="showPage('trainings')">
         <div class="dash-stat-head">
@@ -3235,7 +3233,6 @@ function renderDashboard() {
           </div>
         </div>
         <div class="dash-stat-value">${trains.length}</div>
-        <div class="dash-stat-sub">${evaled.length} ประเมินแล้ว · ${trains.length-evaled.length} รอ</div>
       </div>
       <div class="dash-stat-tile" style="--tile-accent:#FF6B1A" onclick="showPendingModal('${bid}')">
         <div class="dash-stat-head">
@@ -3245,7 +3242,6 @@ function renderDashboard() {
           </div>
         </div>
         <div class="dash-stat-value">${pending.length}</div>
-        <div class="dash-stat-sub">ภายใน 14 วันนับจากวันสอน</div>
       </div>
       <div class="dash-stat-tile" style="--tile-accent:#AF52DE" onclick="showPassRateModal('${bid}')">
         <div class="dash-stat-head">
@@ -3255,7 +3251,6 @@ function renderDashboard() {
           </div>
         </div>
         <div class="dash-stat-value">${passRate}%</div>
-        <div class="dash-stat-sub">${evaled.filter(t=>isEvalPass(t.eval.result)).length}/${evaled.length} ครั้ง</div>
       </div>
     </div>
     <div class="dash-top-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch">
