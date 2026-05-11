@@ -3852,18 +3852,18 @@ function renderTrainings() {
   if (filter === 'pending') rows = pending;
   else if (filter === 'done') rows = done;
   else if (filter === 'expired') rows = expired;
-  const tabBtn = (key, label, count) => `<button onclick="setTrainFilter('${key}')" class="train-tab ${filter===key?'active':''}" style="border:none;background:${filter===key?'var(--accent)':'transparent'};color:${filter===key?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${filter===key?'rgba(255,255,255,.18)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+  const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
+  const tabBtn = (key, label, count) => {
+    const c = tabColors[key];
+    const active = filter === key;
+    return `<button onclick="setTrainFilter('${key}')" class="train-tab ${active?'active':''}" style="border:none;background:${active?c:'transparent'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${active?'rgba(255,255,255,.22)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+  };
   return `
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">ประวัติการสอนงานและการประเมินของสาขา</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
-  </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-yellow">⏳</div><div class="stat-info"><div class="stat-value">${pending.length}</div><div class="stat-label">รอการประเมิน</div></div></div>
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-green">✓</div><div class="stat-info"><div class="stat-value">${done.length}</div><div class="stat-label">ประเมินแล้ว</div></div></div>
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-red">!</div><div class="stat-info"><div class="stat-value">${expired.length}</div><div class="stat-label">หมดระยะเวลา</div></div></div>
   </div>
   <div class="card">
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
@@ -5400,7 +5400,12 @@ function renderAdminTrainings() {
 
   const branchOptions = Object.keys(BRANCH_MASTER).sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   const moduleOptions = Object.entries(MODULES).map(([k,m]) => `<option value="${k}"${k===_adminTrainModule?' selected':''}>${m.name}</option>`).join('');
-  const tabBtn = (key, label, count) => `<button onclick="setAdminTrainFilter('${key}')" class="train-tab ${filter===key?'active':''}" style="border:none;background:${filter===key?'var(--accent)':'transparent'};color:${filter===key?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${filter===key?'rgba(255,255,255,.18)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+  const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
+  const tabBtn = (key, label, count) => {
+    const c = tabColors[key];
+    const active = filter === key;
+    return `<button onclick="setAdminTrainFilter('${key}')" class="train-tab ${active?'active':''}" style="border:none;background:${active?c:'transparent'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${active?'rgba(255,255,255,.22)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+  };
 
   return `
   <div class="topbar"><div class="topbar-title">Admin · บันทึก &amp; ประเมินผล</div></div>
