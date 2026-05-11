@@ -3402,7 +3402,7 @@ function renderDashboard() {
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0A84FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
           </div>
         </div>
-        <div class="dash-stat-value">${emps.length}</div>
+        <div class="dash-stat-value">${activeEmps.length}</div>
       </div>
       <div class="dash-stat-tile" style="--tile-accent:#28A745" onclick="showPage('trainings')">
         <div class="dash-stat-head">
@@ -3601,7 +3601,7 @@ function renderDashPosPage(bid) {
 }
 
 function showAllEmployeesModal(bid) {
-  const emps = getBranchEmployees(bid);
+  const emps = getBranchEmployees(bid).filter(_isEmpEnabled);
   showModal('พนักงานทั้งหมด (' + emps.length + ' คน)', '<div class="table-wrap"><table>'
     + '<thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th><th>สถานะ</th></tr></thead>'
     + '<tbody>' + emps.map(e => '<tr>'
