@@ -279,6 +279,19 @@
   /* ==================== STATS ==================== */
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; display: flex; align-items: center; gap: 14px; transition: all 0.2s; }
+  /* Dashboard 4-tile stats — adapt to light/dark via CSS vars */
+  .dash-stat-tile {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 22px 24px; cursor: pointer;
+    transition: all .25s; position: relative; overflow: hidden;
+  }
+  .dash-stat-tile:hover { border-color: var(--tile-accent, var(--accent)); transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); }
+  body.dark-mode .dash-stat-tile:hover { box-shadow: 0 12px 28px rgba(0,0,0,0.45); }
+  .dash-stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .dash-stat-label { font-size: 12.5px; font-weight: 600; color: var(--text2); letter-spacing: -0.1px; }
+  .dash-stat-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .dash-stat-value { font-size: 40px; font-weight: 700; line-height: 1; color: var(--text); letter-spacing: -1.4px; margin-bottom: 10px; }
+  .dash-stat-sub { font-size: 12.5px; color: var(--text3); font-weight: 500; }
   .stat-card:hover { border-color: var(--border2); box-shadow: var(--shadow-sm); }
   .stat-icon-wrap { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
   .stat-icon-blue { background: var(--accent-light); color: var(--accent); }
@@ -3212,47 +3225,45 @@ function renderDashboard() {
 
     return `<div class="dash-wrap" style="zoom:1.12">
     <div class="dash-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">
-      <div style="background:linear-gradient(180deg,#FFFFFF 0%,#FAFBFF 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#0A84FF';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(10,132,255,0.14)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showAllEmployeesModal('${bid}')">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-          <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">พนักงานทั้งหมด</span>
-          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#0A84FF,#5AC8FA);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(10,132,255,.3)">
+      <div class="dash-stat-tile" style="--tile-accent:#0A84FF" onclick="showAllEmployeesModal('${bid}')">
+        <div class="dash-stat-head">
+          <span class="dash-stat-label">พนักงานทั้งหมด</span>
+          <div class="dash-stat-icon" style="background:linear-gradient(135deg,#0A84FF,#5AC8FA);box-shadow:0 4px 12px rgba(10,132,255,.3)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
         </div>
-        <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${emps.length}</div>
-        <div style="font-size:12.5px;color:#8E8E93;font-weight:500">${totalActive} ทำงาน · ${emps.length-totalActive} ลาออก</div>
+        <div class="dash-stat-value">${emps.length}</div>
+        <div class="dash-stat-sub">${totalActive} ทำงาน · ${emps.length-totalActive} ลาออก</div>
       </div>
-      <div style="background:linear-gradient(180deg,#FFFFFF 0%,#F7FEF9 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#28A745';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(40,167,69,0.14)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showPage('trainings')">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-          <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">บันทึกการสอน</span>
-          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#28A745,#5CD773);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(40,167,69,.3)">
+      <div class="dash-stat-tile" style="--tile-accent:#28A745" onclick="showPage('trainings')">
+        <div class="dash-stat-head">
+          <span class="dash-stat-label">บันทึกการสอน</span>
+          <div class="dash-stat-icon" style="background:linear-gradient(135deg,#28A745,#5CD773);box-shadow:0 4px 12px rgba(40,167,69,.3)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           </div>
         </div>
-        <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${trains.length}</div>
-        <div style="font-size:12.5px;color:#8E8E93;font-weight:500">${evaled.length} ประเมินแล้ว · ${trains.length-evaled.length} รอ</div>
+        <div class="dash-stat-value">${trains.length}</div>
+        <div class="dash-stat-sub">${evaled.length} ประเมินแล้ว · ${trains.length-evaled.length} รอ</div>
       </div>
-      <div style="background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F2 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#FF6B1A';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(255,107,26,0.18)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showPendingModal('${bid}')">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-          <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">รอประเมินผล</span>
-          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#FF6B1A,#FF9F40);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,107,26,.3)">
+      <div class="dash-stat-tile" style="--tile-accent:#FF6B1A" onclick="showPendingModal('${bid}')">
+        <div class="dash-stat-head">
+          <span class="dash-stat-label">รอประเมินผล</span>
+          <div class="dash-stat-icon" style="background:linear-gradient(135deg,#FF6B1A,#FF9F40);box-shadow:0 4px 12px rgba(255,107,26,.3)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </div>
         </div>
-        <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${pending.length}</div>
-        <div style="font-size:12.5px;color:#8E8E93;font-weight:500">ภายใน 14 วันนับจากวันสอน</div>
+        <div class="dash-stat-value">${pending.length}</div>
+        <div class="dash-stat-sub">ภายใน 14 วันนับจากวันสอน</div>
       </div>
-      <div style="background:linear-gradient(180deg,#FFFFFF 0%,#FBF8FF 100%);border:1px solid #E5E5EA;border-radius:18px;padding:22px 24px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='#AF52DE';this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 28px rgba(175,82,222,0.16)'" onmouseleave="this.style.borderColor='#E5E5EA';this.style.transform='';this.style.boxShadow=''" onclick="showPassRateModal('${bid}')">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-            <span style="font-size:12.5px;font-weight:600;color:#6E6E73;letter-spacing:-0.1px">อัตราผ่านประเมิน</span>
-            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#AF52DE,#D680F5);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(175,82,222,.3)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            </div>
+      <div class="dash-stat-tile" style="--tile-accent:#AF52DE" onclick="showPassRateModal('${bid}')">
+        <div class="dash-stat-head">
+          <span class="dash-stat-label">อัตราผ่านประเมิน</span>
+          <div class="dash-stat-icon" style="background:linear-gradient(135deg,#AF52DE,#D680F5);box-shadow:0 4px 12px rgba(175,82,222,.3)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
-          <div style="font-size:40px;font-weight:700;line-height:1;color:#1D1D1F;letter-spacing:-1.4px;margin-bottom:10px">${passRate}%</div>
-          <div style="font-size:12.5px;color:#8E8E93;font-weight:500">${evaled.filter(t=>isEvalPass(t.eval.result)).length}/${evaled.length} ครั้ง</div>
         </div>
+        <div class="dash-stat-value">${passRate}%</div>
+        <div class="dash-stat-sub">${evaled.filter(t=>isEvalPass(t.eval.result)).length}/${evaled.length} ครั้ง</div>
       </div>
     </div>
     <div class="dash-top-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch">
