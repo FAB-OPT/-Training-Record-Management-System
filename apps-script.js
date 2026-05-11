@@ -15,9 +15,12 @@ function doGet(e) {
 
   if (action === 'load') {
     const result = {
-      employees:   readSheet(ss, 'employees'),
-      trainings:   readSheet(ss, 'trainings'),
-      quizResults: readSheet(ss, 'quizResults')
+      employees:     readSheet(ss, 'employees'),
+      trainings:     readSheet(ss, 'trainings'),
+      quizResults:   readSheet(ss, 'quizResults'),
+      customQuiz:    readSheet(ss, 'customQuiz'),
+      courseHistory: readSheet(ss, 'courseHistory'),
+      quizMeta:      readSheetSingleton(ss, 'quizMeta')
     };
     return respond(result);
   }
@@ -65,6 +68,12 @@ function readSheet(ss, name) {
     });
     return obj;
   });
+}
+
+// Singleton-style sheet (e.g. quizMeta) — returns the first/only row's record or {}
+function readSheetSingleton(ss, name) {
+  const rows = readSheet(ss, name);
+  return rows.length ? rows[0] : {};
 }
 
 function saveRow(ss, name, id, record) {
