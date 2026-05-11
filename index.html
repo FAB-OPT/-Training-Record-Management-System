@@ -3180,6 +3180,88 @@ function calcTenure(startDate) {
   if(months > 0) parts.push(months + ' เดือน');
   return parts.join(' ');
 }
+// Employee enable/disable: status='active' (enabled) vs 'resigned' (disabled, with optional disabledReason)
+function _isEmpEnabled(e) { return !e || (e.status||'active') === 'active'; }
+function _empStatusLabel(e) { return _isEmpEnabled(e) ? 'เปิดใช้งาน' : 'ปิดใช้งาน'; }
+function _empStatusBadge(e) {
+  const cls = _isEmpEnabled(e) ? 'badge-green' : 'badge-red';
+  const reason = !_isEmpEnabled(e) && e.disabledReason ? ` title="เหตุผล: ${String(e.disabledReason).replace(/"/g,'&quot;')}"` : '';
+  const reasonInline = !_isEmpEnabled(e) && e.disabledReason ? `<div style="font-size:10.5px;color:var(--text3);margin-top:3px;font-weight:500">${e.disabledReason}</div>` : '';
+  return `<span class="badge ${cls}"${reason}>${_empStatusLabel(e)}</span>${reasonInline}`;
+}
+function _empStatusToggleBtn(e) {
+  // Clickable badge: opens toggle modal
+  const cls = _isEmpEnabled(e) ? 'badge-green' : 'badge-red';
+  const tip = !_isEmpEnabled(e) && e.disabledReason ? `เหตุผล: ${String(e.disabledReason).replace(/"/g,'&quot;')}` : 'คลิกเพื่อสลับสถานะ';
+  const reasonInline = !_isEmpEnabled(e) && e.disabledReason ? `<div style="font-size:10.5px;color:var(--text3);margin-top:3px;font-weight:500">${e.disabledReason}</div>` : '';
+  return `<span class="badge ${cls}" style="cursor:pointer" title="${tip}" onclick="event.stopPropagation();openToggleEmpStatus('${e.id}')">${_empStatusLabel(e)}</span>${reasonInline}`;
+}
+// HTML for the status select + reason textarea (auto-shown when ปิดใช้งาน)
+function _empStatusFormHtml(currentStatus, currentReason) {
+  const isDis = currentStatus === 'resigned';
+  return `<div><label class="form-label">สถานะ <span class="req">*</span></label>
+    <select class="form-select" id="emp-status" onchange="document.getElementById('emp-disable-reason-row').style.display=this.value==='resigned'?'block':'none'">
+      <option value="active"${!isDis?' selected':''}>เปิดใช้งาน</option>
+      <option value="resigned"${isDis?' selected':''}>ปิดใช้งาน</option>
+    </select>
+    <div id="emp-disable-reason-row" style="margin-top:8px;display:${isDis?'block':'none'}">
+      <label class="form-label" style="font-size:11px">เหตุผลที่ปิดใช้งาน <span class="req">*</span></label>
+      <textarea class="form-textarea" id="emp-disable-reason" rows="2" placeholder="เช่น ลาออก, พักงาน, โอนย้ายสาขา ...">${(currentReason||'').replace(/</g,'&lt;')}</textarea>
+    </div>
+  </div>`;
+}
+// Validate + read status from the form. Returns {status, disabledReason} or null on validation error.
+function _readEmpStatusForm() {
+  const status = document.getElementById('emp-status').value;
+  if (status === 'resigned') {
+    const reason = (document.getElementById('emp-disable-reason')?.value||'').trim();
+    if (!reason) { notify('กรุณาระบุเหตุผลที่ปิดใช้งาน','error'); return null; }
+    return { status, disabledReason: reason };
+  }
+  return { status: 'active', disabledReason: null };
+}
+
+function openToggleEmpStatus(empId) {
+  const e = getEmployee(empId); if (!e) return;
+  if (_isEmpEnabled(e)) {
+    // Asking for reason to disable
+    showModal('ปิดใช้งานพนักงาน', `
+      <div style="margin-bottom:12px;padding:12px 14px;background:var(--surface2);border-radius:8px;font-size:13px">
+        <strong>${e.name}</strong><br>
+        <span style="font-size:12px;color:var(--text2)">${e.position||''} ${e.empCode?'· รหัส '+e.empCode:''}</span>
+      </div>
+      <div class="form-full">
+        <label class="form-label">เหตุผลที่ปิดใช้งาน <span class="req">*</span></label>
+        <textarea class="form-textarea" id="emp-disable-reason" placeholder="เช่น ลาออก, พักงาน, โอนย้ายสาขา ..." rows="3"></textarea>
+      </div>
+    `, () => {
+      const reason = (document.getElementById('emp-disable-reason').value||'').trim();
+      if (!reason) { notify('กรุณาระบุเหตุผล','error'); return; }
+      e.status = 'resigned';
+      e.disabledReason = reason;
+      gsSave('employees', e.id, e);
+      closeModal();
+      showPage(currentPage);
+      notify('ปิดใช้งานพนักงานเรียบร้อย');
+    }, 'ยืนยันปิดใช้งาน');
+  } else {
+    showModal('เปิดใช้งานพนักงาน', `
+      <div style="text-align:center;padding:16px 0 8px">
+        <div style="font-size:42px;margin-bottom:10px">✅</div>
+        <div style="font-size:15px;font-weight:700">เปิดใช้งาน <strong>${e.name}</strong> อีกครั้ง?</div>
+        ${e.disabledReason?`<div style="font-size:12px;color:var(--text3);margin-top:8px">เหตุผลเดิม: ${e.disabledReason}</div>`:''}
+      </div>
+    `, () => {
+      e.status = 'active';
+      delete e.disabledReason;
+      gsSave('employees', e.id, e);
+      closeModal();
+      showPage(currentPage);
+      notify('เปิดใช้งานพนักงานเรียบร้อย');
+    }, 'ยืนยันเปิดใช้งาน');
+  }
+}
+
 // Normalize any stored date (ISO string, Date object, "DD/MM/YYYY", BE year, etc.)
 // to YYYY-MM-DD so <input type="date"> can render it.
 function _toDateInputValue(v) {
@@ -3527,7 +3609,7 @@ function showAllEmployeesModal(bid) {
       + '<td style="font-weight:600">' + e.name + '</td>'
       + '<td style="font-size:12px;color:var(--text2)">' + e.position + '</td>'
       + '<td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">' + calcTenureShort(e.startDate) + '</span></td>'
-      + '<td><span class="badge ' + (e.status === 'active' ? 'badge-green' : 'badge-red') + '">' + (e.status === 'active' ? 'ทำงาน' : 'ลาออก') + '</span></td>'
+      + '<td>' + _empStatusBadge(e) + '</td>'
       + '</tr>').join('')
     + '</tbody></table></div>', null, 'ปิด');
 }
@@ -3936,7 +4018,7 @@ function renderEmpRows(emps) {
     <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${e.position}</td>
     <td data-label="วันเริ่มงาน" style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
     <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-    <td data-label="สถานะ"><span class="badge ${e.status==='active'?'badge-green':'badge-red'}">${e.status==='active'?'กำลังทำงาน':'ลาออก'}</span></td>
+    <td data-label="สถานะ">${_empStatusToggleBtn(e)}</td>
     <td data-label="actions" style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
@@ -3965,18 +4047,19 @@ function openAddEmployee() {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน <span class="req">*</span></label><input class="form-input" type="date" id="emp-start"></div>
-      <div><label class="form-label">สถานะ <span class="req">*</span></label><select class="form-select" id="emp-status"><option value="active">กำลังทำงาน</option><option value="resigned">ลาออก</option></select></div>
+      ${_empStatusFormHtml('active', '')}
     </div>`, () => {
     const empCode = document.getElementById('emp-code').value.trim();
     const name = document.getElementById('emp-name').value.trim();
     const pos = document.getElementById('emp-pos').value.trim();
     const start = document.getElementById('emp-start').value;
-    const status = document.getElementById('emp-status').value;
+    const st = _readEmpStatusForm(); if (!st) return;
     if(!empCode||!name||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     const bid = getBranchId();
     if(!DB.employees[bid]) DB.employees[bid]=[];
-    const _ne=mkEmployee(bid,name,pos,start,status);
+    const _ne=mkEmployee(bid,name,pos,start,st.status);
     _ne.empCode=empCode;
+    if (st.disabledReason) _ne.disabledReason = st.disabledReason;
     DB.employees[bid].push(_ne); gsSave('employees', _ne.id, _ne);
     closeModal(); showPage('employees'); notify('เพิ่มพนักงานสำเร็จ');
   });
@@ -3996,13 +4079,15 @@ function openEditEmployee(id) {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
-      <div><label class="form-label">สถานะ</label><select class="form-select" id="emp-status"><option value="active" ${e.status==='active'?'selected':''}>กำลังทำงาน</option><option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option></select></div>
+      ${_empStatusFormHtml(e.status, e.disabledReason)}
     </div>`, () => {
+    const st = _readEmpStatusForm(); if (!st) return;
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.positionGroup=getPositionGroup(e.position);
     e.startDate=document.getElementById('emp-start').value;
-    e.status=document.getElementById('emp-status').value;
+    e.status=st.status;
+    if (st.disabledReason) e.disabledReason = st.disabledReason; else delete e.disabledReason;
     gsSave('employees', e.id, e);
     closeModal(); showPage('employees'); notify('อัปเดตข้อมูลสำเร็จ');
   });
@@ -5258,9 +5343,9 @@ function exportReport(type) {
   const titles = {summary:'รายงานสรุปสาขา',employees:'รายงานรายชื่อพนักงาน',trainings:'รายงานการสอนงาน',evaluations:'รายงานผลการประเมิน'};
   if(type==='summary'){
     const ev=trains.filter(t=>t.eval); const ps=ev.filter(t=>isEvalPass(t.eval.result));
-    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>รายการ</th><th>จำนวน</th></tr><tr><td>พนักงานทั้งหมด</td><td>${emps.length}</td></tr><tr><td>กำลังทำงาน</td><td>${emps.filter(e=>e.status==='active').length}</td></tr><tr><td>บันทึกการสอนทั้งหมด</td><td>${trains.length}</td></tr><tr><td>ประเมินแล้ว</td><td>${ev.length}</td></tr><tr><td>ผ่านการประเมิน</td><td>${ps.length}</td></tr><tr><td>อัตราผ่านเกณฑ์</td><td>${ev.length?Math.round(ps.length/ev.length*100):0}%</td></tr></table>`;
+    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>รายการ</th><th>จำนวน</th></tr><tr><td>พนักงานทั้งหมด</td><td>${emps.length}</td></tr><tr><td>เปิดใช้งาน</td><td>${emps.filter(_isEmpEnabled).length}</td></tr><tr><td>บันทึกการสอนทั้งหมด</td><td>${trains.length}</td></tr><tr><td>ประเมินแล้ว</td><td>${ev.length}</td></tr><tr><td>ผ่านการประเมิน</td><td>${ps.length}</td></tr><tr><td>อัตราผ่านเกณฑ์</td><td>${ev.length?Math.round(ps.length/ev.length*100):0}%</td></tr></table>`;
   } else if(type==='employees'){
-    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr>${emps.map(e=>`<tr><td>${e.empCode||'—'}</td><td>${e.name}</td><td>${e.position}</td><td>${fmtDate(e.startDate)}</td><td>${calcTenure(e.startDate)}</td><td>${e.status==='active'?'กำลังทำงาน':'ลาออก'}</td></tr>`).join('')}</table>`;
+    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr>${emps.map(e=>`<tr><td>${e.empCode||'—'}</td><td>${e.name}</td><td>${e.position}</td><td>${fmtDate(e.startDate)}</td><td>${calcTenure(e.startDate)}</td><td>${_empStatusLabel(e)}${!_isEmpEnabled(e)&&e.disabledReason?' ('+e.disabledReason+')':''}</td></tr>`).join('')}</table>`;
   } else if(type==='trainings'){
     html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>วันที่สอน</th><th>Module</th><th>หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th></tr>${trains.map(t=>`<tr><td>${fmtDateTime(t.date)}</td><td>${MODULES[t.moduleId]?.name}</td><td>${t.subtopics.join(', ')}</td><td>${(t.traineeIds||[]).map(id=>getEmployee(id)?.name||id).join(', ')}</td><td>${t.trainerName}</td></tr>`).join('')}</table>`;
   } else if(type==='evaluations'){
@@ -5494,8 +5579,8 @@ function _renderAdminEmployeesPanel() {
       </select>
       <select class="form-select" id="admin-emp-status-filter" onchange="filterAdminEmployees()" style="width:160px">
         <option value="">— ทุกสถานะ —</option>
-        <option value="active">กำลังทำงาน</option>
-        <option value="resigned">ลาออก</option>
+        <option value="active">เปิดใช้งาน</option>
+        <option value="resigned">ปิดใช้งาน</option>
       </select>
     </div>
   </div>
@@ -5656,7 +5741,7 @@ function adminViewBranch(bid) {
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>ชื่อ</th><th>ตำแหน่ง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-      <tbody>${emps.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>':emps.map(e=>`<tr><td>${e.name}</td><td>${e.position}</td><td><span class="badge ${e.status==='active'?'badge-green':'badge-red'}">${e.status==='active'?'ทำงาน':'ลาออก'}</span></td><td style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td></tr>`).join('')}
+      <tbody>${emps.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>':emps.map(e=>`<tr><td>${e.name}</td><td>${e.position}</td><td>${_empStatusBadge(e)}</td><td style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td></tr>`).join('')}
       </tbody>
     </table></div>
     ${trains.length>0?`<div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 10px">
@@ -5714,17 +5799,18 @@ function adminAddEmpToBranch(bid) {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน <span class="req">*</span></label><input class="form-input" type="date" id="emp-start"></div>
-      <div><label class="form-label">สถานะ <span class="req">*</span></label><select class="form-select" id="emp-status"><option value="active">กำลังทำงาน</option><option value="resigned">ลาออก</option></select></div>
+      ${_empStatusFormHtml('active', '')}
     </div>`, () => {
     const empCode2 = document.getElementById('emp-code').value.trim();
     const name = document.getElementById('emp-name').value.trim();
     const pos = document.getElementById('emp-pos').value.trim();
     const start = document.getElementById('emp-start').value;
-    const status = document.getElementById('emp-status').value;
+    const st = _readEmpStatusForm(); if (!st) return;
     if(!empCode2||!name||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     if(!DB.employees[bid]) DB.employees[bid]=[];
-    const _ne2=mkEmployee(bid,name,pos,start,status);
+    const _ne2=mkEmployee(bid,name,pos,start,st.status);
     _ne2.empCode=empCode2;
+    if (st.disabledReason) _ne2.disabledReason = st.disabledReason;
     DB.employees[bid].push(_ne2); gsSave('employees', _ne2.id, _ne2);
     notify('เพิ่มพนักงานสำเร็จ');
     closeModal();
@@ -5756,12 +5842,14 @@ function adminEditEmp(empId, bid) {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
-      <div><label class="form-label">สถานะ</label><select class="form-select" id="emp-status"><option value="active" ${e.status==='active'?'selected':''}>กำลังทำงาน</option><option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option></select></div>
+      ${_empStatusFormHtml(e.status, e.disabledReason)}
     </div>`, () => {
+    const st = _readEmpStatusForm(); if (!st) return;
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.startDate=document.getElementById('emp-start').value;
-    e.status=document.getElementById('emp-status').value;
+    e.status=st.status;
+    if (st.disabledReason) e.disabledReason = st.disabledReason; else delete e.disabledReason;
     gsSave('employees', e.id, {...e});
     notify('อัปเดตข้อมูลสำเร็จ');
     closeModal();
@@ -6238,7 +6326,7 @@ function renderAdminEmpRows(emps) {
     <td style="font-size:12px">${e.branchId} <span style="color:var(--text3)">${BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','')||''}</span></td>
     <td style="font-size:12px">${fmtDate(e.startDate)||'—'}</td>
     <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px;white-space:nowrap">${calcTenure(e.startDate)}</span></td>
-    <td><span class="badge ${e.status==='active'?'badge-green':'badge-red'}">${e.status==='active'?'กำลังทำงาน':'ลาออก'}</span></td>
+    <td>${_empStatusToggleBtn(e)}</td>
     <td style="text-align:right;white-space:nowrap">
       <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminEditEmpGlobal('${e.id}')">แก้ไข</button>
       <button class="btn btn-sm btn-danger" onclick="adminDeleteEmpGlobal('${e.id}','${e.branchId}')">ลบ</button>
@@ -6287,18 +6375,19 @@ function adminAddEmpGlobal() {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน <span class="req">*</span></label><input class="form-input" type="date" id="emp-start"></div>
-      <div><label class="form-label">สถานะ <span class="req">*</span></label><select class="form-select" id="emp-status"><option value="active">กำลังทำงาน</option><option value="resigned">ลาออก</option></select></div>
+      ${_empStatusFormHtml('active', '')}
     </div>`, () => {
     const bid = document.getElementById('emp-branch').value;
     const empCode3 = document.getElementById('emp-code').value.trim();
     const name = document.getElementById('emp-name').value.trim();
     const pos = document.getElementById('emp-pos').value.trim();
     const start = document.getElementById('emp-start').value;
-    const status = document.getElementById('emp-status').value;
+    const st = _readEmpStatusForm(); if (!st) return;
     if(!bid||!empCode3||!name||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     if(!DB.employees[bid]) DB.employees[bid]=[];
-    const _ne3=mkEmployee(bid,name,pos,start,status);
+    const _ne3=mkEmployee(bid,name,pos,start,st.status);
     _ne3.empCode=empCode3;
+    if (st.disabledReason) _ne3.disabledReason = st.disabledReason;
     DB.employees[bid].push(_ne3); gsSave('employees', _ne3.id, _ne3);
     closeModal(); showPage('admin-employees'); notify('เพิ่มพนักงานสำเร็จ');
   });
@@ -6333,8 +6422,9 @@ function adminEditEmpGlobal(empId) {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
-      <div><label class="form-label">สถานะ</label><select class="form-select" id="emp-status"><option value="active" ${e.status==='active'?'selected':''}>กำลังทำงาน</option><option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option></select></div>
+      ${_empStatusFormHtml(e.status, e.disabledReason)}
     </div>`, () => {
+    const st = _readEmpStatusForm(); if (!st) return;
     const newBid = document.getElementById('emp-branch').value;
     // Move employee to new branch if changed
     if(newBid !== e.branchId) {
@@ -6346,7 +6436,8 @@ function adminEditEmpGlobal(empId) {
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.startDate=document.getElementById('emp-start').value;
-    e.status=document.getElementById('emp-status').value;
+    e.status=st.status;
+    if (st.disabledReason) e.disabledReason = st.disabledReason; else delete e.disabledReason;
     gsSave('employees', e.id, {...e});
     closeModal(); showPage('admin-employees'); notify('อัปเดตข้อมูลสำเร็จ');
   });
