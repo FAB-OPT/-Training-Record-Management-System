@@ -2687,7 +2687,8 @@ async function gsLoad() {
     try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
   } catch(err) {
     console.error('GS load error:', err);
-    notify('โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรช', 'error');
+    // Don't pester users who haven't logged in yet — login uses cached/local state only
+    if (currentUser) notify('โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรช', 'error');
   }
 }
 
