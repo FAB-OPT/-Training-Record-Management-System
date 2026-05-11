@@ -4688,8 +4688,28 @@ function deleteCourseHistory(id) {
   showPage(currentPage); notify('ลบรายการสำเร็จ');
 }
 
+let _adminChSort = { key: 'courseDate', dir: 'desc' };
+function setAdminChSort(key) { _toggleSort(_adminChSort, key); document.getElementById('main-content').innerHTML = renderAdminCourseHistory(); }
+function _sortAdminCourseHistory(list) {
+  const k = _adminChSort.key, dir = _adminChSort.dir;
+  const get = (c) => {
+    const e = getEmployee(c.empId);
+    switch (k) {
+      case 'empCode': return (e&&e.empCode) || c.empCode || '';
+      case 'empName': return (e&&e.name) || c.empName || '';
+      case 'position': return (e&&e.position) || c.position || '';
+      case 'branch': return BRANCH_MASTER[c.branchId]?.name || c.branchId || '';
+      case 'courseName': return c.courseName || '';
+      case 'batchNo': { const n = parseInt(c.batchNo,10); return isNaN(n) ? (c.batchNo || '') : n; }
+      case 'courseDate': return c.courseDate || '';
+    }
+    return '';
+  };
+  return list.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+}
+
 function renderAdminCourseHistory() {
-  const list = DB.courseHistory.slice().sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  const list = _sortAdminCourseHistory(DB.courseHistory);
   const branchOpts = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} · ${BRANCH_MASTER[id].name}</option>`).join('');
   return `
   <div class="topbar"><div class="topbar-title">Admin · ประวัติการอบรมหลักสูตร</div></div>
@@ -4712,8 +4732,13 @@ function renderAdminCourseHistory() {
   <div class="card">
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
-        <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th>
-        <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th>
+        ${_sortHeader('empCode','รหัสพนักงาน',_adminChSort,'setAdminChSort')}
+        ${_sortHeader('empName','ชื่อ - นามสกุล',_adminChSort,'setAdminChSort')}
+        ${_sortHeader('position','ตำแหน่ง',_adminChSort,'setAdminChSort')}
+        ${_sortHeader('branch','สาขา',_adminChSort,'setAdminChSort')}
+        ${_sortHeader('courseName','หลักสูตร',_adminChSort,'setAdminChSort')}
+        ${_sortHeader('batchNo','รุ่นที่',_adminChSort,'setAdminChSort','center')}
+        ${_sortHeader('courseDate','วันที่อบรม',_adminChSort,'setAdminChSort')}
         <th style="text-align:right">จัดการ</th>
       </tr></thead>
       <tbody id="ach-tbody">${renderAdminCourseHistoryRows(list)}</tbody>
@@ -4751,7 +4776,7 @@ function filterAdminCourseHistory() {
     const hay = [(e&&e.name)||c.empName, (e&&e.position)||c.position, c.courseName, c.batchNo].join(' ').toLowerCase();
     return hay.includes(q);
   });
-  list.sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  list = _sortAdminCourseHistory(list);
   document.getElementById('ach-tbody').innerHTML = renderAdminCourseHistoryRows(list);
 }
 
@@ -5274,6 +5299,26 @@ function renderAdminManage() {
   ${tab === 'branches' ? _renderAdminBranchesPanel() : _renderAdminEmployeesPanel()}`;
 }
 
+let _branchSort = { key: 'id', dir: 'asc' };
+function setBranchSort(key) { _toggleSort(_branchSort, key); document.getElementById('main-content').innerHTML = renderAdminManage(); }
+function _sortBranchEntries(entries) {
+  const k = _branchSort.key, dir = _branchSort.dir;
+  const get = ([id, b]) => {
+    const emps = getBranchEmployees(id);
+    const trains = getBranchTrainings(id);
+    switch (k) {
+      case 'id': return id;
+      case 'name': return b.name.replace(id+' ','');
+      case 'manager': return b.manager || '';
+      case 'employees': return emps.filter(e=>e.status==='active').length;
+      case 'trainings': return trains.length;
+      case 'pending': return trains.filter(t=>!t.eval&&!isEvalDeadlinePassed(t.date)).length;
+    }
+    return '';
+  };
+  return entries.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+}
+
 function _renderAdminBranchesPanel() {
   const mgrs = [...new Set(Object.values(BRANCH_MASTER).map(b=>b.manager))].sort();
   const mgrOptions = mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
@@ -5290,11 +5335,38 @@ function _renderAdminBranchesPanel() {
   <div class="card">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>รหัสสาขา</th><th>ชื่อสาขา</th><th>ผู้จัดการเขต</th><th>พนักงาน</th><th>บันทึกสอน</th><th>รอประเมิน</th><th style="text-align:right">จัดการ</th></tr></thead>
-        <tbody id="branches-tbody">${renderBranchRows(Object.entries(BRANCH_MASTER))}</tbody>
+        <thead><tr>
+          ${_sortHeader('id','รหัสสาขา',_branchSort,'setBranchSort')}
+          ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
+          ${_sortHeader('manager','ผู้จัดการเขต',_branchSort,'setBranchSort')}
+          ${_sortHeader('employees','พนักงาน',_branchSort,'setBranchSort')}
+          ${_sortHeader('trainings','บันทึกสอน',_branchSort,'setBranchSort')}
+          ${_sortHeader('pending','รอประเมิน',_branchSort,'setBranchSort')}
+          <th style="text-align:right">จัดการ</th>
+        </tr></thead>
+        <tbody id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</tbody>
       </table>
     </div>
   </div>`;
+}
+
+let _adminEmpSort = { key: 'name', dir: 'asc' };
+function setAdminEmpSort(key) { _toggleSort(_adminEmpSort, key); document.getElementById('main-content').innerHTML = renderAdminManage(); }
+function _sortAdminEmps(emps) {
+  const k = _adminEmpSort.key, dir = _adminEmpSort.dir;
+  const get = (e) => {
+    switch (k) {
+      case 'empCode': return e.empCode || '';
+      case 'name': return e.name || '';
+      case 'position': return e.position || '';
+      case 'branch': return e.branchId || '';
+      case 'startDate': return e.startDate || '';
+      case 'status': return e.status || '';
+    }
+    return '';
+  };
+  if (k === 'tenure') return emps.slice().sort((a,b) => _cmp(b.startDate||'', a.startDate||'', dir));
+  return emps.slice().sort((a,b) => _cmp(get(a), get(b), dir));
 }
 
 function _renderAdminEmployeesPanel() {
@@ -5318,8 +5390,17 @@ function _renderAdminEmployeesPanel() {
   <div class="card">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
-        <tbody id="admin-emp-tbody">${renderAdminEmpRows(allEmps)}</tbody>
+        <thead><tr>
+          ${_sortHeader('empCode','รหัสพนักงาน',_adminEmpSort,'setAdminEmpSort')}
+          ${_sortHeader('name','ชื่อ-นามสกุล',_adminEmpSort,'setAdminEmpSort')}
+          ${_sortHeader('position','ตำแหน่ง',_adminEmpSort,'setAdminEmpSort')}
+          ${_sortHeader('branch','สาขา',_adminEmpSort,'setAdminEmpSort')}
+          ${_sortHeader('startDate','วันเริ่มงาน',_adminEmpSort,'setAdminEmpSort')}
+          ${_sortHeader('tenure','อายุงาน',_adminEmpSort,'setAdminEmpSort')}
+          ${_sortHeader('status','สถานะ',_adminEmpSort,'setAdminEmpSort')}
+          <th style="text-align:right">จัดการ</th>
+        </tr></thead>
+        <tbody id="admin-emp-tbody">${renderAdminEmpRows(_sortAdminEmps(allEmps))}</tbody>
       </table>
     </div>
   </div>`;
@@ -5359,7 +5440,7 @@ function filterBranches() {
   if(q) entries = entries.filter(([id,b])=>id.includes(q)||b.name.toLowerCase().includes(q));
   if(mgr) entries = entries.filter(([id,b])=>b.manager===mgr);
   const tbody = document.getElementById('branches-tbody');
-  if(tbody) tbody.innerHTML = renderBranchRows(entries);
+  if(tbody) tbody.innerHTML = renderBranchRows(_sortBranchEntries(entries));
 }
 
 function openAddBranch() {
@@ -5580,7 +5661,26 @@ let _adminTrainFilter = 'all';
 let _adminTrainBranch = '';
 let _adminTrainModule = '';
 let _adminTrainResult = '';
+let _adminTrainSort = { key: 'date', dir: 'desc' };
 function setAdminTrainFilter(f) { _adminTrainFilter = f; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
+function setAdminTrainSort(key) { _toggleSort(_adminTrainSort, key); document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
+function _sortAdminTrainings(list) {
+  const k = _adminTrainSort.key, dir = _adminTrainSort.dir;
+  const get = (t) => {
+    switch (k) {
+      case 'branch': return t.branchId || '';
+      case 'date': return t.date || '';
+      case 'module': return MODULES[t.moduleId]?.name || t.moduleId || '';
+      case 'trainer': return t.trainerName || '';
+      case 'status':
+        if (t.eval) return '2_' + (getEvalResultLabel(t.eval.result) || '');
+        if (isEvalDeadlinePassed(t.date)) return '3_expired';
+        return '1_pending';
+    }
+    return '';
+  };
+  return list.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+}
 function applyAdminTrainFilters() {
   _adminTrainBranch = document.getElementById('at-branch')?.value || '';
   _adminTrainModule = document.getElementById('at-module')?.value || '';
@@ -5609,7 +5709,7 @@ function renderAdminTrainings() {
   if (filter === 'pending') rows = pending;
   else if (filter === 'done') rows = done;
   else if (filter === 'expired') rows = expired;
-  rows = rows.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  rows = _sortAdminTrainings(rows);
 
   const branchOptions = Object.keys(BRANCH_MASTER).sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   const moduleOptions = Object.entries(MODULES).map(([k,m]) => `<option value="${k}"${k===_adminTrainModule?' selected':''}>${m.name}</option>`).join('');
@@ -5655,7 +5755,16 @@ function renderAdminTrainings() {
       ${tabBtn('expired','หมดเวลา',expired.length)}
     </div>
     <div class="table-wrap"><table class="cards-on-mobile">
-      <thead><tr><th>สาขา</th><th>วันที่ / เวลา</th><th>Module</th><th>หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th><th>สถานะ / ผล</th><th>จัดการ</th></tr></thead>
+      <thead><tr>
+        ${_sortHeader('branch','สาขา',_adminTrainSort,'setAdminTrainSort')}
+        ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
+        ${_sortHeader('module','Module',_adminTrainSort,'setAdminTrainSort')}
+        <th>หัวข้อย่อย</th>
+        <th>พนักงาน</th>
+        ${_sortHeader('trainer','ผู้สอน',_adminTrainSort,'setAdminTrainSort')}
+        ${_sortHeader('status','สถานะ / ผล',_adminTrainSort,'setAdminTrainSort')}
+        <th>จัดการ</th>
+      </tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result).split('=')[0].trim()}</span>`
@@ -6034,7 +6143,7 @@ function filterAdminEmployees() {
   if(bid) emps = emps.filter(e=>e.branchId===bid);
   if(status) emps = emps.filter(e=>e.status===status);
   const tbody = document.getElementById('admin-emp-tbody');
-  if(tbody) tbody.innerHTML = renderAdminEmpRows(emps);
+  if(tbody) tbody.innerHTML = renderAdminEmpRows(_sortAdminEmps(emps));
 }
 
 function adminAddEmpGlobal() {
