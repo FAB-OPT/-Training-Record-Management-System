@@ -821,7 +821,7 @@
     table.cards-on-mobile.emp-table tr {
       display: grid !important;
       grid-template-columns: 1fr 1fr;
-      column-gap: 12px; row-gap: 4px;
+      column-gap: 12px; row-gap: 6px;
       padding: 12px 14px;
     }
     table.cards-on-mobile.emp-table td {
@@ -838,16 +838,16 @@
     /* Line 2: group (left), position (right) */
     table.cards-on-mobile.emp-table td[data-label="ประเภท"] { grid-column: 1; grid-row: 2; justify-content: flex-start; }
     table.cards-on-mobile.emp-table td[data-label="ตำแหน่ง"] { grid-column: 2; grid-row: 2; justify-content: flex-end; font-size: 12px; color: var(--text2); text-align: right; }
-    /* Line 3: tenure (left), status (right) */
+    /* Line 3: tenure (left), edit button (right) */
     table.cards-on-mobile.emp-table td[data-label="อายุงาน"] { grid-column: 1; grid-row: 3; justify-content: flex-start; }
-    table.cards-on-mobile.emp-table td[data-label="สถานะ"] { grid-column: 2; grid-row: 3; justify-content: flex-end; }
     /* Hide วันเริ่มงาน on mobile (kept on desktop) */
     table.cards-on-mobile.emp-table td[data-label="วันเริ่มงาน"] { display: none !important; }
-    /* Actions row spans full width at bottom */
+    /* Actions: right side of line 3 (next to อายุงาน) */
     table.cards-on-mobile.emp-table td[data-label="actions"] {
-      grid-column: 1 / -1; grid-row: 4;
-      justify-content: flex-end; padding-top: 8px !important;
-      border-top: 1px solid var(--border) !important; margin-top: 6px;
+      grid-column: 2; grid-row: 3;
+      justify-content: flex-end;
+      padding: 0 !important; margin: 0;
+      border-top: none !important;
     }
 
     /* Group filter tabs: clean 2x2 grid on phones */
@@ -941,6 +941,10 @@
   <div class="bottom-nav-item" id="bnav-trainings" onclick="showPage('trainings');updateBottomNav('trainings')">
     <div class="bottom-nav-icon">📚</div>
     <div class="bottom-nav-label">การสอน</div>
+  </div>
+  <div class="bottom-nav-item" id="bnav-course-history" onclick="showPage('course-history');updateBottomNav('course-history')">
+    <div class="bottom-nav-icon">🎓</div>
+    <div class="bottom-nav-label">หลักสูตร</div>
   </div>
   <div class="bottom-nav-item" id="bnav-logout" onclick="logout()">
     <div class="bottom-nav-icon">↩</div>
@@ -3125,6 +3129,7 @@ function updateBottomNav(page) {
     'employees': 'bnav-employees',
     'trainings': 'bnav-trainings',
     'evaluations': 'bnav-trainings',
+    'course-history': 'bnav-course-history',
     'manual': 'bnav-manual',
     'reports': null,
   };
