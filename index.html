@@ -2883,6 +2883,9 @@ function stopAutoSync() {
   if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
 }
 
+function _systemPrefersDark() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
 function toggleTheme() {
   const isDark = document.body.classList.toggle('dark-mode');
   try { localStorage.setItem('opt_theme', isDark ? 'dark' : 'light'); } catch(_) {}
@@ -2895,10 +2898,26 @@ function applyThemeToggleUI(isDark) {
   if (label) label.textContent = isDark ? 'ไลท์โหมด' : 'ดาร์กโหมด';
 }
 function initTheme() {
-  let saved = 'light';
-  try { saved = localStorage.getItem('opt_theme') || 'light'; } catch(_) {}
-  if (saved === 'dark') document.body.classList.add('dark-mode');
-  applyThemeToggleUI(saved === 'dark');
+  let saved = null;
+  try { saved = localStorage.getItem('opt_theme'); } catch(_) {}
+  // No manual choice yet → follow the device's OS preference
+  const isDark = saved ? (saved === 'dark') : _systemPrefersDark();
+  document.body.classList.toggle('dark-mode', isDark);
+  applyThemeToggleUI(isDark);
+
+  // If user hasn't picked manually, keep following OS changes live
+  if (!saved && window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => {
+      // Re-check storage in case user toggled in another tab
+      let s = null; try { s = localStorage.getItem('opt_theme'); } catch(_) {}
+      if (s) return; // user has manual preference now — stop auto
+      document.body.classList.toggle('dark-mode', e.matches);
+      applyThemeToggleUI(e.matches);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', handler);
+    else if (mq.addListener) mq.addListener(handler); // older Safari
+  }
 }
 
 function logout() {
