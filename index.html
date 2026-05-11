@@ -4379,9 +4379,75 @@ function _branchCourseHistory(bid) {
   return DB.courseHistory.filter(c => c.branchId === bid);
 }
 
+let _chGroupFilter = 'all';
+let _chSearch = '';
+let _chExpanded = new Set();
+function setChGroupFilter(g) { _chGroupFilter = g; document.getElementById('main-content').innerHTML = renderCourseHistory(); }
+function toggleChEmpExpand(key) {
+  if (_chExpanded.has(key)) _chExpanded.delete(key); else _chExpanded.add(key);
+  document.getElementById('main-content').innerHTML = renderCourseHistory();
+}
+function expandAllCh(open) {
+  _chExpanded.clear();
+  if (open) _chGetGroupedFiltered().forEach(g => _chExpanded.add(g.key));
+  document.getElementById('main-content').innerHTML = renderCourseHistory();
+}
+
+function _chGroupKey(c) { return (c.empCode || c.empId || c.empName || '?').toString(); }
+
+function _chGetGroupedFiltered() {
+  const bid = getBranchId();
+  const groupMap = { mgr: 'ทีมผู้จัดการสาขา', cook: 'พนักงานครัว', svc: 'พนักงานบริการ' };
+  const wantGroup = groupMap[_chGroupFilter];
+  const q = (_chSearch||'').toLowerCase();
+  const records = _branchCourseHistory(bid).filter(c => {
+    const e = getEmployee(c.empId);
+    const pos = (e&&e.position) || c.position || '';
+    if (wantGroup && getPositionGroup(pos) !== wantGroup) return false;
+    if (!q) return true;
+    const hay = [(e&&e.name)||c.empName, pos, c.courseName, c.batchNo, c.empCode].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  // Group by employee key
+  const map = new Map();
+  records.forEach(c => {
+    const k = _chGroupKey(c);
+    if (!map.has(k)) map.set(k, { key: k, items: [] });
+    map.get(k).items.push(c);
+  });
+  // Sort items within each group by date desc, sort groups by latest date desc
+  const groups = [];
+  map.forEach(g => {
+    g.items.sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+    const e = getEmployee(g.items[0].empId);
+    g.empCode = (e&&e.empCode) || g.items[0].empCode || '—';
+    g.empName = (e&&e.name) || g.items[0].empName || '—';
+    g.position = (e&&e.position) || g.items[0].position || '—';
+    g.branchId = g.items[0].branchId;
+    g.latestDate = g.items[0].courseDate || '';
+    groups.push(g);
+  });
+  groups.sort((a,b) => (b.latestDate||'').localeCompare(a.latestDate||''));
+  return groups;
+}
+
 function renderCourseHistory() {
   const bid = getBranchId();
-  const list = _branchCourseHistory(bid).slice().sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
+  const all = _branchCourseHistory(bid);
+  const counts = {
+    all: new Set(all.map(_chGroupKey)).size,
+    mgr: new Set(all.filter(c=>{const e=getEmployee(c.empId);const p=(e&&e.position)||c.position||'';return getPositionGroup(p)==='ทีมผู้จัดการสาขา';}).map(_chGroupKey)).size,
+    cook: new Set(all.filter(c=>{const e=getEmployee(c.empId);const p=(e&&e.position)||c.position||'';return getPositionGroup(p)==='พนักงานครัว';}).map(_chGroupKey)).size,
+    svc: new Set(all.filter(c=>{const e=getEmployee(c.empId);const p=(e&&e.position)||c.position||'';return getPositionGroup(p)==='พนักงานบริการ';}).map(_chGroupKey)).size,
+  };
+  const groups = _chGetGroupedFiltered();
+
+  const tabColors = { all:'var(--accent)', mgr:'var(--blue)', cook:'var(--red)', svc:'var(--green)' };
+  const tabBtn = (key, label, count) => {
+    const c = tabColors[key]; const active = _chGroupFilter === key;
+    return `<button onclick="setChGroupFilter('${key}')" style="border:none;background:${active?c:'transparent'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${active?'rgba(255,255,255,.22)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+  };
+
   return `
   <div class="page-hero">
     <div class="page-hero-body">
@@ -4389,42 +4455,69 @@ function renderCourseHistory() {
     </div>
   </div>
   <div class="card">
-    <div class="search-bar"><input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / ตำแหน่ง..." oninput="filterCourseHistory()"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      ${tabBtn('all','ทั้งหมด',counts.all)}
+      ${tabBtn('mgr','ทีมผู้จัดการสาขา',counts.mgr)}
+      ${tabBtn('cook','พนักงานครัว',counts.cook)}
+      ${tabBtn('svc','พนักงานบริการ',counts.svc)}
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:220px">
+      <button class="btn btn-sm btn-outline" onclick="expandAllCh(true)">ขยายทั้งหมด</button>
+      <button class="btn btn-sm btn-outline" onclick="expandAllCh(false)">ย่อทั้งหมด</button>
+    </div>
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
+        <th style="width:32px"></th>
         <th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th>
-        <th>หลักสูตร</th><th>รุ่นที่</th><th>วันที่อบรม</th>
+        <th style="text-align:center">จำนวนหลักสูตร</th><th>อบรมล่าสุด</th>
       </tr></thead>
-      <tbody id="ch-tbody">${renderCourseHistoryRows(list)}</tbody>
+      <tbody id="ch-tbody">${renderCourseHistoryGroupedRows(groups)}</tbody>
     </table></div>
   </div>`;
 }
 
-function renderCourseHistoryRows(list) {
-  if (!list.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
-  return list.map(c => {
-    const e = getEmployee(c.empId);
-    return `<tr>
-      <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${(e&&e.empCode)||c.empCode||'—'}</td>
-      <td data-label="ชื่อ"><strong>${(e&&e.name)||c.empName||'—'}</strong></td>
-      <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${(e&&e.position)||c.position||'—'}</td>
-      <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${BRANCH_MASTER[c.branchId]?.name || c.branchId || '—'}</td>
-      <td data-label="หลักสูตร" style="font-weight:600">${c.courseName||'—'}</td>
-      <td data-label="รุ่นที่" style="text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
-      <td data-label="วันที่อบรม" style="font-size:12.5px">${fmtDate(c.courseDate)}</td>
+function renderCourseHistoryGroupedRows(groups) {
+  if (!groups.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
+  return groups.map(g => {
+    const open = _chExpanded.has(g.key);
+    const arrow = open ? '▾' : '▸';
+    const branchName = BRANCH_MASTER[g.branchId]?.name || g.branchId || '—';
+    const headRow = `<tr style="cursor:pointer;background:${open?'var(--surface2)':'transparent'}" onclick="toggleChEmpExpand('${g.key.replace(/'/g,"\\'")}')">
+      <td data-label="" style="text-align:center;color:var(--text3);font-size:14px;width:32px">${arrow}</td>
+      <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${g.empCode}</td>
+      <td data-label="ชื่อ"><strong>${g.empName}</strong></td>
+      <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${g.position}</td>
+      <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${branchName}</td>
+      <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">${g.items.length}</span></td>
+      <td data-label="ล่าสุด" style="font-size:12.5px">${fmtDate(g.latestDate)}</td>
     </tr>`;
+    if (!open) return headRow;
+    const childRows = `<tr><td colspan="7" style="padding:0;background:var(--surface2)">
+      <div style="padding:12px 18px 14px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">
+            <th style="text-align:left;padding:6px 8px;font-weight:700">หลักสูตร</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:700;width:80px">รุ่นที่</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:700;width:140px">วันที่อบรม</th>
+          </tr></thead>
+          <tbody>${g.items.map(c=>`<tr style="border-top:1px solid var(--border)">
+            <td style="padding:8px;font-weight:600">${c.courseName||'—'}</td>
+            <td style="padding:8px;text-align:center"><span class="badge badge-blue">${c.batchNo||'—'}</span></td>
+            <td style="padding:8px;font-size:12.5px;color:var(--text2)">${fmtDate(c.courseDate)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </td></tr>`;
+    return headRow + childRows;
   }).join('');
 }
 
 function filterCourseHistory() {
-  const q = (document.getElementById('ch-search').value||'').toLowerCase();
-  const bid = getBranchId();
-  const list = _branchCourseHistory(bid).filter(c => {
-    const e = getEmployee(c.empId);
-    const hay = [(e&&e.name)||c.empName, (e&&e.position)||c.position, c.courseName, c.batchNo].join(' ').toLowerCase();
-    return hay.includes(q);
-  }).sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
-  document.getElementById('ch-tbody').innerHTML = renderCourseHistoryRows(list);
+  const inp = document.getElementById('ch-search');
+  _chSearch = inp ? inp.value : '';
+  const groups = _chGetGroupedFiltered();
+  document.getElementById('ch-tbody').innerHTML = renderCourseHistoryGroupedRows(groups);
 }
 
 function _courseHistoryFormHtml(bid, c) {
