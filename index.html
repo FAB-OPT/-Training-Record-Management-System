@@ -3734,10 +3734,27 @@ function showEmpTenureModal(bid, label, minMo, maxMo) {
 }
 
 // ==================== EMPLOYEES ====================
+let _empGroupFilter = 'all';
+function setEmpGroupFilter(g) { _empGroupFilter = g; document.getElementById('main-content').innerHTML = renderEmployees(); }
+
 function renderEmployees() {
   const bid = getBranchId(); const emps = getBranchEmployees(bid);
-  return `
+  const mgr = emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา');
+  const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว');
+  const svc = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ');
+  let rows = emps;
+  if (_empGroupFilter === 'mgr') rows = mgr;
+  else if (_empGroupFilter === 'cook') rows = cook;
+  else if (_empGroupFilter === 'svc') rows = svc;
 
+  const tabColors = { all: 'var(--accent)', mgr: 'var(--blue)', cook: 'var(--red)', svc: 'var(--green)' };
+  const tabBtn = (key, label, count) => {
+    const c = tabColors[key];
+    const active = _empGroupFilter === key;
+    return `<button onclick="setEmpGroupFilter('${key}')" style="border:none;background:${active?c:'transparent'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${active?'rgba(255,255,255,.22)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+  };
+
+  return `
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการรายชื่อพนักงาน</div>
@@ -3745,10 +3762,16 @@ function renderEmployees() {
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
   <div class="card">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      ${tabBtn('all','ทั้งหมด',emps.length)}
+      ${tabBtn('mgr','ทีมผู้จัดการสาขา',mgr.length)}
+      ${tabBtn('cook','พนักงานครัว',cook.length)}
+      ${tabBtn('svc','พนักงานบริการ',svc.length)}
+    </div>
     <div class="search-bar"><input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()"></div>
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ประเภท</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
-      <tbody id="emp-tbody">${renderEmpRows(emps)}</tbody>
+      <tbody id="emp-tbody">${renderEmpRows(rows)}</tbody>
     </table></div>
   </div>`;
 }
@@ -3778,7 +3801,12 @@ function renderEmpRows(emps) {
 
 function filterEmployees() {
   const q = document.getElementById('emp-search').value.toLowerCase();
-  const emps = getBranchEmployees(getBranchId()).filter(e=>e.name.toLowerCase().includes(q)||e.position.toLowerCase().includes(q));
+  const groupMap = { mgr: 'ทีมผู้จัดการสาขา', cook: 'พนักงานครัว', svc: 'พนักงานบริการ' };
+  const wantGroup = groupMap[_empGroupFilter];
+  const emps = getBranchEmployees(getBranchId()).filter(e => {
+    if (wantGroup && getPositionGroup(e.position) !== wantGroup) return false;
+    return e.name.toLowerCase().includes(q) || e.position.toLowerCase().includes(q);
+  });
   document.getElementById('emp-tbody').innerHTML = renderEmpRows(emps);
 }
 
