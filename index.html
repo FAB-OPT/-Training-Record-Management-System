@@ -3158,6 +3158,26 @@ function calcTenure(startDate) {
   if(months > 0) parts.push(months + ' เดือน');
   return parts.join(' ');
 }
+// Normalize any stored date (ISO string, Date object, "DD/MM/YYYY", BE year, etc.)
+// to YYYY-MM-DD so <input type="date"> can render it.
+function _toDateInputValue(v) {
+  if (!v) return '';
+  if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  const s = String(v).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0,10);
+  // DD/MM/YYYY (with optional BE year)
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    let y = parseInt(m[3],10); if (y > 2400) y -= 543;
+    return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0,10);
+  return '';
+}
+
 function calcTenureShort(startDate) {
   if(!startDate) return '—';
   const start = new Date(startDate);
@@ -3953,7 +3973,7 @@ function openEditEmployee(id) {
       <div><label class="form-label">ตำแหน่ง</label><select class="form-select" id="emp-pos">${positionSelectOptions(curGroup, e.position)}</select></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${e.startDate}"></div>
+      <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
       <div><label class="form-label">สถานะ</label><select class="form-select" id="emp-status"><option value="active" ${e.status==='active'?'selected':''}>กำลังทำงาน</option><option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option></select></div>
     </div>`, () => {
     e.name=document.getElementById('emp-name').value.trim();
@@ -5713,7 +5733,7 @@ function adminEditEmp(empId, bid) {
 <option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${e.startDate}"></div>
+      <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
       <div><label class="form-label">สถานะ</label><select class="form-select" id="emp-status"><option value="active" ${e.status==='active'?'selected':''}>กำลังทำงาน</option><option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option></select></div>
     </div>`, () => {
     e.name=document.getElementById('emp-name').value.trim();
@@ -6290,7 +6310,7 @@ function adminEditEmpGlobal(empId) {
 <option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${e.startDate}"></div>
+      <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
       <div><label class="form-label">สถานะ</label><select class="form-select" id="emp-status"><option value="active" ${e.status==='active'?'selected':''}>กำลังทำงาน</option><option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option></select></div>
     </div>`, () => {
     const newBid = document.getElementById('emp-branch').value;
