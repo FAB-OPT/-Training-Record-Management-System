@@ -3952,15 +3952,18 @@ function _sortEmps(emps) {
 
 function renderEmployees() {
   const bid = getBranchId(); const emps = getBranchEmployees(bid);
-  const mgr = emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา');
-  const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว');
-  const svc = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ');
-  let rows = emps;
+  const enabled = emps.filter(_isEmpEnabled);
+  const disabled = emps.filter(e => !_isEmpEnabled(e));
+  const mgr = enabled.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา');
+  const cook = enabled.filter(e => getPositionGroup(e.position) === 'พนักงานครัว');
+  const svc = enabled.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ');
+  let rows = enabled;
   if (_empGroupFilter === 'mgr') rows = mgr;
   else if (_empGroupFilter === 'cook') rows = cook;
   else if (_empGroupFilter === 'svc') rows = svc;
+  else if (_empGroupFilter === 'disabled') rows = disabled;
 
-  const tabColors = { all: 'var(--accent)', mgr: 'var(--blue)', cook: 'var(--red)', svc: 'var(--green)' };
+  const tabColors = { all: 'var(--accent)', mgr: 'var(--blue)', cook: 'var(--red)', svc: 'var(--green)', disabled: 'var(--text3)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
     const active = _empGroupFilter === key;
@@ -3977,10 +3980,11 @@ function renderEmployees() {
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="emp-tabs-mobile" style="display:flex;flex-wrap:wrap;gap:8px">
-        ${tabBtn('all','ทั้งหมด',emps.length)}
+        ${tabBtn('all','ทั้งหมด',enabled.length)}
         ${tabBtn('mgr','ทีมผู้จัดการสาขา',mgr.length)}
         ${tabBtn('cook','พนักงานครัว',cook.length)}
         ${tabBtn('svc','พนักงานบริการ',svc.length)}
+        ${disabled.length?tabBtn('disabled','🚫 ปิดใช้งาน',disabled.length):''}
       </div>
       <input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:200px;margin-left:auto">
     </div>
@@ -3992,7 +3996,6 @@ function renderEmployees() {
         ${_sortHeader('position','ตำแหน่ง',_empSort,'setEmpSort')}
         ${_sortHeader('startDate','วันเริ่มงาน',_empSort,'setEmpSort')}
         ${_sortHeader('tenure','อายุงาน',_empSort,'setEmpSort')}
-        ${_sortHeader('status','สถานะ',_empSort,'setEmpSort')}
         <th style="text-align:right">จัดการ</th>
       </tr></thead>
       <tbody id="emp-tbody">${renderEmpRows(_sortEmps(rows))}</tbody>
@@ -4002,13 +4005,14 @@ function renderEmployees() {
 
 function renderEmpRows(emps) {
   const grpHex = {'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
-  if(!emps.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีรายชื่อพนักงาน</td></tr>';
+  if(!emps.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีรายชื่อพนักงาน</td></tr>';
   return emps.map(e=>{
     const grp = getPositionGroup(e.position);
     const color = grpHex[grp]||'#9CA3AF';
-    return `<tr>
+    const disabledNote = !_isEmpEnabled(e) ? `<span class="badge badge-red" style="margin-left:6px;font-size:10.5px" title="${(e.disabledReason||'').replace(/"/g,'&quot;')}">🚫 ปิดใช้งาน${e.disabledReason?': '+e.disabledReason:''}</span>` : '';
+    return `<tr style="${!_isEmpEnabled(e)?'opacity:.7':''}">
     <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-    <td data-label="ชื่อ"><strong>${e.name}</strong></td>
+    <td data-label="ชื่อ"><strong>${e.name}</strong>${disabledNote}</td>
     <td data-label="ประเภท">
       <div style="display:flex;align-items:center;gap:6px;justify-content:flex-start">
         <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
@@ -4018,7 +4022,6 @@ function renderEmpRows(emps) {
     <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${e.position}</td>
     <td data-label="วันเริ่มงาน" style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
     <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
-    <td data-label="สถานะ">${_empStatusToggleBtn(e)}</td>
     <td data-label="actions" style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
@@ -4027,7 +4030,10 @@ function filterEmployees() {
   const q = document.getElementById('emp-search').value.toLowerCase();
   const groupMap = { mgr: 'ทีมผู้จัดการสาขา', cook: 'พนักงานครัว', svc: 'พนักงานบริการ' };
   const wantGroup = groupMap[_empGroupFilter];
+  const showDisabled = _empGroupFilter === 'disabled';
   const emps = getBranchEmployees(getBranchId()).filter(e => {
+    if (showDisabled) { if (_isEmpEnabled(e)) return false; }
+    else { if (!_isEmpEnabled(e)) return false; }
     if (wantGroup && getPositionGroup(e.position) !== wantGroup) return false;
     return e.name.toLowerCase().includes(q) || e.position.toLowerCase().includes(q);
   });
@@ -5577,10 +5583,10 @@ function _renderAdminEmployeesPanel() {
         <option value="">— ทุกสาขา —</option>
         ${branchOptions}
       </select>
-      <select class="form-select" id="admin-emp-status-filter" onchange="filterAdminEmployees()" style="width:160px">
-        <option value="">— ทุกสถานะ —</option>
-        <option value="active">เปิดใช้งาน</option>
-        <option value="resigned">ปิดใช้งาน</option>
+      <select class="form-select" id="admin-emp-status-filter" onchange="filterAdminEmployees()" style="width:200px">
+        <option value="active" selected>เปิดใช้งาน (ค่าเริ่มต้น)</option>
+        <option value="resigned">🚫 ปิดใช้งาน</option>
+        <option value="">— ทั้งหมด (รวมที่ปิดใช้งาน) —</option>
       </select>
     </div>
   </div>
@@ -5594,10 +5600,9 @@ function _renderAdminEmployeesPanel() {
           ${_sortHeader('branch','สาขา',_adminEmpSort,'setAdminEmpSort')}
           ${_sortHeader('startDate','วันเริ่มงาน',_adminEmpSort,'setAdminEmpSort')}
           ${_sortHeader('tenure','อายุงาน',_adminEmpSort,'setAdminEmpSort')}
-          ${_sortHeader('status','สถานะ',_adminEmpSort,'setAdminEmpSort')}
           <th style="text-align:right">จัดการ</th>
         </tr></thead>
-        <tbody id="admin-emp-tbody">${renderAdminEmpRows(_sortAdminEmps(allEmps))}</tbody>
+        <tbody id="admin-emp-tbody">${renderAdminEmpRows(_sortAdminEmps(allEmps.filter(_isEmpEnabled)))}</tbody>
       </table>
     </div>
   </div>`;
@@ -6318,20 +6323,21 @@ function renderAdminReports() {
 // renderAdminEmployees merged into renderAdminManage (admin-manage page)
 
 function renderAdminEmpRows(emps) {
-  if(!emps.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่พบรายชื่อพนักงาน</td></tr>';
-  return emps.map(e=>`<tr>
+  if(!emps.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่พบรายชื่อพนักงาน</td></tr>';
+  return emps.map(e=>{
+    const disabledNote = !_isEmpEnabled(e) ? `<span class="badge badge-red" style="margin-left:6px;font-size:10.5px" title="${(e.disabledReason||'').replace(/"/g,'&quot;')}">🚫 ปิดใช้งาน${e.disabledReason?': '+e.disabledReason:''}</span>` : '';
+    return `<tr style="${!_isEmpEnabled(e)?'opacity:.7':''}">
     <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-    <td><strong>${e.name}</strong></td>
+    <td><strong>${e.name}</strong>${disabledNote}</td>
     <td style="font-size:12px;color:var(--text2)">${e.position}</td>
     <td style="font-size:12px">${e.branchId} <span style="color:var(--text3)">${BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','')||''}</span></td>
     <td style="font-size:12px">${fmtDate(e.startDate)||'—'}</td>
     <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px;white-space:nowrap">${calcTenure(e.startDate)}</span></td>
-    <td>${_empStatusToggleBtn(e)}</td>
     <td style="text-align:right;white-space:nowrap">
       <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminEditEmpGlobal('${e.id}')">แก้ไข</button>
       <button class="btn btn-sm btn-danger" onclick="adminDeleteEmpGlobal('${e.id}','${e.branchId}')">ลบ</button>
     </td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 }
 
 function filterAdminEmployees() {
