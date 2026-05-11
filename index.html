@@ -817,34 +817,16 @@
     /* When a card-table is inside .table-wrap, drop the wrap's border/scroll */
     .table-wrap:has(table.cards-on-mobile) { border: none !important; overflow: visible !important; border-radius: 0 !important; }
 
-    /* Compact employee card on mobile: name + status header, then key meta only */
-    table.cards-on-mobile.emp-table tr { padding: 10px 12px; margin-bottom: 6px; border-radius: 10px; }
-    table.cards-on-mobile.emp-table td { padding: 2px 0 !important; font-size: 12px; }
-    table.cards-on-mobile.emp-table td::before { font-size: 10px; color: var(--text4); font-weight: 600; }
-    /* Hide labels for fields that are self-explanatory in mobile cards */
-    table.cards-on-mobile.emp-table td[data-label="รหัส"]::before,
-    table.cards-on-mobile.emp-table td[data-label="ตำแหน่ง"]::before,
-    table.cards-on-mobile.emp-table td[data-label="วันเริ่มงาน"]::before { display: none; }
-    /* Name row: big, no label, no border */
-    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] { padding: 0 0 6px !important; justify-content: space-between; }
+    /* Compact employee card on mobile: tighter spacing, name big, smaller meta rows */
+    table.cards-on-mobile.emp-table tr { padding: 12px 14px; }
+    table.cards-on-mobile.emp-table td { padding: 3px 0 !important; font-size: 12.5px; }
+    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] { padding: 0 0 4px !important; border-bottom: 1px dashed var(--border) !important; margin-bottom: 6px; }
     table.cards-on-mobile.emp-table td[data-label="ชื่อ"]::before { display: none; }
-    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; line-height: 1.25; }
-    /* Code: small grey, top-right next to name (handled by status placement, here keep inline) */
-    table.cards-on-mobile.emp-table td[data-label="รหัส"] { font-size: 11px; color: var(--text3); font-family: monospace; padding: 0 0 4px !important; }
-    table.cards-on-mobile.emp-table td[data-label="รหัส"] > * { color: var(--text3) !important; }
-    /* Position: muted, smaller */
-    table.cards-on-mobile.emp-table td[data-label="ตำแหน่ง"] { font-size: 11.5px; color: var(--text2); padding: 0 0 4px !important; }
-    /* Hide group dot row on mobile (color is implicit via tabs / position name) */
-    table.cards-on-mobile.emp-table td[data-label="ประเภท"] { display: none !important; }
-    /* startDate as muted small */
-    table.cards-on-mobile.emp-table td[data-label="วันเริ่มงาน"] { font-size: 11px; color: var(--text3); padding: 0 0 2px !important; }
-    /* tenure + status in same compact line */
-    table.cards-on-mobile.emp-table td[data-label="อายุงาน"]::before,
-    table.cards-on-mobile.emp-table td[data-label="สถานะ"]::before { display: none; }
-    table.cards-on-mobile.emp-table td[data-label="อายุงาน"] { padding: 4px 0 0 !important; justify-content: flex-start; gap: 8px; }
-    table.cards-on-mobile.emp-table td[data-label="สถานะ"] { padding: 4px 0 0 !important; justify-content: flex-end; }
-    /* actions: tight bottom row */
-    table.cards-on-mobile.emp-table td[data-label="actions"] { padding-top: 6px !important; margin-top: 4px; }
+    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] strong { font-size: 15.5px; text-align: left; }
+    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] { justify-content: flex-start; }
+    table.cards-on-mobile.emp-table td[data-label="รหัส"] { font-size: 11.5px; color: var(--text3); }
+    table.cards-on-mobile.emp-table td::before { font-size: 10.5px; }
+    table.cards-on-mobile.emp-table td[data-label="actions"] { padding-top: 8px !important; margin-top: 4px; }
 
     /* Group filter tabs: clean 2x2 grid on phones */
     .emp-tabs-mobile, .ch-tabs-mobile {
