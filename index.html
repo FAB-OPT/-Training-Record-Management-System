@@ -5214,14 +5214,35 @@ function renderAdminDashboard() {
   `;
 }
 
+let _adminBranchSummaryShowAll = false;
+function toggleAdminBranchSummary() {
+  _adminBranchSummaryShowAll = !_adminBranchSummaryShowAll;
+  document.getElementById('main-content').innerHTML = renderAdminDashboard();
+  if (currentPage === 'admin-dashboard') {
+    _dashMonth = null;
+    renderDashMonthChart(getBranchId());
+    renderDashPosPage(getBranchId());
+  }
+}
+
 function renderAdminSystemExtras() {
+  // Sort branches by latest training date desc; show 5 unless _adminBranchSummaryShowAll
+  const branchesWithActivity = Object.entries(BRANCH_MASTER).map(([id,b]) => {
+    const trains = getBranchTrainings(id);
+    const latest = trains.reduce((m,t) => (t.date && (!m || t.date > m)) ? t.date : m, '');
+    return { id, b, latest };
+  }).sort((x,y) => (y.latest || '').localeCompare(x.latest || ''));
+  const showAll = !!_adminBranchSummaryShowAll;
+  const visible = showAll ? branchesWithActivity : branchesWithActivity.slice(0, 5);
+  const hiddenCount = branchesWithActivity.length - visible.length;
+
   return `
   <div class="grid-2" style="margin-top:16px">
     <div class="card">
-      <div class="card-header"><span class="card-title">สรุปรายสาขา</span></div>
+      <div class="card-header"><span class="card-title">สรุปรายสาขา</span><span style="font-size:11px;color:var(--text3);margin-left:8px">${showAll?`ทั้งหมด ${branchesWithActivity.length} สาขา`:`5 สาขาล่าสุด`}</span>${branchesWithActivity.length>5?`<button class="btn btn-sm btn-outline" onclick="toggleAdminBranchSummary()" style="margin-left:auto">${showAll?'ย่อ':`ดูทั้งหมด (${branchesWithActivity.length})`}</button>`:''}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>รหัส</th><th>ชื่อสาขา</th><th>ผู้ดูแล</th><th>พนักงาน</th><th>สอน</th><th>ผ่าน/ประเมิน</th><th>อัตรา</th></tr></thead>
-        <tbody>${Object.entries(BRANCH_MASTER).map(([id,b])=>{
+        <tbody>${visible.map(({id,b})=>{
           const e=getBranchEmployees(id).filter(e=>e.status==='active').length;
           const tr=getBranchTrainings(id); const ev2=tr.filter(t=>t.eval); const ps2=ev2.filter(t=>isEvalPass(t.eval.result));
           const rate=ev2.length?Math.round(ps2.length/ev2.length*100):null;
