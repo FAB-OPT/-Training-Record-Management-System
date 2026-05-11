@@ -526,6 +526,15 @@
   }
   .hamburger:active { background: var(--surface3); }
   .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; }
+  .mobile-theme-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; padding: 0;
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; transition: all 0.18s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-theme-btn:active { background: var(--surface3); transform: scale(0.94); }
   .mobile-topbar-title {
     color: var(--text);
     font-size: 15px;
@@ -826,6 +835,9 @@
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-topbar-title" id="mobile-title">OPT Training</div>
+  <button class="mobile-theme-btn" onclick="toggleTheme()" aria-label="สลับโหมดมืด/สว่าง" title="สลับโหมดมืด/สว่าง">
+    <span id="mobile-theme-icon">🌙</span>
+  </button>
   <button id="topbar-report-btn" onclick="showPage('reports');updateBottomNav('reports')">📊 รายงาน</button>
 </div>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -2896,6 +2908,8 @@ function applyThemeToggleUI(isDark) {
   const label = document.getElementById('theme-toggle-label');
   if (icon) icon.textContent = isDark ? '☀' : '🌙';
   if (label) label.textContent = isDark ? 'ไลท์โหมด' : 'ดาร์กโหมด';
+  const mIcon = document.getElementById('mobile-theme-icon');
+  if (mIcon) mIcon.textContent = isDark ? '☀' : '🌙';
 }
 function initTheme() {
   let saved = null;
