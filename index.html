@@ -3762,13 +3762,15 @@ function renderEmployees() {
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
   <div class="card">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-      ${tabBtn('all','ทั้งหมด',emps.length)}
-      ${tabBtn('mgr','ทีมผู้จัดการสาขา',mgr.length)}
-      ${tabBtn('cook','พนักงานครัว',cook.length)}
-      ${tabBtn('svc','พนักงานบริการ',svc.length)}
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${tabBtn('all','ทั้งหมด',emps.length)}
+        ${tabBtn('mgr','ทีมผู้จัดการสาขา',mgr.length)}
+        ${tabBtn('cook','พนักงานครัว',cook.length)}
+        ${tabBtn('svc','พนักงานบริการ',svc.length)}
+      </div>
+      <input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:200px;margin-left:auto">
     </div>
-    <div class="search-bar"><input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()"></div>
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ประเภท</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th><th style="text-align:right">จัดการ</th></tr></thead>
       <tbody id="emp-tbody">${renderEmpRows(rows)}</tbody>
@@ -4455,14 +4457,14 @@ function renderCourseHistory() {
     </div>
   </div>
   <div class="card">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      ${tabBtn('all','ทั้งหมด',counts.all)}
-      ${tabBtn('mgr','ทีมผู้จัดการสาขา',counts.mgr)}
-      ${tabBtn('cook','พนักงานครัว',counts.cook)}
-      ${tabBtn('svc','พนักงานบริการ',counts.svc)}
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:220px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${tabBtn('all','ทั้งหมด',counts.all)}
+        ${tabBtn('mgr','ทีมผู้จัดการสาขา',counts.mgr)}
+        ${tabBtn('cook','พนักงานครัว',counts.cook)}
+        ${tabBtn('svc','พนักงานบริการ',counts.svc)}
+      </div>
+      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:200px;margin-left:auto">
       <button class="btn btn-sm btn-outline" onclick="expandAllCh(true)">ขยายทั้งหมด</button>
       <button class="btn btn-sm btn-outline" onclick="expandAllCh(false)">ย่อทั้งหมด</button>
     </div>
