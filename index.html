@@ -995,6 +995,144 @@
     }
     /* Hide branch on mobile (handled by branch context already) */
     table.cards-on-mobile.ch-table td[data-label="สาขา"] { display: none !important; }
+    /* ===== Admin: branch + admin-employees mobile cards ===== */
+    /* Branch table card */
+    table.cards-on-mobile.branch-table tr {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 12px; row-gap: 5px;
+      padding: 12px 14px;
+    }
+    table.cards-on-mobile.branch-table td {
+      display: flex !important; align-items: center;
+      padding: 0 !important; font-size: 12.5px; min-width: 0;
+      white-space: normal !important;
+    }
+    table.cards-on-mobile.branch-table td::before { display: none !important; }
+    /* Line 1: ชื่อสาขา (left big) + รหัสสาขา (right) */
+    table.cards-on-mobile.branch-table td[data-label="ชื่อ"] {
+      grid-column: 1; grid-row: 1; justify-content: flex-start;
+      padding-bottom: 4px !important;
+      border-bottom: 1px dashed var(--border) !important;
+      text-align: left !important;
+    }
+    table.cards-on-mobile.branch-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; line-height: 1.3; }
+    table.cards-on-mobile.branch-table td[data-label="รหัส"] {
+      grid-column: 2; grid-row: 1; justify-content: flex-end;
+      padding-bottom: 4px !important;
+      border-bottom: 1px dashed var(--border) !important;
+    }
+    /* Line 2: 'ผู้จัดการ NAME' (full width) */
+    table.cards-on-mobile.branch-table td[data-label="ผู้จัดการ"] {
+      grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
+      font-size: 12px; color: var(--text2); text-align: left !important;
+    }
+    table.cards-on-mobile.branch-table td[data-label="ผู้จัดการ"]::before {
+      content: 'ผู้จัดการ '; display: inline !important;
+      font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
+    }
+    /* Line 3: stats inline (พนักงาน N · สอน N · รอประเมิน N) */
+    table.cards-on-mobile.branch-table td[data-label="พนักงาน"],
+    table.cards-on-mobile.branch-table td[data-label="สอน"],
+    table.cards-on-mobile.branch-table td[data-label="รอประเมิน"] {
+      grid-row: 3; padding: 4px 0 !important;
+      font-size: 11.5px; color: var(--text2);
+    }
+    table.cards-on-mobile.branch-table td[data-label="พนักงาน"] { grid-column: 1 / span 1; justify-content: flex-start; }
+    table.cards-on-mobile.branch-table td[data-label="พนักงาน"]::before {
+      content: '👥 '; display: inline !important; margin-right: 4px;
+    }
+    table.cards-on-mobile.branch-table td[data-label="สอน"] {
+      grid-column: 1; grid-row: 4; justify-content: flex-start;
+    }
+    table.cards-on-mobile.branch-table td[data-label="สอน"]::before {
+      content: 'สอน '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
+    }
+    table.cards-on-mobile.branch-table td[data-label="รอประเมิน"] {
+      grid-column: 2; grid-row: 4; justify-content: flex-end;
+    }
+    table.cards-on-mobile.branch-table td[data-label="รอประเมิน"]::before {
+      content: 'รอประเมิน '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
+    }
+    /* Actions: full width row at bottom */
+    table.cards-on-mobile.branch-table td[data-label="actions"] {
+      grid-column: 1 / -1; grid-row: 5;
+      justify-content: flex-end; gap: 6px; flex-wrap: wrap;
+      padding-top: 8px !important; margin-top: 4px;
+      border-top: 1px solid var(--border) !important;
+    }
+
+    /* Admin employees table card (similar to emp-table but with branch) */
+    table.cards-on-mobile.admin-emp-table tr {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 12px; row-gap: 5px;
+      padding: 12px 14px;
+    }
+    table.cards-on-mobile.admin-emp-table td {
+      display: flex !important; align-items: center;
+      padding: 0 !important; font-size: 12.5px; min-width: 0;
+      white-space: normal !important;
+    }
+    table.cards-on-mobile.admin-emp-table td::before { display: none !important; }
+    /* Line 1: ชื่อ (left) + รหัส (right) */
+    table.cards-on-mobile.admin-emp-table td[data-label="ชื่อ"] {
+      grid-column: 1; grid-row: 1; justify-content: flex-start;
+      padding-bottom: 4px !important;
+      border-bottom: 1px dashed var(--border) !important;
+      text-align: left !important;
+    }
+    table.cards-on-mobile.admin-emp-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; line-height: 1.3; }
+    table.cards-on-mobile.admin-emp-table td[data-label="รหัส"] {
+      grid-column: 2; grid-row: 1; justify-content: flex-end;
+      font-size: 11.5px;
+      padding-bottom: 4px !important;
+      border-bottom: 1px dashed var(--border) !important;
+    }
+    /* Line 2: ตำแหน่ง (left, colored) + สาขา (right) */
+    table.cards-on-mobile.admin-emp-table td[data-label="ตำแหน่ง"] {
+      grid-column: 1; grid-row: 2; justify-content: flex-start;
+      text-align: left !important;
+    }
+    table.cards-on-mobile.admin-emp-table td[data-label="สาขา"] {
+      grid-column: 2; grid-row: 2; justify-content: flex-end;
+      font-size: 11.5px; text-align: right !important; color: var(--text2);
+    }
+    /* Line 3: อายุงาน (left) + actions (right) */
+    table.cards-on-mobile.admin-emp-table td[data-label="วันเริ่มงาน"] {
+      grid-column: 1; grid-row: 3; justify-content: flex-start;
+      font-size: 11px; color: var(--text3); text-align: left !important;
+    }
+    table.cards-on-mobile.admin-emp-table td[data-label="วันเริ่มงาน"]::before {
+      content: 'เริ่มงาน '; display: inline !important;
+      font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
+    }
+    table.cards-on-mobile.admin-emp-table td[data-label="อายุงาน"] {
+      grid-column: 2; grid-row: 3; justify-content: flex-end;
+    }
+    table.cards-on-mobile.admin-emp-table td[data-label="actions"] {
+      grid-column: 1 / -1; grid-row: 4;
+      justify-content: flex-end; gap: 6px;
+      padding-top: 8px !important; margin-top: 4px;
+      border-top: 1px solid var(--border) !important;
+    }
+
+    /* ===== Admin filter rows: full-width selects on mobile ===== */
+    .card > div[style*="display:flex"][style*="gap"] > .form-select,
+    .card > div[style*="display:flex"][style*="gap"] > .search-input {
+      width: 100% !important; min-width: 0 !important;
+    }
+    /* Branch picker on admin dashboard: full width */
+    .page-hero > .form-select { max-width: 100% !important; width: 100% !important; }
+
+    /* ===== Admin stats grid: 2x2 instead of 4-wide ===== */
+    .stats-grid[style*="repeat(4,1fr)"] {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+    /* ===== Hide redundant top 'Admin · X' bar (mobile-topbar already shows) ===== */
+    .topbar { padding: 8px 14px; margin: -16px -14px 14px; }
+    .topbar-title { font-size: 11.5px; color: var(--text3); font-weight: 600; }
+
     /* Expanded course list row: escape grid, span full width, tighter padding */
     table.cards-on-mobile.ch-table tr.ch-expanded-row {
       display: block !important;
@@ -6032,7 +6170,7 @@ function _renderAdminBranchesPanel() {
   </div>
   <div class="card">
     <div class="table-wrap">
-      <table>
+      <table class="cards-on-mobile branch-table">
         <thead><tr>
           ${_sortHeader('id','รหัสสาขา',_branchSort,'setBranchSort')}
           ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
@@ -6087,7 +6225,7 @@ function _renderAdminEmployeesPanel() {
   </div>
   <div class="card">
     <div class="table-wrap">
-      <table>
+      <table class="cards-on-mobile admin-emp-table">
         <thead><tr>
           ${_sortHeader('empCode','รหัสพนักงาน',_adminEmpSort,'setAdminEmpSort')}
           ${_sortHeader('name','ชื่อ-นามสกุล',_adminEmpSort,'setAdminEmpSort')}
@@ -6115,13 +6253,13 @@ function renderBranchRows(entries) {
     const activeEmps = emps.filter(e=>e.status==='active').length;
     const shortName = b.name.replace(id+' ','');
     return `<tr>
-      <td><span style="font-family:monospace;font-weight:700;font-size:14px;color:var(--primary)">${id}</span></td>
-      <td><strong style="cursor:pointer;color:var(--text)" onclick="adminViewBranch('${id}')">${shortName}</strong></td>
-      <td style="font-size:13px;color:var(--text2)">${b.manager}</td>
-      <td><span class="badge badge-blue">${activeEmps}</span></td>
-      <td><span class="badge badge-navy">${trains.length}</span></td>
-      <td>${pending>0?`<span class="badge badge-yellow">${pending}</span>`:`<span class="badge badge-green">0</span>`}</td>
-      <td style="text-align:right;white-space:nowrap">
+      <td data-label="รหัส"><span style="font-family:monospace;font-weight:700;font-size:14px;color:var(--primary)">${id}</span></td>
+      <td data-label="ชื่อ"><strong style="cursor:pointer;color:var(--text)" onclick="adminViewBranch('${id}')">${shortName}</strong></td>
+      <td data-label="ผู้จัดการ" style="font-size:13px;color:var(--text2)">${b.manager}</td>
+      <td data-label="พนักงาน"><span class="badge badge-blue">${activeEmps}</span></td>
+      <td data-label="สอน"><span class="badge badge-navy">${trains.length}</span></td>
+      <td data-label="รอประเมิน">${pending>0?`<span class="badge badge-yellow">${pending}</span>`:`<span class="badge badge-green">0</span>`}</td>
+      <td data-label="actions" style="text-align:right;white-space:nowrap">
         <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminViewBranch('${id}')">ดู</button>
         <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openEditBranch('${id}')">แก้ไข</button>
         <button class="btn btn-sm btn-danger" onclick="openDeleteBranch('${id}')">ลบ</button>
@@ -6821,14 +6959,16 @@ function renderAdminEmpRows(emps) {
   if(!emps.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่พบรายชื่อพนักงาน</td></tr>';
   return emps.map(e=>{
     const disabledNote = !_isEmpEnabled(e) ? `<span class="badge badge-red" style="margin-left:6px;font-size:10.5px" title="${(e.disabledReason||'').replace(/"/g,'&quot;')}">🚫 ปิดใช้งาน${e.disabledReason?': '+e.disabledReason:''}</span>` : '';
+    const grpHex = {'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
+    const posColor = grpHex[getPositionGroup(e.position)] || 'var(--text2)';
     return `<tr style="${!_isEmpEnabled(e)?'opacity:.7':''}">
-    <td style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
-    <td><strong>${e.name}</strong>${disabledNote}</td>
-    <td style="font-size:12px;color:var(--text2)">${e.position}</td>
-    <td style="font-size:12px">${e.branchId} <span style="color:var(--text3)">${BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','')||''}</span></td>
-    <td style="font-size:12px">${fmtDate(e.startDate)||'—'}</td>
-    <td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px;white-space:nowrap">${calcTenure(e.startDate)}</span></td>
-    <td style="text-align:right;white-space:nowrap">
+    <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${e.empCode||'—'}</td>
+    <td data-label="ชื่อ"><strong>${e.name}</strong>${disabledNote}</td>
+    <td data-label="ตำแหน่ง" style="font-size:12px;color:${posColor};font-weight:600">${e.position}</td>
+    <td data-label="สาขา" style="font-size:12px">${e.branchId} <span style="color:var(--text3)">${BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','')||''}</span></td>
+    <td data-label="วันเริ่มงาน" style="font-size:12px">${fmtDate(e.startDate)||'—'}</td>
+    <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px;white-space:nowrap">${calcTenure(e.startDate)}</span></td>
+    <td data-label="actions" style="text-align:right;white-space:nowrap">
       <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminEditEmpGlobal('${e.id}')">แก้ไข</button>
       <button class="btn btn-sm btn-danger" onclick="adminDeleteEmpGlobal('${e.id}','${e.branchId}')">ลบ</button>
     </td>
