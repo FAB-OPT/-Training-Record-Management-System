@@ -648,14 +648,14 @@
   .hamburger:active { background: var(--surface3); }
   .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; }
   .mobile-theme-btn {
-    background: var(--surface2); border: 1px solid var(--border);
+    background: transparent; border: none;
     color: var(--text); cursor: pointer; padding: 0;
-    width: 38px; height: 38px; border-radius: 10px;
+    width: 38px; height: 38px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px; transition: all 0.18s;
+    font-size: 22px; transition: transform 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
-  .mobile-theme-btn:active { background: var(--surface3); transform: scale(0.94); }
+  .mobile-theme-btn:active { transform: scale(0.85); }
   .mobile-topbar-title {
     color: var(--text);
     font-size: 15px;
@@ -692,14 +692,19 @@
   }
   .mobile-bottom-nav::-webkit-scrollbar { display: none; }
   .mobile-bottom-nav-inner {
-    display: inline-flex;
+    display: flex;
     align-items: stretch;
+    justify-content: space-around;
     gap: 0;
     padding: 6px 8px;
     min-width: 100%;
+    width: max-content;
     height: 64px;
     box-sizing: border-box;
   }
+  /* Branch (5 items): always fits — fill width */
+  body.branch-user .mobile-bottom-nav-inner { width: 100%; }
+  body.branch-user .bottom-nav-item { flex: 1; }
   .bottom-nav-item {
     display: inline-flex;
     flex-direction: column;
@@ -1010,8 +1015,8 @@
     /* ===== Trainings card on mobile ===== */
     table.cards-on-mobile.train-table tr {
       display: grid !important;
-      grid-template-columns: minmax(0, 1fr) auto;
-      column-gap: 12px; row-gap: 6px;
+      grid-template-columns: auto 1fr auto;
+      column-gap: 8px; row-gap: 6px;
       padding: 12px 14px;
     }
     table.cards-on-mobile.train-table td {
@@ -1020,18 +1025,21 @@
       white-space: normal !important;
     }
     table.cards-on-mobile.train-table td::before { display: none !important; }
-    /* Line 1: date (left small) | สถานะ badge (right) */
+    /* Line 1: วันที่ (left) | ผลสอบ (middle) | สถานะ (right) */
     table.cards-on-mobile.train-table td[data-label="วันที่"] {
       grid-column: 1; grid-row: 1; justify-content: flex-start;
       font-size: 11.5px; color: var(--text3); font-weight: 600;
-      text-align: left !important;
+      text-align: left !important; white-space: nowrap;
+    }
+    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
+      grid-column: 2; grid-row: 1; justify-content: center;
+      text-align: center !important;
     }
     table.cards-on-mobile.train-table td[data-label="สถานะ"] {
-      grid-column: 2; grid-row: 1; justify-content: flex-end;
-      flex-direction: column; align-items: flex-end; gap: 4px;
+      grid-column: 3; grid-row: 1; justify-content: flex-end;
       text-align: right !important;
     }
-    /* Line 2: ชื่อ-นามสกุล (full width) */
+    /* Line 2: ชื่อ-นามสกุล (full width, dashed underline) */
     table.cards-on-mobile.train-table td[data-label="พนักงาน"] {
       grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
       padding-bottom: 6px !important;
@@ -1039,10 +1047,10 @@
       font-size: 13.5px; font-weight: 700; color: var(--text);
       text-align: left !important; line-height: 1.35;
     }
-    /* Line 3: Module + (X/X หัวข้อ) (full width) */
+    /* Line 3: Module + (X/X หัวข้อ) — single line, inline */
     table.cards-on-mobile.train-table td[data-label="Module"] {
       grid-column: 1 / -1; grid-row: 3; justify-content: flex-start;
-      flex-direction: column; align-items: flex-start; gap: 3px;
+      flex-wrap: wrap; gap: 6px;
       font-size: 13px; color: var(--accent); font-weight: 700;
       text-align: left !important; line-height: 1.35;
     }
@@ -4802,10 +4810,11 @@ function renderTrainings() {
         <th>ชื่อ - นามสกุล</th>
         ${_sortHeader('module','Module',_trainSort,'setTrainSort')}
         ${_sortHeader('trainer','ผู้สอน',_trainSort,'setTrainSort')}
+        <th>ผลสอบ</th>
         ${_sortHeader('status','สถานะ',_trainSort,'setTrainSort')}
         <th>จัดการ</th>
       </tr></thead>
-      <tbody>${rows.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
+      <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
@@ -4819,13 +4828,17 @@ function renderTrainings() {
         const quizLocked = !quizPassed && quizAttempts.length >= QUIZ_MAX_ATTEMPTS;
         const canQuiz = isQuizRow && !t.eval && !quizPassed && !quizLocked;
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
+        const quizCell = isQuizRow && quizAttempts.length
+          ? `<span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ '+bestPct+'%':quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
+          : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         return `<tr>
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name}<div style="color:var(--text3);font-size:11px">${e.position} · ${calcTenureShort(e.startDate)}</div>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
-          <td data-label="Module" style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId}<div style="margin-top:3px"><span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></div></td>
+          <td data-label="Module" style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
-          <td data-label="สถานะ">${badge}${isQuizRow&&quizAttempts.length?`<div style="margin-top:4px"><span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ ผ่านข้อสอบ '+bestPct+'%':quizLocked?'🔒 ล็อก ('+bestPct+'%)':'ข้อสอบ '+bestPct+'% · ทำได้อีก '+(QUIZ_MAX_ATTEMPTS-quizAttempts.length)+' ครั้ง'}</span></div>`:''}</td>
+          <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
+          <td data-label="สถานะ">${badge}</td>
           <td data-label="actions" style="white-space:nowrap">
             ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
