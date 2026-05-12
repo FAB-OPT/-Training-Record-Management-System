@@ -1003,6 +1003,25 @@
     }
     table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-expanded-inner {
       padding: 12px 14px 14px !important;
+      text-align: left;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-expanded-inner * {
+      text-align: left !important;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-course-item {
+      grid-template-columns: 1fr auto !important;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-course-name {
+      grid-column: 1 / -1 !important;
+      white-space: normal !important;
+      line-height: 1.35;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-course-batch {
+      grid-column: 1 !important; justify-self: start;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-course-date {
+      grid-column: 2 !important; justify-self: end;
+      text-align: right !important;
     }
 
     /* Group filter tabs: clean 2x2 grid on phones */
