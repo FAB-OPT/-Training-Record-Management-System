@@ -350,6 +350,8 @@
   .badge-yellow { background: var(--yellow-light); color: var(--yellow); }
   .badge-purple { background: var(--purple-light); color: var(--purple); }
   .badge-gray { background: var(--surface3); color: var(--text2); }
+  /* Category select used on mobile only — hidden on desktop where pill tabs show */
+  .cat-select-mobile { display: none; }
   .badge-navy { background: var(--accent-light); color: var(--accent); }
   .badge-orange { background: var(--accent-light); color: var(--accent); }
 
@@ -1251,17 +1253,28 @@
       text-align: right !important;
     }
 
-    /* Group filter tabs: clean 2x2 grid on phones */
-    .emp-tabs-mobile, .ch-tabs-mobile, .train-tabs-mobile {
+    /* Mobile: hide pill tabs for emp + course history; show dropdown instead.
+       Trainings page keeps the 2x2 pill layout (uses .train-tabs-mobile only). */
+    .emp-tabs-mobile.cat-tabs, .ch-tabs-mobile.cat-tabs { display: none !important; }
+    .cat-select-mobile {
+      display: inline-block !important;
+      width: auto !important; min-width: 0;
+      max-width: 50%;
+      padding: 8px 28px 8px 12px !important;
+      font-size: 13px !important;
+    }
+    .train-tabs-mobile {
       display: grid !important;
       grid-template-columns: repeat(2, 1fr) !important;
       gap: 8px !important;
       width: 100%;
     }
-    .emp-tabs-mobile > button, .ch-tabs-mobile > button, .train-tabs-mobile > button {
+    .train-tabs-mobile > button {
       width: 100%; justify-content: center !important;
       padding: 11px 12px !important;
     }
+    /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
+    .ch-expand-btn { display: none !important; }
     /* Smaller search input on mobile (emp + course history) */
     #emp-search, #ch-search {
       padding: 7px 11px !important; font-size: 12.5px !important;
@@ -4643,15 +4656,22 @@ function renderEmployees() {
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
   <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="emp-tabs-mobile" style="display:flex;flex-wrap:wrap;gap:8px">
+    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="emp-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
         ${tabBtn('all','ทั้งหมด',enabled.length)}
         ${tabBtn('mgr','ทีมผู้จัดการสาขา',mgr.length)}
         ${tabBtn('cook','พนักงานครัว',cook.length)}
         ${tabBtn('svc','พนักงานบริการ',svc.length)}
         ${disabled.length?tabBtn('disabled','🚫 ปิดใช้งาน',disabled.length):''}
       </div>
-      <input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:200px;margin-left:auto">
+      <select class="form-select cat-select-mobile" onchange="setEmpGroupFilter(this.value)">
+        <option value="all"${_empGroupFilter==='all'?' selected':''}>ทั้งหมด (${enabled.length})</option>
+        <option value="mgr"${_empGroupFilter==='mgr'?' selected':''}>ทีมผู้จัดการสาขา (${mgr.length})</option>
+        <option value="cook"${_empGroupFilter==='cook'?' selected':''}>พนักงานครัว (${cook.length})</option>
+        <option value="svc"${_empGroupFilter==='svc'?' selected':''}>พนักงานบริการ (${svc.length})</option>
+        ${disabled.length?`<option value="disabled"${_empGroupFilter==='disabled'?' selected':''}>🚫 ปิดใช้งาน (${disabled.length})</option>`:''}
+      </select>
+      <input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:160px;margin-left:auto">
     </div>
     <div class="table-wrap"><table class="cards-on-mobile emp-table">
       <thead><tr>
@@ -5410,16 +5430,22 @@ function renderCourseHistory() {
     </div>
   </div>
   <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div class="ch-tabs-mobile" style="display:flex;flex-wrap:wrap;gap:8px">
+    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="ch-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
         ${tabBtn('all','ทั้งหมด',counts.all)}
         ${tabBtn('mgr','ทีมผู้จัดการสาขา',counts.mgr)}
         ${tabBtn('cook','พนักงานครัว',counts.cook)}
         ${tabBtn('svc','พนักงานบริการ',counts.svc)}
       </div>
-      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:200px;margin-left:auto">
-      <button class="btn btn-sm btn-outline" onclick="expandAllCh(true)">ขยายทั้งหมด</button>
-      <button class="btn btn-sm btn-outline" onclick="expandAllCh(false)">ย่อทั้งหมด</button>
+      <select class="form-select cat-select-mobile" onchange="setChGroupFilter(this.value)">
+        <option value="all"${_chGroupFilter==='all'?' selected':''}>ทั้งหมด (${counts.all})</option>
+        <option value="mgr"${_chGroupFilter==='mgr'?' selected':''}>ทีมผู้จัดการสาขา (${counts.mgr})</option>
+        <option value="cook"${_chGroupFilter==='cook'?' selected':''}>พนักงานครัว (${counts.cook})</option>
+        <option value="svc"${_chGroupFilter==='svc'?' selected':''}>พนักงานบริการ (${counts.svc})</option>
+      </select>
+      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:160px;margin-left:auto">
+      <button class="btn btn-sm btn-outline ch-expand-btn" onclick="expandAllCh(true)">ขยายทั้งหมด</button>
+      <button class="btn btn-sm btn-outline ch-expand-btn" onclick="expandAllCh(false)">ย่อทั้งหมด</button>
     </div>
     <div class="table-wrap"><table class="cards-on-mobile ch-table">
       <thead><tr>
