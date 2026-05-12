@@ -5364,7 +5364,7 @@ function renderCourseHistoryGroupedRows(groups) {
       <td data-label="ชื่อ"><strong>${g.empName}</strong></td>
       <td data-label="ตำแหน่ง" style="font-size:12.5px;color:${posColor};font-weight:600">${g.position}</td>
       <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${branchName}</td>
-      <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">หลักสูตร ${g.items.length}</span></td>
+      <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">${g.items.length} หลักสูตร</span></td>
       <td data-label="ล่าสุด" style="font-size:12.5px">${fmtDate(g.latestDate)}</td>
     </tr>`;
     if (!open) return headRow;
