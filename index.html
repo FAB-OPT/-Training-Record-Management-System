@@ -1021,26 +1021,94 @@
     /* Hide branch on mobile (handled by branch context already) */
     table.cards-on-mobile.ch-table td[data-label="สาขา"] { display: none !important; }
     /* ===== Admin dashboard summary boxes: fit mobile ===== */
-    .grid-2 .card { padding: 14px; }
-    .grid-2 .card .card-header {
+    .grid-2 .card, .card { padding: 14px; }
+    .grid-2 .card .card-header, .card .card-header {
       padding: 0 0 10px; margin-bottom: 10px;
       flex-wrap: wrap; gap: 6px;
     }
-    .grid-2 .card .card-header .card-title { font-size: 14px; }
+    .grid-2 .card .card-header .card-title,
+    .card .card-header .card-title { font-size: 14px; }
     .grid-2 .card .card-header .btn-sm,
-    .grid-2 .card .card-header button { font-size: 11px; padding: 5px 10px; }
-    .grid-2 .card .table-wrap {
-      max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    .grid-2 .card .card-header button,
+    .card .card-header .btn-sm { font-size: 11px; padding: 5px 10px; }
+
+    /* Branch summary table — convert to mini-cards on mobile */
+    table.cards-on-mobile.branch-summary-table tr {
+      display: grid !important;
+      grid-template-columns: auto 1fr auto;
+      column-gap: 10px; row-gap: 4px;
+      padding: 10px 12px;
+      background: var(--surface) !important;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
-    .grid-2 .card .table-wrap table { font-size: 11.5px; min-width: 0; }
-    .grid-2 .card .table-wrap th,
-    .grid-2 .card .table-wrap td {
-      padding: 6px 8px !important; white-space: nowrap;
+    table.cards-on-mobile.branch-summary-table td {
+      display: flex !important; align-items: center;
+      padding: 0 !important; min-width: 0; white-space: normal !important;
     }
-    /* Bottom 'ผลประเมินล่าสุด' card */
-    .card .table-wrap table { font-size: 12px; }
-    .card .table-wrap th { font-size: 11px; padding: 8px 6px !important; }
-    .card .table-wrap td { padding: 8px 6px !important; }
+    table.cards-on-mobile.branch-summary-table td::before { display: none !important; }
+    /* Line 1: รหัส | ชื่อ | อัตรา */
+    table.cards-on-mobile.branch-summary-table td[data-label="รหัส"] { grid-column: 1; grid-row: 1; font-family: monospace; font-size: 12px; color: var(--text); font-weight: 700; }
+    table.cards-on-mobile.branch-summary-table td[data-label="ชื่อ"] { grid-column: 2; grid-row: 1; font-size: 13px; font-weight: 700; color: var(--text); justify-content: flex-start; text-align: left !important; line-height: 1.3; }
+    table.cards-on-mobile.branch-summary-table td[data-label="อัตรา"] { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+    /* Line 2: ผู้ดูแล (full) */
+    table.cards-on-mobile.branch-summary-table td[data-label="ผู้ดูแล"] {
+      grid-column: 1 / -1; grid-row: 2; font-size: 11px; color: var(--text3);
+      padding-bottom: 4px !important; border-bottom: 1px dashed var(--border) !important;
+    }
+    table.cards-on-mobile.branch-summary-table td[data-label="ผู้ดูแล"]::before {
+      content: '👤 '; display: inline !important; margin-right: 3px;
+    }
+    /* Line 3: counts inline */
+    table.cards-on-mobile.branch-summary-table td[data-label="พนักงาน"] { grid-column: 1; grid-row: 3; font-size: 11px; color: var(--text2); }
+    table.cards-on-mobile.branch-summary-table td[data-label="พนักงาน"]::before { content: '👥 พนักงาน '; display: inline !important; color: var(--text4); font-weight: 600; margin-right: 3px; }
+    table.cards-on-mobile.branch-summary-table td[data-label="สอน"] { grid-column: 2; grid-row: 3; font-size: 11px; color: var(--text2); }
+    table.cards-on-mobile.branch-summary-table td[data-label="สอน"]::before { content: 'สอน '; display: inline !important; color: var(--text4); font-weight: 600; margin-right: 3px; }
+    table.cards-on-mobile.branch-summary-table td[data-label="ผ่าน/ประเมิน"] { grid-column: 3; grid-row: 3; font-size: 11px; color: var(--text2); justify-content: flex-end; }
+    table.cards-on-mobile.branch-summary-table td[data-label="ผ่าน/ประเมิน"]::before { content: 'ผ่าน/ประเมิน '; display: inline !important; color: var(--text4); font-weight: 600; margin-right: 3px; }
+
+    /* Latest eval table — convert to mini-cards on mobile */
+    table.cards-on-mobile.latest-eval-table tr {
+      display: grid !important;
+      grid-template-columns: auto 1fr auto;
+      column-gap: 10px; row-gap: 4px;
+      padding: 10px 12px;
+      background: var(--surface) !important;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    table.cards-on-mobile.latest-eval-table td {
+      display: flex !important; align-items: center;
+      padding: 0 !important; min-width: 0; white-space: normal !important;
+    }
+    table.cards-on-mobile.latest-eval-table td::before { display: none !important; }
+    /* Line 1: สาขา | วันที่ประเมิน | (ผล badge) */
+    table.cards-on-mobile.latest-eval-table td[data-label="สาขา"] { grid-column: 1; grid-row: 1; }
+    table.cards-on-mobile.latest-eval-table td[data-label="วันที่ประเมิน"] { grid-column: 2; grid-row: 1; font-size: 11px; color: var(--text3); justify-content: flex-start; }
+    table.cards-on-mobile.latest-eval-table td[data-label="ผล"] { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+    /* Line 2: Module (full) */
+    table.cards-on-mobile.latest-eval-table td[data-label="Module"] {
+      grid-column: 1 / -1; grid-row: 2;
+      font-size: 13px; font-weight: 700; color: var(--accent);
+      justify-content: flex-start; text-align: left !important;
+      line-height: 1.3;
+      padding-bottom: 4px !important; border-bottom: 1px dashed var(--border) !important;
+    }
+    /* Line 3: พนักงาน + วิธี */
+    table.cards-on-mobile.latest-eval-table td[data-label="พนักงาน"] {
+      grid-column: 1 / span 2; grid-row: 3; font-size: 12px; color: var(--text2);
+      justify-content: flex-start;
+    }
+    table.cards-on-mobile.latest-eval-table td[data-label="พนักงาน"]::before { content: '👥 '; display: inline !important; margin-right: 4px; }
+    table.cards-on-mobile.latest-eval-table td[data-label="วิธี"] {
+      grid-column: 3; grid-row: 3; font-size: 11px; color: var(--text3);
+      justify-content: flex-end;
+    }
+    table.cards-on-mobile.latest-eval-table td[data-label="วิธี"]::before { content: 'วิธี '; display: inline !important; color: var(--text4); margin-right: 3px; }
 
     /* ===== Trainings card on mobile (5-line layout) ===== */
     table.cards-on-mobile.train-table tr {
@@ -6263,13 +6331,13 @@ function renderAdminSystemExtras() {
   <div class="grid-2" style="margin-top:16px">
     <div class="card">
       <div class="card-header"><span class="card-title">สรุปรายสาขา</span><span style="font-size:11px;color:var(--text3);margin-left:8px">${showAll?`ทั้งหมด ${branchesWithActivity.length} สาขา`:`5 สาขาล่าสุด`}</span>${branchesWithActivity.length>5?`<button class="btn btn-sm btn-outline" onclick="toggleAdminBranchSummary()" style="margin-left:auto">${showAll?'ย่อ':`ดูทั้งหมด (${branchesWithActivity.length})`}</button>`:''}</div>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="cards-on-mobile branch-summary-table">
         <thead><tr><th>รหัส</th><th>ชื่อสาขา</th><th>ผู้ดูแล</th><th>พนักงาน</th><th>สอน</th><th>ผ่าน/ประเมิน</th><th>อัตรา</th></tr></thead>
         <tbody>${visible.map(({id,b})=>{
           const e=getBranchEmployees(id).filter(e=>e.status==='active').length;
           const tr=getBranchTrainings(id); const ev2=tr.filter(t=>t.eval); const ps2=ev2.filter(t=>isEvalPass(t.eval.result));
           const rate=ev2.length?Math.round(ps2.length/ev2.length*100):null;
-          return `<tr><td style="font-family:monospace;font-weight:700;color:var(--text)">${id}</td><td style="font-size:12.5px">${b.name.replace(id+' ','')}</td><td style="font-size:12px;color:var(--text2)">${b.manager}</td><td>${e}</td><td>${tr.length}</td><td>${ps2.length}/${ev2.length}</td><td>${rate!==null?`<span class="badge ${rate>=80?'badge-green':rate>=50?'badge-yellow':'badge-red'}">${rate}%</span>`:'—'}</td></tr>`;
+          return `<tr><td data-label="รหัส" style="font-family:monospace;font-weight:700;color:var(--text)">${id}</td><td data-label="ชื่อ" style="font-size:12.5px">${b.name.replace(id+' ','')}</td><td data-label="ผู้ดูแล" style="font-size:12px;color:var(--text2)">${b.manager}</td><td data-label="พนักงาน">${e}</td><td data-label="สอน">${tr.length}</td><td data-label="ผ่าน/ประเมิน">${ps2.length}/${ev2.length}</td><td data-label="อัตรา">${rate!==null?`<span class="badge ${rate>=80?'badge-green':rate>=50?'badge-yellow':'badge-red'}">${rate}%</span>`:'—'}</td></tr>`;
         }).join('')}</tbody>
       </table></div>
     </div>
@@ -6294,15 +6362,15 @@ function renderAdminSystemExtras() {
   </div>
   <div class="card" style="margin-top:16px">
     <div class="card-header"><span class="card-title">ผลประเมินล่าสุด (10 รายการ)</span><button class="btn btn-sm btn-outline" onclick="showPage('admin-evaluations')" style="margin-left:auto">ดูทั้งหมด →</button></div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap"><table class="cards-on-mobile latest-eval-table">
       <thead><tr><th>สาขา</th><th>วันที่ประเมิน</th><th>Module</th><th>พนักงาน</th><th>วิธี</th><th>ผล</th></tr></thead>
       <tbody>${(()=>{const evRows=DB.trainings.filter(t=>t.eval).sort((a,b)=>b.eval.evalDate.localeCompare(a.eval.evalDate)).slice(0,10);return evRows.length?evRows.map(t=>`<tr>
-        <td><span class="badge badge-navy">${t.branchId}</span></td>
-        <td style="font-size:12px">${fmtDateTime(t.eval.evalDate)}</td>
-        <td style="font-weight:700;color:var(--primary);font-size:12.5px">${MODULES[t.moduleId]?.name}</td>
-        <td style="font-size:12px">${(t.traineeIds||[]).map(id=>getEmployee(id)?.name).filter(Boolean).join(', ')||'—'}</td>
-        <td style="font-size:12px">${t.eval.method?.charAt(0)||'—'}</td>
-        <td><span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result).split(' ')[0]}</span></td>
+        <td data-label="สาขา"><span class="badge badge-navy">${t.branchId}</span></td>
+        <td data-label="วันที่ประเมิน" style="font-size:12px">${fmtDateTime(t.eval.evalDate)}</td>
+        <td data-label="Module" style="font-weight:700;color:var(--primary);font-size:12.5px">${MODULES[t.moduleId]?.name}</td>
+        <td data-label="พนักงาน" style="font-size:12px">${(t.traineeIds||[]).map(id=>getEmployee(id)?.name).filter(Boolean).join(', ')||'—'}</td>
+        <td data-label="วิธี" style="font-size:12px">${t.eval.method?.charAt(0)||'—'}</td>
+        <td data-label="ผล"><span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span></td>
       </tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">ยังไม่มีการประเมิน</td></tr>'})()}</tbody>
     </table></div>
   </div>`;
