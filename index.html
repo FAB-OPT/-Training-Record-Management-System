@@ -932,11 +932,11 @@
       border-top: none !important;
     }
 
-    /* Course-history group card on mobile: 3 lines × 2 cols */
+    /* Course-history group card on mobile: 3 lines */
     table.cards-on-mobile.ch-table tr {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) auto;
-      column-gap: 12px; row-gap: 4px;
+      column-gap: 12px; row-gap: 5px;
       padding: 12px 14px 12px 38px;
       position: relative;
     }
@@ -953,43 +953,44 @@
       justify-content: center;
       font-size: 16px; font-weight: 700;
     }
-    /* Line 1: name (left), code (right) */
+    /* Line 1: name spans BOTH cols, right-aligned */
     table.cards-on-mobile.ch-table td[data-label="ชื่อ"] {
-      grid-column: 1; grid-row: 1; justify-content: flex-start;
+      grid-column: 1 / -1; grid-row: 1;
+      justify-content: flex-end;
       padding-bottom: 4px !important;
       border-bottom: 1px dashed var(--border) !important;
-      text-align: left !important;
+      text-align: right !important;
     }
-    table.cards-on-mobile.ch-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; word-break: break-word; line-height: 1.3; }
+    table.cards-on-mobile.ch-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: right; display: block; word-break: break-word; line-height: 1.3; }
+    /* Line 2: empCode (left) | position (right, colored by group) */
     table.cards-on-mobile.ch-table td[data-label="รหัส"] {
-      grid-column: 2; grid-row: 1; justify-content: flex-end;
-      font-size: 11.5px; color: var(--text3);
-      padding-bottom: 4px !important;
-      border-bottom: 1px dashed var(--border) !important;
-    }
-    /* Line 2: position (left), branch (right) */
-    table.cards-on-mobile.ch-table td[data-label="ตำแหน่ง"] {
       grid-column: 1; grid-row: 2; justify-content: flex-start;
-      font-size: 12px; color: var(--text2);
+      font-size: 12px; color: var(--text3);
       text-align: left !important;
     }
-    table.cards-on-mobile.ch-table td[data-label="สาขา"] {
+    table.cards-on-mobile.ch-table td[data-label="ตำแหน่ง"] {
       grid-column: 2; grid-row: 2; justify-content: flex-end;
-      font-size: 11.5px; color: var(--text3); text-align: right;
+      font-size: 12px;
+      text-align: right !important;
     }
-    /* Line 3: course count (left), latest date (right) */
-    table.cards-on-mobile.ch-table td[data-label="จำนวน"] {
-      grid-column: 1; grid-row: 3; justify-content: flex-start;
-      text-align: left !important;
-    }
+    /* Line 3: latest date (left) | course count (right) */
     table.cards-on-mobile.ch-table td[data-label="ล่าสุด"] {
-      grid-column: 2; grid-row: 3; justify-content: flex-end;
+      grid-column: 1; grid-row: 3; justify-content: flex-start;
       font-size: 12px; color: var(--text2);
+      text-align: left !important;
     }
     table.cards-on-mobile.ch-table td[data-label="ล่าสุด"]::before {
       content: 'อบรมล่าสุด: '; display: inline !important;
-      font-size: 10.5px; color: var(--text4); margin-right: 4px;
+      font-size: 10.5px; color: var(--text4); margin-right: 4px; font-weight: 600;
     }
+    table.cards-on-mobile.ch-table td[data-label="จำนวน"] {
+      grid-column: 2; grid-row: 3; justify-content: flex-end;
+    }
+    table.cards-on-mobile.ch-table td[data-label="จำนวน"]::after {
+      content: ' หลักสูตร'; color: var(--text3); font-size: 11px; margin-left: 5px; font-weight: 500;
+    }
+    /* Hide branch on mobile (handled by branch context already) */
+    table.cards-on-mobile.ch-table td[data-label="สาขา"] { display: none !important; }
     /* Expanded course list row: escape grid, span full width, tighter padding */
     table.cards-on-mobile.ch-table tr.ch-expanded-row {
       display: block !important;
@@ -5160,15 +5161,18 @@ function renderCourseHistory() {
 
 function renderCourseHistoryGroupedRows(groups) {
   if (!groups.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>';
+  const grpHex = {'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
   return groups.map(g => {
     const open = _chExpanded.has(g.key);
     const arrow = open ? '▾' : '▸';
     const branchName = BRANCH_MASTER[g.branchId]?.name || g.branchId || '—';
+    const posGroup = getPositionGroup(g.position);
+    const posColor = grpHex[posGroup] || 'var(--text2)';
     const headRow = `<tr style="cursor:pointer;background:${open?'var(--accent-light)':'transparent'};border-left:${open?'3px solid var(--accent)':'3px solid transparent'}" onclick="toggleChEmpExpand('${g.key.replace(/'/g,"\\'")}')">
       <td data-label="" style="text-align:center;color:${open?'var(--accent)':'var(--text3)'};font-size:14px;width:32px;font-weight:700">${arrow}</td>
       <td data-label="รหัส" style="font-family:monospace;font-size:12px;color:var(--text2)">${g.empCode}</td>
       <td data-label="ชื่อ"><strong>${g.empName}</strong></td>
-      <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${g.position}</td>
+      <td data-label="ตำแหน่ง" style="font-size:12.5px;color:${posColor};font-weight:600">${g.position}</td>
       <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${branchName}</td>
       <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">${g.items.length}</span></td>
       <td data-label="ล่าสุด" style="font-size:12.5px">${fmtDate(g.latestDate)}</td>
