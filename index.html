@@ -3575,6 +3575,26 @@ function openToggleEmpStatus(empId) {
   }
 }
 
+// Convert <input type="datetime-local"> value (naive local string) → proper UTC ISO
+// so Supabase timestamptz stores the correct moment regardless of column timezone.
+function _localToISO(s) {
+  if (!s) return s;
+  // Already has timezone info
+  if (/[Zz]$|[+-]\d\d:?\d\d$/.test(s)) return s;
+  // datetime-local: "YYYY-MM-DDTHH:MM" — browser parses as local; toISOString gives UTC
+  const d = new Date(s);
+  if (isNaN(d)) return s;
+  return d.toISOString();
+}
+// Convert ISO/Date → "YYYY-MM-DDTHH:MM" in viewer's local time for datetime-local input
+function _isoToLocalInput(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // Normalize any stored date (ISO string, Date object, "DD/MM/YYYY", BE year, etc.)
 // to YYYY-MM-DD so <input type="date"> can render it.
 function _toDateInputValue(v) {
@@ -4546,8 +4566,7 @@ function getPositionGroup(posName) {
 function openAddTraining() {
   const bid = getBranchId();
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
-  const nowBkk = new Date(new Date().getTime() + 7*60*60*1000);
-  const now = nowBkk.toISOString().slice(0,16);
+  const now = _isoToLocalInput(new Date().toISOString());
 
   // Serialize emps into data attribute for JS access
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
@@ -4594,7 +4613,7 @@ function openAddTraining() {
       <label class="form-label">หัวข้อย่อย <span class="req">*</span></label>
       <div class="checkbox-group" id="subtopics-container"><span class="text-muted">กรุณาเลือก Module ก่อน</span></div>
     </div>`, () => {
-    const date = document.getElementById('tr-date').value;
+    const date = _localToISO(document.getElementById('tr-date').value);
     const trainer = document.getElementById('tr-trainer').value.trim();
     const moduleId = document.getElementById('tr-module').value;
     const subtopics = [...document.querySelectorAll('.sub-check:checked')].map(c=>c.value);
@@ -4884,7 +4903,7 @@ function openEditTraining(id) {
   _selectedEmps = (t.traineeIds||[]).map(id=>{ const e=getEmployee(id); return e?{id:e.id,name:e.name,position:e.position}:null; }).filter(Boolean);
   showModal('แก้ไขบันทึกการสอนงาน', `
     <div class="form-row">
-      <div><label class="form-label">วันที่และเวลา <span class="req">*</span></label><input class="form-input" type="datetime-local" id="tr-date" value="${t.date.slice(0,16)}"></div>
+      <div><label class="form-label">วันที่และเวลา <span class="req">*</span></label><input class="form-input" type="datetime-local" id="tr-date" value="${_isoToLocalInput(t.date)}"></div>
       <div><label class="form-label">ผู้สอนงาน <span class="req">*</span></label><input class="form-input" id="tr-trainer" value="${t.trainerName}"></div>
     </div>
     <div class="form-full">
@@ -4912,7 +4931,7 @@ function openEditTraining(id) {
         ${(MODULES[t.moduleId]?.subtopics||[]).map(s=>`<label class="checkbox-item${t.subtopics.includes(s)?' checked':''}" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"${t.subtopics.includes(s)?' checked':''}> ${s}</label>`).join('')}
       </div>
     </div>`, () => {
-    const date = document.getElementById('tr-date').value;
+    const date = _localToISO(document.getElementById('tr-date').value);
     const trainer = document.getElementById('tr-trainer').value.trim();
     const moduleId = document.getElementById('tr-module').value;
     const subtopics = [...document.querySelectorAll('.sub-check:checked')].map(c=>c.value);
