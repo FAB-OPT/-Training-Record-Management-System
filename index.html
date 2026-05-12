@@ -683,32 +683,47 @@
     display: none;
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    height: 64px;
     background: var(--white);
     border-top: 1px solid var(--border);
     z-index: 200;
-    align-items: center;
-    justify-content: space-around;
-    padding: 0 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  }
+  .mobile-bottom-nav::-webkit-scrollbar { display: none; }
+  .mobile-bottom-nav-inner {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 8px;
+    min-width: 100%;
+    height: 64px;
+    box-sizing: border-box;
   }
   .bottom-nav-item {
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    padding: 8px 10px;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;
     color: var(--text3);
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 10px;
     transition: all 0.18s;
     -webkit-tap-highlight-color: transparent;
-    min-width: 56px;
+    min-width: 64px;
+    flex-shrink: 0;
     font-family: 'Sarabun', sans-serif;
+    text-align: center;
+    white-space: nowrap;
   }
-  .bottom-nav-item.active { color: var(--accent); }
+  .bottom-nav-item.active { color: var(--accent); background: var(--accent-light); }
   .bottom-nav-item:active { background: var(--surface2); }
   .bottom-nav-icon { font-size: 20px; line-height: 1; }
-  .bottom-nav-label { font-size: 10px; font-weight: 600; line-height: 1; }
+  .bottom-nav-label { font-size: 10px; font-weight: 600; line-height: 1.2; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
 
   /* ==================== MOBILE RESPONSIVE ==================== */
   @media (max-width: 768px) {
@@ -732,7 +747,9 @@
 
     /* Layout */
     .mobile-topbar { display: flex; }
-    .mobile-bottom-nav:not(.hidden-always) { display: flex; }
+    .mobile-bottom-nav:not(.hidden-always) { display: block; }
+    /* Reserve space at the bottom so content isn't hidden behind the nav */
+    body:has(.mobile-bottom-nav:not(.hidden-always)) .main { padding-bottom: 84px !important; }
     .sidebar {
       transform: translateX(-100%);
       transition: transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -1250,25 +1267,8 @@
 
 <!-- BOTTOM NAVIGATION (Mobile) -->
 <div class="mobile-bottom-nav" id="mobile-bottom-nav">
-  <div class="bottom-nav-item active" id="bnav-dashboard" onclick="showPage('dashboard');updateBottomNav('dashboard')">
-    <div class="bottom-nav-icon">🏠</div>
-    <div class="bottom-nav-label">หน้าหลัก</div>
-  </div>
-  <div class="bottom-nav-item" id="bnav-employees" onclick="showPage('employees');updateBottomNav('employees')">
-    <div class="bottom-nav-icon">👥</div>
-    <div class="bottom-nav-label">พนักงาน</div>
-  </div>
-  <div class="bottom-nav-item" id="bnav-trainings" onclick="showPage('trainings');updateBottomNav('trainings')">
-    <div class="bottom-nav-icon">📚</div>
-    <div class="bottom-nav-label">การสอน</div>
-  </div>
-  <div class="bottom-nav-item" id="bnav-course-history" onclick="showPage('course-history');updateBottomNav('course-history')">
-    <div class="bottom-nav-icon">🎓</div>
-    <div class="bottom-nav-label">หลักสูตร</div>
-  </div>
-  <div class="bottom-nav-item" id="bnav-logout" onclick="logout()">
-    <div class="bottom-nav-icon">↩</div>
-    <div class="bottom-nav-label">ออกจากระบบ</div>
+  <div class="mobile-bottom-nav-inner" id="mobile-bottom-nav-inner">
+    <!-- Branch user nav (filled by buildBottomNav) -->
   </div>
 </div>
 
@@ -3553,14 +3553,44 @@ function showApp() {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
     document.getElementById('sidebar-branch-id').textContent = 'ADMIN'; var _mt2=document.getElementById('mobile-title'); if(_mt2)_mt2.textContent='Admin';
     document.getElementById('sidebar-branch-label').textContent = 'ผู้ดูแลระบบทั้งระบบ';
-    // Admin users don't use bottom nav — hide it on all screen sizes
+    // Admin now uses the bottom nav too (scrollable on mobile)
     const bnav = document.getElementById('mobile-bottom-nav');
-    if (bnav) bnav.classList.add('hidden-always');
+    if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
   }
 }
 
 // ==================== NAV ====================
+// Bottom-nav items per user type — single source of truth for both sidebar + bottom mobile nav
+const BRANCH_NAV_ITEMS = [
+  { page: 'dashboard',      icon: '🏠',  label: 'หน้าหลัก' },
+  { page: 'employees',      icon: '👥',  label: 'พนักงาน' },
+  { page: 'trainings',      icon: '📚',  label: 'การสอน' },
+  { page: 'course-history', icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'reports',        icon: '📊',  label: 'รายงาน' },
+];
+const ADMIN_NAV_ITEMS = [
+  { page: 'admin-dashboard',       icon: '🏠',  label: 'หน้าหลัก' },
+  { page: 'admin-manage',          icon: '👥',  label: 'จัดการ' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
+  { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
+  { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
+];
+function buildBottomNav(items) {
+  const inner = document.getElementById('mobile-bottom-nav-inner');
+  if (!inner) return;
+  inner.innerHTML =
+    items.map(it => `<div class="bottom-nav-item" id="bnav-${it.page}" onclick="showPage('${it.page}');updateBottomNav('${it.page}')">
+      <div class="bottom-nav-icon">${it.icon}</div>
+      <div class="bottom-nav-label">${it.label}</div>
+    </div>`).join('') +
+    `<div class="bottom-nav-item" id="bnav-logout" onclick="logout()">
+      <div class="bottom-nav-icon" style="color:var(--red)">↩</div>
+      <div class="bottom-nav-label" style="color:var(--red)">ออก</div>
+    </div>`;
+}
+
 function buildBranchNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
@@ -3568,6 +3598,7 @@ function buildBranchNav() {
     <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึก &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
+  buildBottomNav(BRANCH_NAV_ITEMS);
 }
 
 function buildAdminNav() {
@@ -3578,6 +3609,7 @@ function buildAdminNav() {
     <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
     <div class="nav-item" id="nav-admin-reports" onclick="showPage('admin-reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
+  buildBottomNav(ADMIN_NAV_ITEMS);
 }
 
 function showPage(page) {
@@ -3614,20 +3646,36 @@ function showPage(page) {
 }
 
 function updateBottomNav(page) {
+  // Page → bottom-nav id mapping. Aliases collapse related pages onto a single tab.
   const navMap = {
+    // Branch
     'dashboard': 'bnav-dashboard',
     'employees': 'bnav-employees',
     'trainings': 'bnav-trainings',
     'evaluations': 'bnav-trainings',
     'course-history': 'bnav-course-history',
-    'manual': 'bnav-manual',
-    'reports': null,
+    'manual': 'bnav-trainings',
+    'reports': 'bnav-reports',
+    // Admin
+    'admin-dashboard':       'bnav-admin-dashboard',
+    'admin-manage':          'bnav-admin-manage',
+    'admin-branches':        'bnav-admin-manage',
+    'admin-employees':       'bnav-admin-manage',
+    'admin-trainings':       'bnav-admin-trainings',
+    'admin-evaluations':     'bnav-admin-trainings',
+    'admin-course-history':  'bnav-admin-course-history',
+    'admin-quiz':            'bnav-admin-quiz',
+    'admin-reports':         'bnav-admin-reports',
   };
   document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
   const targetId = navMap[page];
   if (targetId) {
     const el = document.getElementById(targetId);
-    if (el) el.classList.add('active');
+    if (el) {
+      el.classList.add('active');
+      // Auto-scroll the active tab into view (for admin's wider nav)
+      try { el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); } catch(_){}
+    }
   }
 }
 
