@@ -902,7 +902,7 @@
     /* Employee card on mobile: 3 lines × 2 columns, no labels */
     table.cards-on-mobile.emp-table tr {
       display: grid !important;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) auto;
       column-gap: 12px; row-gap: 6px;
       padding: 12px 14px;
     }
@@ -915,7 +915,7 @@
     table.cards-on-mobile.emp-table td > * { text-align: inherit; }
     /* Line 1: name (left), empCode (right) */
     table.cards-on-mobile.emp-table td[data-label="ชื่อ"] { grid-column: 1; grid-row: 1; justify-content: flex-start; padding-bottom: 4px !important; border-bottom: 1px dashed var(--border) !important; text-align: left !important; }
-    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; }
+    table.cards-on-mobile.emp-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; word-break: break-word; line-height: 1.3; }
     table.cards-on-mobile.emp-table td[data-label="รหัส"] { grid-column: 2; grid-row: 1; justify-content: flex-end; font-size: 11.5px; color: var(--text3); padding-bottom: 4px !important; border-bottom: 1px dashed var(--border) !important; }
     /* Line 2: group (left), position (right) */
     table.cards-on-mobile.emp-table td[data-label="ประเภท"] { grid-column: 1; grid-row: 2; justify-content: flex-start; text-align: left !important; }
@@ -935,7 +935,7 @@
     /* Course-history group card on mobile: 3 lines × 2 cols */
     table.cards-on-mobile.ch-table tr {
       display: grid !important;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) auto;
       column-gap: 12px; row-gap: 4px;
       padding: 12px 14px 12px 38px;
       position: relative;
@@ -960,7 +960,7 @@
       border-bottom: 1px dashed var(--border) !important;
       text-align: left !important;
     }
-    table.cards-on-mobile.ch-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; }
+    table.cards-on-mobile.ch-table td[data-label="ชื่อ"] strong { font-size: 14.5px; text-align: left; display: block; word-break: break-word; line-height: 1.3; }
     table.cards-on-mobile.ch-table td[data-label="รหัส"] {
       grid-column: 2; grid-row: 1; justify-content: flex-end;
       font-size: 11.5px; color: var(--text3);
