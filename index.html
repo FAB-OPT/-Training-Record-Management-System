@@ -5719,12 +5719,9 @@ function renderAdminCourseHistory() {
   const list = _sortAdminCourseHistory(DB.courseHistory);
   const branchOpts = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} · ${BRANCH_MASTER[id].name}</option>`).join('');
   return `
-  <div class="topbar"><div class="topbar-title">Admin · ประวัติการอบรมหลักสูตร</div></div>
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">การฝึกอบรม</div>
       <div class="page-hero-title">ประวัติการอบรมหลักสูตรทั้งระบบ</div>
-      <div class="page-hero-sub">${list.length} รายการ</div>
     </div>
     <button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>
   </div>
@@ -6393,22 +6390,13 @@ function renderAdminManage() {
     : `<div style="display:flex;gap:10px"><button class="btn btn-outline" onclick="openExcelImport()">📥 Import จาก Excel</button><button class="btn btn-navy" onclick="adminAddEmpGlobal()">+ เพิ่มพนักงาน</button></div>`;
 
   return `
-  <div class="topbar"><div class="topbar-title">Admin · จัดการสาขา &amp; พนักงาน</div></div>
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">การจัดการ</div>
       <div class="page-hero-title">จัดการสาขา &amp; พนักงาน</div>
-      <div class="page-hero-sub">${branchCount} สาขา · ${empCount} พนักงาน</div>
     </div>
     ${headerAction}
   </div>
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${tabBtn('branches', 'สาขา', branchCount)}
-      ${tabBtn('employees', 'พนักงาน', empCount)}
-    </div>
-  </div>
-  ${tab === 'branches' ? _renderAdminBranchesPanel() : _renderAdminEmployeesPanel()}`;
+  ${tab === 'branches' ? _renderAdminBranchesPanel(tabBtn, branchCount, empCount) : _renderAdminEmployeesPanel(tabBtn, branchCount, empCount)}`;
 }
 
 let _branchSort = { key: 'id', dir: 'asc' };
@@ -6431,17 +6419,21 @@ function _sortBranchEntries(entries) {
   return entries.slice().sort((a,b) => _cmp(get(a), get(b), dir));
 }
 
-function _renderAdminBranchesPanel() {
+function _renderAdminBranchesPanel(tabBtn, branchCount, empCount) {
   const mgrs = [...new Set(Object.values(BRANCH_MASTER).map(b=>b.manager))].sort();
   const mgrOptions = mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
   return `
   <div class="card" style="margin-bottom:16px">
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <input class="search-input" id="branch-search" placeholder="ค้นหารหัส / ชื่อสาขา..." oninput="filterBranches()" style="flex:1;min-width:200px">
-      <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:260px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${tabBtn('branches', 'สาขา', branchCount)}
+        ${tabBtn('employees', 'พนักงาน', empCount)}
+      </div>
+      <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:240px">
         <option value="">— ทุกผู้จัดการเขต —</option>
         ${mgrOptions}
       </select>
+      <input class="search-input" id="branch-search" placeholder="ค้นหารหัส / ชื่อสาขา..." oninput="filterBranches()" style="flex:1;min-width:180px;margin-left:auto">
     </div>
   </div>
   <div class="card">
@@ -6481,14 +6473,17 @@ function _sortAdminEmps(emps) {
   return emps.slice().sort((a,b) => _cmp(get(a), get(b), dir));
 }
 
-function _renderAdminEmployeesPanel() {
+function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount) {
   const allEmps = Object.values(DB.employees).flat();
   const branchOptions = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} — ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   return `
   <div class="card" style="margin-bottom:16px">
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <input class="search-input" id="admin-emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterAdminEmployees()" style="flex:1;min-width:200px">
-      <select class="form-select" id="admin-emp-branch-filter" onchange="filterAdminEmployees()" style="width:280px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${tabBtn('branches', 'สาขา', branchCount)}
+        ${tabBtn('employees', 'พนักงาน', empCount)}
+      </div>
+      <select class="form-select" id="admin-emp-branch-filter" onchange="filterAdminEmployees()" style="width:220px">
         <option value="">— ทุกสาขา —</option>
         ${branchOptions}
       </select>
@@ -6497,6 +6492,7 @@ function _renderAdminEmployeesPanel() {
         <option value="resigned">🚫 ปิดใช้งาน</option>
         <option value="">— ทั้งหมด (รวมที่ปิดใช้งาน) —</option>
       </select>
+      <input class="search-input" id="admin-emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterAdminEmployees()" style="flex:1;min-width:180px;margin-left:auto">
     </div>
   </div>
   <div class="card">
@@ -6842,38 +6838,33 @@ function renderAdminTrainings() {
   };
 
   return `
-  <div class="topbar"><div class="topbar-title">Admin · บันทึก &amp; ประเมินผล</div></div>
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">การสอนงาน</div>
       <div class="page-hero-title">บันทึก &amp; ประเมินผล</div>
-      <div class="page-hero-sub">ประวัติการสอนงานและผลประเมินทั้งระบบ · ${all.length} รายการ</div>
     </div>
   </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-yellow">⏳</div><div class="stat-info"><div class="stat-value">${pending.length}</div><div class="stat-label">รอประเมิน</div></div></div>
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-green">✓</div><div class="stat-info"><div class="stat-value stat-value-green">${passed}</div><div class="stat-label">ผ่าน</div></div></div>
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-red" style="background:#fee2e2">✗</div><div class="stat-info"><div class="stat-value" style="color:var(--red)">${done.length-passed}</div><div class="stat-label">ไม่ผ่าน</div></div></div>
-    <div class="stat-card"><div class="stat-icon-wrap stat-icon-purple">%</div><div class="stat-info"><div class="stat-value stat-value-purple">${failRate}%</div><div class="stat-label">อัตราผ่าน</div></div></div>
-  </div>
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <select class="form-select" id="at-branch" onchange="applyAdminTrainFilters()" style="width:220px"><option value="">— ทุกสาขา —</option>${branchOptions}</select>
-      <select class="form-select" id="at-module" onchange="applyAdminTrainFilters()" style="width:220px"><option value="">— ทุก Module —</option>${moduleOptions}</select>
-      <select class="form-select" id="at-result" onchange="applyAdminTrainFilters()" style="width:180px">
+  <div class="card">
+    <div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
+      <div class="cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
+        ${tabBtn('all','ทั้งหมด',all.length)}
+        ${tabBtn('pending','รอประเมิน',pending.length)}
+        ${tabBtn('done','ประเมินแล้ว',done.length)}
+        ${tabBtn('expired','หมดเวลาการประเมิน',expired.length)}
+      </div>
+      <select class="form-select cat-select-mobile" onchange="setAdminTrainFilter(this.value)">
+        <option value="all"${filter==='all'?' selected':''}>ทั้งหมด (${all.length})</option>
+        <option value="pending"${filter==='pending'?' selected':''}>รอประเมิน (${pending.length})</option>
+        <option value="done"${filter==='done'?' selected':''}>ประเมินแล้ว (${done.length})</option>
+        <option value="expired"${filter==='expired'?' selected':''}>หมดเวลาการประเมิน (${expired.length})</option>
+      </select>
+      <select class="form-select" id="at-branch" onchange="applyAdminTrainFilters()" style="width:200px"><option value="">— ทุกสาขา —</option>${branchOptions}</select>
+      <select class="form-select" id="at-module" onchange="applyAdminTrainFilters()" style="width:200px"><option value="">— ทุก Module —</option>${moduleOptions}</select>
+      <select class="form-select" id="at-result" onchange="applyAdminTrainFilters()" style="width:160px">
         <option value="">— ทุกผล —</option>
         <option value="pass"${_adminTrainResult==='pass'?' selected':''}>ผ่าน (3-4)</option>
         <option value="fail"${_adminTrainResult==='fail'?' selected':''}>ไม่ผ่าน (1-2)</option>
         ${EVAL_RESULTS.map(r=>`<option value="${r.value}"${String(r.value)===_adminTrainResult?' selected':''}>${r.label.split('=')[0].trim()}</option>`).join('')}
       </select>
-    </div>
-  </div>
-  <div class="card">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-      ${tabBtn('all','ทั้งหมด',all.length)}
-      ${tabBtn('pending','รอประเมิน',pending.length)}
-      ${tabBtn('done','ประเมินแล้ว',done.length)}
-      ${tabBtn('expired','หมดเวลา',expired.length)}
     </div>
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
@@ -6951,9 +6942,7 @@ function renderAdminQuiz() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">Admin · ข้อสอบ</div>
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
-      <div class="page-hero-sub">เพิ่ม / ลบ / สร้างด้วย AI · คำถามที่เพิ่มจะรวมในข้อสอบทันที</div>
     </div>
     <button class="btn btn-outline" onclick="openAiSettingsModal()">⚙️ ตั้งค่า AI</button>
   </div>
