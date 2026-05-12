@@ -3603,6 +3603,29 @@ function getSubtopicProgress(training) {
   const taught = getAccumulatedSubtopics(training.branchId, training.moduleId, training.traineeIds);
   return {done: required.filter(s => taught.has(s)).length, total: required.length};
 }
+// Among all trainings that "complete" the module for an overlapping trainee set,
+// only the LATEST one (by date) is the quiz-eligible record. The earlier sessions
+// just contributed subtopics on the way to completion — they shouldn't get their
+// own quiz.
+function isLatestCompletingTraining(t) {
+  if (!isModuleComplete(t)) return false;
+  const overlap = (a, b) => (a||[]).some(id => (b||[]).includes(id));
+  const siblings = DB.trainings.filter(x =>
+    x.branchId === t.branchId &&
+    x.moduleId === t.moduleId &&
+    overlap(x.traineeIds, t.traineeIds) &&
+    isModuleComplete(x)
+  );
+  if (siblings.length <= 1) return true;
+  // Pick the latest by date; tie-break by id so result is deterministic
+  const latest = siblings.reduce((m, x) => {
+    if (!m) return x;
+    if ((x.date||'') > (m.date||'')) return x;
+    if ((x.date||'') === (m.date||'') && (x.id||'') > (m.id||'')) return x;
+    return m;
+  }, null);
+  return latest && latest.id === t.id;
+}
 
 // ==================== DASHBOARD ====================
 function renderDashboard() {
@@ -4431,10 +4454,11 @@ function renderTrainings() {
         const canEdit = within7 && !t.eval;
         const canEval = !t.eval && within7;
         const moduleComplete = isModuleComplete(t);
+        const isQuizRow = isLatestCompletingTraining(t);
         const quizAttempts = _quizAttemptsFor(t.id);
         const quizPassed = _quizPassedFor(t.id);
         const quizLocked = !quizPassed && quizAttempts.length >= QUIZ_MAX_ATTEMPTS;
-        const canQuiz = moduleComplete && !t.eval && !quizPassed && !quizLocked;
+        const canQuiz = isQuizRow && !t.eval && !quizPassed && !quizLocked;
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
         const prog = getSubtopicProgress(t);
         return `<tr>
@@ -4443,9 +4467,9 @@ function renderTrainings() {
           <td data-label="หัวข้อ"><span class="badge ${moduleComplete?'badge-green':'badge-navy'}">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name}<div style="color:var(--text3);font-size:11px">${e.position} · ${calcTenureShort(e.startDate)}</div>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
-          <td data-label="สถานะ">${badge}${quizAttempts.length?`<div style="margin-top:4px"><span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ ผ่านข้อสอบ '+bestPct+'%':quizLocked?'🔒 ล็อก ('+bestPct+'%)':'ข้อสอบ '+bestPct+'% · ทำได้อีก '+(QUIZ_MAX_ATTEMPTS-quizAttempts.length)+' ครั้ง'}</span></div>`:''}</td>
+          <td data-label="สถานะ">${badge}${isQuizRow&&quizAttempts.length?`<div style="margin-top:4px"><span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ ผ่านข้อสอบ '+bestPct+'%':quizLocked?'🔒 ล็อก ('+bestPct+'%)':'ข้อสอบ '+bestPct+'% · ทำได้อีก '+(QUIZ_MAX_ATTEMPTS-quizAttempts.length)+' ครั้ง'}</span></div>`:''}</td>
           <td data-label="actions" style="white-space:nowrap">
-            ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ ครั้งที่ ${quizAttempts.length+1}/${QUIZ_MAX_ATTEMPTS}</button>`:moduleComplete&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ ${quizAttempts.length}/${QUIZ_MAX_ATTEMPTS}</button>`:''}
+            ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ ครั้งที่ ${quizAttempts.length+1}/${QUIZ_MAX_ATTEMPTS}</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ ${quizAttempts.length}/${QUIZ_MAX_ATTEMPTS}</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
             ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
