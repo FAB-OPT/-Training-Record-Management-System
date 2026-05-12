@@ -4762,9 +4762,13 @@ function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-con
 function setTrainSort(key) { _toggleSort(_trainSort, key); document.getElementById('main-content').innerHTML = renderTrainings(); }
 function _sortTrainings(list) {
   const k = _trainSort.key, dir = _trainSort.dir;
+  const dateOf = t => new Date(t.date || 0).getTime();
+  // Special case: sort directly by date as numeric timestamp (handles ISO with TZ properly)
+  if (k === 'date') {
+    return list.slice().sort((a,b) => (dateOf(a) - dateOf(b)) * (dir === 'asc' ? 1 : -1));
+  }
   const get = (t) => {
     switch (k) {
-      case 'date': return t.date || '';
       case 'module': return MODULES[t.moduleId]?.name || t.moduleId || '';
       case 'trainer': return t.trainerName || '';
       case 'status':
@@ -4774,7 +4778,12 @@ function _sortTrainings(list) {
     }
     return '';
   };
-  return list.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+  // Other columns: primary sort + tie-break by date desc (newest first within group)
+  return list.slice().sort((a,b) => {
+    const cmp = _cmp(get(a), get(b), dir);
+    if (cmp !== 0) return cmp;
+    return dateOf(b) - dateOf(a);
+  });
 }
 
 function renderTrainings() {
@@ -6621,10 +6630,13 @@ function setAdminTrainFilter(f) { _adminTrainFilter = f; document.getElementById
 function setAdminTrainSort(key) { _toggleSort(_adminTrainSort, key); document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function _sortAdminTrainings(list) {
   const k = _adminTrainSort.key, dir = _adminTrainSort.dir;
+  const dateOf = t => new Date(t.date || 0).getTime();
+  if (k === 'date') {
+    return list.slice().sort((a,b) => (dateOf(a) - dateOf(b)) * (dir === 'asc' ? 1 : -1));
+  }
   const get = (t) => {
     switch (k) {
       case 'branch': return t.branchId || '';
-      case 'date': return t.date || '';
       case 'module': return MODULES[t.moduleId]?.name || t.moduleId || '';
       case 'trainer': return t.trainerName || '';
       case 'status':
@@ -6634,7 +6646,11 @@ function _sortAdminTrainings(list) {
     }
     return '';
   };
-  return list.slice().sort((a,b) => _cmp(get(a), get(b), dir));
+  return list.slice().sort((a,b) => {
+    const cmp = _cmp(get(a), get(b), dir);
+    if (cmp !== 0) return cmp;
+    return dateOf(b) - dateOf(a);
+  });
 }
 function applyAdminTrainFilters() {
   _adminTrainBranch = document.getElementById('at-branch')?.value || '';
