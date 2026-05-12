@@ -3784,13 +3784,12 @@ function renderDashPosPage(bid) {
 function showAllEmployeesModal(bid) {
   const emps = getBranchEmployees(bid).filter(_isEmpEnabled);
   showModal('พนักงานทั้งหมด (' + emps.length + ' คน)', '<div class="table-wrap"><table>'
-    + '<thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th><th>สถานะ</th></tr></thead>'
+    + '<thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>อายุงาน</th></tr></thead>'
     + '<tbody>' + emps.map(e => '<tr>'
       + '<td style="font-family:monospace;font-size:12px;color:var(--text2)">' + (e.empCode || '—') + '</td>'
       + '<td style="font-weight:600">' + e.name + '</td>'
       + '<td style="font-size:12px;color:var(--text2)">' + e.position + '</td>'
       + '<td><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:4px">' + calcTenureShort(e.startDate) + '</span></td>'
-      + '<td>' + _empStatusBadge(e) + '</td>'
       + '</tr>').join('')
     + '</tbody></table></div>', null, 'ปิด');
 }
