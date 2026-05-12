@@ -2743,11 +2743,16 @@ const _SB_FIELD_MAP = {
   customQuiz:    { moduleId:'module_id' },
   courseHistory: { branchId:'branch_id', empId:'emp_id', empCode:'emp_code', empName:'emp_name', courseName:'course_name', batchNo:'batch_no', courseDate:'course_date' },
 };
+function _camelToSnake(s) { return s.replace(/[A-Z]/g, c => '_' + c.toLowerCase()); }
+function _snakeToCamel(s) { return s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }
 function _toSb(coll, rec) {
   const map = _SB_FIELD_MAP[coll] || {};
   const out = {};
   for (const k of Object.keys(rec)) {
-    const dbKey = map[k] || k;
+    let dbKey;
+    if (map[k]) dbKey = map[k];
+    else if (/[A-Z]/.test(k)) dbKey = _camelToSnake(k);
+    else dbKey = k;
     let v = rec[k];
     if (v === undefined) v = null;
     out[dbKey] = v;
@@ -2760,7 +2765,11 @@ function _fromSb(coll, row) {
   const out = {};
   for (const k of Object.keys(row)) {
     if (k === 'created_at' || k === 'updated_at') continue;
-    out[inv[k] || k] = row[k];
+    let appKey;
+    if (inv[k]) appKey = inv[k];
+    else if (k.includes('_')) appKey = _snakeToCamel(k);
+    else appKey = k;
+    out[appKey] = row[k];
   }
   return out;
 }
