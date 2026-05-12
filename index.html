@@ -1154,9 +1154,9 @@
       content: 'ผู้สอน '; display: inline !important;
       font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
-    /* Line 5: ผลการประเมิน (col 1) | ผลสอบ (col 2) — labels in black, value text-only colored */
+    /* Lines 5 & 6: ผลการประเมิน (own row) then ผลสอบ (own row) */
     table.cards-on-mobile.train-table td[data-label="สถานะ"] {
-      grid-column: 1; grid-row: 5; justify-content: flex-start;
+      grid-column: 1 / -1; grid-row: 5; justify-content: flex-start;
       gap: 6px; font-size: 12px;
       padding-top: 4px !important;
     }
@@ -1165,9 +1165,8 @@
       font-size: 11px; color: var(--text); font-weight: 700; margin-right: 4px;
     }
     table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
-      grid-column: 2; grid-row: 5; justify-content: flex-start;
+      grid-column: 1 / -1; grid-row: 6; justify-content: flex-start;
       gap: 6px; font-size: 12px;
-      padding-top: 4px !important;
     }
     table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::before {
       content: 'ผลสอบ '; display: inline !important;
@@ -1183,7 +1182,7 @@
     }
     /* Actions: single row, no wrap, compact buttons */
     table.cards-on-mobile.train-table td[data-label="actions"] {
-      grid-column: 1 / -1; grid-row: 6;
+      grid-column: 1 / -1; grid-row: 7;
       justify-content: flex-start; gap: 4px; flex-wrap: nowrap;
       overflow-x: auto;
       padding-top: 8px !important; margin-top: 6px;
