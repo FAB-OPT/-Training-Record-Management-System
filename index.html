@@ -987,6 +987,23 @@
       content: 'อบรมล่าสุด: '; display: inline !important;
       font-size: 10.5px; color: var(--text4); margin-right: 4px;
     }
+    /* Expanded course list row: escape grid, span full width, tighter padding */
+    table.cards-on-mobile.ch-table tr.ch-expanded-row {
+      display: block !important;
+      grid-template-columns: none !important;
+      padding: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      margin: -8px 0 10px;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row td.ch-expanded-cell {
+      display: block !important; padding: 0 !important;
+      border-radius: 0 0 14px 14px;
+    }
+    table.cards-on-mobile.ch-table tr.ch-expanded-row .ch-expanded-inner {
+      padding: 12px 14px 14px !important;
+    }
 
     /* Group filter tabs: clean 2x2 grid on phones */
     .emp-tabs-mobile, .ch-tabs-mobile {
@@ -5141,8 +5158,8 @@ function renderCourseHistoryGroupedRows(groups) {
         <span class="ch-course-batch">รุ่น ${c.batchNo||'—'}</span>
         <span class="ch-course-date">${fmtDate(c.courseDate)}</span>
       </div>`).join('');
-    const childRows = `<tr><td colspan="7" style="padding:0;background:var(--accent-light);border-left:3px solid var(--accent)">
-      <div style="padding:12px 22px 14px 38px">
+    const childRows = `<tr class="ch-expanded-row"><td colspan="7" class="ch-expanded-cell" style="padding:0;background:var(--accent-light);border-left:3px solid var(--accent)">
+      <div class="ch-expanded-inner" style="padding:12px 22px 14px 38px">
         <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">หลักสูตรที่อบรม · ${g.items.length} รายการ</div>
         <div class="ch-course-list">${courseList}</div>
       </div>
