@@ -6275,7 +6275,6 @@ function renderAdminDashboard() {
   const sel = _viewBranchOverride || 'ALL';
   const branchOpts = '<option value="ALL"' + (sel==='ALL'?' selected':'') + '>📊 ทั้งระบบ (ทุกสาขา)</option>' + branches.map(id => `<option value="${id}" ${id===sel?'selected':''}>${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   const isSystem = sel === 'ALL';
-  const heroEyebrow = isSystem ? 'Admin · ภาพรวมทั้งระบบ' : 'Admin · แดชบอร์ดสาขา';
   const heroTitle = isSystem ? 'แดชบอร์ด' : `${sel} ${BRANCH_MASTER[sel].name.replace(sel+' ','')}`;
   const heroSub = isSystem
     ? `รวมข้อมูลทุกสาขา · ${fmtDate(new Date().toISOString())}`
@@ -6290,7 +6289,6 @@ function renderAdminDashboard() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-eyebrow">${heroEyebrow}</div>
       <div class="page-hero-title">${heroTitle}</div>
       <div class="page-hero-sub">${heroSub}</div>
     </div>
