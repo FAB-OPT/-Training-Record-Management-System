@@ -4829,7 +4829,7 @@ function renderTrainings() {
         const canQuiz = isQuizRow && !t.eval && !quizPassed && !quizLocked;
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
         const quizCell = isQuizRow && quizAttempts.length
-          ? `<span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ '+bestPct+'%':quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
+          ? `<span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ คะแนนสอบ '+bestPct+'%':quizLocked?'🔒 คะแนนสอบ '+bestPct+'%':'คะแนนสอบ '+bestPct+'%'}</span>`
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         return `<tr>
