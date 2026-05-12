@@ -352,6 +352,12 @@
   .badge-gray { background: var(--surface3); color: var(--text2); }
   /* Category select used on mobile only — hidden on desktop where pill tabs show */
   .cat-select-mobile { display: none; }
+  /* Date-format swap: short on desktop, long (full Thai month) on mobile */
+  .dt-long { display: none; }
+  @media (max-width: 768px) {
+    .dt-short { display: none; }
+    .dt-long { display: inline; }
+  }
   .badge-navy { background: var(--accent-light); color: var(--accent); }
   .badge-orange { background: var(--accent-light); color: var(--accent); }
 
@@ -1014,11 +1020,11 @@
     }
     /* Hide branch on mobile (handled by branch context already) */
     table.cards-on-mobile.ch-table td[data-label="สาขา"] { display: none !important; }
-    /* ===== Trainings card on mobile ===== */
+    /* ===== Trainings card on mobile (6-line layout) ===== */
     table.cards-on-mobile.train-table tr {
       display: grid !important;
-      grid-template-columns: auto 1fr auto;
-      column-gap: 8px; row-gap: 6px;
+      grid-template-columns: 1fr;
+      row-gap: 5px;
       padding: 12px 14px;
     }
     table.cards-on-mobile.train-table td {
@@ -1027,42 +1033,30 @@
       white-space: normal !important;
     }
     table.cards-on-mobile.train-table td::before { display: none !important; }
-    /* Line 1: วันที่ (left) | ผลสอบ (middle) | สถานะ (right) */
+    /* Line 1: full date with full Thai month name */
     table.cards-on-mobile.train-table td[data-label="วันที่"] {
-      grid-column: 1; grid-row: 1; justify-content: flex-start;
+      grid-row: 1; justify-content: flex-start;
       font-size: 11.5px; color: var(--text3); font-weight: 600;
-      text-align: left !important; white-space: nowrap;
-    }
-    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
-      grid-column: 2; grid-row: 1; justify-content: center;
-      text-align: center !important;
-    }
-    /* Add 'คะแนนสอบ' label only on mobile (desktop has the column header) */
-    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] .badge::before {
-      content: 'คะแนนสอบ '; font-weight: 600; margin-right: 2px;
-    }
-    table.cards-on-mobile.train-table td[data-label="สถานะ"] {
-      grid-column: 3; grid-row: 1; justify-content: flex-end;
-      text-align: right !important;
-    }
-    /* Line 2: ชื่อ-นามสกุล (full width, dashed underline) */
-    table.cards-on-mobile.train-table td[data-label="พนักงาน"] {
-      grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
-      padding-bottom: 6px !important;
+      text-align: left !important;
+      padding-bottom: 4px !important;
       border-bottom: 1px dashed var(--border) !important;
-      font-size: 13.5px; font-weight: 700; color: var(--text);
-      text-align: left !important; line-height: 1.35;
     }
-    /* Line 3: Module + (X/X หัวข้อ) — single line, inline */
+    /* Line 2: ชื่อ + ตำแหน่ง + อายุงาน combined */
+    table.cards-on-mobile.train-table td[data-label="พนักงาน"] {
+      grid-row: 2; justify-content: flex-start;
+      font-size: 13.5px; font-weight: 700; color: var(--text);
+      text-align: left !important; line-height: 1.4;
+    }
+    /* Line 3: Module + X/X หัวข้อ */
     table.cards-on-mobile.train-table td[data-label="Module"] {
-      grid-column: 1 / -1; grid-row: 3; justify-content: flex-start;
+      grid-row: 3; justify-content: flex-start;
       flex-wrap: wrap; gap: 6px;
       font-size: 13px; color: var(--accent); font-weight: 700;
       text-align: left !important; line-height: 1.35;
     }
-    /* Line 4: 'ผู้สอน: X' (full width small) */
+    /* Line 4: ผู้สอน */
     table.cards-on-mobile.train-table td[data-label="ผู้สอน"] {
-      grid-column: 1 / -1; grid-row: 4; justify-content: flex-start;
+      grid-row: 4; justify-content: flex-start;
       font-size: 11.5px; color: var(--text2);
       text-align: left !important;
     }
@@ -1070,12 +1064,30 @@
       content: 'ผู้สอน '; display: inline !important;
       font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
-    /* Actions: full width row at bottom */
+    /* Line 5: ผลประเมิน + ผลคะแนนสอบ inline (use ::before to label them) */
+    table.cards-on-mobile.train-table td[data-label="สถานะ"],
+    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
+      grid-row: 5; justify-content: flex-start;
+      flex-direction: row; flex-wrap: wrap; gap: 6px;
+      font-size: 12px;
+    }
+    table.cards-on-mobile.train-table td[data-label="สถานะ"] { grid-column: 1; padding-top: 4px !important; }
+    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] { grid-row: 6; padding-bottom: 4px !important; }
+    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] .badge::before {
+      content: 'คะแนนสอบ '; font-weight: 600; margin-right: 2px;
+    }
+    /* Actions: single row, no wrap, compact buttons */
     table.cards-on-mobile.train-table td[data-label="actions"] {
-      grid-column: 1 / -1; grid-row: 5;
-      justify-content: flex-end; gap: 6px; flex-wrap: wrap;
-      padding-top: 8px !important; margin-top: 4px;
+      grid-row: 7;
+      justify-content: flex-start; gap: 4px; flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-top: 8px !important; margin-top: 6px;
       border-top: 1px solid var(--border) !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    table.cards-on-mobile.train-table td[data-label="actions"] .btn {
+      padding: 6px 10px !important; font-size: 11.5px !important;
+      flex-shrink: 0;
     }
 
     /* ===== Admin: branch + admin-employees mobile cards ===== */
@@ -1253,25 +1265,14 @@
       text-align: right !important;
     }
 
-    /* Mobile: hide pill tabs for emp + course history; show dropdown instead.
-       Trainings page keeps the 2x2 pill layout (uses .train-tabs-mobile only). */
-    .emp-tabs-mobile.cat-tabs, .ch-tabs-mobile.cat-tabs { display: none !important; }
+    /* Mobile: hide pill tabs (emp + course history + trainings), show dropdown instead. */
+    .cat-tabs { display: none !important; }
     .cat-select-mobile {
       display: inline-block !important;
       width: auto !important; min-width: 0;
-      max-width: 50%;
+      max-width: 60%;
       padding: 8px 28px 8px 12px !important;
       font-size: 13px !important;
-    }
-    .train-tabs-mobile {
-      display: grid !important;
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 8px !important;
-      width: 100%;
-    }
-    .train-tabs-mobile > button {
-      width: 100%; justify-content: center !important;
-      padding: 11px 12px !important;
     }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
@@ -3793,6 +3794,7 @@ function getEmployee(id) {
 }
 function fmtDate(dt) { if(!dt) return '—'; return new Date(dt).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}); }
 function fmtDateTime(dt) { if(!dt) return '—'; const d = new Date(dt); return d.toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
+function fmtDateTimeLong(dt) { if(!dt) return '—'; const d = new Date(dt); return d.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
 function calcTenure(startDate) {
   if(!startDate) return '—';
   const start = new Date(startDate);
@@ -4840,11 +4842,19 @@ function renderTrainings() {
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
   <div class="card">
-    <div class="train-tabs-mobile" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-      ${tabBtn('all','ทั้งหมด',trains.length)}
-      ${tabBtn('pending','รอประเมิน',pending.length)}
-      ${tabBtn('done','ประเมินแล้ว',done.length)}
-      ${tabBtn('expired','หมดเวลา',expired.length)}
+    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
+        ${tabBtn('all','ทั้งหมด',trains.length)}
+        ${tabBtn('pending','รอประเมิน',pending.length)}
+        ${tabBtn('done','ประเมินแล้ว',done.length)}
+        ${tabBtn('expired','หมดเวลาประเมิน',expired.length)}
+      </div>
+      <select class="form-select cat-select-mobile" onchange="setTrainFilter(this.value)">
+        <option value="all"${filter==='all'?' selected':''}>ทั้งหมด (${trains.length})</option>
+        <option value="pending"${filter==='pending'?' selected':''}>รอประเมิน (${pending.length})</option>
+        <option value="done"${filter==='done'?' selected':''}>ประเมินแล้ว (${done.length})</option>
+        <option value="expired"${filter==='expired'?' selected':''}>หมดเวลาประเมิน (${expired.length})</option>
+      </select>
     </div>
     <div class="table-wrap"><table class="cards-on-mobile train-table">
       <thead><tr>
@@ -4875,8 +4885,8 @@ function renderTrainings() {
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         return `<tr>
-          <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
-          <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name}<div style="color:var(--text3);font-size:11px">${e.position} · ${calcTenureShort(e.startDate)}</div>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
+          <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(t.date)}</span><span class="dt-long">${fmtDateTimeLong(t.date)}</span></td>
+          <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name} <span style="color:var(--text3);font-size:11.5px;font-weight:500">${e.position} · ${calcTenureShort(e.startDate)}</span>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
           <td data-label="Module" style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
