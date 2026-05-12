@@ -3412,7 +3412,7 @@ function getEvalResultShort(result) {
   if (!r) return result;
   const m = r.label.match(/\((\d+-\d+%)\)/);
   const range = m ? ' ('+m[1]+')' : '';
-  return (isEvalPass(result) ? 'ผ่านการประเมิน' : 'ไม่ผ่านการประเมิน') + range;
+  return (isEvalPass(result) ? 'ผ่าน' : 'ไม่ผ่าน') + range;
 }
 function getEvalResultBadge(result) {
   const r = EVAL_RESULTS.find(r => r.value === String(result));
@@ -4873,7 +4873,7 @@ function renderTrainings() {
         const canQuiz = isQuizRow && !t.eval && !quizPassed && !quizLocked;
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
         const quizCell = isQuizRow && quizAttempts.length
-          ? `<span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ '+bestPct+'%':quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
+          ? `<span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         return `<tr>
