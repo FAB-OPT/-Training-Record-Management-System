@@ -1020,6 +1020,30 @@
     }
     /* Hide branch on mobile (handled by branch context already) */
     table.cards-on-mobile.ch-table td[data-label="สาขา"] { display: none !important; }
+    /* ===== Admin dashboard summary boxes: fit mobile ===== */
+    /* Card paddings tighter on mobile */
+    .grid-2 .card { padding: 14px; }
+    .grid-2 .card .card-header {
+      padding: 0 0 10px; margin-bottom: 10px;
+      flex-wrap: wrap; gap: 6px;
+    }
+    .grid-2 .card .card-header .card-title { font-size: 14px; }
+    .grid-2 .card .card-header .btn-sm,
+    .grid-2 .card .card-header button { font-size: 11px; padding: 5px 10px; }
+    /* Branch summary + module-eval tables: scroll-x, smaller font, tighter cells */
+    .grid-2 .card .table-wrap {
+      max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    .grid-2 .card .table-wrap table { font-size: 11.5px; min-width: 0; }
+    .grid-2 .card .table-wrap th,
+    .grid-2 .card .table-wrap td {
+      padding: 6px 8px !important; white-space: nowrap;
+    }
+    /* 'ผลประเมินล่าสุด' bottom card */
+    .card .table-wrap table { font-size: 12px; }
+    .card .table-wrap th { font-size: 11px; padding: 8px 6px !important; }
+    .card .table-wrap td { padding: 8px 6px !important; }
+
     /* ===== Trainings card on mobile (6-line layout) ===== */
     table.cards-on-mobile.train-table tr {
       display: grid !important;
