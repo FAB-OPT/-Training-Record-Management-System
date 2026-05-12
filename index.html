@@ -3406,6 +3406,14 @@ function getEvalResultLabel(result) {
   const r = EVAL_RESULTS.find(r => r.value === String(result));
   return r ? r.label : result;
 }
+// Short version for tight UI (table badge / mobile card): just pass/fail + range
+function getEvalResultShort(result) {
+  const r = EVAL_RESULTS.find(r => r.value === String(result));
+  if (!r) return result;
+  const m = r.label.match(/\((\d+-\d+%)\)/);
+  const range = m ? ' ('+m[1]+')' : '';
+  return (isEvalPass(result) ? 'ผ่านการประเมิน' : 'ไม่ผ่านการประเมิน') + range;
+}
 function getEvalResultBadge(result) {
   const r = EVAL_RESULTS.find(r => r.value === String(result));
   return r ? r.badge : 'badge-gray';
@@ -4852,7 +4860,7 @@ function renderTrainings() {
       </tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
-          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`
+          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
         const within7 = !isEvalDeadlinePassed(t.date);
         const canEdit = within7 && !t.eval;
@@ -6761,7 +6769,7 @@ function renderAdminTrainings() {
       </tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
-          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result).split('=')[0].trim()}</span>`
+          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
         const prog = getSubtopicProgress(t);
         const moduleComplete = isModuleComplete(t);
