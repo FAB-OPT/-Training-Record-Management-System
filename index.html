@@ -5439,8 +5439,41 @@ function updateQuizProgress() {
   if (txt) txt.textContent = `${answered} / ${total} ข้อ`;
 }
 
+const QUIZ_MAX_ATTEMPTS = 2;
+const QUIZ_PASS_PCT = 80;
+function _quizAttemptsFor(trainingId) {
+  return (DB.quizResults || []).filter(r => r.trainingId === trainingId);
+}
+function _quizPassedFor(trainingId) {
+  return _quizAttemptsFor(trainingId).some(r => {
+    const pct = (r.pct != null) ? r.pct : (r.total ? Math.round(r.score/r.total*100) : 0);
+    return pct >= QUIZ_PASS_PCT;
+  });
+}
+
 function openQuiz(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
+  if (!t) return;
+  // Already passed → block (no need to retake)
+  if (_quizPassedFor(trainingId)) {
+    notify('ผ่านข้อสอบนี้แล้ว ไม่ต้องทำซ้ำ', 'success');
+    return;
+  }
+  // Hit max attempts → block
+  const attempts = _quizAttemptsFor(trainingId);
+  if (attempts.length >= QUIZ_MAX_ATTEMPTS) {
+    showModal('🔒 ทำข้อสอบครบจำนวนครั้งแล้ว', `
+      <div style="text-align:center;padding:18px 0">
+        <div style="font-size:48px;margin-bottom:10px">🔒</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">ทำข้อสอบครบ ${QUIZ_MAX_ATTEMPTS} ครั้งแล้ว</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+          คะแนนสูงสุด: <strong>${Math.max(...attempts.map(r => r.pct||Math.round((r.score||0)/(r.total||1)*100)))}%</strong><br>
+          ติดต่อ Admin เพื่อปลดล็อก
+        </div>
+      </div>
+    `, null, 'ปิด');
+    return;
+  }
   const allQ = getAllQuestionsForModule(t.moduleId).filter(q => isQuizActive(q.uid));
   if (allQ.length === 0) { notify('ยังไม่มีคำถามที่เปิดใช้งานสำหรับ Module นี้', 'error'); return; }
   // Shuffle questions, then for each question shuffle the options
@@ -5485,8 +5518,15 @@ function openQuiz(trainingId) {
     questions.forEach((q,i)=>{ if(_quizState.answers[i] === q.correctNew) score++; });
     const pct = Math.round(score/questions.length*100);
     const passed = pct >= 80;
-    const _qr={trainingId, score, total:questions.length, pct, date:new Date().toISOString()};
-    DB.quizResults.push(_qr); gsSave('quizResults', genId('QR'), _qr);
+    const _qrId = genId('QR');
+    const _qrDate = new Date().toISOString();
+    // Local copy keeps pct/date for in-memory calc; record sent to SB strips them (not in schema)
+    const _qrLocal = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, pct, date: _qrDate, answers: { responses: _quizState.answers, pct, date: _qrDate } };
+    DB.quizResults.push(_qrLocal);
+    const _qrForSave = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, answers: { responses: _quizState.answers, pct, date: _qrDate } };
+    gsSave('quizResults', _qrId, _qrForSave);
+    const attemptsAfter = _quizAttemptsFor(trainingId).length;
+    const remaining = Math.max(0, QUIZ_MAX_ATTEMPTS - attemptsAfter);
     _quizState = null;
     closeModal();
     showModal('ผลการสอบ', `
@@ -5495,6 +5535,7 @@ function openQuiz(trainingId) {
         <div style="font-size:54px;font-weight:800;color:${passed?'var(--green)':'var(--red)'};font-family:monospace;letter-spacing:-1px">${pct}%</div>
         <div style="font-size:16px;color:var(--text2);margin-top:6px;font-weight:500">${score} จาก ${questions.length} ข้อ</div>
         <div style="margin-top:20px"><span class="badge ${passed?'badge-green':'badge-red'}" style="font-size:14px;padding:10px 22px">${passed?'✓ ผ่านเกณฑ์':'✗ ไม่ผ่านเกณฑ์ (ต้องได้ 80% ขึ้นไป)'}</span></div>
+        ${!passed ? `<div style="margin-top:18px;padding:10px 16px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text2)">${remaining > 0 ? `ทำได้อีก <strong style="color:var(--accent)">${remaining}</strong> ครั้ง (สูงสุด ${QUIZ_MAX_ATTEMPTS} ครั้ง)` : '🔒 ทำครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้งแล้ว — ติดต่อ Admin เพื่อปลดล็อก'}</div>` : ''}
       </div>
     `, null, 'ปิด');
   }, 'ส่งคำตอบ');
