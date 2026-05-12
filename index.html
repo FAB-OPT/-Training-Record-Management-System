@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบบันทึกการสอนงาน</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     /* ⚫🟠⚪ ขาวส้มดำ — White + Orange + Black */
@@ -2711,62 +2712,213 @@ try {
   }
 } catch(_) {}
 
-// ==================== GOOGLE SHEETS ====================
+// ==================== GOOGLE SHEETS (mirror / backup) ====================
 const GS_URL = 'https://script.google.com/macros/s/AKfycbzv_7Ez3hKNVpyLoxDMHr3EgmF83jIUulNETfOoEOyHr5OFxrHgFh1fTJ3wzgyXr36S/exec';
 
+// ==================== SUPABASE (primary store) ====================
+const SB_URL = 'https://cyjfgperenakjeazsfgf.supabase.co';
+const SB_KEY = 'sb_publishable_xAtQvH3Bdaqt7PVJGbkxWw_KVhfBszo';
+let SB = null;
+function _initSb() {
+  if (SB) return SB;
+  if (window.supabase && window.supabase.createClient) {
+    SB = window.supabase.createClient(SB_URL, SB_KEY);
+  }
+  return SB;
+}
+
+// camelCase ↔ snake_case mapping per collection (only fields that differ)
+const _SB_TABLE = {
+  employees:     'employees',
+  trainings:     'trainings',
+  quizResults:   'quiz_results',
+  customQuiz:    'custom_quiz',
+  courseHistory: 'course_history',
+  quizMeta:      'quiz_meta',
+};
+const _SB_FIELD_MAP = {
+  employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason' },
+  trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
+  quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
+  customQuiz:    { moduleId:'module_id' },
+  courseHistory: { branchId:'branch_id', empId:'emp_id', empCode:'emp_code', empName:'emp_name', courseName:'course_name', batchNo:'batch_no', courseDate:'course_date' },
+};
+function _toSb(coll, rec) {
+  const map = _SB_FIELD_MAP[coll] || {};
+  const out = {};
+  for (const k of Object.keys(rec)) {
+    const dbKey = map[k] || k;
+    let v = rec[k];
+    if (v === undefined) v = null;
+    out[dbKey] = v;
+  }
+  return out;
+}
+function _fromSb(coll, row) {
+  const map = _SB_FIELD_MAP[coll] || {};
+  const inv = {}; for (const k of Object.keys(map)) inv[map[k]] = k;
+  const out = {};
+  for (const k of Object.keys(row)) {
+    if (k === 'created_at' || k === 'updated_at') continue;
+    out[inv[k] || k] = row[k];
+  }
+  return out;
+}
+
+async function sbLoadAll() {
+  const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
+  const [emps, trs, qrs, cqs, chs, qms] = await Promise.all([
+    sb.from('employees').select('*'),
+    sb.from('trainings').select('*'),
+    sb.from('quiz_results').select('*'),
+    sb.from('custom_quiz').select('*'),
+    sb.from('course_history').select('*'),
+    sb.from('quiz_meta').select('*').eq('id','singleton').maybeSingle(),
+  ]);
+  for (const r of [emps, trs, qrs, cqs, chs, qms]) {
+    if (r.error) throw r.error;
+  }
+  return {
+    employees:     (emps.data||[]).map(r => _fromSb('employees', r)),
+    trainings:     (trs.data||[]).map(r => _fromSb('trainings', r)),
+    quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
+    customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
+    courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[] } : { deleted: [], disabled: [] },
+  };
+}
+async function sbSaveOne(coll, id, rec) {
+  const sb = _initSb(); if (!sb) return;
+  const table = _SB_TABLE[coll]; if (!table) return;
+  if (coll === 'quizMeta') {
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], updated_at: new Date().toISOString() });
+  }
+  const row = _toSb(coll, { ...rec, id });
+  return sb.from(table).upsert(row);
+}
+async function sbDelOne(coll, id) {
+  const sb = _initSb(); if (!sb) return;
+  const table = _SB_TABLE[coll]; if (!table) return;
+  return sb.from(table).delete().eq('id', id);
+}
+async function sbSaveMany(coll, records) {
+  const sb = _initSb(); if (!sb) return;
+  const table = _SB_TABLE[coll]; if (!table || !records || !records.length) return;
+  const rows = records.map(r => _toSb(coll, r));
+  return sb.from(table).upsert(rows);
+}
+
+// Apply a {employees, trainings, ...} payload to the in-memory DB
+function _applyServerData(d) {
+  DB.employees = {};
+  (d.employees||[]).forEach(e => {
+    const bid = String(e.branchId||'').trim();
+    if (!bid) return;
+    e.branchId = bid;
+    if (!DB.employees[bid]) DB.employees[bid] = [];
+    DB.employees[bid].push(e);
+  });
+  DB.trainings    = d.trainings || [];
+  DB.quizResults  = d.quizResults || [];
+  DB.customQuiz   = d.customQuiz || [];
+  DB.courseHistory= d.courseHistory || [];
+  DB.quizMeta     = d.quizMeta || { deleted: [], disabled: [] };
+  try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
+}
+
+// Push current in-memory DB up to Supabase (used as one-shot migration from Sheets)
+async function sbMigrateFromCurrent() {
+  const allEmps = Object.values(DB.employees).flat();
+  await sbSaveMany('employees', allEmps);
+  await sbSaveMany('trainings', DB.trainings || []);
+  await sbSaveMany('quizResults', DB.quizResults || []);
+  await sbSaveMany('customQuiz', DB.customQuiz || []);
+  await sbSaveMany('courseHistory', DB.courseHistory || []);
+  if (DB.quizMeta) await sbSaveOne('quizMeta', 'singleton', DB.quizMeta);
+}
+
 let _empToFix = [];
+
+// Read directly from Google Sheets (legacy). Used as fallback / migration source.
+async function gsLoadFromSheets() {
+  const resp = await fetch(GS_URL + '?action=load');
+  const data = await resp.json();
+  DB.employees = {};
+  _empToFix = [];
+  (data.employees || []).forEach(e => {
+    if (!e) return;
+    const bid = String(e.branchId || '').trim();
+    if (!bid) return;
+    if (!e.id || String(e.id).trim() === '') {
+      const s = String(e.name||'') + bid + String(e.startDate||'');
+      let h = 0; for (let i = 0; i < s.length; i++) { h = Math.imul(31,h) + s.charCodeAt(i) | 0; }
+      e.id = 'E' + Math.abs(h).toString().slice(0,7);
+      _empToFix.push({...e});
+    } else { e.id = String(e.id).trim(); }
+    e.branchId = bid;
+    if (!DB.employees[bid]) DB.employees[bid] = [];
+    DB.employees[bid].push(e);
+  });
+  if (_empToFix.length) _empToFix.forEach(e => gsSave('employees', e.id, e));
+  const parseJSON = (v, fb) => {
+    if (v === null || v === undefined) return fb;
+    try { return typeof v === 'string' ? JSON.parse(v) : v; } catch(_) { return fb; }
+  };
+  const serverTrainings = (data.trainings || []).map(t => {
+    t.branchId = String(t.branchId || '').trim();
+    t.moduleId = String(t.moduleId || '').trim();
+    t.eval = parseJSON(t.eval, null);
+    t.subtopics = (parseJSON(t.subtopics, []) || []).map(s => String(s).trim());
+    t.traineeIds = (parseJSON(t.traineeIds, []) || []).map(id => id != null ? String(id).trim() : null).filter(id => id != null && id !== 'null' && id !== '');
+    return t;
+  });
+  const serverIds = new Set(serverTrainings.map(t => t.id));
+  const localPending = DB.trainings.filter(t => !serverIds.has(t.id));
+  DB.trainings = [...serverTrainings, ...localPending];
+  DB.quizResults = data.quizResults || [];
+  DB.customQuiz = (data.customQuiz || []).map(q => {
+    q.opts = parseJSON(q.opts, q.opts);
+    return q;
+  });
+  if (data.quizMeta) {
+    const m = parseJSON(data.quizMeta, null);
+    if (m) DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [] };
+  }
+  if (Array.isArray(data.courseHistory)) {
+    DB.courseHistory = data.courseHistory.map(c => ({...c, branchId: String(c.branchId||'').trim()}));
+  }
+  try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
+}
+
+// Main load: Supabase first, auto-migrate from Sheets on first run if SB empty
 async function gsLoad() {
   try {
-    const resp = await fetch(GS_URL + '?action=load');
-    const data = await resp.json();
-    DB.employees = {};
-    _empToFix = [];
-    (data.employees || []).forEach(e => {
-      if (!e) return;
-      const bid = String(e.branchId || '').trim();
-      if (!bid) return;
-      if (!e.id || String(e.id).trim() === '') {
-        const s = String(e.name||'') + bid + String(e.startDate||'');
-        let h = 0; for (let i = 0; i < s.length; i++) { h = Math.imul(31,h) + s.charCodeAt(i) | 0; }
-        e.id = 'E' + Math.abs(h).toString().slice(0,7);
-        _empToFix.push({...e});
-      } else { e.id = String(e.id).trim(); }
-      e.branchId = bid;
-      if (!DB.employees[bid]) DB.employees[bid] = [];
-      DB.employees[bid].push(e);
-    });
-    if (_empToFix.length) _empToFix.forEach(e => gsSave('employees', e.id, e));
-    const parseJSON = (v, fb) => {
-      if (v === null || v === undefined) return fb;
-      try { return typeof v === 'string' ? JSON.parse(v) : v; } catch(_) { return fb; }
-    };
-    const serverTrainings = (data.trainings || []).map(t => {
-      t.branchId = String(t.branchId || '').trim();
-      t.moduleId = String(t.moduleId || '').trim();
-      t.eval = parseJSON(t.eval, null);
-      t.subtopics = (parseJSON(t.subtopics, []) || []).map(s => String(s).trim());
-      t.traineeIds = (parseJSON(t.traineeIds, []) || []).map(id => id != null ? String(id).trim() : null).filter(id => id != null && id !== 'null' && id !== '');
-      return t;
-    });
-    const serverIds = new Set(serverTrainings.map(t => t.id));
-    const localPending = DB.trainings.filter(t => !serverIds.has(t.id));
-    DB.trainings = [...serverTrainings, ...localPending];
-    DB.quizResults = data.quizResults || [];
-    DB.customQuiz = (data.customQuiz || []).map(q => {
-      q.opts = parseJSON(q.opts, q.opts);
-      return q;
-    });
-    if (data.quizMeta) {
-      const m = parseJSON(data.quizMeta, null);
-      if (m) DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [] };
+    const sb = _initSb();
+    if (sb) {
+      const sbData = await sbLoadAll();
+      const isEmpty = !sbData.employees.length && !sbData.trainings.length;
+      if (!isEmpty) {
+        _applyServerData(sbData);
+        return;
+      }
+      // Supabase empty → one-shot migrate from Sheets
+      console.log('Supabase empty, migrating from Google Sheets...');
+      try {
+        await gsLoadFromSheets();
+        await sbMigrateFromCurrent();
+        console.log('Migration complete');
+      } catch (mErr) {
+        console.error('Migration failed:', mErr);
+      }
+      return;
     }
-    if (Array.isArray(data.courseHistory)) {
-      DB.courseHistory = data.courseHistory.map(c => ({...c, branchId: String(c.branchId||'').trim()}));
-    }
-    try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
-  } catch(err) {
+  } catch (err) {
+    console.error('Supabase load error:', err);
+  }
+  // Fallback: Sheets
+  try { await gsLoadFromSheets(); }
+  catch (err) {
     console.error('GS load error:', err);
-    // Don't pester users who haven't logged in yet — login uses cached/local state only
     if (currentUser) notify('โหลดข้อมูลไม่สำเร็จ กรุณารีเฟรช', 'error');
   }
 }
@@ -2779,17 +2931,27 @@ async function syncData() {
   await gsLoad();
   if (currentUser) showPage(currentPage);
   btn.classList.remove('syncing');
-  btn.textContent = '⟳ ซิงค์ข้อมูลจาก Sheets';
+  btn.textContent = '⟳ ซิงค์ข้อมูล';
   notify('ซิงค์ข้อมูลสำเร็จ');
 }
 
 function gsPost(payload) {
   fetch(GS_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body:JSON.stringify(payload)})
-    .catch(err => notify('ระบบไม่ตอบสนอง: ' + err.message, 'error'));
+    .catch(err => console.warn('GS mirror failed:', err));
 }
-function gsSave(collection, id, record) { gsPost({action:'save', collection, id, record}); }
-function gsDel(collection, id) { gsPost({action:'delete', collection, id}); }
-function gsSaveMany(collection, records) { gsPost({action:'save_many', collection, records}); }
+// Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget)
+function gsSave(collection, id, record) {
+  sbSaveOne(collection, id, record).catch(e => console.error('SB save error', collection, id, e));
+  gsPost({action:'save', collection, id, record});
+}
+function gsDel(collection, id) {
+  sbDelOne(collection, id).catch(e => console.error('SB del error', collection, id, e));
+  gsPost({action:'delete', collection, id});
+}
+function gsSaveMany(collection, records) {
+  sbSaveMany(collection, records).catch(e => console.error('SB save_many error', collection, e));
+  gsPost({action:'save_many', collection, records});
+}
 function mkEmployee(bid, name, pos, start, status) {
   return {id:genId('E'), branchId:bid, name, position:pos, positionGroup:getPositionGroup(pos), startDate:start, status};
 }
