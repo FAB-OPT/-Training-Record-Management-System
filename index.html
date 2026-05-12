@@ -495,8 +495,6 @@
   .notif { position: fixed; top: 20px; right: 20px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 13px 18px; font-size: 13.5px; z-index: 999; box-shadow: var(--shadow-lg); transform: translateX(200%); transition: transform 0.3s cubic-bezier(.34,1.56,.64,1); max-width: 300px; font-weight: 600; }
   /* Sync button: branch users don't need it */
   body.branch-user #sync-btn { display: none; }
-  /* Report button in topbar: branch mobile only */
-  #topbar-report-btn { display: none; }
   .notif.show { transform: translateX(0); }
   .notif.success { border-left: 4px solid var(--green); }
   .notif.error { border-left: 4px solid var(--red); }
@@ -1007,9 +1005,6 @@
     table.cards-on-mobile.ch-table td[data-label="จำนวน"] {
       grid-column: 2; grid-row: 3; justify-content: flex-end;
     }
-    table.cards-on-mobile.ch-table td[data-label="จำนวน"]::before {
-      content: 'หลักสูตร '; color: var(--text3); font-size: 11px; margin-right: 5px; font-weight: 500;
-    }
     /* Hide branch on mobile (handled by branch context already) */
     table.cards-on-mobile.ch-table td[data-label="สาขา"] { display: none !important; }
     /* ===== Admin: branch + admin-employees mobile cards ===== */
@@ -1188,20 +1183,27 @@
     }
 
     /* Group filter tabs: clean 2x2 grid on phones */
-    .emp-tabs-mobile, .ch-tabs-mobile {
+    .emp-tabs-mobile, .ch-tabs-mobile, .train-tabs-mobile {
       display: grid !important;
       grid-template-columns: repeat(2, 1fr) !important;
       gap: 8px !important;
       width: 100%;
     }
-    .emp-tabs-mobile > button, .ch-tabs-mobile > button {
+    .emp-tabs-mobile > button, .ch-tabs-mobile > button, .train-tabs-mobile > button {
       width: 100%; justify-content: center !important;
       padding: 11px 12px !important;
     }
+    /* Smaller search input on mobile (emp + course history) */
+    #emp-search, #ch-search {
+      padding: 7px 11px !important; font-size: 12.5px !important;
+    }
+    #emp-search::placeholder, #ch-search::placeholder { font-size: 12px; }
 
-    /* Branch user: hide hamburger, show report btn, move notif */
+    /* Topbar logout button (replaces old report button) — red text, no bg */
+    #topbar-logout-btn { background: transparent; border: none; color: var(--red); font-family: 'Sarabun',sans-serif; font-size: 13.5px; font-weight: 700; padding: 7px 12px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; -webkit-tap-highlight-color: transparent; }
+    #topbar-logout-btn:active { opacity: .6; }
+    /* Branch user: hide hamburger, move notif */
     body.branch-user .hamburger { display: none; }
-    body.branch-user #topbar-report-btn { display: flex; align-items: center; gap: 5px; background: var(--accent); border: none; color: white; font-family: 'Sarabun',sans-serif; font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
     .notif { top: 64px !important; right: 10px !important; max-width: calc(100vw - 20px); }
 
     /* Hero header smaller on mobile */
@@ -1261,7 +1263,7 @@
   <button class="mobile-theme-btn" onclick="toggleTheme()" aria-label="สลับโหมดมืด/สว่าง" title="สลับโหมดมืด/สว่าง">
     <span id="mobile-theme-icon">🌙</span>
   </button>
-  <button id="topbar-report-btn" onclick="showPage('reports');updateBottomNav('reports')">📊 รายงาน</button>
+  <button id="topbar-logout-btn" onclick="logout()">↩ ออก</button>
 </div>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -4731,12 +4733,12 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">ประวัติการสอนงานและการประเมินของสาขา</div>
+      <div class="page-hero-title">ประวัติการสอนงานและการประเมินผล</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
   <div class="card">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+    <div class="train-tabs-mobile" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
       ${tabBtn('all','ทั้งหมด',trains.length)}
       ${tabBtn('pending','รอประเมิน',pending.length)}
       ${tabBtn('done','ประเมินแล้ว',done.length)}
@@ -4745,14 +4747,13 @@ function renderTrainings() {
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_trainSort,'setTrainSort')}
-        ${_sortHeader('module','Module หลัก',_trainSort,'setTrainSort')}
-        <th>หัวข้อย่อย</th>
-        <th>พนักงาน</th>
+        <th>ชื่อ - นามสกุล</th>
+        ${_sortHeader('module','Module',_trainSort,'setTrainSort')}
         ${_sortHeader('trainer','ผู้สอน',_trainSort,'setTrainSort')}
         ${_sortHeader('status','สถานะ',_trainSort,'setTrainSort')}
         <th>จัดการ</th>
       </tr></thead>
-      <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
+      <tbody>${rows.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
@@ -4769,13 +4770,12 @@ function renderTrainings() {
         const prog = getSubtopicProgress(t);
         return `<tr>
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
-          <td data-label="Module" style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId}</td>
-          <td data-label="หัวข้อ"><span class="badge ${moduleComplete?'badge-green':'badge-navy'}">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`${e.name}<div style="color:var(--text3);font-size:11px">${e.position} · ${calcTenureShort(e.startDate)}</div>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
+          <td data-label="Module" style="font-weight:700;color:var(--primary)">${MODULES[t.moduleId]?.name||t.moduleId}<div style="margin-top:3px"><span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px">${prog.done}/${prog.total} หัวข้อ${moduleComplete?' ✓':''}</span></div></td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
           <td data-label="สถานะ">${badge}${isQuizRow&&quizAttempts.length?`<div style="margin-top:4px"><span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizPassed?'✓ ผ่านข้อสอบ '+bestPct+'%':quizLocked?'🔒 ล็อก ('+bestPct+'%)':'ข้อสอบ '+bestPct+'% · ทำได้อีก '+(QUIZ_MAX_ATTEMPTS-quizAttempts.length)+' ครั้ง'}</span></div>`:''}</td>
           <td data-label="actions" style="white-space:nowrap">
-            ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ ครั้งที่ ${quizAttempts.length+1}/${QUIZ_MAX_ATTEMPTS}</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ ${quizAttempts.length}/${QUIZ_MAX_ATTEMPTS}</button>`:''}
+            ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
             ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
@@ -5364,7 +5364,7 @@ function renderCourseHistoryGroupedRows(groups) {
       <td data-label="ชื่อ"><strong>${g.empName}</strong></td>
       <td data-label="ตำแหน่ง" style="font-size:12.5px;color:${posColor};font-weight:600">${g.position}</td>
       <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${branchName}</td>
-      <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">${g.items.length}</span></td>
+      <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">หลักสูตร ${g.items.length}</span></td>
       <td data-label="ล่าสุด" style="font-size:12.5px">${fmtDate(g.latestDate)}</td>
     </tr>`;
     if (!open) return headRow;
