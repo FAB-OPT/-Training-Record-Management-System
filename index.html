@@ -366,6 +366,8 @@
   .badge-navy { background: var(--accent-light); color: var(--accent); }
   .badge-orange { background: var(--accent-light); color: var(--accent); }
 
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
   /* Plain-text badges (no background) in Trainings page status/quiz cells */
   .train-table td[data-label="สถานะ"] .badge,
   .train-table td[data-label="ผลสอบ"] .badge,
@@ -3477,6 +3479,12 @@ function gsPost(payload) {
   fetch(GS_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body:JSON.stringify(payload)})
     .catch(err => console.warn('GS mirror failed:', err));
 }
+// Fetch with response (no no-cors) — used for AI proxy that needs JSON back
+async function gsFetch(payload) {
+  const resp = await fetch(GS_URL, { method:'POST', body: JSON.stringify(payload) });
+  if (!resp.ok) throw new Error('GS HTTP ' + resp.status);
+  return await resp.json();
+}
 // Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget)
 function gsSave(collection, id, record) {
   sbSaveOne(collection, id, record).catch(e => console.error('SB save error', collection, id, e));
@@ -6155,7 +6163,7 @@ function _quizPassedFor(trainingId) {
   });
 }
 
-function openQuiz(trainingId) {
+async function openQuiz(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
   if (!t) return;
   // Already passed → block (no need to retake)
@@ -6178,10 +6186,37 @@ function openQuiz(trainingId) {
     `, null, 'ปิด');
     return;
   }
-  const allQ = getAllQuestionsForModule(t.moduleId).filter(q => isQuizActive(q.uid));
-  if (allQ.length === 0) { notify('ยังไม่มีคำถามที่เปิดใช้งานสำหรับ Module นี้', 'error'); return; }
-  // Shuffle questions, then for each question shuffle the options
-  const picked = shuffleArray(allQ).slice(0, Math.min(5, allQ.length));
+
+  // Generate fresh 5 questions via AI from module's subtopics
+  const m = MODULES[t.moduleId];
+  if (!m || !(m.subtopics||[]).length) { notify('Module นี้ยังไม่มีหัวข้อย่อย', 'error'); return; }
+  showModal('🤖 กำลังสร้างข้อสอบ', `
+    <div style="text-align:center;padding:36px 16px">
+      <div style="font-size:46px;margin-bottom:14px">🤖</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text)">AI กำลังออกข้อสอบสำหรับ ${m.name}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:6px">ใช้เวลาประมาณ 10-20 วินาที กรุณารอสักครู่...</div>
+      <div style="margin-top:18px"><div class="spinner" style="display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div></div>
+    </div>
+  `, null, null);
+  let aiQs = [];
+  try {
+    const res = await gsFetch({
+      action: 'ai_quiz',
+      moduleName: m.name,
+      group: m.group || '',
+      subtopics: m.subtopics,
+      n: 5,
+      focus: ''
+    });
+    if (res.error) throw new Error(res.error);
+    aiQs = res.questions || [];
+  } catch (e) {
+    closeModal();
+    notify('สร้างข้อสอบไม่สำเร็จ: ' + e.message, 'error');
+    return;
+  }
+  if (aiQs.length === 0) { closeModal(); notify('AI สร้างข้อสอบไม่สำเร็จ ลองอีกครั้ง', 'error'); return; }
+  const picked = aiQs.slice(0, 5);
   const SRC = ['A','B','C','D'];
   const questions = picked.map(q => {
     const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
@@ -6962,7 +6997,6 @@ function renderAdminQuiz() {
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
     </div>
-    <button class="btn btn-outline" onclick="openAiSettingsModal()">⚙️ ตั้งค่า AI</button>
   </div>
   ${renderGroupCard('Service', groups.Service)}
   ${renderGroupCard('Cook', groups.Cook)}`;
@@ -7108,14 +7142,6 @@ function openAiSettingsModal() {
 }
 
 function openAiQuizModal(mid) {
-  const key = localStorage.getItem('opt_anthropic_key');
-  if (!key) {
-    showModal('🤖 ต้องตั้งค่า AI ก่อน', `
-      <p style="margin-bottom:12px">ยังไม่ได้ตั้ง Anthropic API Key — กรุณาเข้าไปตั้งค่าก่อนใช้งาน AI สร้างข้อสอบ</p>
-      <button class="btn btn-accent" onclick="closeModal();openAiSettingsModal()">เปิดหน้าตั้งค่า</button>
-    `, null, 'ปิด');
-    return;
-  }
   const m = MODULES[mid];
   showModal(`🤖 สร้างข้อสอบด้วย AI · ${m.name}`, `
     <div class="form-full">
@@ -7183,46 +7209,16 @@ function openAiQuizModal(mid) {
 
 async function generateQuizWithAi(mid, n, focus) {
   const m = MODULES[mid];
-  const key = localStorage.getItem('opt_anthropic_key');
-  const prompt = `คุณเป็นผู้สร้างข้อสอบสำหรับ Santa Fe Steak (ร้านอาหาร) — สร้างข้อสอบ ${n} ข้อ สำหรับ Module: "${m.name}" (กลุ่ม: ${m.group})
-
-หัวข้อย่อยที่ต้องครอบคลุม:
-${m.subtopics.map(s=>`- ${s}`).join('\n')}
-${focus ? `\nโฟกัสเพิ่มเติม: ${focus}` : ''}
-
-ข้อกำหนด:
-- คำถามภาษาไทย ชัดเจน เกี่ยวกับการปฏิบัติงานจริงในร้านอาหาร
-- 4 ตัวเลือก A B C D ความยาวใกล้เคียงกัน
-- คำตอบที่ถูกต้องกระจาย A/B/C/D อย่างสมดุล
-- หลีกเลี่ยงตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"
-
-ตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:
-[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]`;
-
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+  const res = await gsFetch({
+    action: 'ai_quiz',
+    moduleName: m.name,
+    group: m.group || '',
+    subtopics: m.subtopics || [],
+    n: n,
+    focus: focus || ''
   });
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error('Claude API error ' + resp.status + ': ' + errText.slice(0,200));
-  }
-  const data = await resp.json();
-  const text = data.content?.[0]?.text || '';
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('AI ไม่ได้ตอบเป็น JSON');
-  const arr = JSON.parse(jsonMatch[0]);
-  return arr.filter(q => q.q && q.opts?.A && q.opts?.B && q.opts?.C && q.opts?.D && ['A','B','C','D'].includes(q.ans));
+  if (res.error) throw new Error(res.error);
+  return res.questions || [];
 }
 
 function renderAdminReports() {

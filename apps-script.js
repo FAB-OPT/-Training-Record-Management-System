@@ -30,6 +30,12 @@ function doGet(e) {
 
 function doPost(e) {
   const data = JSON.parse(e.postData.contents);
+
+  // AI proxy — keep API key server-side (Script Properties → ANTHROPIC_API_KEY)
+  if (data.action === 'ai_quiz') {
+    return respond(generateAiQuiz(data));
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   if (data.action === 'save') {
@@ -41,6 +47,74 @@ function doPost(e) {
   }
 
   return respond({ status: 'ok' });
+}
+
+// ========================================================
+//  AI Quiz Generator (Google Gemini API proxy)
+//  Setup: Project Settings → Script Properties →
+//         add property "GEMINI_API_KEY" = ...
+//         (ขอฟรีที่ https://aistudio.google.com/apikey)
+// ========================================================
+function generateAiQuiz(req) {
+  try {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) return { error: 'ยังไม่ได้ตั้ง GEMINI_API_KEY ใน Script Properties' };
+
+    const moduleName = req.moduleName || '';
+    const group = req.group || '';
+    const subtopics = req.subtopics || [];
+    const n = req.n || 5;
+    const focus = req.focus || '';
+
+    const prompt = 'คุณเป็นผู้สร้างข้อสอบสำหรับ Santa Fe Steak (ร้านอาหาร) — สร้างข้อสอบ ' + n + ' ข้อ สำหรับ Module: "' + moduleName + '" (กลุ่ม: ' + group + ')\n\n' +
+      'หัวข้อย่อยที่ต้องครอบคลุม:\n' +
+      subtopics.map(function(s){ return '- ' + s; }).join('\n') +
+      (focus ? ('\n\nโฟกัสเพิ่มเติม: ' + focus) : '') +
+      '\n\nข้อกำหนด:\n' +
+      '- คำถามภาษาไทย ชัดเจน เกี่ยวกับการปฏิบัติงานจริงในร้านอาหาร\n' +
+      '- 4 ตัวเลือก A B C D ความยาวใกล้เคียงกัน\n' +
+      '- คำตอบที่ถูกต้องกระจาย A/B/C/D อย่างสมดุล\n' +
+      '- หลีกเลี่ยงตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"\n' +
+      '- คำถามแต่ละครั้งควรหลากหลาย ไม่ซ้ำซาก\n\n' +
+      'ตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:\n' +
+      '[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]';
+
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey);
+    const resp = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          responseMimeType: 'application/json'
+        }
+      }),
+      muteHttpExceptions: true,
+    });
+
+    const code = resp.getResponseCode();
+    const body = resp.getContentText();
+    if (code !== 200) return { error: 'Gemini API ' + code + ': ' + body.slice(0, 300) };
+
+    const data = JSON.parse(body);
+    const text = (data.candidates && data.candidates[0] && data.candidates[0].content
+      && data.candidates[0].content.parts && data.candidates[0].content.parts[0]
+      && data.candidates[0].content.parts[0].text) || '';
+    if (!text) return { error: 'Gemini ไม่ได้ตอบกลับ (อาจถูก safety filter บล็อก)' };
+
+    const m = text.match(/\[[\s\S]*\]/);
+    if (!m) return { error: 'AI ไม่ได้ตอบเป็น JSON' };
+
+    const arr = JSON.parse(m[0]);
+    const valid = arr.filter(function(q){
+      return q && q.q && q.opts && q.opts.A && q.opts.B && q.opts.C && q.opts.D
+        && ['A','B','C','D'].indexOf(q.ans) >= 0;
+    });
+    return { questions: valid };
+  } catch (err) {
+    return { error: 'Server error: ' + err.message };
+  }
 }
 
 function respond(data) {
