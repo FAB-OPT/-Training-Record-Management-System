@@ -352,6 +352,11 @@
   .badge-gray { background: var(--surface3); color: var(--text2); }
   /* Category select used on mobile only — hidden on desktop where pill tabs show */
   .cat-select-mobile { display: none; }
+  /* Unified table font sizes across all tables (desktop) */
+  @media (min-width: 769px) {
+    .card .table-wrap table th { font-size: 12.5px !important; }
+    .card .table-wrap table td { font-size: 13px !important; }
+  }
   /* Date-format swap: short on desktop, long (full Thai month) on mobile */
   .dt-long { display: none; }
   @media (max-width: 768px) {
