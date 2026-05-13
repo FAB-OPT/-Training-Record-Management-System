@@ -366,6 +366,21 @@
   .badge-navy { background: var(--accent-light); color: var(--accent); }
   .badge-orange { background: var(--accent-light); color: var(--accent); }
 
+  /* Plain-text badges (no background) in Trainings page status/quiz cells */
+  .train-table td[data-label="สถานะ"] .badge,
+  .train-table td[data-label="ผลสอบ"] .badge,
+  .train-table td[data-label="ผล"] .badge,
+  .train-table td[data-label="สถานะ / ผล"] .badge,
+  .admin-train-table td[data-label="สถานะ"] .badge,
+  .admin-train-table td[data-label="ผลสอบ"] .badge,
+  .admin-train-table td[data-label="ผล"] .badge,
+  .admin-train-table td[data-label="สถานะ / ผล"] .badge {
+    background: transparent !important;
+    padding: 0 !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+  }
+
   /* ==================== BUTTONS ==================== */
   .btn { padding: 10px 18px; border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; letter-spacing: -0.1px; }
   .btn-sm { padding: 7px 13px; font-size: 12.5px; border-radius: 8px; }
@@ -1040,7 +1055,7 @@
     /* Branch summary table — convert to mini-cards on mobile */
     table.cards-on-mobile.branch-summary-table tr {
       display: grid !important;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto;
       column-gap: 10px; row-gap: 4px;
       padding: 10px 12px;
       background: var(--surface) !important;
@@ -1054,10 +1069,9 @@
       padding: 0 !important; min-width: 0; white-space: normal !important;
     }
     table.cards-on-mobile.branch-summary-table td::before { display: none !important; }
-    /* Line 1: รหัส | ชื่อ | อัตรา */
-    table.cards-on-mobile.branch-summary-table td[data-label="รหัส"] { grid-column: 1; grid-row: 1; font-family: monospace; font-size: 12px; color: var(--text); font-weight: 700; }
-    table.cards-on-mobile.branch-summary-table td[data-label="ชื่อ"] { grid-column: 2; grid-row: 1; font-size: 13px; font-weight: 700; color: var(--text); justify-content: flex-start; text-align: left !important; line-height: 1.3; }
-    table.cards-on-mobile.branch-summary-table td[data-label="อัตรา"] { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+    /* Line 1: ชื่อ | อัตรา */
+    table.cards-on-mobile.branch-summary-table td[data-label="ชื่อ"] { grid-column: 1; grid-row: 1; font-size: 13px; font-weight: 700; color: var(--text); justify-content: flex-start; text-align: left !important; line-height: 1.3; }
+    table.cards-on-mobile.branch-summary-table td[data-label="อัตรา"] { grid-column: 2; grid-row: 1; justify-content: flex-end; }
     /* Line 2: ผู้ดูแล (full) */
     table.cards-on-mobile.branch-summary-table td[data-label="ผู้ดูแล"] {
       grid-column: 1 / -1; grid-row: 2; font-size: 11px; color: var(--text3);
@@ -1069,9 +1083,9 @@
     /* Line 3: counts inline */
     table.cards-on-mobile.branch-summary-table td[data-label="พนักงาน"] { grid-column: 1; grid-row: 3; font-size: 11px; color: var(--text2); }
     table.cards-on-mobile.branch-summary-table td[data-label="พนักงาน"]::before { content: '👥 พนักงาน '; display: inline !important; color: var(--text4); font-weight: 600; margin-right: 3px; }
-    table.cards-on-mobile.branch-summary-table td[data-label="สอน"] { grid-column: 2; grid-row: 3; font-size: 11px; color: var(--text2); }
+    table.cards-on-mobile.branch-summary-table td[data-label="สอน"] { grid-column: 1 / -1; grid-row: 4; font-size: 11px; color: var(--text2); }
     table.cards-on-mobile.branch-summary-table td[data-label="สอน"]::before { content: 'สอน '; display: inline !important; color: var(--text4); font-weight: 600; margin-right: 3px; }
-    table.cards-on-mobile.branch-summary-table td[data-label="ผ่าน/ประเมิน"] { grid-column: 3; grid-row: 3; font-size: 11px; color: var(--text2); justify-content: flex-end; }
+    table.cards-on-mobile.branch-summary-table td[data-label="ผ่าน/ประเมิน"] { grid-column: 2; grid-row: 3; font-size: 11px; color: var(--text2); justify-content: flex-end; }
     table.cards-on-mobile.branch-summary-table td[data-label="ผ่าน/ประเมิน"]::before { content: 'ผ่าน/ประเมิน '; display: inline !important; color: var(--text4); font-weight: 600; margin-right: 3px; }
 
     /* Latest eval table — convert to mini-cards on mobile */
@@ -4211,7 +4225,7 @@ function renderDashboard() {
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FF6B1A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M17 2v4.172a2 2 0 0 1-.586 1.414L12 12 7.586 7.586A2 2 0 0 1 7 6.172V2"/></svg>
           </div>
         </div>
-        <div class="dash-stat-value"><span style="color:var(--green)">${evaled.length}</span> <span style="color:var(--text4);font-weight:500">/</span> <span style="color:var(--accent)">${pending.length}</span></div>
+        <div class="dash-stat-value">${evaled.length} / ${pending.length}</div>
       </div>
       <div class="dash-stat-tile" style="--tile-accent:#AF52DE" onclick="showPassRateModal('${bid}')">
         <div class="dash-stat-head">
@@ -4317,7 +4331,7 @@ function renderDashboard() {
         return `<div onclick="viewTraining('${t.id}')" style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:700;color:var(--primary);line-height:1.3">${mod?.name||'—'}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">${fmtDate(t.date)} · ${(t.traineeIds||[]).length} คน · ${t.trainerName||''}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">${fmtDate(t.date)} · สอน ${(t.traineeIds||[]).length} คน · ผู้สอน ${t.trainerName||'—'}</div>
             <div style="margin-top:5px">${badge}</div>
           </div>
           <div style="display:flex;align-items:center;color:var(--text3);font-size:14px">›</div>
@@ -4599,6 +4613,7 @@ function showDayTrainingModal(bid, date) {
 }
 
 const TH_MONTH_NAMES = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const TH_MONTH_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 let _dashMonth = null;
 function dashMonthNav(delta) {
   if(!_dashMonth) renderDashMonthChart(getBranchId());
@@ -4612,7 +4627,7 @@ function renderDashMonthChart(bid) {
   if(!_dashMonth){const n=new Date(new Date().getTime()+7*3600*1000);_dashMonth={y:n.getFullYear(),m:n.getMonth()+1};}
   const {y,m} = _dashMonth;
   const ym = y+'-'+String(m).padStart(2,'0');
-  const monthLabel = TH_MONTH_NAMES[m-1]+' '+(y+543);
+  const monthLabel = TH_MONTH_FULL[m-1]+' '+(y+543);
   const dim = new Date(y,m,0).getDate();
   const trains = getBranchTrainings(bid);
   const byDay = {};
@@ -4623,7 +4638,7 @@ function renderDashMonthChart(bid) {
   });
   const days=Array.from({length:dim},(_,i)=>{const d=String(i+1).padStart(2,'0');const k=ym+'-'+d;return {d:i+1,k,n:(byDay[k]||{n:0}).n};});
   const maxV=Math.max(...days.map(d=>d.n),1);
-  const W=540,H=260,pL=34,pR=12,pT=42,pB=34;
+  const W=560,H=300,pL=62,pR=14,pT=70,pB=52;
   const cW=W-pL-pR,cH=H-pT-pB;
   const xP=i=>pL+i/(dim-1)*cW;
   const yP=v=>pT+cH-(v/maxV)*cH;
@@ -4633,7 +4648,9 @@ function renderDashMonthChart(bid) {
   const gridSvg=yTicks.map(v=>`<line x1='${pL}' y1='${yP(v).toFixed(1)}' x2='${(pL+cW).toFixed(1)}' y2='${yP(v).toFixed(1)}' stroke='#E5E5EA' stroke-width='1' stroke-dasharray='${v===0?'none':'4,3'}'/>`).join('');
   const yLblSvg=yTicks.map(v=>`<text x='${pL-6}' y='${(yP(v)+5).toFixed(1)}' text-anchor='end' font-size='12' font-weight='600' fill='#8E8E93'>${v}</text>`).join('');
   const showDays=dim<=20?days:days.filter(d=>d.d===1||d.d%5===0||d.d===dim);
-  const xLblSvg=showDays.map(d=>`<text x='${xP(d.d-1).toFixed(1)}' y='${H-8}' text-anchor='middle' font-size='11' fill='#8E8E93'>${d.d}</text>`).join('');
+  const xLblSvg=showDays.map(d=>`<text x='${xP(d.d-1).toFixed(1)}' y='${(pT+cH+16).toFixed(1)}' text-anchor='middle' font-size='11' fill='#8E8E93'>${d.d}</text>`).join('');
+  const xAxisTitle=`<text x='${(pL+cW/2).toFixed(1)}' y='${H-8}' text-anchor='middle' font-size='12' font-weight='700' fill='var(--text2)'>วันที่</text>`;
+  const yAxisTitle=`<text x='14' y='${(pT+cH/2).toFixed(1)}' text-anchor='middle' font-size='12' font-weight='700' fill='var(--text2)' transform='rotate(-90 14 ${(pT+cH/2).toFixed(1)})'>จำนวนที่สอน</text>`;
   const totalThisMonth=days.reduce((s,d)=>s+d.n,0);
   const dotsSvg=days.map((d,i)=>{
     const cx=xP(i).toFixed(1),cy=yP(d.n).toFixed(1);
@@ -4644,21 +4661,21 @@ function renderDashMonthChart(bid) {
   const el=document.getElementById('dash-line-chart');
   if(!el) return;
   const nl=document.getElementById('dash-month-label');
-  if(nl) nl.textContent=TH_MONTH_NAMES[m-1]+' '+(y+543);
+  if(nl) nl.textContent=TH_MONTH_FULL[m-1]+' '+(y+543);
   const now=new Date(new Date().getTime()+7*3600*1000);
   const isCurrentMonth=(y===now.getFullYear()&&m===now.getMonth()+1);
   const nb=document.getElementById('dash-month-next');
   if(nb) nb.disabled=isCurrentMonth;
   el.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">${monthLabel} · <span style="color:#FF6B1A">${totalThisMonth} ครั้ง</span></div>
+      <div style="font-size:13px;font-weight:700;color:var(--text)">${monthLabel} · สอนทั้งหมด <span style="color:#FF6B1A">${totalThisMonth}</span> ครั้ง</div>
       <div style="font-size:11px;color:#8E8E93;display:flex;align-items:center;gap:5px">
         <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#FF6B1A" stroke="white" stroke-width="1.5"/><circle cx="6" cy="6" r="2.5" fill="white"/></svg>
         กดจุดเพื่อดูรายละเอียด
       </div>
     </div>
     <div style="overflow-x:auto">
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
         <defs><linearGradient id="areaGrad_${bid}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#FF6B1A" stop-opacity="0.18"/>
           <stop offset="100%" stop-color="#FF6B1A" stop-opacity="0.02"/>
@@ -4666,6 +4683,8 @@ function renderDashMonthChart(bid) {
         ${gridSvg}
         ${yLblSvg}
         ${xLblSvg}
+        ${xAxisTitle}
+        ${yAxisTitle}
         <path d="${area}" fill="url(#areaGrad_${bid})"/>
         <path d="M${pts}" fill="none" stroke="#FF6B1A" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
         ${dotsSvg}
@@ -4814,7 +4833,7 @@ function renderEmpRows(emps) {
     </td>
     <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${e.position}</td>
     <td data-label="วันเริ่มงาน" style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
-    <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px">${calcTenureShort(e.startDate)}</span></td>
+    <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent)">${calcTenureShort(e.startDate)}</span></td>
     <td data-label="actions" style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
@@ -4975,7 +4994,7 @@ function renderTrainings() {
       <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`
-          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
+          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
         const within7 = !isEvalDeadlinePassed(t.date);
         const canEdit = within7 && !t.eval;
         const canEval = !t.eval && within7;
@@ -5593,7 +5612,7 @@ function renderCourseHistoryGroupedRows(groups) {
       <td data-label="ชื่อ"><strong>${g.empName}</strong></td>
       <td data-label="ตำแหน่ง" style="font-size:12.5px;color:${posColor};font-weight:600">${g.position}</td>
       <td data-label="สาขา" style="font-size:12.5px;white-space:nowrap">${branchName}</td>
-      <td data-label="จำนวน" style="text-align:center"><span class="badge badge-navy">${g.items.length} หลักสูตร</span></td>
+      <td data-label="จำนวน" style="text-align:center"><span style="font-size:12.5px;font-weight:700;color:var(--accent)">${g.items.length} หลักสูตร</span></td>
       <td data-label="ล่าสุด" style="font-size:12.5px">${fmtDate(g.latestDate)}</td>
     </tr>`;
     if (!open) return headRow;
@@ -6278,7 +6297,7 @@ function renderAdminDashboard() {
   const isSystem = sel === 'ALL';
   const heroTitle = isSystem ? 'แดชบอร์ด' : `${sel} ${BRANCH_MASTER[sel].name.replace(sel+' ','')}`;
   const heroSub = isSystem
-    ? `รวมข้อมูลทุกสาขา · ${fmtDate(new Date().toISOString())}`
+    ? ''
     : `ผู้จัดการเขต: ${BRANCH_MASTER[sel].manager}`;
   // Reuse the branch dashboard render with bid='ALL' for system view
   // Strip its inner hero so only the admin hero shows
@@ -6291,7 +6310,7 @@ function renderAdminDashboard() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">${heroTitle}</div>
-      <div class="page-hero-sub">${heroSub}</div>
+      ${heroSub?`<div class="page-hero-sub">${heroSub}</div>`:''}
     </div>
     <select class="form-select" style="max-width:280px" onchange="setViewBranch(this.value);showPage('admin-dashboard');">${branchOpts}</select>
   </div>
@@ -6328,12 +6347,12 @@ function renderAdminSystemExtras() {
     <div class="card">
       <div class="card-header"><span class="card-title">สรุปรายสาขา</span><span style="font-size:11px;color:var(--text3);margin-left:8px">${showAll?`ทั้งหมด ${branchesWithActivity.length} สาขา`:`5 สาขาล่าสุด`}</span>${branchesWithActivity.length>5?`<button class="btn btn-sm btn-outline" onclick="toggleAdminBranchSummary()" style="margin-left:auto">${showAll?'ย่อ':`ดูทั้งหมด (${branchesWithActivity.length})`}</button>`:''}</div>
       <div class="table-wrap"><table class="cards-on-mobile branch-summary-table">
-        <thead><tr><th>รหัส</th><th>ชื่อสาขา</th><th>ผู้ดูแล</th><th>พนักงาน</th><th>สอน</th><th>ผ่าน/ประเมิน</th><th>อัตรา</th></tr></thead>
+        <thead><tr><th>ชื่อสาขา</th><th>ผู้ดูแล</th><th>พนักงาน</th><th>สอน</th><th>ผ่าน/ประเมิน</th><th>อัตรา</th></tr></thead>
         <tbody>${visible.map(({id,b})=>{
           const e=getBranchEmployees(id).filter(e=>e.status==='active').length;
           const tr=getBranchTrainings(id); const ev2=tr.filter(t=>t.eval); const ps2=ev2.filter(t=>isEvalPass(t.eval.result));
           const rate=ev2.length?Math.round(ps2.length/ev2.length*100):null;
-          return `<tr><td data-label="รหัส" style="font-family:monospace;font-weight:700;color:var(--text)">${id}</td><td data-label="ชื่อ" style="font-size:12.5px">${b.name.replace(id+' ','')}</td><td data-label="ผู้ดูแล" style="font-size:12px;color:var(--text2)">${b.manager}</td><td data-label="พนักงาน">${e}</td><td data-label="สอน">${tr.length}</td><td data-label="ผ่าน/ประเมิน">${ps2.length}/${ev2.length}</td><td data-label="อัตรา">${rate!==null?`<span class="badge ${rate>=80?'badge-green':rate>=50?'badge-yellow':'badge-red'}">${rate}%</span>`:'—'}</td></tr>`;
+          return `<tr><td data-label="ชื่อ" style="font-size:12.5px;font-weight:700;color:var(--text)">${b.name.replace(id+' ','')}</td><td data-label="ผู้ดูแล" style="font-size:12px;color:var(--text2)">${b.manager}</td><td data-label="พนักงาน">${e}</td><td data-label="สอน">${tr.length}</td><td data-label="ผ่าน/ประเมิน">${ps2.length}/${ev2.length}</td><td data-label="อัตรา">${rate!==null?`<span class="badge ${rate>=80?'badge-green':rate>=50?'badge-yellow':'badge-red'}">${rate}%</span>`:'—'}</td></tr>`;
         }).join('')}</tbody>
       </table></div>
     </div>
@@ -6879,7 +6898,7 @@ function renderAdminTrainings() {
       <tbody>${rows.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`
-          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
+          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
         const prog = getSubtopicProgress(t);
         const moduleComplete = isModuleComplete(t);
         return `<tr>
@@ -7238,7 +7257,7 @@ function renderAdminEmpRows(emps) {
     <td data-label="ตำแหน่ง" style="font-size:12px;color:${posColor};font-weight:600">${e.position}</td>
     <td data-label="สาขา" style="font-size:12px">${e.branchId} <span style="color:var(--text3)">${BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','')||''}</span></td>
     <td data-label="วันเริ่มงาน" style="font-size:12px">${fmtDate(e.startDate)||'—'}</td>
-    <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 9px;border-radius:4px;white-space:nowrap">${calcTenure(e.startDate)}</span></td>
+    <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap">${calcTenure(e.startDate)}</span></td>
     <td data-label="actions" style="text-align:right;white-space:nowrap">
       <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminEditEmpGlobal('${e.id}')">แก้ไข</button>
       <button class="btn btn-sm btn-danger" onclick="adminDeleteEmpGlobal('${e.id}','${e.branchId}')">ลบ</button>
