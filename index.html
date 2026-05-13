@@ -4313,12 +4313,8 @@ function renderDashboard() {
       <div class="card-header" style="flex-shrink:0"><span class="card-title">บันทึกการสอนล่าสุด</span><button class="btn btn-sm btn-outline" onclick="showPage('trainings')">ดูทั้งหมด</button></div>
       ${trains.length===0?'<p class="text-muted">ยังไม่มีบันทึก</p>':trains.slice(-5).reverse().map(t=>{
         const mod=MODULES[t.moduleId];
-        const isSv=mod?.group==='Service';
-        const dotCol=isSv?grpHex['พนักงานบริการ']:grpHex['พนักงานครัว'];
-        const icon=isSv?'🍽':'🍳';
         const badge=t.eval?`<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`:isEvalDeadlinePassed(t.date)?'<span class="badge badge-gray">หมดเวลา</span>':'<span class="badge badge-yellow">รอประเมิน</span>';
         return `<div onclick="viewTraining('${t.id}')" style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
-          <div style="width:32px;height:32px;border-radius:8px;background:${dotCol}15;border:1.5px solid ${dotCol}40;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;margin-top:2px">${icon}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:700;color:var(--primary);line-height:1.3">${mod?.name||'—'}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:3px">${fmtDate(t.date)} · ${(t.traineeIds||[]).length} คน · ${t.trainerName||''}</div>
@@ -4373,8 +4369,8 @@ function renderDashPosPage(bid) {
       + '<span style="font-size:12px;font-weight:700;color:var(--text)">' + pos + '</span>'
       + '</div>'
       + '<div style="display:flex;align-items:center;gap:8px">'
-      + '<span style="font-size:10px;color:var(--text3)">' + d.trained + ' ครั้ง</span>'
-      + '<span style="font-size:13px;font-weight:800;color:' + barCol + '">' + (pr !== null ? pr + '%' : '—') + '</span>'
+      + '<span style="font-size:10px;color:var(--text3)">สอน ' + d.trained + ' ครั้ง</span>'
+      + (d.evaled > 0 ? '<span style="font-size:11px;color:var(--text3)">· ประเมิน ' + d.evaled + ' · <span style="font-weight:800;color:' + barCol + '">ผ่าน ' + pr + '%</span></span>' : '<span style="font-size:10px;color:var(--text4)">· ยังไม่ประเมิน</span>')
       + '<span style="font-size:10px;color:' + col + ';font-weight:600">ดูการสอน ›</span>'
       + '</div></div>'
       + '<div style="height:6px;border-radius:3px;overflow:hidden;display:flex;background:#E5E7EB">'
