@@ -79,6 +79,12 @@
   body.dark-mode .login-card { box-shadow: 0 24px 80px rgba(0,0,0,0.55); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  /* Use Sarabun (tabular-nums) for codes — system 'monospace' looks ugly on Windows/Android */
+  [style*="font-family:monospace"], [style*="font-family: monospace"] {
+    font-family: 'Sarabun', sans-serif !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.3px;
+  }
 
   /* ==================== LOGIN ==================== */
   #login-screen {
@@ -755,8 +761,8 @@
   }
   .bottom-nav-item.active { color: var(--accent); background: var(--accent-light); }
   .bottom-nav-item:active { background: var(--surface2); }
-  .bottom-nav-icon { font-size: 20px; line-height: 1; }
-  .bottom-nav-label { font-size: 10px; font-weight: 600; line-height: 1.2; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+  .bottom-nav-icon { font-size: 22px; line-height: 1; }
+  .bottom-nav-label { font-size: 12px; font-weight: 700; line-height: 1.2; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 
   /* ==================== MOBILE RESPONSIVE ==================== */
   @media (max-width: 768px) {
@@ -5062,10 +5068,10 @@ function openAddTraining() {
       <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label><input class="form-input" id="tr-trainer" placeholder="ชื่อผู้สอน"></div>
     </div>
     <div class="form-full">
-      <label class="form-label">พนักงานที่เข้ารับการสอน <span class="req">*</span></label>
+      <label class="form-label">พนักงานที่เข้ารับการสอน (1 คน) <span class="req">*</span></label>
       <div class="emp-multiselect" id="emp-multiselect" data-emps='${empsJson.replace(/'/g,"&#39;")}'>
         <div class="emp-select-box" id="emp-select-box" onclick="focusEmpSearch(event)">
-          <span id="emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length===0?'ไม่มีพนักงานในระบบ':'ค้นหาและเลือกพนักงาน...'}</span>
+          <span id="emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length===0?'ไม่มีพนักงานในระบบ':'ค้นหาและเลือกพนักงาน 1 คน...'}</span>
           <input type="text" id="emp-search-input" style="display:none" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmpDropdown()" onkeydown="onEmpSearchKey(event)">
         </div>
         <div class="emp-dropdown-list" id="emp-dropdown-list">
@@ -5184,11 +5190,11 @@ function filterEmpDropdown() {
 function toggleEmpSelection(empId) {
   const opt = document.getElementById('empopt-' + empId);
   if (!opt) return;
-  const idx = _selectedEmps.findIndex(e => e.id === empId);
-  if (idx >= 0) {
-    _selectedEmps.splice(idx, 1);
-    opt.classList.remove('selected');
-  } else {
+  const isSelected = _selectedEmps.some(e => e.id === empId);
+  // Single-select: clear all previous selections
+  document.querySelectorAll('.emp-opt.selected').forEach(o => o.classList.remove('selected'));
+  _selectedEmps = [];
+  if (!isSelected) {
     _selectedEmps.push({ id: empId, name: opt.dataset.name, position: opt.dataset.pos });
     opt.classList.add('selected');
   }

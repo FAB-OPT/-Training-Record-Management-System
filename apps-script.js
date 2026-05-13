@@ -55,6 +55,14 @@ function doPost(e) {
 //         add property "GEMINI_API_KEY" = ...
 //         (ขอฟรีที่ https://aistudio.google.com/apikey)
 // ========================================================
+// Run this once to trigger Google OAuth permission for external requests.
+// MUST NOT be wrapped in try/catch — the unhandled exception is what
+// makes Google show the authorization popup.
+function authorizeExternalRequests() {
+  const resp = UrlFetchApp.fetch('https://www.google.com');
+  Logger.log('OK ' + resp.getResponseCode());
+}
+
 function generateAiQuiz(req) {
   try {
     const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
