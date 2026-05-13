@@ -4313,7 +4313,7 @@ function renderDashboard() {
       <div class="card-header" style="flex-shrink:0"><span class="card-title">บันทึกการสอนล่าสุด</span><button class="btn btn-sm btn-outline" onclick="showPage('trainings')">ดูทั้งหมด</button></div>
       ${trains.length===0?'<p class="text-muted">ยังไม่มีบันทึก</p>':trains.slice(-5).reverse().map(t=>{
         const mod=MODULES[t.moduleId];
-        const badge=t.eval?`<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`:isEvalDeadlinePassed(t.date)?'<span class="badge badge-gray">หมดเวลา</span>':'<span class="badge badge-yellow">รอประเมิน</span>';
+        const badge=t.eval?`<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`:isEvalDeadlinePassed(t.date)?'<span class="badge badge-gray">หมดเวลา</span>':'<span class="badge badge-yellow">รอประเมิน</span>';
         return `<div onclick="viewTraining('${t.id}')" style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:700;color:var(--primary);line-height:1.3">${mod?.name||'—'}</div>
