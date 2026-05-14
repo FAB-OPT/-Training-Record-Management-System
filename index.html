@@ -7198,11 +7198,23 @@ function openAiQuizModal(mid) {
         const checked = qs.filter((_,i)=>document.getElementById('ai-q-'+i)?.checked);
         if (!checked.length) { notify('เลือกอย่างน้อย 1 ข้อ', 'error'); return; }
         const records = checked.map(q => ({ id: genId('CQ'), moduleId: mid, q: q.q, opts: q.opts, ans: q.ans, createdAt: new Date().toISOString() }));
-        records.forEach(r => { DB.customQuiz.push(r); gsSave('customQuiz', r.id, r); });
+        records.forEach(r => DB.customQuiz.push(r));
+        // Persist to Supabase + Sheets; surface Supabase errors instead of swallowing
+        let sbErr = null;
+        for (const r of records) {
+          try { const res = await sbSaveOne('customQuiz', r.id, r); if (res && res.error) { sbErr = res.error; break; } }
+          catch(e) { sbErr = e; break; }
+          gsPost({action:'save', collection:'customQuiz', id:r.id, record:r});
+        }
+        if (sbErr) {
+          notify('บันทึก Supabase ล้มเหลว: ' + (sbErr.message||JSON.stringify(sbErr)).slice(0,200), 'error');
+          console.error('SB customQuiz save error', sbErr);
+          return;
+        }
         closeModal();
         notify(`บันทึก ${records.length} ข้อสำเร็จ`);
         openQuizListModal(mid);
-      } catch(e) { notify('Error: ' + e.message, 'error'); }
+      } catch(e) { notify('Error: ' + e.message, 'error'); console.error(e); }
       return;
     }
     resBox.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">⏳ กำลังเรียก Claude API...</div>';

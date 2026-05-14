@@ -50,10 +50,10 @@ function doPost(e) {
 }
 
 // ========================================================
-//  AI Quiz Generator (Google Gemini API proxy)
+//  AI Quiz Generator (Anthropic Claude API proxy)
 //  Setup: Project Settings → Script Properties →
-//         add property "GEMINI_API_KEY" = ...
-//         (ขอฟรีที่ https://aistudio.google.com/apikey)
+//         add property "ANTHROPIC_API_KEY" = sk-ant-...
+//         (สมัคร + เติม $5 ที่ https://console.anthropic.com)
 // ========================================================
 // Run this once to trigger Google OAuth permission for external requests.
 // MUST NOT be wrapped in try/catch — the unhandled exception is what
@@ -65,8 +65,8 @@ function authorizeExternalRequests() {
 
 function generateAiQuiz(req) {
   try {
-    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) return { error: 'ยังไม่ได้ตั้ง GEMINI_API_KEY ใน Script Properties' };
+    const apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+    if (!apiKey) return { error: 'ยังไม่ได้ตั้ง ANTHROPIC_API_KEY ใน Script Properties' };
 
     const moduleName = req.moduleName || '';
     const group = req.group || '';
@@ -87,29 +87,35 @@ function generateAiQuiz(req) {
       'ตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:\n' +
       '[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]';
 
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey);
-    const resp = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.9,
-          responseMimeType: 'application/json'
-        }
-      }),
-      muteHttpExceptions: true,
+    const payload = JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const code = resp.getResponseCode();
-    const body = resp.getContentText();
-    if (code !== 200) return { error: 'Gemini API ' + code + ': ' + body.slice(0, 300) };
+    // Retry up to 3 times on 429/529 with exponential backoff
+    var resp, code, body;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        payload: payload,
+        muteHttpExceptions: true,
+      });
+      code = resp.getResponseCode();
+      body = resp.getContentText();
+      if (code !== 429 && code !== 529) break;
+      Utilities.sleep(2000 * (attempt + 1)); // 2s, 4s, 6s
+    }
+    if (code !== 200) return { error: 'Claude API ' + code + ': ' + body.slice(0, 300) };
 
     const data = JSON.parse(body);
-    const text = (data.candidates && data.candidates[0] && data.candidates[0].content
-      && data.candidates[0].content.parts && data.candidates[0].content.parts[0]
-      && data.candidates[0].content.parts[0].text) || '';
-    if (!text) return { error: 'Gemini ไม่ได้ตอบกลับ (อาจถูก safety filter บล็อก)' };
+    const text = (data.content && data.content[0] && data.content[0].text) || '';
+    if (!text) return { error: 'Claude ไม่ได้ตอบกลับ' };
 
     const m = text.match(/\[[\s\S]*\]/);
     if (!m) return { error: 'AI ไม่ได้ตอบเป็น JSON' };
