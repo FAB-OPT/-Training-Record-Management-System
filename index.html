@@ -3838,7 +3838,7 @@ function buildBranchNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">◼</span> รายชื่อพนักงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึก &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึกการสอนงาน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
   buildBottomNav(BRANCH_NAV_ITEMS);
@@ -3848,7 +3848,7 @@ function buildAdminNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-admin-manage" onclick="showPage('admin-manage')"><span class="nav-icon">◼</span> จัดการสาขา &amp; พนักงาน</div>
-    <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึก &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึกการสอนงาน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
     <div class="nav-item" id="nav-admin-reports" onclick="showPage('admin-reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
@@ -4943,9 +4943,36 @@ function openEditEmployee(id) {
 
 // ==================== TRAININGS ====================
 let _trainFilter = 'all';
+let _trainModuleFilter = '';
+let _trainResultFilter = '';
 let _trainSort = { key: 'date', dir: 'desc' };
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function setTrainModuleFilter(v) { _trainModuleFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function setTrainResultFilter(v) { _trainResultFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainSort(key) { _toggleSort(_trainSort, key); document.getElementById('main-content').innerHTML = renderTrainings(); }
+function _moduleOptionsHtml(selectedId) {
+  const svc = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
+  const cook = Object.entries(MODULES).filter(([_,m])=>m.group==='Cook');
+  const opt = ([id,m]) => `<option value="${id}"${selectedId===id?' selected':''}>${m.name}</option>`;
+  return `<option value=""${!selectedId?' selected':''}>— ทุก Module —</option>` +
+    (svc.length?`<optgroup label="🍽 บริการ">${svc.map(opt).join('')}</optgroup>`:'') +
+    (cook.length?`<optgroup label="👨‍🍳 ครัว">${cook.map(opt).join('')}</optgroup>`:'');
+}
+function _resultOptionsHtml(selectedV) {
+  const opt = (v,l) => `<option value="${v}"${selectedV===v?' selected':''}>${l}</option>`;
+  return `${opt('','— ทุกผล —')}
+    <optgroup label="✓ ผ่าน">${opt('p4','ผ่าน 90-100% (ดีเยี่ยม)')}${opt('p3','ผ่าน 80-89% (ตามมาตรฐาน)')}</optgroup>
+    <optgroup label="✗ ไม่ผ่าน">${opt('f2','ไม่ผ่าน 50-79%')}${opt('f1','ไม่ผ่าน 0-49%')}</optgroup>`;
+}
+function _matchesResultFilter(t, v) {
+  if (!v || !t.eval) return !v;
+  const r = String(t.eval.result);
+  if (v === 'p4') return r === '4';
+  if (v === 'p3') return r === '3';
+  if (v === 'f2') return r === '2';
+  if (v === 'f1') return r === '1';
+  return true;
+}
 function _sortTrainings(list) {
   const k = _trainSort.key, dir = _trainSort.dir;
   const dateOf = t => new Date(t.date || 0).getTime();
@@ -4982,6 +5009,8 @@ function renderTrainings() {
   if (filter === 'pending') rows = pending;
   else if (filter === 'done') rows = done;
   else if (filter === 'expired') rows = expired;
+  if (_trainModuleFilter) rows = rows.filter(t => t.moduleId === _trainModuleFilter);
+  if (_trainResultFilter) rows = rows.filter(t => _matchesResultFilter(t, _trainResultFilter));
   rows = _sortTrainings(rows);
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
@@ -5009,6 +5038,12 @@ function renderTrainings() {
         <option value="pending"${filter==='pending'?' selected':''}>รอประเมิน (${pending.length})</option>
         <option value="done"${filter==='done'?' selected':''}>ประเมินแล้ว (${done.length})</option>
         <option value="expired"${filter==='expired'?' selected':''}>หมดเวลาประเมิน (${expired.length})</option>
+      </select>
+      <select class="form-select" onchange="setTrainModuleFilter(this.value)" style="max-width:240px">
+        ${_moduleOptionsHtml(_trainModuleFilter)}
+      </select>
+      <select class="form-select" onchange="setTrainResultFilter(this.value)" style="max-width:240px">
+        ${_resultOptionsHtml(_trainResultFilter)}
       </select>
     </div>
     <div class="table-wrap"><table class="cards-on-mobile train-table">
@@ -5780,7 +5815,10 @@ const ACH_PAGE_SIZE = 100;
 function renderAdminCourseHistory() {
   _achPage = 1;
   const list = _sortAdminCourseHistory(DB.courseHistory);
-  const branchOpts = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} · ${BRANCH_MASTER[id].name}</option>`).join('');
+  const branchOpts = Object.keys(BRANCH_MASTER).map(id=>{
+    const nm = (BRANCH_MASTER[id].name||'').replace(new RegExp('^'+id+'\\s*'),'');
+    return `<option value="${id}">${id} · ${nm}</option>`;
+  }).join('');
   return `
   <div class="page-hero">
     <div class="page-hero-body">
@@ -6927,7 +6965,12 @@ function renderAdminTrainings() {
   rows = _sortAdminTrainings(rows);
 
   const branchOptions = Object.keys(BRANCH_MASTER).sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
-  const moduleOptions = Object.entries(MODULES).map(([k,m]) => `<option value="${k}"${k===_adminTrainModule?' selected':''}>${m.name}</option>`).join('');
+  const _svcMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
+  const _cookMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Cook');
+  const _modOpt = ([k,m]) => `<option value="${k}"${k===_adminTrainModule?' selected':''}>${m.name}</option>`;
+  const moduleOptions =
+    (_svcMods.length?`<optgroup label="🍽 บริการ">${_svcMods.map(_modOpt).join('')}</optgroup>`:'') +
+    (_cookMods.length?`<optgroup label="👨‍🍳 ครัว">${_cookMods.map(_modOpt).join('')}</optgroup>`:'');
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
@@ -6938,7 +6981,7 @@ function renderAdminTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">บันทึก &amp; ประเมินผล</div>
+      <div class="page-hero-title">บันทึกการสอนงาน &amp; ประเมินผล</div>
     </div>
   </div>
   <div class="card">
@@ -6957,11 +7000,18 @@ function renderAdminTrainings() {
       </select>
       <select class="form-select" id="at-branch" onchange="applyAdminTrainFilters()" style="width:200px"><option value="">— ทุกสาขา —</option>${branchOptions}</select>
       <select class="form-select" id="at-module" onchange="applyAdminTrainFilters()" style="width:200px"><option value="">— ทุก Module —</option>${moduleOptions}</select>
-      <select class="form-select" id="at-result" onchange="applyAdminTrainFilters()" style="width:160px">
-        <option value="">— ทุกผล —</option>
-        <option value="pass"${_adminTrainResult==='pass'?' selected':''}>ผ่าน (3-4)</option>
-        <option value="fail"${_adminTrainResult==='fail'?' selected':''}>ไม่ผ่าน (1-2)</option>
-        ${EVAL_RESULTS.map(r=>`<option value="${r.value}"${String(r.value)===_adminTrainResult?' selected':''}>${r.label.split('=')[0].trim()}</option>`).join('')}
+      <select class="form-select" id="at-result" onchange="applyAdminTrainFilters()" style="width:200px">
+        <option value=""${!_adminTrainResult?' selected':''}>— ทุกผล —</option>
+        <optgroup label="✓ ผ่าน">
+          <option value="pass"${_adminTrainResult==='pass'?' selected':''}>ผ่านทั้งหมด (3-4)</option>
+          <option value="4"${_adminTrainResult==='4'?' selected':''}>ผ่าน 90-100% (ดีเยี่ยม)</option>
+          <option value="3"${_adminTrainResult==='3'?' selected':''}>ผ่าน 80-89% (ตามมาตรฐาน)</option>
+        </optgroup>
+        <optgroup label="✗ ไม่ผ่าน">
+          <option value="fail"${_adminTrainResult==='fail'?' selected':''}>ไม่ผ่านทั้งหมด (1-2)</option>
+          <option value="2"${_adminTrainResult==='2'?' selected':''}>ไม่ผ่าน 50-79%</option>
+          <option value="1"${_adminTrainResult==='1'?' selected':''}>ไม่ผ่าน 0-49%</option>
+        </optgroup>
       </select>
     </div>
     <div class="table-wrap"><table class="cards-on-mobile">
