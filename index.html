@@ -3838,7 +3838,7 @@ function buildBranchNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">◼</span> รายชื่อพนักงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึกการสอนงาน &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึกการสอน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
   buildBottomNav(BRANCH_NAV_ITEMS);
@@ -3848,7 +3848,7 @@ function buildAdminNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-admin-manage" onclick="showPage('admin-manage')"><span class="nav-icon">◼</span> จัดการสาขา &amp; พนักงาน</div>
-    <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึกการสอนงาน &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึกการสอน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
     <div class="nav-item" id="nav-admin-reports" onclick="showPage('admin-reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
@@ -5016,7 +5016,7 @@ function renderTrainings() {
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
     const active = filter === key;
-    return `<button onclick="setTrainFilter('${key}')" class="train-tab ${active?'active':''}" style="border:none;background:${active?c:'transparent'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${active?'rgba(255,255,255,.22)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+    return `<button onclick="setTrainFilter('${key}')" class="train-tab ${active?'active':''}" style="border:none;background:transparent;color:${active?c:'var(--text2)'};padding:8px 14px;border-bottom:2px solid ${active?c:'transparent'};border-radius:0;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:${active?'800':'600'};cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;color:${active?c:'var(--text3)'};font-weight:700">(${count})</span></button>`;
   };
   return `
   <div class="page-hero">
@@ -6664,9 +6664,9 @@ function renderBranchRows(entries) {
       <td data-label="รหัส"><span style="font-family:monospace;font-weight:700;font-size:14px;color:var(--primary)">${id}</span></td>
       <td data-label="ชื่อ"><strong style="cursor:pointer;color:var(--text)" onclick="adminViewBranch('${id}')">${shortName}</strong></td>
       <td data-label="ผู้จัดการ" style="font-size:13px;color:var(--text2)">${b.manager}</td>
-      <td data-label="พนักงาน"><span class="badge badge-blue">${activeEmps}</span></td>
-      <td data-label="สอน"><span class="badge badge-navy">${trains.length}</span></td>
-      <td data-label="รอประเมิน">${pending>0?`<span class="badge badge-yellow">${pending}</span>`:`<span class="badge badge-green">0</span>`}</td>
+      <td data-label="พนักงาน"><span style="font-weight:700;color:var(--blue)">${activeEmps}</span></td>
+      <td data-label="สอน"><span style="font-weight:700;color:var(--accent)">${trains.length}</span></td>
+      <td data-label="รอประเมิน">${pending>0?`<span style="font-weight:700;color:var(--yellow)">${pending}</span>`:`<span style="font-weight:700;color:var(--green)">0</span>`}</td>
       <td data-label="actions" style="text-align:right;white-space:nowrap">
         <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminViewBranch('${id}')">ดู</button>
         <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openEditBranch('${id}')">แก้ไข</button>
@@ -6975,13 +6975,13 @@ function renderAdminTrainings() {
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
     const active = filter === key;
-    return `<button onclick="setAdminTrainFilter('${key}')" class="train-tab ${active?'active':''}" style="border:none;background:${active?c:'transparent'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;opacity:.85;background:${active?'rgba(255,255,255,.22)':'var(--surface3)'};padding:1px 7px;border-radius:999px;font-weight:700">${count}</span></button>`;
+    return `<button onclick="setAdminTrainFilter('${key}')" class="train-tab ${active?'active':''}" style="border:none;background:transparent;color:${active?c:'var(--text2)'};padding:8px 14px;border-bottom:2px solid ${active?c:'transparent'};border-radius:0;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:${active?'800':'600'};cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;color:${active?c:'var(--text3)'};font-weight:700">(${count})</span></button>`;
   };
 
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">บันทึกการสอนงาน &amp; ประเมินผล</div>
+      <div class="page-hero-title">บันทึกการสอน &amp; ประเมินผล</div>
     </div>
   </div>
   <div class="card">
