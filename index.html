@@ -6169,7 +6169,7 @@ function _quizPassedFor(trainingId) {
   });
 }
 
-async function openQuiz(trainingId) {
+function openQuiz(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
   if (!t) return;
   // Already passed → block (no need to retake)
@@ -6192,37 +6192,13 @@ async function openQuiz(trainingId) {
     `, null, 'ปิด');
     return;
   }
-
-  // Generate fresh 5 questions via AI from module's subtopics
-  const m = MODULES[t.moduleId];
-  if (!m || !(m.subtopics||[]).length) { notify('Module นี้ยังไม่มีหัวข้อย่อย', 'error'); return; }
-  showModal('🤖 กำลังสร้างข้อสอบ', `
-    <div style="text-align:center;padding:36px 16px">
-      <div style="font-size:46px;margin-bottom:14px">🤖</div>
-      <div style="font-size:14px;font-weight:700;color:var(--text)">AI กำลังออกข้อสอบสำหรับ ${m.name}</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:6px">ใช้เวลาประมาณ 10-20 วินาที กรุณารอสักครู่...</div>
-      <div style="margin-top:18px"><div class="spinner" style="display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div></div>
-    </div>
-  `, null, null);
-  let aiQs = [];
-  try {
-    const res = await gsFetch({
-      action: 'ai_quiz',
-      moduleName: m.name,
-      group: m.group || '',
-      subtopics: m.subtopics,
-      n: 5,
-      focus: ''
-    });
-    if (res.error) throw new Error(res.error);
-    aiQs = res.questions || [];
-  } catch (e) {
-    closeModal();
-    notify('สร้างข้อสอบไม่สำเร็จ: ' + e.message, 'error');
+  // Pull from question pool (admin pre-generates with AI; employee gets random 5)
+  const allQ = getAllQuestionsForModule(t.moduleId).filter(q => isQuizActive(q.uid));
+  if (allQ.length === 0) {
+    notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
     return;
   }
-  if (aiQs.length === 0) { closeModal(); notify('AI สร้างข้อสอบไม่สำเร็จ ลองอีกครั้ง', 'error'); return; }
-  const picked = aiQs.slice(0, 5);
+  const picked = shuffleArray(allQ).slice(0, Math.min(5, allQ.length));
   const SRC = ['A','B','C','D'];
   const questions = picked.map(q => {
     const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
@@ -7075,6 +7051,7 @@ function openQuizListModal(mid) {
           <div style="font-size:13.5px;font-weight:700;color:var(--text);flex:1">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
             ${srcBadge[q.source]||''}
+            <button class="btn btn-sm btn-outline" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
             <button class="btn btn-sm ${active?'btn-outline':'btn-green'}" onclick="toggleQuizActive('${q.uid}','${mid}')" title="${active?'ปิดใช้งาน':'เปิดใช้งาน'}">${active?'⏸ ปิด':'▶ เปิด'}</button>
             <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openQuizListModal('${mid}'))">ลบ</button>
           </div>
@@ -7127,6 +7104,48 @@ function openAddQuizModal(mid) {
   }, 'บันทึก');
 }
 
+function openEditQuizModal(uid, source, mid) {
+  const m = MODULES[mid];
+  const all = getAllQuestionsForModule(mid, true); // include deleted to find by uid
+  const q = all.find(x => x.uid === uid);
+  if (!q) { notify('ไม่พบคำถาม', 'error'); return; }
+  const noteIfFork = (source !== 'custom')
+    ? '<div style="background:var(--accent-light);color:var(--accent);padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:14px">ℹ︎ คำถามนี้เป็นคำถามเริ่มต้น/กลุ่ม การแก้ไขจะสร้างเป็นคำถามใหม่ (เพิ่มเอง) และซ่อนคำถามเดิม</div>'
+    : '';
+  showModal(`✏️ แก้ไขคำถาม · ${m.name}`, `
+    ${noteIfFork}
+    <div class="form-full"><label class="form-label">คำถาม <span class="req">*</span></label>
+      <textarea class="form-textarea" id="eq-q" rows="2">${(q.q||'').replace(/</g,'&lt;')}</textarea></div>
+    ${['A','B','C','D'].map(k=>`<div class="form-full"><label class="form-label">ตัวเลือก ${k} <span class="req">*</span></label><input class="form-input" id="eq-${k}" value="${(q.opts?.[k]||'').replace(/"/g,'&quot;')}"></div>`).join('')}
+    <div class="form-full"><label class="form-label">คำตอบที่ถูก <span class="req">*</span></label>
+      <select class="form-select" id="eq-ans">${['A','B','C','D'].map(k=>`<option value="${k}"${q.ans===k?' selected':''}>${k}</option>`).join('')}</select></div>
+  `, () => {
+    const newQ = document.getElementById('eq-q').value.trim();
+    const opts = { A: document.getElementById('eq-A').value.trim(), B: document.getElementById('eq-B').value.trim(), C: document.getElementById('eq-C').value.trim(), D: document.getElementById('eq-D').value.trim() };
+    const ans = document.getElementById('eq-ans').value;
+    if (!newQ || !opts.A || !opts.B || !opts.C || !opts.D) { notify('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
+    if (source === 'custom') {
+      // Update in place
+      const idx = DB.customQuiz.findIndex(c => c.id === uid);
+      if (idx < 0) { notify('ไม่พบคำถามที่จะแก้', 'error'); return; }
+      DB.customQuiz[idx] = { ...DB.customQuiz[idx], q: newQ, opts, ans };
+      gsSave('customQuiz', uid, DB.customQuiz[idx]);
+    } else {
+      // Fork: create a custom copy + mark original as deleted (so it doesn't show twice)
+      const fork = { id: genId('CQ'), moduleId: mid, q: newQ, opts, ans, createdAt: new Date().toISOString() };
+      DB.customQuiz.push(fork);
+      gsSave('customQuiz', fork.id, fork);
+      if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+      DB.quizMeta.deleted = DB.quizMeta.deleted || [];
+      if (!DB.quizMeta.deleted.includes(uid)) DB.quizMeta.deleted.push(uid);
+      saveQuizMeta();
+    }
+    closeModal();
+    notify('บันทึกการแก้ไขแล้ว');
+    openQuizListModal(mid);
+  }, 'บันทึก');
+}
+
 function openAiSettingsModal() {
   const cur = localStorage.getItem('opt_anthropic_key') || '';
   showModal('⚙️ ตั้งค่า AI', `
@@ -7159,7 +7178,7 @@ function openAiQuizModal(mid) {
     <div class="form-row">
       <div><label class="form-label">จำนวน <span class="req">*</span></label>
         <select class="form-select" id="aq-n">
-          <option value="5">5 ข้อ</option><option value="10" selected>10 ข้อ</option><option value="15">15 ข้อ</option><option value="20">20 ข้อ</option>
+          <option value="5">5 ข้อ</option><option value="10">10 ข้อ</option><option value="15">15 ข้อ</option><option value="20" selected>20 ข้อ</option><option value="30">30 ข้อ</option>
         </select>
       </div>
       <div><label class="form-label">โฟกัสเพิ่มเติม</label>
