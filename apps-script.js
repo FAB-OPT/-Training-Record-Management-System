@@ -71,20 +71,29 @@ function generateAiQuiz(req) {
     const moduleName = req.moduleName || '';
     const group = req.group || '';
     const subtopics = req.subtopics || [];
+    const perSub = req.perSub || null; // [{subtopic, n}, ...] when admin set per-subtopic counts
     const n = req.n || 5;
     const focus = req.focus || '';
 
+    var subtopicSpec;
+    if (perSub && perSub.length) {
+      subtopicSpec = perSub.map(function(p){ return '- "' + p.subtopic + '" → ' + p.n + ' ข้อ'; }).join('\n');
+    } else {
+      subtopicSpec = subtopics.map(function(s){ return '- ' + s; }).join('\n');
+    }
+
     const prompt = 'คุณเป็นผู้สร้างข้อสอบสำหรับ Santa Fe Steak (ร้านอาหาร) — สร้างข้อสอบ ' + n + ' ข้อ สำหรับ Module: "' + moduleName + '" (กลุ่ม: ' + group + ')\n\n' +
-      'หัวข้อย่อยที่ต้องครอบคลุม:\n' +
-      subtopics.map(function(s){ return '- ' + s; }).join('\n') +
+      (perSub && perSub.length ? 'จำนวนข้อสอบต่อหัวข้อย่อย (ต้องตรงเป๊ะ):\n' : 'หัวข้อย่อยที่ต้องครอบคลุม:\n') +
+      subtopicSpec +
       (focus ? ('\n\nโฟกัสเพิ่มเติม: ' + focus) : '') +
       '\n\nข้อกำหนด:\n' +
       '- คำถามภาษาไทย ชัดเจน เกี่ยวกับการปฏิบัติงานจริงในร้านอาหาร\n' +
       '- 4 ตัวเลือก A B C D ความยาวใกล้เคียงกัน\n' +
       '- คำตอบที่ถูกต้องกระจาย A/B/C/D อย่างสมดุล\n' +
       '- หลีกเลี่ยงตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"\n' +
-      '- คำถามแต่ละครั้งควรหลากหลาย ไม่ซ้ำซาก\n\n' +
-      'ตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:\n' +
+      '- คำถามแต่ละครั้งควรหลากหลาย ไม่ซ้ำซาก\n' +
+      (perSub && perSub.length ? '- เรียงคำถามตามลำดับหัวข้อย่อยตามที่ระบุข้างบน\n' : '') +
+      '\nตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:\n' +
       '[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]';
 
     const payload = JSON.stringify({
