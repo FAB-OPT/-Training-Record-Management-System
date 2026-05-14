@@ -3290,6 +3290,7 @@ const _SB_TABLE = {
   customQuiz:    'custom_quiz',
   courseHistory: 'course_history',
   quizMeta:      'quiz_meta',
+  branchOverrides: 'branch_overrides',
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason' },
@@ -3297,6 +3298,7 @@ const _SB_FIELD_MAP = {
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
   courseHistory: { branchId:'branch_id', empId:'emp_id', empCode:'emp_code', empName:'emp_name', courseName:'course_name', batchNo:'batch_no', courseDate:'course_date' },
+  branchOverrides: { branchId:'branch_id', managerName:'manager_name', branchName:'branch_name' },
 };
 function _camelToSnake(s) { return s.replace(/[A-Z]/g, c => '_' + c.toLowerCase()); }
 function _snakeToCamel(s) { return s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }
@@ -3331,16 +3333,27 @@ function _fromSb(coll, row) {
 
 async function sbLoadAll() {
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
-  const [emps, trs, qrs, cqs, chs, qms] = await Promise.all([
+  const [emps, trs, qrs, cqs, chs, qms, bos] = await Promise.all([
     sb.from('employees').select('*'),
     sb.from('trainings').select('*'),
     sb.from('quiz_results').select('*'),
     sb.from('custom_quiz').select('*'),
     sb.from('course_history').select('*'),
     sb.from('quiz_meta').select('*').eq('id','singleton').maybeSingle(),
+    sb.from('branch_overrides').select('*'),
   ]);
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
+  }
+  // Apply branch overrides (BZM rename, branch rename, etc.) onto BRANCH_MASTER in-memory
+  if (bos && !bos.error && Array.isArray(bos.data)) {
+    bos.data.forEach(row => {
+      const ov = _fromSb('branchOverrides', row);
+      const b = BRANCH_MASTER[ov.branchId];
+      if (!b) return;
+      if (ov.managerName) b.manager = ov.managerName;
+      if (ov.branchName) b.name = ov.branchName.startsWith(ov.branchId) ? ov.branchName : (ov.branchId + ' ' + ov.branchName);
+    });
   }
   return {
     employees:     (emps.data||[]).map(r => _fromSb('employees', r)),
@@ -3850,6 +3863,7 @@ function buildAdminNav() {
   document.getElementById('sidebar-nav').innerHTML = `
     <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-admin-manage" onclick="showPage('admin-manage')"><span class="nav-icon">◼</span> จัดการสาขา &amp; พนักงาน</div>
+    <div class="nav-item" id="nav-admin-bzm" onclick="showPage('admin-bzm')"><span class="nav-icon">◼</span> จัดการ BZM</div>
     <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึกการสอน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
@@ -3876,6 +3890,7 @@ function showPage(page) {
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
+    'admin-bzm': renderAdminBzm,
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
@@ -6524,7 +6539,7 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
     </div>
 
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
-      ${kpiCard('พนักงาน', active.length, `จากทั้งหมด ${emps.length} คน`, NAVY)}
+      ${kpiCard('พนักงาน', active.length, `จากทั้งหมด ${emps.length} คน`, BLACK)}
       ${kpiCard('บันทึกการสอน', trains.length, `${ev.length} ประเมินแล้ว`, ORANGE)}
       ${kpiCard('ผ่านเกณฑ์', ps.length, `${ev.length-ps.length} ไม่ผ่าน`, GREEN)}
       ${kpiCard('อัตราผ่าน', passRate+'%', 'จากที่ประเมิน', passRate>=80?GREEN:passRate>=60?YELLOW:RED)}
@@ -6909,28 +6924,162 @@ function openAddBranch() {
   }, 'เพิ่มสาขา');
 }
 
+// ==================== BZM (district manager) helpers ====================
+function getAllBzms() {
+  // Unique BZM names + their assigned branches
+  const map = {};
+  Object.entries(BRANCH_MASTER).forEach(([id,b]) => {
+    const name = (b.manager||'').trim();
+    if (!name) return;
+    if (!map[name]) map[name] = { name, branches: [] };
+    map[name].branches.push(id);
+  });
+  return Object.values(map).sort((a,b) => a.name.localeCompare(b.name,'th'));
+}
+
+async function persistBranchOverride(bid) {
+  const b = BRANCH_MASTER[bid]; if (!b) return;
+  const shortName = b.name.replace(bid+' ', '');
+  const rec = { branchId: bid, managerName: b.manager, branchName: shortName };
+  try {
+    const sb = _initSb();
+    if (sb) await sb.from('branch_overrides').upsert(_toSb('branchOverrides', rec));
+  } catch(e) { console.error('branch_overrides save error', e); notify('บันทึกไป Supabase ล้มเหลว: ' + (e.message||e), 'error'); }
+}
+
+async function renameBzmCascade(oldName, newName) {
+  oldName = (oldName||'').trim(); newName = (newName||'').trim();
+  if (!oldName || !newName || oldName === newName) return 0;
+  const targets = Object.entries(BRANCH_MASTER).filter(([id,b]) => (b.manager||'').trim() === oldName);
+  for (const [id,b] of targets) {
+    b.manager = newName;
+    await persistBranchOverride(id);
+  }
+  return targets.length;
+}
+
 function openEditBranch(bid) {
   const b = BRANCH_MASTER[bid]; if(!b) return;
   const shortName = b.name.replace(bid+' ','');
+  const bzms = getAllBzms();
+  const opts = bzms.map(z => `<option value="${z.name.replace(/"/g,'&quot;')}"${z.name===b.manager?' selected':''}>${z.name} (${z.branches.length} สาขา)</option>`).join('');
   showModal('แก้ไขสาขา ' + bid, `
     <div class="form-full">
       <label class="form-label">ชื่อสาขา</label>
       <input class="form-input" id="b-name" value="${shortName}">
     </div>
     <div class="form-full">
-      <label class="form-label">ผู้จัดการเขต</label>
-      <input class="form-input" id="b-mgr" value="${b.manager}">
+      <label class="form-label">BZM (ผู้จัดการเขต)</label>
+      <select class="form-select" id="b-mgr-sel" onchange="document.getElementById('b-mgr').value=this.value;document.getElementById('b-mgr-new-wrap').style.display=this.value==='__new__'?'block':'none'">
+        ${opts}
+        <option value="__new__">+ เพิ่ม BZM ใหม่ (พิมพ์เอง)</option>
+      </select>
+      <input class="form-input" id="b-mgr" type="hidden" value="${b.manager.replace(/"/g,'&quot;')}">
+      <div id="b-mgr-new-wrap" style="display:none;margin-top:8px">
+        <input class="form-input" id="b-mgr-new" placeholder="พิมพ์ชื่อ BZM ใหม่..." oninput="document.getElementById('b-mgr').value=this.value">
+      </div>
     </div>
-  `, () => {
+  `, async () => {
     const name = document.getElementById('b-name').value.trim();
-    const mgr  = document.getElementById('b-mgr').value.trim();
-    if(!name || !mgr) { notify('กรุณากรอกข้อมูลให้ครบ','error'); return; }
+    const mgr  = (document.getElementById('b-mgr').value||'').trim();
+    if(!name || !mgr || mgr==='__new__') { notify('กรุณากรอกข้อมูลให้ครบ','error'); return; }
     BRANCH_MASTER[bid].name = bid + ' ' + name;
     BRANCH_MASTER[bid].manager = mgr;
+    await persistBranchOverride(bid);
     closeModal();
     showPage('admin-branches');
     notify('อัปเดตสาขา ' + bid + ' สำเร็จ');
   }, 'บันทึก');
+}
+
+// ==================== BZM management page ====================
+function renderAdminBzm() {
+  const bzms = getAllBzms();
+  const total = bzms.length;
+  const totalBranches = Object.keys(BRANCH_MASTER).length;
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">จัดการ BZM</div>
+      <div class="page-hero-sub">${total} BZM · ${totalBranches} สาขา</div>
+    </div>
+    <button class="btn btn-accent" onclick="openAddBzmModal()">+ เพิ่ม BZM</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table class="cards-on-mobile">
+      <thead><tr>
+        <th>ชื่อ BZM</th>
+        <th style="text-align:center">จำนวนสาขา</th>
+        <th>สาขาที่ดูแล</th>
+        <th style="text-align:right">จัดการ</th>
+      </tr></thead>
+      <tbody>${bzms.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มี BZM</td></tr>':bzms.map(z=>{
+        const safe = z.name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        const branchList = z.branches.slice(0,8).map(bid=>{
+          const nm = (BRANCH_MASTER[bid]?.name||'').replace(bid+' ','');
+          return `<span style="display:inline-block;padding:2px 8px;background:var(--surface2);border-radius:6px;font-size:11.5px;margin:2px 3px 2px 0">${bid} ${nm}</span>`;
+        }).join('') + (z.branches.length>8?`<span style="font-size:11px;color:var(--text3);margin-left:4px">+${z.branches.length-8} เพิ่มเติม</span>`:'');
+        return `<tr>
+          <td data-label="ชื่อ" style="font-weight:700;font-size:14px;color:var(--text)">${z.name}</td>
+          <td data-label="จำนวนสาขา" style="text-align:center;font-weight:800;color:var(--accent);font-size:15px">${z.branches.length}</td>
+          <td data-label="สาขา" style="font-size:12px">${branchList||'<span style="color:var(--text3)">—</span>'}</td>
+          <td data-label="actions" style="text-align:right;white-space:nowrap">
+            <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openRenameBzmModal('${safe}')">เปลี่ยนชื่อ</button>
+            <button class="btn btn-sm btn-danger" onclick="confirmDeleteBzm('${safe}')" ${z.branches.length>0?'disabled title="มีสาขาอยู่ — ย้ายสาขาออกก่อน"':''}>ลบ</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function openAddBzmModal() {
+  showModal('+ เพิ่ม BZM', `
+    <div class="form-full">
+      <label class="form-label">ชื่อ BZM ใหม่ <span class="req">*</span></label>
+      <input class="form-input" id="new-bzm" placeholder="เช่น พี่ใหม่">
+      <div style="font-size:11.5px;color:var(--text3);margin-top:6px">หลังจากเพิ่มแล้ว สามารถ assign ให้สาขาได้ผ่านปุ่ม "แก้ไข" ของสาขานั้น</div>
+    </div>
+  `, () => {
+    const nm = document.getElementById('new-bzm').value.trim();
+    if (!nm) { notify('กรุณากรอกชื่อ', 'error'); return; }
+    const exists = getAllBzms().some(z => z.name === nm);
+    if (exists) { notify('มี BZM ชื่อนี้อยู่แล้ว', 'error'); return; }
+    closeModal();
+    notify('เพิ่ม "' + nm + '" สำเร็จ — ไป assign ให้สาขาที่หน้า "จัดการสาขา"');
+    // Note: BZM list is derived from branches; "adding" means appearing as soon as assigned to a branch
+    showPage('admin-bzm');
+  }, 'เพิ่ม');
+}
+
+function openRenameBzmModal(oldName) {
+  showModal('เปลี่ยนชื่อ BZM', `
+    <div class="form-full">
+      <label class="form-label">ชื่อเดิม</label>
+      <input class="form-input" value="${oldName}" disabled>
+    </div>
+    <div class="form-full">
+      <label class="form-label">ชื่อใหม่ <span class="req">*</span></label>
+      <input class="form-input" id="new-bzm-name" placeholder="พิมพ์ชื่อใหม่">
+      <div style="font-size:11.5px;color:var(--accent);margin-top:6px">⚠ จะเปลี่ยนชื่อ BZM นี้ในทุกสาขาที่ใช้ชื่อเดิม</div>
+    </div>
+  `, async () => {
+    const newName = document.getElementById('new-bzm-name').value.trim();
+    if (!newName) { notify('กรุณากรอกชื่อใหม่', 'error'); return; }
+    if (newName === oldName) { notify('ชื่อเหมือนเดิม', 'error'); return; }
+    const n = await renameBzmCascade(oldName, newName);
+    closeModal();
+    notify(`เปลี่ยนชื่อ "${oldName}" → "${newName}" (${n} สาขา)`);
+    showPage('admin-bzm');
+  }, 'บันทึก');
+}
+
+function confirmDeleteBzm(name) {
+  const z = getAllBzms().find(x => x.name === name);
+  if (z && z.branches.length > 0) { notify('ลบไม่ได้ — มี ' + z.branches.length + ' สาขาในความรับผิดชอบ', 'error'); return; }
+  // No-op since BZM is derived from branches; nothing to actually delete server-side
+  notify('"' + name + '" ไม่มีสาขาในความรับผิดชอบ — รายการนี้จะหายเมื่อรีเฟรช');
+  showPage('admin-bzm');
 }
 
 function openDeleteBranch(bid) {
