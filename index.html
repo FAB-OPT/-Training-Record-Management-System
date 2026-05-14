@@ -1275,28 +1275,29 @@
       content: 'ผู้จัดการ '; display: inline !important;
       font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
-    /* Line 3: stats inline (พนักงาน N · สอน N · รอประเมิน N) */
-    table.cards-on-mobile.branch-table td[data-label="พนักงาน"],
-    table.cards-on-mobile.branch-table td[data-label="สอน"],
-    table.cards-on-mobile.branch-table td[data-label="รอประเมิน"] {
-      grid-row: 3; padding: 4px 0 !important;
+    /* Lines 3-4: 4 stat cells (รวม / ผจก / ครัว / บริการ) on 2 rows × 2 cols */
+    table.cards-on-mobile.branch-table td[data-label="พนักงานทั้งหมด"],
+    table.cards-on-mobile.branch-table td[data-label="ทีมผู้จัดการสาขา"],
+    table.cards-on-mobile.branch-table td[data-label="พนักงานครัว"],
+    table.cards-on-mobile.branch-table td[data-label="พนักงานบริการ"] {
+      padding: 4px 0 !important;
       font-size: 11.5px; color: var(--text2);
     }
-    table.cards-on-mobile.branch-table td[data-label="พนักงาน"] { grid-column: 1 / span 1; justify-content: flex-start; }
-    table.cards-on-mobile.branch-table td[data-label="พนักงาน"]::before {
-      content: '👥 '; display: inline !important; margin-right: 4px;
+    table.cards-on-mobile.branch-table td[data-label="พนักงานทั้งหมด"] { grid-column: 1; grid-row: 3; justify-content: flex-start; }
+    table.cards-on-mobile.branch-table td[data-label="พนักงานทั้งหมด"]::before {
+      content: '👥 รวม '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
-    table.cards-on-mobile.branch-table td[data-label="สอน"] {
-      grid-column: 1; grid-row: 4; justify-content: flex-start;
+    table.cards-on-mobile.branch-table td[data-label="ทีมผู้จัดการสาขา"] { grid-column: 2; grid-row: 3; justify-content: flex-end; }
+    table.cards-on-mobile.branch-table td[data-label="ทีมผู้จัดการสาขา"]::before {
+      content: 'ผจก. '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
-    table.cards-on-mobile.branch-table td[data-label="สอน"]::before {
-      content: 'สอน '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
+    table.cards-on-mobile.branch-table td[data-label="พนักงานครัว"] { grid-column: 1; grid-row: 4; justify-content: flex-start; }
+    table.cards-on-mobile.branch-table td[data-label="พนักงานครัว"]::before {
+      content: '🍳 ครัว '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
-    table.cards-on-mobile.branch-table td[data-label="รอประเมิน"] {
-      grid-column: 2; grid-row: 4; justify-content: flex-end;
-    }
-    table.cards-on-mobile.branch-table td[data-label="รอประเมิน"]::before {
-      content: 'รอประเมิน '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
+    table.cards-on-mobile.branch-table td[data-label="พนักงานบริการ"] { grid-column: 2; grid-row: 4; justify-content: flex-end; }
+    table.cards-on-mobile.branch-table td[data-label="พนักงานบริการ"]::before {
+      content: '🍽 บริการ '; display: inline !important; font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
     }
     /* Actions: full width row at bottom */
     table.cards-on-mobile.branch-table td[data-label="actions"] {
@@ -6541,15 +6542,15 @@ function setBranchSort(key) { _toggleSort(_branchSort, key); document.getElement
 function _sortBranchEntries(entries) {
   const k = _branchSort.key, dir = _branchSort.dir;
   const get = ([id, b]) => {
-    const emps = getBranchEmployees(id);
-    const trains = getBranchTrainings(id);
+    const emps = getBranchEmployees(id).filter(e => e.status === 'active');
     switch (k) {
       case 'id': return id;
       case 'name': return b.name.replace(id+' ','');
       case 'manager': return b.manager || '';
-      case 'employees': return emps.filter(e=>e.status==='active').length;
-      case 'trainings': return trains.length;
-      case 'pending': return trains.filter(t=>!t.eval&&!isEvalDeadlinePassed(t.date)).length;
+      case 'employees': return emps.length;
+      case 'mgr_team': return emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา').length;
+      case 'cook': return emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
+      case 'service': return emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
     }
     return '';
   };
@@ -6580,9 +6581,10 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount) {
           ${_sortHeader('id','รหัสสาขา',_branchSort,'setBranchSort')}
           ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
           ${_sortHeader('manager','ผู้จัดการเขต',_branchSort,'setBranchSort')}
-          ${_sortHeader('employees','พนักงาน',_branchSort,'setBranchSort')}
-          ${_sortHeader('trainings','บันทึกสอน',_branchSort,'setBranchSort')}
-          ${_sortHeader('pending','รอประเมิน',_branchSort,'setBranchSort')}
+          ${_sortHeader('employees','พนักงานทั้งหมด',_branchSort,'setBranchSort')}
+          ${_sortHeader('mgr_team','ทีมผู้จัดการสาขา',_branchSort,'setBranchSort')}
+          ${_sortHeader('cook','พนักงานครัว',_branchSort,'setBranchSort')}
+          ${_sortHeader('service','พนักงานบริการ',_branchSort,'setBranchSort')}
           <th style="text-align:right">จัดการ</th>
         </tr></thead>
         <tbody id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</tbody>
@@ -6654,20 +6656,22 @@ function renderAdminBranches() { _adminManageTab = 'branches'; return renderAdmi
 function renderAdminEmployees() { _adminManageTab = 'employees'; return renderAdminManage(); }
 
 function renderBranchRows(entries) {
-  if(!entries.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่พบสาขา</td></tr>';
+  if(!entries.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่พบสาขา</td></tr>';
   return entries.map(([id,b])=>{
-    const emps = getBranchEmployees(id);
-    const trains = getBranchTrainings(id);
-    const pending = trains.filter(t=>!t.eval&&!isEvalDeadlinePassed(t.date)).length;
-    const activeEmps = emps.filter(e=>e.status==='active').length;
+    const emps = getBranchEmployees(id).filter(e => e.status === 'active');
+    const totalEmp = emps.length;
+    const mgrTeam = emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา').length;
+    const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
+    const service = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
     const shortName = b.name.replace(id+' ','');
     return `<tr>
       <td data-label="รหัส"><span style="font-family:monospace;font-weight:700;font-size:14px;color:var(--primary)">${id}</span></td>
       <td data-label="ชื่อ"><strong style="cursor:pointer;color:var(--text)" onclick="adminViewBranch('${id}')">${shortName}</strong></td>
       <td data-label="ผู้จัดการ" style="font-size:13px;color:var(--text2)">${b.manager}</td>
-      <td data-label="พนักงาน"><span style="font-weight:700;color:var(--blue)">${activeEmps}</span></td>
-      <td data-label="สอน"><span style="font-weight:700;color:var(--accent)">${trains.length}</span></td>
-      <td data-label="รอประเมิน">${pending>0?`<span style="font-weight:700;color:var(--yellow)">${pending}</span>`:`<span style="font-weight:700;color:var(--green)">0</span>`}</td>
+      <td data-label="พนักงานทั้งหมด"><span style="font-weight:700;color:var(--text)">${totalEmp}</span></td>
+      <td data-label="ทีมผู้จัดการสาขา"><span style="font-weight:700;color:var(--blue)">${mgrTeam}</span></td>
+      <td data-label="พนักงานครัว"><span style="font-weight:700;color:var(--red)">${cook}</span></td>
+      <td data-label="พนักงานบริการ"><span style="font-weight:700;color:var(--green)">${service}</span></td>
       <td data-label="actions" style="text-align:right;white-space:nowrap">
         <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="adminViewBranch('${id}')">ดู</button>
         <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openEditBranch('${id}')">แก้ไข</button>
