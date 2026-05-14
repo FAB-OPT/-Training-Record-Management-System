@@ -7019,32 +7019,48 @@ function renderAdminTrainings() {
         </optgroup>
       </select>
     </div>
-    <div class="table-wrap"><table class="cards-on-mobile">
+    <div class="table-wrap"><table class="cards-on-mobile admin-train-table">
       <thead><tr>
-        ${_sortHeader('branch','สาขา',_adminTrainSort,'setAdminTrainSort')}
         ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
+        ${_sortHeader('branch','สาขา',_adminTrainSort,'setAdminTrainSort')}
+        <th>พนักงาน</th>
         ${_sortHeader('module','Module',_adminTrainSort,'setAdminTrainSort')}
         <th>หัวข้อย่อย</th>
-        <th>พนักงาน</th>
-        ${_sortHeader('trainer','ผู้สอน',_adminTrainSort,'setAdminTrainSort')}
-        ${_sortHeader('status','สถานะ / ผล',_adminTrainSort,'setAdminTrainSort')}
+        ${_sortHeader('status','ผลการประเมิน',_adminTrainSort,'setAdminTrainSort')}
+        <th>วิธีการประเมิน</th>
+        <th>ผลสอบ</th>
         <th>จัดการ</th>
       </tr></thead>
-      <tbody>${rows.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
-        const badge = t.eval
-          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`
-          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
+      <tbody>${rows.length===0?'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
+        // Eval result as colored TEXT (no bg)
+        let evalCell;
+        if (t.eval) {
+          const passed = isEvalPass(t.eval.result);
+          evalCell = `<span style="font-weight:700;color:${passed?'var(--green)':'var(--red)'}">${getEvalResultShort(t.eval.result)}</span>`;
+        } else if (isEvalDeadlinePassed(t.date)) {
+          evalCell = `<span style="font-weight:700;color:var(--red)">หมดเวลา</span>`;
+        } else {
+          evalCell = `<span style="font-weight:700;color:var(--yellow)">รอประเมิน</span>`;
+        }
         const prog = getSubtopicProgress(t);
         const moduleComplete = isModuleComplete(t);
+        const subColor = moduleComplete ? 'var(--green)' : 'var(--text2)';
+        // Quiz score (best attempt) as colored text
+        const qAttempts = (DB.quizResults||[]).filter(r => r.trainingId === t.id);
+        const bestPct = qAttempts.length ? Math.max(...qAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
+        const quizCell = bestPct != null
+          ? `<span style="font-weight:700;color:${bestPct>=80?'var(--green)':'var(--red)'}">${bestPct}%</span>`
+          : '<span style="color:var(--text4)">—</span>';
         return `<tr>
-          <td data-label="สาขา"><span class="badge badge-navy">${t.branchId}</span></td>
-          <td data-label="วันที่" style="font-size:12px;white-space:nowrap">${fmtDateTime(t.date)}</td>
-          <td data-label="Module" style="font-weight:700;color:var(--primary);font-size:12.5px">${MODULES[t.moduleId]?.name||t.moduleId}</td>
-          <td data-label="หัวข้อ"><span class="badge ${moduleComplete?'badge-green':'badge-navy'}">${prog.done}/${prog.total}${moduleComplete?' ✓':''}</span></td>
-          <td data-label="พนักงาน" style="font-size:12px">${(t.traineeIds||[]).map(id=>getEmployee(id)?.name).filter(Boolean).join(', ')||'—'}</td>
-          <td data-label="ผู้สอน" style="font-size:12px">${t.trainerName||'—'}</td>
-          <td data-label="ผล">${badge}${t.eval?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${t.eval.method||''}</div>`:''}</td>
-          <td data-label="actions" style="white-space:nowrap">
+          <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
+          <td data-label="สาขา" style="font-size:12.5px;font-weight:600">${t.branchId}</td>
+          <td data-label="พนักงาน" style="font-size:12.5px;font-weight:700">${(t.traineeIds||[]).map(id=>getEmployee(id)?.name).filter(Boolean).join(', ')||'—'}</td>
+          <td data-label="Module" style="font-size:12.5px">${MODULES[t.moduleId]?.name||t.moduleId}</td>
+          <td data-label="หัวข้อย่อย" style="font-size:12.5px;font-weight:600;color:${subColor}">${prog.done}/${prog.total}${moduleComplete?' ✓':''}</td>
+          <td data-label="ผลการประเมิน">${evalCell}</td>
+          <td data-label="วิธีการประเมิน" style="font-size:12.5px;color:var(--text2)">${t.eval?.method||'—'}</td>
+          <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
+          <td data-label="actions" style="white-space:nowrap;text-align:right">
             <button class="btn btn-sm btn-outline" onclick="viewTraining('${t.id}')">ดู</button>
             <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>
             ${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}
