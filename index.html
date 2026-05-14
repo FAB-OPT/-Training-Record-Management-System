@@ -6481,19 +6481,20 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       return '<path d="' + path + '" fill="' + d.color + '"/>';
     }).join('');
     const legend = data.map(d => `
-      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:6px">
-        <span style="width:14px;height:14px;background:${d.color};border-radius:3px;flex-shrink:0"></span>
-        <span style="flex:1;color:${BLACK}">${d.label}</span>
-        <span style="font-weight:700;color:${BLACK}">${d.value}</span>
-        <span style="color:${GREY};font-size:11.5px;min-width:38px;text-align:right">${Math.round(d.value/total*100)}%</span>
+      <div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px dashed #E5E7EB">
+        <span style="width:12px;height:12px;background:${d.color};border-radius:3px;flex-shrink:0"></span>
+        <span style="flex:1;color:${BLACK};font-weight:500">${d.label}</span>
+        <span style="font-weight:800;color:${BLACK};min-width:42px;text-align:right">${d.value}</span>
+        <span style="color:${GREY};font-size:12px;min-width:42px;text-align:right;font-weight:600">${Math.round(d.value/total*100)}%</span>
       </div>`).join('');
-    return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:14px">
-      <svg width="180" height="180" viewBox="0 0 180 180" style="flex-shrink:0">
+    return `<div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:14px;justify-content:flex-start">
+      <svg width="200" height="200" viewBox="0 0 180 180" style="flex-shrink:0">
         ${arcs}
+        <circle cx="90" cy="90" r="46" fill="white"/>
         <text x="90" y="84" text-anchor="middle" font-size="13" fill="${GREY}" font-family="Sarabun">รวม</text>
-        <text x="90" y="106" text-anchor="middle" font-size="22" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
+        <text x="90" y="108" text-anchor="middle" font-size="24" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
       </svg>
-      <div style="flex:1;min-width:200px">${legend}</div>
+      <div style="flex:0 1 340px;min-width:280px;max-width:380px">${legend}</div>
     </div>`;
   };
   const kpiCard = (label, value, sub, color) =>
@@ -6566,8 +6567,8 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
           <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:72px;height:72px;border-radius:14px;background:white;padding:6px;object-fit:contain;flex-shrink:0">
           <div>
             <div style="font-size:11px;letter-spacing:4px;opacity:.85;text-transform:uppercase;margin-bottom:6px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
-            <h1 style="font-size:26px;margin:0 0 4px;font-weight:800;letter-spacing:-.3px">รายงานสรุปสาขา</h1>
-            <div style="font-size:14.5px;opacity:.95;font-weight:600">${branchLabel}</div>
+            <h1 style="font-size:26px;margin:0 0 4px;font-weight:800;letter-spacing:-.3px">${bid==='ALL'?'รายงานสรุปทั้งระบบ':'รายงานสรุปสาขา'}</h1>
+            ${bid==='ALL'?'':`<div style="font-size:14.5px;opacity:.95;font-weight:600">${branchLabel}</div>`}
             ${branchManager?`<div style="font-size:12.5px;opacity:.8;margin-top:3px">BZM: ${branchManager}</div>`:''}
           </div>
         </div>
@@ -7166,6 +7167,7 @@ function renderAdminBzm() {
   _bzmSearch = '';
   const total = getAllBzms().length;
   const totalBranches = Object.keys(BRANCH_MASTER).length;
+  setTimeout(renderBzmCards, 0);
   return `
   <style>
     .bzm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-top:16px }
@@ -7200,8 +7202,7 @@ function renderAdminBzm() {
   <div class="card" style="margin-bottom:0">
     <input class="search-input" id="bzm-search" placeholder="🔍 ค้นหา BZM หรือ สาขา..." oninput="setBzmSearch(this.value)" style="width:100%">
   </div>
-  <div class="bzm-grid" id="bzm-cards-wrap"></div>
-  <script>setTimeout(renderBzmCards, 0)<\/script>`;
+  <div class="bzm-grid" id="bzm-cards-wrap"></div>`;
 }
 
 // Move a single branch to another BZM
