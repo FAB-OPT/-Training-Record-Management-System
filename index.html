@@ -7025,13 +7025,12 @@ function renderAdminTrainings() {
         ${_sortHeader('branch','สาขา',_adminTrainSort,'setAdminTrainSort')}
         <th>พนักงาน</th>
         ${_sortHeader('module','Module',_adminTrainSort,'setAdminTrainSort')}
-        <th>หัวข้อย่อย</th>
         ${_sortHeader('status','ผลการประเมิน',_adminTrainSort,'setAdminTrainSort')}
         <th>วิธีการประเมิน</th>
         <th>ผลสอบ</th>
         <th>จัดการ</th>
       </tr></thead>
-      <tbody>${rows.length===0?'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
+      <tbody>${rows.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         // Eval result as colored TEXT (no bg)
         let evalCell;
         if (t.eval) {
@@ -7055,8 +7054,7 @@ function renderAdminTrainings() {
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap">${fmtDateTime(t.date)}</td>
           <td data-label="สาขา" style="font-size:12.5px;font-weight:600">${t.branchId}</td>
           <td data-label="พนักงาน" style="font-size:12.5px;font-weight:700">${(t.traineeIds||[]).map(id=>getEmployee(id)?.name).filter(Boolean).join(', ')||'—'}</td>
-          <td data-label="Module" style="font-size:12.5px">${MODULES[t.moduleId]?.name||t.moduleId}</td>
-          <td data-label="หัวข้อย่อย">${subBadge}</td>
+          <td data-label="Module" style="font-size:12.5px">${MODULES[t.moduleId]?.name||t.moduleId} ${subBadge}</td>
           <td data-label="ผลการประเมิน">${evalCell}</td>
           <td data-label="วิธีการประเมิน" style="font-size:12.5px;color:var(--text2)">${t.eval?.method||'—'}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
