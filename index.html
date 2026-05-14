@@ -382,6 +382,7 @@
     font-weight: 700 !important;
     font-size: 15px !important;
     -moz-appearance: textfield;
+    appearance: textfield;
   }
   .aq-num-input::-webkit-outer-spin-button,
   .aq-num-input::-webkit-inner-spin-button {
@@ -1938,8 +1939,8 @@ function getPositionGroup(pos) { return POSITION_GROUPS[pos] || 'อื่นๆ
 const EVAL_METHODS = ['A = สังเกตการณ์', 'B = สัมภาษณ์', 'C = ตรวจงาน', 'D = การทดสอบ'];
 const EVAL_RESULTS = [
   { value: '1', label: '1 = ยังทำไม่ได้ตามมาตรฐาน (0-49%)', badge: 'badge-red' },
-  { value: '2', label: '2 = ทำได้ตามมาตรฐานที่กำหนดเป็นบางส่วน (50-79%)', badge: 'badge-yellow' },
-  { value: '3', label: '3 = ทำได้ตามมาตรฐาน (80-89%)', badge: 'badge-blue' },
+  { value: '2', label: '2 = ทำได้ตามมาตรฐานที่กำหนดเป็นบางส่วน (50-79%)', badge: 'badge-red' },
+  { value: '3', label: '3 = ทำได้ตามมาตรฐาน (80-89%)', badge: 'badge-green' },
   { value: '4', label: '4 = ทำได้สูงกว่ามาตรฐานที่กำหนด (90-100%)', badge: 'badge-green' },
 ];
 
@@ -5021,7 +5022,7 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">ประวัติการสอนงานและการประเมินผล</div>
+      <div class="page-hero-title">บันทึกการสอนงานและการประเมินผล</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
@@ -5071,7 +5072,7 @@ function renderTrainings() {
         const canQuiz = isQuizRow && !t.eval && !quizPassed && !quizLocked;
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
         const quizCell = isQuizRow && quizAttempts.length
-          ? `<span class="badge ${quizPassed?'badge-green':quizLocked?'badge-red':'badge-yellow'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
+          ? `<span class="badge ${bestPct>=80?'badge-green':'badge-red'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         return `<tr>
