@@ -6454,8 +6454,48 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   const recent = trains.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 8);
 
   const ORANGE = '#F0701A', ORANGE_DARK = '#C8530C', BLACK = '#1A1A1A', GREY = '#5A5A5A';
-  const GREEN = '#16A34A', RED = '#DC2626', YELLOW = '#D97706';
-  const LOGO_URL = 'https://fab-opt.github.io/OPT-Training/logo.jpg';
+  const GREEN = '#16A34A', RED = '#DC2626', YELLOW = '#D97706', BLUE = '#2563EB';
+  const GROUP_COLORS = { 'ทีมผู้จัดการสาขา': BLUE, 'พนักงานครัว': RED, 'พนักงานบริการ': GREEN, 'อื่นๆ': '#9CA3AF' };
+
+  // SVG donut chart for the position-group breakdown
+  const buildGroupPie = () => {
+    const data = groups.map(g => ({ label: g, value: byGroup[g].count, color: GROUP_COLORS[g] })).filter(d => d.value > 0);
+    const total = data.reduce((s,d)=>s+d.value,0);
+    if (total === 0) return '';
+    const cx = 90, cy = 90, R = 78, r = 46;
+    let acc = 0;
+    const arcs = data.map(d => {
+      const frac = d.value / total;
+      const start = acc * Math.PI * 2 - Math.PI/2;
+      acc += frac;
+      const end = acc * Math.PI * 2 - Math.PI/2;
+      const large = frac > 0.5 ? 1 : 0;
+      const x1 = cx + R*Math.cos(start), y1 = cy + R*Math.sin(start);
+      const x2 = cx + R*Math.cos(end),   y2 = cy + R*Math.sin(end);
+      const x3 = cx + r*Math.cos(end),   y3 = cy + r*Math.sin(end);
+      const x4 = cx + r*Math.cos(start), y4 = cy + r*Math.sin(start);
+      const path = 'M' + x1.toFixed(2) + ',' + y1.toFixed(2)
+        + ' A' + R + ',' + R + ' 0 ' + large + ' 1 ' + x2.toFixed(2) + ',' + y2.toFixed(2)
+        + ' L' + x3.toFixed(2) + ',' + y3.toFixed(2)
+        + ' A' + r + ',' + r + ' 0 ' + large + ' 0 ' + x4.toFixed(2) + ',' + y4.toFixed(2) + ' Z';
+      return '<path d="' + path + '" fill="' + d.color + '"/>';
+    }).join('');
+    const legend = data.map(d => `
+      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:6px">
+        <span style="width:14px;height:14px;background:${d.color};border-radius:3px;flex-shrink:0"></span>
+        <span style="flex:1;color:${BLACK}">${d.label}</span>
+        <span style="font-weight:700;color:${BLACK}">${d.value}</span>
+        <span style="color:${GREY};font-size:11.5px;min-width:38px;text-align:right">${Math.round(d.value/total*100)}%</span>
+      </div>`).join('');
+    return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:14px">
+      <svg width="180" height="180" viewBox="0 0 180 180" style="flex-shrink:0">
+        ${arcs}
+        <text x="90" y="84" text-anchor="middle" font-size="13" fill="${GREY}" font-family="Sarabun">รวม</text>
+        <text x="90" y="106" text-anchor="middle" font-size="22" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
+      </svg>
+      <div style="flex:1;min-width:200px">${legend}</div>
+    </div>`;
+  };
   const kpiCard = (label, value, sub, color) =>
     `<div style="flex:1;min-width:140px;background:white;border:1px solid #E5E7EB;border-left:4px solid ${color};border-radius:10px;padding:16px 18px">
       <div style="font-size:11px;color:#8A96A3;font-weight:600;text-transform:uppercase;letter-spacing:.5px">${label}</div>
@@ -6519,13 +6559,13 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   };
 
   return `
-  <div style="max-width:1100px;margin:0 auto;font-family:'Sarabun','Prompt',sans-serif;color:${BLACK}">
+  <div id="report-root" style="max-width:1100px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${BLACK}">
     <div style="background:linear-gradient(135deg,${ORANGE} 0%,${ORANGE_DARK} 100%);color:white;border-radius:14px;padding:24px 28px;margin-bottom:20px;box-shadow:0 6px 20px rgba(240,112,26,0.25)">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px">
         <div style="display:flex;align-items:center;gap:18px">
-          <img src="${LOGO_URL}" alt="Santa Fe" style="width:72px;height:72px;border-radius:14px;background:white;padding:6px;object-fit:contain;flex-shrink:0">
+          <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:72px;height:72px;border-radius:14px;background:white;padding:6px;object-fit:contain;flex-shrink:0">
           <div>
-            <div style="font-size:11px;letter-spacing:3px;opacity:.85;text-transform:uppercase;margin-bottom:6px;font-weight:700">SANTA FE · OPT TRAINING</div>
+            <div style="font-size:11px;letter-spacing:4px;opacity:.85;text-transform:uppercase;margin-bottom:6px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
             <h1 style="font-size:26px;margin:0 0 4px;font-weight:800;letter-spacing:-.3px">รายงานสรุปสาขา</h1>
             <div style="font-size:14.5px;opacity:.95;font-weight:600">${branchLabel}</div>
             ${branchManager?`<div style="font-size:12.5px;opacity:.8;margin-top:3px">BZM: ${branchManager}</div>`:''}
@@ -6550,6 +6590,7 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
 
     <div style="background:white;border-radius:12px;padding:20px 24px;margin-bottom:20px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
       <h3 style="margin:0 0 12px;color:${BLACK};font-size:15px;font-weight:800">📊 ภาพรวมตามตำแหน่ง</h3>
+      ${buildGroupPie()}
       <table>
         <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:center">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">% ผ่าน</th></tr></thead>
         <tbody>${groups.map(groupRow).join('')||'<tr><td colspan="6" style="text-align:center;color:#8A96A3">ไม่มีข้อมูล</td></tr>'}</tbody>
@@ -6587,20 +6628,33 @@ function exportReport(type) {
   const branchManager = bid==='ALL' ? '' : (BRANCH_MASTER[bid]?.manager || '—');
   const now = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
   const style = `<style>
-    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap');
-    body{font-family:'Sarabun',sans-serif;padding:32px;color:#1A1A1A;background:#FAFAFA;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@400;500;600;700&display=swap');
+    @page { size: A4; margin: 12mm; }
+    body{font-family:'Sarabun',sans-serif;padding:24px;color:#1A1A1A;background:#FAFAFA;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     h2{color:#1A1A1A;font-size:18px;margin-bottom:4px;font-weight:800}
     .sub{color:#5A5A5A;font-size:13px;margin-bottom:20px}
     table{width:100%;border-collapse:collapse;margin-top:8px}
     th{background:#1A1A1A;color:white;padding:9px 12px;text-align:left;font-size:11.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
     td{padding:9px 12px;border-bottom:1px solid #EAEAEA;font-size:13px}
     tr:nth-child(even) td{background:#F8F8F8}
-    @media print{.no-print{display:none}body{background:white;padding:0}}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:8px;justify-content:flex-end;z-index:10;margin:-24px -24px 16px}
+    .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif;display:inline-flex;align-items:center;gap:6px}
+    .tbtn:hover{background:#F5F5F5}
+    .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
+    .tbtn.primary:hover{background:#C8530C}
+    @media print{.no-print{display:none!important}body{background:white;padding:0}.toolbar{display:none}#report-root{max-width:none!important;margin:0!important}}
   </style>`;
+  const toolbar = `<div class="toolbar no-print">
+    <button class="tbtn" onclick="window.close()">✕ ปิด</button>
+    <button class="tbtn" onclick="exportToExcel()">📊 ดาวน์โหลด Excel</button>
+    <button class="tbtn primary" onclick="window.print()">📄 พิมพ์ / บันทึก PDF</button>
+  </div>`;
   let html='';
+  let excelData = null;
   const titles = {summary:'รายงานสรุปสาขา',employees:'รายงานรายชื่อพนักงาน',trainings:'รายงานการสอนงาน',evaluations:'รายงานผลการประเมิน'};
   if(type==='summary'){
     html = _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now);
+    excelData = _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now);
   } else if(type==='employees'){
     html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr>${emps.map(e=>`<tr><td>${e.empCode||'—'}</td><td>${e.name}</td><td>${e.position}</td><td>${fmtDate(e.startDate)}</td><td>${calcTenure(e.startDate)}</td><td>${_empStatusLabel(e)}${!_isEmpEnabled(e)&&e.disabledReason?' ('+e.disabledReason+')':''}</td></tr>`).join('')}</table>`;
   } else if(type==='trainings'){
@@ -6610,8 +6664,82 @@ function exportReport(type) {
     html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>วันที่สอน</th><th>Module</th><th>วิธีประเมิน</th><th>ผล</th><th>วันที่ประเมิน</th><th>หมายเหตุ</th></tr>${ev.map(t=>`<tr><td>${fmtDateTime(t.date)}</td><td>${MODULES[t.moduleId]?.name}</td><td>${t.eval.method}</td><td>${getEvalResultLabel(t.eval.result)}</td><td>${fmtDateTime(t.eval.evalDate)}</td><td>${t.eval.note||''}</td></tr>`).join('')}</table>`;
   }
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titles[type]}</title>${style}</head><body>${html}<div style="margin-top:24px" class="no-print"><button onclick="window.print()" style="padding:9px 20px;background:#1A3A5C;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ พิมพ์</button></div></body></html>`);
+  const excelInline = excelData
+    ? '<script>window.__EXCEL_DATA = ' + JSON.stringify(excelData).replace(/</g,'\\u003c') + ';window.__REPORT_TITLE = ' + JSON.stringify(titles[type] + ' - ' + branchLabel) + ';</' + 'script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></' + 'script><script>function exportToExcel(){if(!window.XLSX||!window.__EXCEL_DATA){alert("Excel library กำลังโหลด ลองอีกครั้ง");return;}var wb=XLSX.utils.book_new();window.__EXCEL_DATA.forEach(function(s){var ws=XLSX.utils.aoa_to_sheet(s.rows);XLSX.utils.book_append_sheet(wb,ws,s.sheet);});XLSX.writeFile(wb,window.__REPORT_TITLE+".xlsx");}</' + 'script>'
+    : '<script>function exportToExcel(){alert("รายงานนี้ยังไม่รองรับการ export Excel");}</' + 'script>';
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + titles[type] + '</title>' + style + excelInline + '</head><body>' + toolbar + html + '</body></html>');
   win.document.close();
+}
+
+function _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now) {
+  const active = emps.filter(_isEmpEnabled);
+  const ev = trains.filter(t => t.eval);
+  const ps = ev.filter(t => isEvalPass(t.eval.result));
+  const passRate = ev.length ? Math.round(ps.length/ev.length*100) : 0;
+  const pending = trains.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).length;
+  const expired = trains.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
+  const dates = trains.map(t => t.date).filter(Boolean).sort();
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
+  const dateRange = dates.length ? (fmt(dates[0]) + ' - ' + fmt(dates[dates.length-1])) : '-';
+
+  const summary = [
+    ['รายงานสรุปสาขา'],
+    ['สาขา', branchLabel],
+    ['BZM', branchManager || '-'],
+    ['ช่วงข้อมูล', dateRange],
+    ['ออกรายงานเมื่อ', now],
+    [],
+    ['ภาพรวม'],
+    ['พนักงานทั้งหมด', emps.length],
+    ['เปิดใช้งาน', active.length],
+    ['บันทึกการสอน', trains.length],
+    ['ประเมินแล้ว', ev.length],
+    ['ผ่านเกณฑ์', ps.length],
+    ['อัตราผ่าน', passRate + '%'],
+    ['รอประเมิน', pending],
+    ['หมดเวลา', expired],
+  ];
+
+  const groupSheet = [['กลุ่มตำแหน่ง','พนักงาน','สอน','ประเมิน','ผ่าน','% ผ่าน']];
+  const groupsArr = ['ทีมผู้จัดการสาขา','พนักงานครัว','พนักงานบริการ','อื่นๆ'];
+  const byG = {}; groupsArr.forEach(g => byG[g] = { count: 0, trained: 0, evaled: 0, passed: 0 });
+  active.forEach(e => { const g = getPositionGroup(e.position); if (byG[g]) byG[g].count++; });
+  trains.forEach(t => {
+    (t.traineeIds||[]).forEach(id => {
+      const e = getEmployee(id); if (!e) return;
+      const g = getPositionGroup(e.position); if (!byG[g]) return;
+      byG[g].trained++;
+      if (t.eval) { byG[g].evaled++; if (isEvalPass(t.eval.result)) byG[g].passed++; }
+    });
+  });
+  groupsArr.forEach(g => {
+    const d = byG[g];
+    const rate = d.evaled ? Math.round(d.passed/d.evaled*100) + '%' : '-';
+    groupSheet.push([g, d.count, d.trained, d.evaled, d.passed, rate]);
+  });
+
+  const moduleSheet = [['Module','กลุ่ม','สอน','ประเมิน','ผ่าน','% ผ่าน']];
+  Object.entries(MODULES).forEach(([id,m]) => {
+    const ts = trains.filter(t => t.moduleId === id);
+    if (!ts.length) return;
+    const tev = ts.filter(t => t.eval);
+    const tps = tev.filter(t => isEvalPass(t.eval.result));
+    moduleSheet.push([m.name, m.group==='Service'?'บริการ':'ครัว', ts.length, tev.length, tps.length, tev.length?Math.round(tps.length/tev.length*100)+'%':'-']);
+  });
+
+  const trainSheet = [['วันที่','Module','พนักงาน','ผู้สอน','ผลการประเมิน','ระดับคะแนน']];
+  trains.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(t => {
+    const result = t.eval ? (isEvalPass(t.eval.result)?'ผ่าน':'ไม่ผ่าน') : (isEvalDeadlinePassed(t.date)?'หมดเวลา':'รอประเมิน');
+    const score = t.eval ? getEvalResultLabel(t.eval.result) : '';
+    trainSheet.push([fmt(t.date), MODULES[t.moduleId]?.name||t.moduleId, (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', '), t.trainerName||'', result, score]);
+  });
+
+  return [
+    { sheet: 'สรุป', rows: summary },
+    { sheet: 'ตามตำแหน่ง', rows: groupSheet },
+    { sheet: 'ตาม Module', rows: moduleSheet },
+    { sheet: 'รายละเอียดการสอน', rows: trainSheet },
+  ];
 }
 
 // ==================== ADMIN ====================
@@ -6995,44 +7123,148 @@ function openEditBranch(bid) {
 }
 
 // ==================== BZM management page ====================
+let _bzmSearch = '';
+function setBzmSearch(v) { _bzmSearch = (v||'').toLowerCase(); renderBzmCards(); }
+function renderBzmCards() {
+  const wrap = document.getElementById('bzm-cards-wrap');
+  if (!wrap) return;
+  let bzms = getAllBzms();
+  if (_bzmSearch) bzms = bzms.filter(z =>
+    z.name.toLowerCase().includes(_bzmSearch) ||
+    z.branches.some(bid => bid.includes(_bzmSearch) || (BRANCH_MASTER[bid]?.name||'').toLowerCase().includes(_bzmSearch))
+  );
+  wrap.innerHTML = bzms.length === 0
+    ? '<div style="grid-column:1/-1;text-align:center;color:var(--text3);padding:40px">ยังไม่มี BZM</div>'
+    : bzms.map(_renderBzmCard).join('');
+}
+function _renderBzmCard(z) {
+  const safe = z.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const chips = z.branches.map(bid => {
+    const nm = (BRANCH_MASTER[bid]?.name || '').replace(bid+' ', '');
+    return '<span class="bzm-chip" title="กดเพื่อย้ายไป BZM อื่น">'
+      + '<span class="bzm-chip-id">' + bid + '</span>'
+      + '<span class="bzm-chip-name">' + nm + '</span>'
+      + '<button class="bzm-chip-x" title="ย้ายสาขา" onclick="openMoveBranchModal(\'' + bid + '\',\'' + safe + '\')">⇄</button>'
+      + '</span>';
+  }).join('') || '<div style="font-size:12px;color:var(--text3);padding:8px 0">ยังไม่มีสาขาในความรับผิดชอบ</div>';
+  return '<div class="bzm-card">'
+    + '<div class="bzm-card-head">'
+      + '<div>'
+        + '<div class="bzm-name">' + z.name + '</div>'
+        + '<div class="bzm-count"><b>' + z.branches.length + '</b> สาขา</div>'
+      + '</div>'
+      + '<div class="bzm-actions">'
+        + '<button class="btn btn-sm btn-outline" onclick="openAssignBranchesModal(\'' + safe + '\')">+ เพิ่มสาขา</button>'
+        + '<button class="btn btn-sm btn-outline" onclick="openRenameBzmModal(\'' + safe + '\')">✏️</button>'
+        + '<button class="btn btn-sm btn-danger" onclick="confirmDeleteBzm(\'' + safe + '\')" ' + (z.branches.length>0?'disabled title="ย้ายสาขาออกก่อน"':'') + '>🗑</button>'
+      + '</div>'
+    + '</div>'
+    + '<div class="bzm-chips">' + chips + '</div>'
+    + '</div>';
+}
 function renderAdminBzm() {
-  const bzms = getAllBzms();
-  const total = bzms.length;
+  _bzmSearch = '';
+  const total = getAllBzms().length;
   const totalBranches = Object.keys(BRANCH_MASTER).length;
   return `
+  <style>
+    .bzm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-top:16px }
+    .bzm-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); border-top:3px solid var(--accent); }
+    .bzm-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px; flex-wrap:wrap }
+    .bzm-name { font-size:16px; font-weight:800; color:var(--text); line-height:1.2 }
+    .bzm-count { font-size:12px; color:var(--text3); margin-top:4px }
+    .bzm-count b { color:var(--accent); font-size:14px }
+    .bzm-actions { display:flex; gap:4px; flex-shrink:0 }
+    .bzm-chips { display:flex; flex-wrap:wrap; gap:6px }
+    .bzm-chip { display:inline-flex; align-items:center; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:4px 4px 4px 10px; font-size:12px }
+    .bzm-chip-id { font-weight:800; color:var(--accent); letter-spacing:.3px }
+    .bzm-chip-name { color:var(--text2); margin-left:2px }
+    .bzm-chip-x { border:none; background:transparent; cursor:pointer; padding:2px 6px; border-radius:4px; color:var(--text3); font-size:13px }
+    .bzm-chip-x:hover { background:var(--accent-light); color:var(--accent) }
+    .bzm-stat-bar { display:flex; gap:12px; margin-bottom:8px; flex-wrap:wrap }
+    .bzm-stat { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; min-width:120px }
+    .bzm-stat-label { font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.5px }
+    .bzm-stat-value { font-size:22px; font-weight:800; color:var(--text); margin-top:2px }
+  </style>
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการ BZM</div>
-      <div class="page-hero-sub">${total} BZM · ${totalBranches} สาขา</div>
+      <div class="page-hero-sub">เพิ่ม / แก้ไข / ย้าย สาขาในโซน BZM</div>
     </div>
     <button class="btn btn-accent" onclick="openAddBzmModal()">+ เพิ่ม BZM</button>
   </div>
-  <div class="card">
-    <div class="table-wrap"><table class="cards-on-mobile">
-      <thead><tr>
-        <th>ชื่อ BZM</th>
-        <th style="text-align:center">จำนวนสาขา</th>
-        <th>สาขาที่ดูแล</th>
-        <th style="text-align:right">จัดการ</th>
-      </tr></thead>
-      <tbody>${bzms.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px">ยังไม่มี BZM</td></tr>':bzms.map(z=>{
-        const safe = z.name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-        const branchList = z.branches.slice(0,8).map(bid=>{
-          const nm = (BRANCH_MASTER[bid]?.name||'').replace(bid+' ','');
-          return `<span style="display:inline-block;padding:2px 8px;background:var(--surface2);border-radius:6px;font-size:11.5px;margin:2px 3px 2px 0">${bid} ${nm}</span>`;
-        }).join('') + (z.branches.length>8?`<span style="font-size:11px;color:var(--text3);margin-left:4px">+${z.branches.length-8} เพิ่มเติม</span>`:'');
-        return `<tr>
-          <td data-label="ชื่อ" style="font-weight:700;font-size:14px;color:var(--text)">${z.name}</td>
-          <td data-label="จำนวนสาขา" style="text-align:center;font-weight:800;color:var(--accent);font-size:15px">${z.branches.length}</td>
-          <td data-label="สาขา" style="font-size:12px">${branchList||'<span style="color:var(--text3)">—</span>'}</td>
-          <td data-label="actions" style="text-align:right;white-space:nowrap">
-            <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openRenameBzmModal('${safe}')">เปลี่ยนชื่อ</button>
-            <button class="btn btn-sm btn-danger" onclick="confirmDeleteBzm('${safe}')" ${z.branches.length>0?'disabled title="มีสาขาอยู่ — ย้ายสาขาออกก่อน"':''}>ลบ</button>
-          </td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div>
-  </div>`;
+  <div class="bzm-stat-bar">
+    <div class="bzm-stat"><div class="bzm-stat-label">BZM ทั้งหมด</div><div class="bzm-stat-value">${total}</div></div>
+    <div class="bzm-stat"><div class="bzm-stat-label">สาขาในระบบ</div><div class="bzm-stat-value">${totalBranches}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:0">
+    <input class="search-input" id="bzm-search" placeholder="🔍 ค้นหา BZM หรือ สาขา..." oninput="setBzmSearch(this.value)" style="width:100%">
+  </div>
+  <div class="bzm-grid" id="bzm-cards-wrap"></div>
+  <script>setTimeout(renderBzmCards, 0)<\/script>`;
+}
+
+// Move a single branch to another BZM
+function openMoveBranchModal(bid, currentBzm) {
+  const b = BRANCH_MASTER[bid]; if (!b) return;
+  const shortName = b.name.replace(bid+' ','');
+  const bzms = getAllBzms().filter(z => z.name !== currentBzm);
+  const opts = bzms.map(z => '<option value="' + z.name.replace(/"/g,'&quot;') + '">' + z.name + ' (' + z.branches.length + ' สาขา)</option>').join('');
+  showModal('ย้ายสาขา ' + bid, `
+    <div style="background:var(--surface2);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px">
+      <div style="font-weight:700;color:var(--text)">${bid} ${shortName}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">ปัจจุบันอยู่กับ: <b>${currentBzm}</b></div>
+    </div>
+    <div class="form-full">
+      <label class="form-label">ย้ายไปอยู่กับ BZM</label>
+      <select class="form-select" id="mv-sel" onchange="document.getElementById('mv-new').style.display=this.value==='__new__'?'block':'none'">
+        ${opts}
+        <option value="__new__">+ BZM ใหม่ (พิมพ์เอง)</option>
+      </select>
+      <input class="form-input" id="mv-new" placeholder="ชื่อ BZM ใหม่..." style="margin-top:8px;display:none">
+    </div>
+  `, async () => {
+    let target = document.getElementById('mv-sel').value;
+    if (target === '__new__') target = (document.getElementById('mv-new').value||'').trim();
+    if (!target) { notify('เลือก BZM ปลายทาง','error'); return; }
+    BRANCH_MASTER[bid].manager = target;
+    await persistBranchOverride(bid);
+    closeModal();
+    notify('ย้าย ' + bid + ' → ' + target);
+    showPage('admin-bzm');
+  }, 'ย้าย');
+}
+
+// Bulk-assign multiple branches from any other BZM to this one
+function openAssignBranchesModal(bzmName) {
+  const list = Object.entries(BRANCH_MASTER).map(([id,b]) => ({
+    id, name: b.name.replace(id+' ',''), currentBzm: b.manager || '(ยังไม่กำหนด)'
+  })).filter(b => b.currentBzm !== bzmName);
+  const rows = list.map(b =>
+    '<label class="ab-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer">'
+    + '<input type="checkbox" class="ab-chk" value="' + b.id + '" style="accent-color:var(--accent)">'
+    + '<span style="font-weight:700;color:var(--accent);min-width:50px">' + b.id + '</span>'
+    + '<span style="flex:1">' + b.name + '</span>'
+    + '<span style="font-size:11.5px;color:var(--text3);background:var(--surface2);padding:2px 8px;border-radius:6px">' + b.currentBzm + '</span>'
+    + '</label>'
+  ).join('');
+  showModal('+ เพิ่มสาขาให้ ' + bzmName, `
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">เลือกสาขาที่ต้องการให้ <b>${bzmName}</b> รับผิดชอบ (จะย้ายมาจาก BZM เดิม)</div>
+    <input class="search-input" placeholder="🔍 ค้นหารหัส/ชื่อสาขา..." oninput="document.querySelectorAll('.ab-row').forEach(r=>{const t=r.textContent.toLowerCase();r.style.display=t.includes(this.value.toLowerCase())?'flex':'none'})" style="width:100%;margin-bottom:8px">
+    <div style="max-height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      ${rows||'<div style="padding:20px;text-align:center;color:var(--text3)">ไม่มีสาขาให้เพิ่ม</div>'}
+    </div>
+  `, async () => {
+    const ids = [...document.querySelectorAll('.ab-chk:checked')].map(c => c.value);
+    if (!ids.length) { notify('เลือกอย่างน้อย 1 สาขา','error'); return; }
+    for (const id of ids) {
+      BRANCH_MASTER[id].manager = bzmName;
+      await persistBranchOverride(id);
+    }
+    closeModal();
+    notify('ย้าย ' + ids.length + ' สาขามายัง ' + bzmName);
+    showPage('admin-bzm');
+  }, 'เพิ่ม');
 }
 
 function openAddBzmModal() {
