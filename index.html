@@ -6442,6 +6442,65 @@ function renderReports() {
 
 const LOGO_DATA_URL = 'data:image/jpeg;base64,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';
 
+// Shared theme tokens for all reports
+const REPORT_THEME = {
+  ORANGE:'#F0701A', ORANGE_DARK:'#C8530C', BLACK:'#1A1A1A', GREY:'#5A5A5A',
+  GREEN:'#16A34A', RED:'#DC2626', YELLOW:'#D97706', BLUE:'#2563EB',
+  GROUP_COLORS: { 'ทีมผู้จัดการสาขา':'#2563EB', 'พนักงานครัว':'#DC2626', 'พนักงานบริการ':'#16A34A', 'อื่นๆ':'#9CA3AF' },
+};
+
+function _buildReportHero(title, subtitle, branchManager, dateRange, now, scope) {
+  const T = REPORT_THEME;
+  return `<div style="background:linear-gradient(135deg,${T.ORANGE} 0%,${T.ORANGE_DARK} 100%);color:white;border-radius:12px;padding:16px 20px;margin-bottom:14px;box-shadow:0 4px 14px rgba(240,112,26,0.22)">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:56px;height:56px;border-radius:10px;background:white;padding:5px;object-fit:contain;flex-shrink:0">
+        <div>
+          <div style="font-size:10px;letter-spacing:3.5px;opacity:.85;text-transform:uppercase;margin-bottom:3px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
+          <h1 style="font-size:20px;margin:0;font-weight:800;letter-spacing:-.2px;line-height:1.15">${title}</h1>
+          ${subtitle?`<div style="font-size:12.5px;opacity:.95;font-weight:600;margin-top:2px">${subtitle}${branchManager?` · BZM: ${branchManager}`:''}</div>`:branchManager?`<div style="font-size:12px;opacity:.85;margin-top:2px">BZM: ${branchManager}</div>`:''}
+        </div>
+      </div>
+      <div style="text-align:right;font-size:11px;line-height:1.4">
+        ${dateRange?`<div style="opacity:.7;letter-spacing:.3px">${scope==='all'?'ขอบเขต':'ช่วงข้อมูล'}</div>
+        <div style="font-weight:700;margin-bottom:4px;font-size:12px">${dateRange}</div>`:''}
+        <div style="opacity:.7;letter-spacing:.3px">ออกรายงาน</div>
+        <div style="font-weight:600;font-size:12px">${now}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _buildReportKpiStrip(items) {
+  return `<div style="display:grid;grid-template-columns:repeat(${items.length},1fr);gap:8px;margin-bottom:14px">
+    ${items.map(([label,value,sub,color])=>`<div style="background:white;border:1px solid #E5E7EB;border-left:3px solid ${color};border-radius:8px;padding:10px 12px;min-width:0">
+      <div style="font-size:10px;color:#8A96A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${color};margin-top:2px;line-height:1">${value}</div>
+      <div style="font-size:10.5px;color:#6B7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub||''}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function _buildReportSection(title, body) {
+  const T = REPORT_THEME;
+  return `<div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${T.ORANGE}">
+    <h3 style="margin:0 0 10px;color:${T.BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">${title}</h3>
+    ${body}
+  </div>`;
+}
+
+function _buildReportFooter(now) {
+  return `<div style="margin-top:18px;padding-top:10px;border-top:1px dashed #CBD5E1;display:flex;justify-content:space-between;font-size:10.5px;color:#8A96A3">
+    <div>ออกโดยระบบ OPT Training Record System</div>
+    <div>${now}</div>
+  </div>`;
+}
+
+function _buildReportShell(inner) {
+  const T = REPORT_THEME;
+  return `<div id="report-root" style="max-width:1100px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${T.BLACK}">${inner}</div>`;
+}
+
 function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now) {
   const active = emps.filter(_isEmpEnabled);
   const ev = trains.filter(t => t.eval);
@@ -6601,70 +6660,39 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
     </tr>`;
   };
 
-  return `
-  <div id="report-root" style="max-width:1100px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${BLACK}">
-    <div style="background:linear-gradient(135deg,${ORANGE} 0%,${ORANGE_DARK} 100%);color:white;border-radius:12px;padding:16px 20px;margin-bottom:14px;box-shadow:0 4px 14px rgba(240,112,26,0.22)">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
-        <div style="display:flex;align-items:center;gap:14px">
-          <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:56px;height:56px;border-radius:10px;background:white;padding:5px;object-fit:contain;flex-shrink:0">
-          <div>
-            <div style="font-size:10px;letter-spacing:3.5px;opacity:.85;text-transform:uppercase;margin-bottom:3px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
-            <h1 style="font-size:20px;margin:0;font-weight:800;letter-spacing:-.2px;line-height:1.15">${bid==='ALL'?'รายงานสรุปทั้งระบบ':'รายงานสรุปสาขา'}</h1>
-            ${bid==='ALL'?'':`<div style="font-size:12.5px;opacity:.95;font-weight:600;margin-top:2px">${branchLabel}${branchManager?` · BZM: ${branchManager}`:''}</div>`}
-            ${bid==='ALL'&&branchManager?`<div style="font-size:12px;opacity:.85;margin-top:2px">BZM: ${branchManager}</div>`:''}
+  const title = bid==='ALL' ? 'รายงานสรุปทั้งระบบ' : 'รายงานสรุปสาขา';
+  const subtitle = bid==='ALL' ? '' : branchLabel;
+  return _buildReportShell(
+    _buildReportHero(title, subtitle, branchManager, dateRange, now)
+    + _buildReportKpiStrip([
+        ['พนักงาน', active.length, `จากทั้งหมด ${emps.length} คน`, BLACK],
+        ['บันทึกการสอน', trains.length, `${ev.length} ประเมินแล้ว`, ORANGE],
+        ['ผ่านเกณฑ์', ps.length, `${ev.length-ps.length} ไม่ผ่าน`, GREEN],
+        ['อัตราผ่าน', passRate+'%', 'จากที่ประเมิน', passRate>=80?GREEN:passRate>=60?YELLOW:RED],
+        ['รอประเมิน', pending, `${expired} หมดเวลา`, YELLOW],
+      ])
+    + _buildReportSection('📊 ภาพรวมตามตำแหน่ง',
+        `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          ${buildGroupPie()}
+          <div style="flex:1;min-width:360px">
+            <table>
+              <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:right">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
+              <tbody>${groups.map(groupRow).join('')||'<tr><td colspan="6" style="text-align:center;color:#8A96A3">ไม่มีข้อมูล</td></tr>'}</tbody>
+            </table>
           </div>
-        </div>
-        <div style="text-align:right;font-size:11px;line-height:1.4">
-          <div style="opacity:.7;letter-spacing:.3px">ช่วงข้อมูล</div>
-          <div style="font-weight:700;margin-bottom:4px;font-size:12px">${dateRange}</div>
-          <div style="opacity:.7;letter-spacing:.3px">ออกรายงาน</div>
-          <div style="font-weight:600;font-size:12px">${now}</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
-      ${kpiCard('พนักงาน', active.length, `จากทั้งหมด ${emps.length} คน`, BLACK)}
-      ${kpiCard('บันทึกการสอน', trains.length, `${ev.length} ประเมินแล้ว`, ORANGE)}
-      ${kpiCard('ผ่านเกณฑ์', ps.length, `${ev.length-ps.length} ไม่ผ่าน`, GREEN)}
-      ${kpiCard('อัตราผ่าน', passRate+'%', 'จากที่ประเมิน', passRate>=80?GREEN:passRate>=60?YELLOW:RED)}
-      ${kpiCard('รอประเมิน', pending, `${expired} หมดเวลา`, YELLOW)}
-    </div>
-
-    <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 10px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">📊 ภาพรวมตามตำแหน่ง</h3>
-      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-        ${buildGroupPie()}
-        <div style="flex:1;min-width:360px">
-          <table>
-            <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:right">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
-            <tbody>${groups.map(groupRow).join('')||'<tr><td colspan="6" style="text-align:center;color:#8A96A3">ไม่มีข้อมูล</td></tr>'}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 8px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">📚 ผลการประเมินแยกตาม Module</h3>
-      <table>
-        <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
-        <tbody>${modStats.length?modStats.map(moduleRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึกการสอน</td></tr>'}</tbody>
-      </table>
-    </div>
-
-    <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 8px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">🕐 บันทึกการสอนล่าสุด (8 รายการ)</h3>
-      <table>
-        <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
-        <tbody>${recent.length?recent.map(recentRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึก</td></tr>'}</tbody>
-      </table>
-    </div>
-
-    <div style="margin-top:18px;padding-top:10px;border-top:1px dashed #CBD5E1;display:flex;justify-content:space-between;font-size:10.5px;color:#8A96A3">
-      <div>ออกโดยระบบ OPT Training Record System</div>
-      <div>${now}</div>
-    </div>
-  </div>`;
+        </div>`)
+    + _buildReportSection('📚 ผลการประเมินแยกตาม Module',
+        `<table>
+          <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
+          <tbody>${modStats.length?modStats.map(moduleRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึกการสอน</td></tr>'}</tbody>
+        </table>`)
+    + _buildReportSection('🕐 บันทึกการสอนล่าสุด (8 รายการ)',
+        `<table>
+          <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
+          <tbody>${recent.length?recent.map(recentRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึก</td></tr>'}</tbody>
+        </table>`)
+    + _buildReportFooter(now)
+  );
 }
 
 function exportReport(type) {
@@ -6703,12 +6731,14 @@ function exportReport(type) {
     html = _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now);
     excelData = _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now);
   } else if(type==='employees'){
-    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr>${emps.map(e=>`<tr><td>${e.empCode||'—'}</td><td>${e.name}</td><td>${e.position}</td><td>${fmtDate(e.startDate)}</td><td>${calcTenure(e.startDate)}</td><td>${_empStatusLabel(e)}${!_isEmpEnabled(e)&&e.disabledReason?' ('+e.disabledReason+')':''}</td></tr>`).join('')}</table>`;
+    html = _buildEmployeesReport(bid, branchLabel, branchManager, emps, now);
+    excelData = _buildEmployeesExcel(bid, branchLabel, emps);
   } else if(type==='trainings'){
-    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>วันที่สอน</th><th>Module</th><th>หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th></tr>${trains.map(t=>`<tr><td>${fmtDateTime(t.date)}</td><td>${MODULES[t.moduleId]?.name}</td><td>${t.subtopics.join(', ')}</td><td>${(t.traineeIds||[]).map(id=>getEmployee(id)?.name||id).join(', ')}</td><td>${t.trainerName}</td></tr>`).join('')}</table>`;
+    html = _buildTrainingsReport(bid, branchLabel, branchManager, trains, now);
+    excelData = _buildTrainingsExcel(bid, branchLabel, trains);
   } else if(type==='evaluations'){
-    const ev=trains.filter(t=>t.eval);
-    html=`<h2>${titles[type]}</h2><div class="sub">สาขา: ${branchLabel} · วันที่: ${now}</div><table><tr><th>วันที่สอน</th><th>Module</th><th>วิธีประเมิน</th><th>ผล</th><th>วันที่ประเมิน</th><th>หมายเหตุ</th></tr>${ev.map(t=>`<tr><td>${fmtDateTime(t.date)}</td><td>${MODULES[t.moduleId]?.name}</td><td>${t.eval.method}</td><td>${getEvalResultLabel(t.eval.result)}</td><td>${fmtDateTime(t.eval.evalDate)}</td><td>${t.eval.note||''}</td></tr>`).join('')}</table>`;
+    html = _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now);
+    excelData = _buildEvaluationsExcel(bid, branchLabel, trains);
   }
   const win=window.open('','_blank');
   const excelInline = excelData
@@ -6787,6 +6817,240 @@ function _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains,
     { sheet: 'ตาม Module', rows: moduleSheet },
     { sheet: 'รายละเอียดการสอน', rows: trainSheet },
   ];
+}
+
+// ==================== Themed reports: employees / trainings / evaluations ====================
+
+function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now) {
+  const T = REPORT_THEME;
+  const title = bid==='ALL' ? 'รายชื่อพนักงานทั้งระบบ' : 'รายชื่อพนักงาน';
+  const subtitle = bid==='ALL' ? '' : branchLabel;
+
+  const active = emps.filter(_isEmpEnabled);
+  const inactive = emps.length - active.length;
+
+  // Group counts
+  const groups = ['ทีมผู้จัดการสาขา','พนักงานครัว','พนักงานบริการ','อื่นๆ'];
+  const byG = {}; groups.forEach(g => byG[g] = 0);
+  active.forEach(e => { const g = getPositionGroup(e.position); if (byG[g]!==undefined) byG[g]++; });
+
+  const sorted = emps.slice().sort((a,b) => {
+    const ga = _isEmpEnabled(a) ? 0 : 1, gb = _isEmpEnabled(b) ? 0 : 1;
+    if (ga!==gb) return ga-gb;
+    return (a.name||'').localeCompare(b.name||'','th');
+  });
+
+  const rows = sorted.length ? sorted.map(e => {
+    const enabled = _isEmpEnabled(e);
+    const grp = getPositionGroup(e.position);
+    const dotCol = T.GROUP_COLORS[grp] || '#9CA3AF';
+    const statusLabel = _empStatusLabel(e);
+    const statusColor = enabled ? T.GREEN : T.RED;
+    return `<tr${enabled?'':' style="opacity:.6"'}>
+      <td style="font-family:monospace;color:${T.GREY}">${e.empCode||'—'}</td>
+      <td style="font-weight:600">${e.name}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;background:${dotCol};border-radius:50%"></span>${e.position||'—'}</span></td>
+      <td>${fmtDate(e.startDate)}</td>
+      <td>${calcTenure(e.startDate)}</td>
+      <td><span style="color:${statusColor};font-weight:700">${statusLabel}</span>${!enabled&&e.disabledReason?` <span style="color:${T.GREY};font-size:11px">(${e.disabledReason})</span>`:''}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีพนักงาน</td></tr>`;
+
+  return _buildReportShell(
+    _buildReportHero(title, subtitle, branchManager, '', now)
+    + _buildReportKpiStrip([
+        ['พนักงานทั้งหมด', emps.length, `เปิดใช้งาน ${active.length}`, T.BLACK],
+        ['ทีมผู้จัดการสาขา', byG['ทีมผู้จัดการสาขา'], '', T.BLUE],
+        ['พนักงานครัว', byG['พนักงานครัว'], '', T.RED],
+        ['พนักงานบริการ', byG['พนักงานบริการ'], '', T.GREEN],
+        ['ปิดใช้งาน', inactive, '', T.GREY],
+      ])
+    + _buildReportSection('👥 รายชื่อพนักงาน',
+        `<table>
+          <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`)
+    + _buildReportFooter(now)
+  );
+}
+
+function _buildEmployeesExcel(bid, branchLabel, emps) {
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
+  const head = [['รายชื่อพนักงาน'],['สาขา', branchLabel],[]];
+  const tableHead = ['รหัสพนักงาน','ชื่อ','ตำแหน่ง','กลุ่ม','วันเริ่มงาน','อายุงาน','สถานะ','เหตุผล'];
+  const rows = emps.map(e => [e.empCode||'', e.name||'', e.position||'', getPositionGroup(e.position)||'',
+    fmt(e.startDate), calcTenure(e.startDate), _empStatusLabel(e), e.disabledReason||'']);
+  return [{ sheet:'พนักงาน', rows: [...head, tableHead, ...rows] }];
+}
+
+function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now) {
+  const T = REPORT_THEME;
+  const title = bid==='ALL' ? 'ประวัติการสอนงานทั้งระบบ' : 'ประวัติการสอนงาน';
+  const subtitle = bid==='ALL' ? '' : branchLabel;
+
+  const dates = trains.map(t => t.date).filter(Boolean).sort();
+  const fmtR = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : '—';
+  const dateRange = dates.length ? `${fmtR(dates[0])} – ${fmtR(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล';
+
+  const ev = trains.filter(t => t.eval);
+  const ps = ev.filter(t => isEvalPass(t.eval.result));
+  const pending = trains.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).length;
+  const expired = trains.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
+
+  // Top trainers
+  const trainerCount = {};
+  trains.forEach(t => { const n = t.trainerName||'—'; trainerCount[n] = (trainerCount[n]||0)+1; });
+  const topTrainers = Object.entries(trainerCount).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+  const sorted = trains.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const rows = sorted.length ? sorted.map(t => {
+    const mod = MODULES[t.moduleId];
+    const groupBadge = mod ? (mod.group==='Service' ? `<span style="font-size:10px;color:${T.GREEN}">🍽 บริการ</span>` : `<span style="font-size:10px;color:${T.RED}">👨‍🍳 ครัว</span>`) : '';
+    let status;
+    if (t.eval) {
+      const passed = isEvalPass(t.eval.result);
+      status = `<span style="color:${passed?T.GREEN:T.RED};font-weight:700">${getEvalResultShort(t.eval.result)}</span>`;
+    } else if (isEvalDeadlinePassed(t.date)) {
+      status = `<span style="color:${T.RED};font-weight:700">หมดเวลา</span>`;
+    } else {
+      status = `<span style="color:${T.YELLOW};font-weight:700">รอประเมิน</span>`;
+    }
+    const names = (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', ');
+    const subs = (t.subtopics||[]).join(', ');
+    return `<tr>
+      <td style="white-space:nowrap">${fmtDate(t.date)}</td>
+      <td><div style="font-weight:700">${mod?.name||t.moduleId}</div><div style="margin-top:2px">${groupBadge}</div></td>
+      <td style="font-size:11.5px;color:${T.GREY}">${subs||'—'}</td>
+      <td>${names||'—'}</td>
+      <td style="font-weight:600">${t.trainerName||'—'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีบันทึก</td></tr>`;
+
+  const trainerListHtml = topTrainers.length
+    ? `<table><thead><tr><th>ผู้สอน</th><th style="text-align:right">จำนวนครั้ง</th></tr></thead>
+        <tbody>${topTrainers.map(([n,c]) => `<tr><td style="font-weight:600">${n}</td><td style="text-align:right;font-weight:700;color:${T.ORANGE}">${c}</td></tr>`).join('')}</tbody></table>`
+    : `<div style="text-align:center;color:#8A96A3;padding:14px">ยังไม่มีข้อมูล</div>`;
+
+  return _buildReportShell(
+    _buildReportHero(title, subtitle, branchManager, dateRange, now)
+    + _buildReportKpiStrip([
+        ['บันทึกการสอน', trains.length, '', T.ORANGE],
+        ['ประเมินแล้ว', ev.length, '', T.BLACK],
+        ['ผ่าน', ps.length, '', T.GREEN],
+        ['รอประเมิน', pending, '', T.YELLOW],
+        ['หมดเวลา', expired, '', T.RED],
+      ])
+    + _buildReportSection('🏆 ผู้สอนสูงสุด (5 อันดับ)', trainerListHtml)
+    + _buildReportSection('📋 รายละเอียดการสอน',
+        `<table>
+          <thead><tr><th>วันที่</th><th>Module</th><th>หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`)
+    + _buildReportFooter(now)
+  );
+}
+
+function _buildTrainingsExcel(bid, branchLabel, trains) {
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
+  const head = [['ประวัติการสอนงาน'],['สาขา', branchLabel],[]];
+  const tableHead = ['วันที่','Module','กลุ่ม','หัวข้อย่อย','พนักงาน','ผู้สอน','ผลการประเมิน','คะแนน'];
+  const rows = trains.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(t => {
+    const mod = MODULES[t.moduleId];
+    const result = t.eval ? (isEvalPass(t.eval.result)?'ผ่าน':'ไม่ผ่าน') : (isEvalDeadlinePassed(t.date)?'หมดเวลา':'รอประเมิน');
+    const score = t.eval ? getEvalResultLabel(t.eval.result) : '';
+    return [fmt(t.date), mod?.name||t.moduleId, mod?(mod.group==='Service'?'บริการ':'ครัว'):'', (t.subtopics||[]).join(', '),
+      (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', '), t.trainerName||'', result, score];
+  });
+  return [{ sheet:'การสอน', rows: [...head, tableHead, ...rows] }];
+}
+
+function _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now) {
+  const T = REPORT_THEME;
+  const title = bid==='ALL' ? 'ผลการประเมินทั้งระบบ' : 'ผลการประเมิน';
+  const subtitle = bid==='ALL' ? '' : branchLabel;
+  const ev = trains.filter(t => t.eval);
+  const dates = ev.map(t => t.eval.evalDate || t.date).filter(Boolean).sort();
+  const fmtR = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : '—';
+  const dateRange = dates.length ? `${fmtR(dates[0])} – ${fmtR(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล';
+
+  const passed = ev.filter(t => isEvalPass(t.eval.result));
+  const failed = ev.length - passed.length;
+  const passRate = ev.length ? Math.round(passed.length/ev.length*100) : 0;
+
+  // Bucket by score band (eval.result is '1'..'4')
+  const bands = { '90-100%':0, '80-89%':0, '50-79%':0, '0-49%':0 };
+  ev.forEach(t => {
+    const r = String(t.eval.result);
+    if (r === '4') bands['90-100%']++;
+    else if (r === '3') bands['80-89%']++;
+    else if (r === '2') bands['50-79%']++;
+    else bands['0-49%']++;
+  });
+  const bandColor = { '90-100%':T.GREEN, '80-89%':'#65A30D', '50-79%':T.YELLOW, '0-49%':T.RED };
+  const bandRows = Object.entries(bands).map(([b,c]) => {
+    const pct = ev.length ? Math.round(c/ev.length*100) : 0;
+    return `<tr>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:11px;height:11px;background:${bandColor[b]};border-radius:3px"></span><b>${b}</b></span></td>
+      <td style="text-align:right;font-weight:700">${c}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:#E5E7EB;border-radius:999px;height:6px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${bandColor[b]}"></div>
+          </div>
+          <span style="font-weight:700;color:${bandColor[b]};min-width:36px;text-align:right;font-size:11.5px">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const sorted = ev.slice().sort((a,b) => (b.eval.evalDate||b.date||'').localeCompare(a.eval.evalDate||a.date||''));
+  const rows = sorted.length ? sorted.map(t => {
+    const passed = isEvalPass(t.eval.result);
+    const names = (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', ');
+    return `<tr>
+      <td style="white-space:nowrap">${fmtDate(t.eval.evalDate||t.date)}</td>
+      <td><div style="font-weight:700">${MODULES[t.moduleId]?.name||t.moduleId}</div></td>
+      <td>${names||'—'}</td>
+      <td style="font-size:11.5px;color:${T.GREY}">${t.eval.method||'—'}</td>
+      <td><span style="color:${passed?T.GREEN:T.RED};font-weight:700">${getEvalResultLabel(t.eval.result)}</span></td>
+      <td style="font-size:11.5px;color:${T.GREY}">${t.eval.note||'—'}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีการประเมิน</td></tr>`;
+
+  return _buildReportShell(
+    _buildReportHero(title, subtitle, branchManager, dateRange, now)
+    + _buildReportKpiStrip([
+        ['ประเมินทั้งหมด', ev.length, '', T.BLACK],
+        ['ผ่าน', passed.length, '', T.GREEN],
+        ['ไม่ผ่าน', failed, '', T.RED],
+        ['อัตราผ่าน', passRate+'%', '', passRate>=80?T.GREEN:passRate>=60?T.YELLOW:T.RED],
+      ])
+    + _buildReportSection('📊 การกระจายผลคะแนน',
+        `<table>
+          <thead><tr><th>ช่วงคะแนน</th><th style="text-align:right">จำนวน</th><th>สัดส่วน</th></tr></thead>
+          <tbody>${bandRows}</tbody>
+        </table>`)
+    + _buildReportSection('📋 รายละเอียดผลการประเมิน',
+        `<table>
+          <thead><tr><th>วันที่ประเมิน</th><th>Module</th><th>พนักงาน</th><th>วิธีประเมิน</th><th>ผล</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`)
+    + _buildReportFooter(now)
+  );
+}
+
+function _buildEvaluationsExcel(bid, branchLabel, trains) {
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
+  const ev = trains.filter(t => t.eval);
+  const head = [['ผลการประเมิน'],['สาขา', branchLabel],[]];
+  const tableHead = ['วันที่ประเมิน','วันที่สอน','Module','พนักงาน','วิธีประเมิน','ผล','คะแนน','หมายเหตุ'];
+  const rows = ev.slice().sort((a,b)=>(b.eval.evalDate||b.date||'').localeCompare(a.eval.evalDate||a.date||'')).map(t => [
+    fmt(t.eval.evalDate||t.date), fmt(t.date), MODULES[t.moduleId]?.name||t.moduleId,
+    (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', '),
+    t.eval.method||'', isEvalPass(t.eval.result)?'ผ่าน':'ไม่ผ่าน', getEvalResultLabel(t.eval.result), t.eval.note||''
+  ]);
+  return [{ sheet:'การประเมิน', rows: [...head, tableHead, ...rows] }];
 }
 
 // ==================== ADMIN ====================
