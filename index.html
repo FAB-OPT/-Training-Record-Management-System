@@ -6422,86 +6422,185 @@ function openQuiz(trainingId) {
 }
 
 // ==================== REPORTS ====================
-function renderReports() {
-  const bid = getBranchId();
+function _renderReportPicker(reports) {
+  const today = new Date();
+  const ago30 = new Date(today.getTime() - 30*24*60*60*1000);
+  const iso = (d) => d.toISOString().slice(0,10);
+  const META = {
+    summary:    { icon:'📊', color:'#F0701A', tagline:'ภาพรวมและสถิติของสาขา' },
+    employees:  { icon:'👥', color:'#2563EB', tagline:'รายชื่อและข้อมูลพนักงาน' },
+    trainings:  { icon:'📋', color:'#16A34A', tagline:'บันทึกการสอนและผู้สอน' },
+    evaluations:{ icon:'✅', color:'#D97706', tagline:'การประเมินผลและคะแนน' },
+  };
   return `
-
-  <div class="page-header"><div><div class="page-title">ออกรายงาน</div><div class="page-sub">Export รายงานในรูปแบบต่างๆ</div></div></div>
-  <div class="grid-2">
-    ${[['สรุปสาขา','สรุปภาพรวมการสอนงานและประเมินผลของสาขา','summary'],
-       ['รายชื่อพนักงาน','รายชื่อและข้อมูลพนักงานทั้งหมด','employees'],
-       ['ประวัติการสอนงาน','บันทึกการสอนงานทั้งหมดของสาขา','trainings'],
-       ['ผลการประเมิน','สรุปผลการประเมินและอัตราผ่านเกณฑ์','evaluations'],
-    ].map(([title,desc,type])=>`<div class="card">
-      <div class="card-title" style="margin-bottom:6px">รายงาน${title}</div>
-      <div class="text-muted" style="margin-bottom:14px">${desc}</div>
-      <button class="btn btn-navy" onclick="exportReport('${type}')">↓ Export รายงาน</button>
-    </div>`).join('')}
+  <style>
+    .rp-wrap{display:grid;gap:14px;margin-top:6px}
+    .rp-range{background:linear-gradient(135deg,#FFF8F2 0%,#FFFFFF 60%);border:1px solid #FBE0CC;border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(240,112,26,0.06)}
+    .rp-range-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .rp-range-icon{font-size:26px;line-height:1;display:flex;align-items:center;justify-content:center}
+    .rp-range-title{font-size:15px;font-weight:800;color:var(--text);line-height:1.2}
+    .rp-range-sub{font-size:11.5px;color:var(--text3)}
+    .rp-range-grid{display:flex;gap:14px;align-items:end;flex-wrap:wrap}
+    .rp-date{display:flex;flex-direction:column;gap:4px}
+    .rp-date label{font-size:10.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+    .rp-date input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:white;color:var(--text);width:170px}
+    .rp-date input:focus{outline:none;border-color:#F0701A;box-shadow:0 0 0 3px rgba(240,112,26,0.15)}
+    .rp-quick{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+    .rp-quick-btn{padding:6px 14px;border:1px solid #E5E7EB;background:white;border-radius:999px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s}
+    .rp-quick-btn:hover{background:#F0701A;color:white;border-color:#F0701A}
+    .rp-hint{margin-top:12px;font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:6px}
+    .rp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+    .rp-card{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;transition:all .15s;cursor:pointer;position:relative;overflow:hidden}
+    .rp-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.07);border-color:transparent}
+    .rp-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent-color)}
+    .rp-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--accent-bg)}
+    .rp-card-title{font-size:15px;font-weight:800;color:var(--text);line-height:1.25}
+    .rp-card-tag{font-size:11.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+    .rp-card-desc{font-size:12.5px;color:var(--text2);line-height:1.5;flex:1}
+    .rp-card-btn{margin-top:6px;padding:9px 14px;background:var(--accent-color);color:white;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+    .rp-card-btn:hover{filter:brightness(1.1)}
+  </style>
+  <div class="rp-wrap">
+    <div class="rp-range">
+      <div class="rp-range-head">
+        <div class="rp-range-icon">📅</div>
+        <div>
+          <div class="rp-range-title">เลือกช่วงข้อมูล</div>
+          <div class="rp-range-sub">กำหนดช่วงวันที่สำหรับการดึงรายงาน</div>
+        </div>
+      </div>
+      <div class="rp-range-grid">
+        <div class="rp-date">
+          <label>จากวันที่</label>
+          <input type="date" id="r-from" value="${iso(ago30)}">
+        </div>
+        <div class="rp-date">
+          <label>ถึงวันที่</label>
+          <input type="date" id="r-to" value="${iso(today)}">
+        </div>
+        <div class="rp-quick">
+          <button class="rp-quick-btn" onclick="setReportRange(7)">7 วัน</button>
+          <button class="rp-quick-btn" onclick="setReportRange(30)">30 วัน</button>
+          <button class="rp-quick-btn" onclick="setReportRange(90)">90 วัน</button>
+          <button class="rp-quick-btn" onclick="setReportRange('year')">ปีนี้</button>
+          <button class="rp-quick-btn" onclick="setReportRange('all')">ทั้งหมด</button>
+        </div>
+      </div>
+      <div class="rp-hint">💡 รายชื่อพนักงานจะแสดงครบทุกคน — กรองเฉพาะการสอน/ประเมินตามวันที่เลือก</div>
+    </div>
+    <div class="rp-cards">
+      ${reports.map(([title,desc,type])=>{
+        const m = META[type] || { icon:'📄', color:'#6B7280', tagline:'รายงาน' };
+        return `<div class="rp-card" style="--accent-color:${m.color};--accent-bg:${m.color}15" onclick="exportReport('${type}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="rp-card-icon">${m.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div class="rp-card-tag" style="color:${m.color}">${m.tagline}</div>
+              <div class="rp-card-title">รายงาน${title}</div>
+            </div>
+          </div>
+          <div class="rp-card-desc">${desc}</div>
+          <button class="rp-card-btn" onclick="event.stopPropagation();exportReport('${type}')">↓ ออกรายงาน</button>
+        </div>`;
+      }).join('')}
+    </div>
   </div>`;
+}
+
+function setReportRange(spec) {
+  const from = document.getElementById('r-from');
+  const to = document.getElementById('r-to');
+  if (!from || !to) return;
+  const today = new Date();
+  const iso = (d) => d.toISOString().slice(0,10);
+  if (spec === 'all') { from.value = ''; to.value = ''; return; }
+  if (spec === 'year') { from.value = iso(new Date(today.getFullYear(),0,1)); to.value = iso(today); return; }
+  const days = Number(spec);
+  from.value = iso(new Date(today.getTime() - days*24*60*60*1000));
+  to.value = iso(today);
+}
+
+function renderReports() {
+  return `
+  <div class="page-header"><div><div class="page-title">ออกรายงาน</div><div class="page-sub">Export รายงานในรูปแบบต่างๆ</div></div></div>
+  ${_renderReportPicker([
+    ['สรุปสาขา','สรุปภาพรวมการสอนงานและประเมินผลของสาขา','summary'],
+    ['รายชื่อพนักงาน','รายชื่อและข้อมูลพนักงานทั้งหมด','employees'],
+    ['ประวัติการสอนงาน','บันทึกการสอนงานทั้งหมดของสาขา','trainings'],
+    ['ผลการประเมิน','สรุปผลการประเมินและอัตราผ่านเกณฑ์','evaluations'],
+  ])}`;
 }
 
 const LOGO_DATA_URL = 'data:image/jpeg;base64,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';
 
-// Shared theme tokens for all reports
+// Shared theme tokens for all reports — minimalist v2
 const REPORT_THEME = {
-  ORANGE:'#F0701A', ORANGE_DARK:'#C8530C', BLACK:'#1A1A1A', GREY:'#5A5A5A',
+  ORANGE:'#F0701A', ORANGE_DARK:'#C8530C', BLACK:'#0F1419', INK:'#1F2937', GREY:'#6B7280', LIGHT:'#9CA3AF',
   GREEN:'#16A34A', RED:'#DC2626', YELLOW:'#D97706', BLUE:'#2563EB',
+  BORDER:'#E5E7EB', SURFACE:'#FFFFFF', SOFT:'#F9FAFB',
   GROUP_COLORS: { 'ทีมผู้จัดการสาขา':'#2563EB', 'พนักงานครัว':'#DC2626', 'พนักงานบริการ':'#16A34A', 'อื่นๆ':'#9CA3AF' },
 };
 
-function _buildReportHero(title, subtitle, branchManager, dateRange, now, scope) {
+// Minimalist hero: white card with orange left bar; logo + title left, meta on right
+function _buildReportHero(title, subtitle, branchManager, dateRange, now) {
   const T = REPORT_THEME;
-  return `<div style="background:linear-gradient(135deg,${T.ORANGE} 0%,${T.ORANGE_DARK} 100%);color:white;border-radius:12px;padding:16px 20px;margin-bottom:14px;box-shadow:0 4px 14px rgba(240,112,26,0.22)">
+  return `<div style="background:white;border:1px solid ${T.BORDER};border-left:5px solid ${T.ORANGE};border-radius:10px;padding:18px 22px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
-      <div style="display:flex;align-items:center;gap:14px">
-        <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:56px;height:56px;border-radius:10px;background:white;padding:5px;object-fit:contain;flex-shrink:0">
-        <div>
-          <div style="font-size:10px;letter-spacing:3.5px;opacity:.85;text-transform:uppercase;margin-bottom:3px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
-          <h1 style="font-size:20px;margin:0;font-weight:800;letter-spacing:-.2px;line-height:1.15">${title}</h1>
-          ${subtitle?`<div style="font-size:12.5px;opacity:.95;font-weight:600;margin-top:2px">${subtitle}${branchManager?` · BZM: ${branchManager}`:''}</div>`:branchManager?`<div style="font-size:12px;opacity:.85;margin-top:2px">BZM: ${branchManager}</div>`:''}
+      <div style="display:flex;align-items:center;gap:16px">
+        <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:62px;height:62px;object-fit:contain;flex-shrink:0;border-radius:50%;border:2px solid ${T.BORDER}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:11px;letter-spacing:4px;color:${T.ORANGE};text-transform:uppercase;font-weight:700;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
+          <h1 style="font-size:22px;margin:0;font-weight:800;letter-spacing:-.3px;line-height:1;color:${T.BLACK}">${title}</h1>
+          ${subtitle?`<div style="font-size:13px;color:${T.INK};font-weight:600">${subtitle}${branchManager?` <span style="color:${T.LIGHT}">·</span> <span style="color:${T.GREY};font-weight:500">BZM: ${branchManager}</span>`:''}</div>`:branchManager?`<div style="font-size:12px;color:${T.GREY}">BZM: ${branchManager}</div>`:''}
         </div>
       </div>
-      <div style="text-align:right;font-size:11px;line-height:1.4">
-        ${dateRange?`<div style="opacity:.7;letter-spacing:.3px">${scope==='all'?'ขอบเขต':'ช่วงข้อมูล'}</div>
-        <div style="font-weight:700;margin-bottom:4px;font-size:12px">${dateRange}</div>`:''}
-        <div style="opacity:.7;letter-spacing:.3px">ออกรายงาน</div>
-        <div style="font-weight:600;font-size:12px">${now}</div>
+      <div style="text-align:right;font-size:11px;line-height:1.5;color:${T.GREY}">
+        ${dateRange?`<div style="color:${T.LIGHT};font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600">ช่วงข้อมูล</div>
+        <div style="font-weight:700;color:${T.INK};font-size:12.5px;margin-bottom:6px">${dateRange}</div>`:''}
+        <div style="color:${T.LIGHT};font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600">ออกรายงาน</div>
+        <div style="font-weight:600;color:${T.INK};font-size:12.5px">${now}</div>
       </div>
     </div>
   </div>`;
 }
 
+// Borderless KPI strip — single white panel with vertical dividers (no subtitle)
 function _buildReportKpiStrip(items) {
-  return `<div style="display:grid;grid-template-columns:repeat(${items.length},1fr);gap:8px;margin-bottom:14px">
-    ${items.map(([label,value,sub,color])=>`<div style="background:white;border:1px solid #E5E7EB;border-left:3px solid ${color};border-radius:8px;padding:10px 12px;min-width:0">
-      <div style="font-size:10px;color:#8A96A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">${label}</div>
-      <div style="font-size:22px;font-weight:800;color:${color};margin-top:2px;line-height:1">${value}</div>
-      <div style="font-size:10.5px;color:#6B7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub||''}</div>
+  const T = REPORT_THEME;
+  return `<div style="background:white;border:1px solid ${T.BORDER};border-radius:10px;display:grid;grid-template-columns:repeat(${items.length},1fr);margin-bottom:14px;overflow:hidden">
+    ${items.map(([label,value,_sub,color],i)=>`<div style="padding:14px 18px;${i>0?`border-left:1px solid ${T.BORDER};`:''}min-width:0;position:relative">
+      <div style="font-size:10px;color:${T.LIGHT};font-weight:700;text-transform:uppercase;letter-spacing:.5px">${label}</div>
+      <div style="font-size:28px;font-weight:800;color:${color};margin-top:6px;line-height:1;font-family:'Prompt','Kanit',sans-serif;letter-spacing:-.5px">${value}</div>
     </div>`).join('')}
   </div>`;
 }
 
+// Section: white card with orange accent bar before the title
 function _buildReportSection(title, body) {
   const T = REPORT_THEME;
-  return `<div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${T.ORANGE}">
-    <h3 style="margin:0 0 10px;color:${T.BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">${title}</h3>
+  return `<section style="background:white;border:1px solid ${T.BORDER};border-radius:10px;padding:16px 22px;margin-bottom:12px">
+    <h3 style="margin:0 0 14px;color:${T.BLACK};font-size:14px;font-weight:800;letter-spacing:.1px;display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid ${T.BORDER}">
+      <span style="display:inline-block;width:4px;height:16px;background:${T.ORANGE};border-radius:2px"></span>
+      ${title}
+    </h3>
     ${body}
-  </div>`;
+  </section>`;
 }
 
 function _buildReportFooter(now) {
-  return `<div style="margin-top:18px;padding-top:10px;border-top:1px dashed #CBD5E1;display:flex;justify-content:space-between;font-size:10.5px;color:#8A96A3">
-    <div>ออกโดยระบบ OPT Training Record System</div>
+  const T = REPORT_THEME;
+  return `<footer style="margin-top:14px;padding:10px 4px;display:flex;justify-content:space-between;font-size:10.5px;color:${T.LIGHT}">
+    <div>ออกโดยระบบ <b style="color:${T.GREY}">OPT Training Record</b></div>
     <div>${now}</div>
-  </div>`;
+  </footer>`;
 }
 
 function _buildReportShell(inner) {
   const T = REPORT_THEME;
-  return `<div id="report-root" style="max-width:1100px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${T.BLACK}">${inner}</div>`;
+  return `<div id="report-root" style="max-width:1120px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${T.BLACK}">${inner}</div>`;
 }
 
-function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now) {
+function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now, dateRangeOverride) {
   const active = emps.filter(_isEmpEnabled);
   const ev = trains.filter(t => t.eval);
   const ps = ev.filter(t => isEvalPass(t.eval.result));
@@ -6509,12 +6608,11 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   const pending = trains.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).length;
   const expired = trains.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
 
-  // Date range from training records
+  // Date range — prefer user selection; fall back to data range
   const dates = trains.map(t => t.date).filter(Boolean).sort();
   const fmtRange = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : '—';
-  const dateRange = dates.length
-    ? `${fmtRange(dates[0])} – ${fmtRange(dates[dates.length-1])}`
-    : 'ยังไม่มีข้อมูล';
+  const dateRange = dateRangeOverride
+    || (dates.length ? `${fmtRange(dates[0])} – ${fmtRange(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล');
 
   // Position-group breakdown
   const groups = ['ทีมผู้จัดการสาขา','พนักงานครัว','พนักงานบริการ','อื่นๆ'];
@@ -6623,8 +6721,13 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   const moduleRow = (m) => {
     const rateColor = m.pct===null ? '#9CA3AF' : (m.pct>=80?GREEN:m.pct>=60?YELLOW:RED);
     const barW = m.pct===null ? 0 : m.pct;
+    const isService = m.group==='Service';
+    const grpColor = isService ? GREEN : RED;
+    const grpLabel = isService ? 'บริการ' : 'ครัว';
+    const grpIcon = isService ? '🍽' : '👨‍🍳';
+    const badge = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${grpColor}15;color:${grpColor};font-size:10.5px;font-weight:700;border:1px solid ${grpColor}40">${grpIcon} ${grpLabel}</span>`;
     return `<tr>
-      <td style="font-weight:600">${m.name}<div style="font-size:10.5px;color:#8A96A3;font-weight:500;margin-top:2px">${m.group==='Service'?'🍽 บริการ':'👨‍🍳 ครัว'}</div></td>
+      <td style="font-weight:600">${m.name}<div style="margin-top:4px">${badge}</div></td>
       <td style="text-align:center">${m.trained}</td>
       <td style="text-align:center">${m.evaled}</td>
       <td style="text-align:center;color:${GREEN};font-weight:700">${m.passed}</td>
@@ -6676,14 +6779,14 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
           ${buildGroupPie()}
           <div style="flex:1;min-width:360px">
             <table>
-              <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:right">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
+              <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:right">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">อัตราผ่าน</th></tr></thead>
               <tbody>${groups.map(groupRow).join('')||'<tr><td colspan="6" style="text-align:center;color:#8A96A3">ไม่มีข้อมูล</td></tr>'}</tbody>
             </table>
           </div>
         </div>`)
     + _buildReportSection('📚 ผลการประเมินแยกตาม Module',
         `<table>
-          <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
+          <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">อัตราผ่าน</th></tr></thead>
           <tbody>${modStats.length?modStats.map(moduleRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึกการสอน</td></tr>'}</tbody>
         </table>`)
     + _buildReportSection('🕐 บันทึกการสอนล่าสุด (8 รายการ)',
@@ -6697,58 +6800,106 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
 
 function exportReport(type) {
   const bid = currentUser.type==='branch' ? getBranchId() : 'ALL';
-  const trains = bid==='ALL' ? DB.trainings : DB.trainings.filter(t=>t.branchId===bid);
+  let trains = bid==='ALL' ? DB.trainings : DB.trainings.filter(t=>t.branchId===bid);
   const emps = bid==='ALL' ? Object.values(DB.employees).flat() : getBranchEmployees(bid);
   const branchLabel = bid==='ALL' ? 'ทุกสาขา' : `${bid} ${BRANCH_MASTER[bid]?.name.replace(bid+' ','')||''}`;
   const branchManager = bid==='ALL' ? '' : (BRANCH_MASTER[bid]?.manager || '—');
   const now = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  // Read user-selected date range from picker
+  const fromIn = document.getElementById('r-from');
+  const toIn = document.getElementById('r-to');
+  const dateFrom = fromIn?.value || '';
+  const dateTo = toIn?.value || '';
+  if (dateFrom) trains = trains.filter(t => (t.date||'') >= dateFrom);
+  if (dateTo) trains = trains.filter(t => (t.date||'') <= dateTo + 'T23:59:59');
+  const fmtRange = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : '';
+  let dateRangeLabel;
+  if (dateFrom && dateTo) dateRangeLabel = `${fmtRange(dateFrom)} – ${fmtRange(dateTo)}`;
+  else if (dateFrom) dateRangeLabel = `ตั้งแต่ ${fmtRange(dateFrom)}`;
+  else if (dateTo) dateRangeLabel = `ถึง ${fmtRange(dateTo)}`;
+  else dateRangeLabel = 'ทุกช่วงเวลา';
   const style = `<style>
-    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@400;500;600;700&family=Bebas+Neue&family=Montserrat:wght@500;600;700;800&display=swap');
     @page { size: A4; margin: 12mm; }
-    body{font-family:'Sarabun',sans-serif;padding:18px;color:#1A1A1A;background:#FAFAFA;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    h2{color:#1A1A1A;font-size:18px;margin-bottom:4px;font-weight:800}
-    .sub{color:#5A5A5A;font-size:13px;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse;margin-top:6px}
-    th{background:#1A1A1A;color:white;padding:6px 10px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
-    td{padding:6px 10px;border-bottom:1px solid #EAEAEA;font-size:12px}
-    tr:nth-child(even) td{background:#F8F8F8}
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    h2{color:#0F1419;font-size:18px;margin-bottom:4px;font-weight:800}
+    .sub{color:#6B7280;font-size:13px;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;margin-top:0;border-radius:6px;overflow:hidden}
+    th{background:#F3F4F6;color:#374151;padding:9px 12px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid #E5E7EB}
+    td{padding:9px 12px;border-bottom:1px solid #F3F4F6;font-size:12.5px;color:#1F2937}
+    tbody tr:hover td{background:#FAFAFA}
+    tbody tr:last-child td{border-bottom:none}
     .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:8px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
     .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif;display:inline-flex;align-items:center;gap:6px}
     .tbtn:hover{background:#F5F5F5}
     .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
     .tbtn.primary:hover{background:#C8530C}
-    @media print{.no-print{display:none!important}body{background:white;padding:0}.toolbar{display:none}#report-root{max-width:none!important;margin:0!important}}
+    *{box-sizing:border-box}
+    @media print{
+      .no-print{display:none!important}
+      body{background:white;padding:0;font-size:11px}
+      .toolbar{display:none}
+      #report-root{max-width:none!important;margin:0!important;color:#0F1419!important}
+      section,div,h1,h2,h3,th,td{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+      section{page-break-inside:avoid}
+      tr{page-break-inside:avoid}
+      table{font-size:10.5px}
+      th{padding:6px 8px!important}
+      td{padding:6px 8px!important}
+    }
   </style>`;
+  const titles = {summary:'รายงานสรุปสาขา',employees:'รายงานรายชื่อพนักงาน',trainings:'รายงานการสอนงาน',evaluations:'รายงานผลการประเมิน'};
+  const pdfFileName = (titles[type]||'รายงาน') + ' - ' + branchLabel + '.pdf';
   const toolbar = `<div class="toolbar no-print">
     <button class="tbtn" onclick="window.close()">✕ ปิด</button>
-    <button class="tbtn" onclick="exportToExcel()">📊 ดาวน์โหลด Excel</button>
-    <button class="tbtn primary" onclick="window.print()">📄 พิมพ์ / บันทึก PDF</button>
-  </div>`;
+    <button class="tbtn" id="pdf-btn" onclick="downloadPDF()">📥 ดาวน์โหลด PDF</button>
+    <button class="tbtn primary" onclick="window.print()">🖨 พิมพ์</button>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+  <script>
+    function downloadPDF(){
+      var btn = document.getElementById('pdf-btn');
+      if (!window.html2pdf) { alert('ไลบรารียังโหลดไม่เสร็จ ลองใหม่อีกครั้ง'); return; }
+      var el = document.getElementById('report-root');
+      if (!el) return;
+      btn.disabled = true; btn.textContent = '⏳ กำลังสร้าง PDF...';
+      html2pdf().set({
+        margin: [10,10,10,10],
+        filename: ${JSON.stringify(pdfFileName)},
+        image: { type:'jpeg', quality:0.95 },
+        html2canvas: { scale:2, useCORS:true, backgroundColor:'#FFFFFF' },
+        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
+        pagebreak: { mode:['avoid-all','css','legacy'] }
+      }).from(el).save().then(function(){
+        btn.disabled = false; btn.textContent = '📥 ดาวน์โหลด PDF';
+      }).catch(function(err){
+        alert('สร้าง PDF ไม่สำเร็จ: ' + err.message);
+        btn.disabled = false; btn.textContent = '📥 ดาวน์โหลด PDF';
+      });
+    }
+  <\/script>`;
   let html='';
   let excelData = null;
-  const titles = {summary:'รายงานสรุปสาขา',employees:'รายงานรายชื่อพนักงาน',trainings:'รายงานการสอนงาน',evaluations:'รายงานผลการประเมิน'};
   if(type==='summary'){
-    html = _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now);
-    excelData = _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now);
+    html = _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now, dateRangeLabel);
+    excelData = _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now, dateRangeLabel);
   } else if(type==='employees'){
-    html = _buildEmployeesReport(bid, branchLabel, branchManager, emps, now);
+    html = _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateRangeLabel);
     excelData = _buildEmployeesExcel(bid, branchLabel, emps);
   } else if(type==='trainings'){
-    html = _buildTrainingsReport(bid, branchLabel, branchManager, trains, now);
+    html = _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dateRangeLabel);
     excelData = _buildTrainingsExcel(bid, branchLabel, trains);
   } else if(type==='evaluations'){
-    html = _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now);
+    html = _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now, dateRangeLabel);
     excelData = _buildEvaluationsExcel(bid, branchLabel, trains);
   }
   const win=window.open('','_blank');
-  const excelInline = excelData
-    ? '<script>window.__EXCEL_DATA = ' + JSON.stringify(excelData).replace(/</g,'\\u003c') + ';window.__REPORT_TITLE = ' + JSON.stringify(titles[type] + ' - ' + branchLabel) + ';</' + 'script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></' + 'script><script>function exportToExcel(){if(!window.XLSX||!window.__EXCEL_DATA){alert("Excel library กำลังโหลด ลองอีกครั้ง");return;}var wb=XLSX.utils.book_new();window.__EXCEL_DATA.forEach(function(s){var ws=XLSX.utils.aoa_to_sheet(s.rows);XLSX.utils.book_append_sheet(wb,ws,s.sheet);});XLSX.writeFile(wb,window.__REPORT_TITLE+".xlsx");}</' + 'script>'
-    : '<script>function exportToExcel(){alert("รายงานนี้ยังไม่รองรับการ export Excel");}</' + 'script>';
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + titles[type] + '</title>' + style + excelInline + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + titles[type] + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
   win.document.close();
 }
 
-function _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now) {
+function _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now, dateRangeOverride) {
   const active = emps.filter(_isEmpEnabled);
   const ev = trains.filter(t => t.eval);
   const ps = ev.filter(t => isEvalPass(t.eval.result));
@@ -6757,7 +6908,7 @@ function _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains,
   const expired = trains.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
   const dates = trains.map(t => t.date).filter(Boolean).sort();
   const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
-  const dateRange = dates.length ? (fmt(dates[0]) + ' - ' + fmt(dates[dates.length-1])) : '-';
+  const dateRange = dateRangeOverride || (dates.length ? (fmt(dates[0]) + ' - ' + fmt(dates[dates.length-1])) : '-');
 
   const summary = [
     ['รายงานสรุปสาขา'],
@@ -6821,7 +6972,7 @@ function _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains,
 
 // ==================== Themed reports: employees / trainings / evaluations ====================
 
-function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now) {
+function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateRangeLabel) {
   const T = REPORT_THEME;
   const title = bid==='ALL' ? 'รายชื่อพนักงานทั้งระบบ' : 'รายชื่อพนักงาน';
   const subtitle = bid==='ALL' ? '' : branchLabel;
@@ -6857,7 +7008,7 @@ function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now) {
   }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีพนักงาน</td></tr>`;
 
   return _buildReportShell(
-    _buildReportHero(title, subtitle, branchManager, '', now)
+    _buildReportHero(title, subtitle, branchManager, dateRangeLabel||'', now)
     + _buildReportKpiStrip([
         ['พนักงานทั้งหมด', emps.length, `เปิดใช้งาน ${active.length}`, T.BLACK],
         ['ทีมผู้จัดการสาขา', byG['ทีมผู้จัดการสาขา'], '', T.BLUE],
@@ -6883,14 +7034,14 @@ function _buildEmployeesExcel(bid, branchLabel, emps) {
   return [{ sheet:'พนักงาน', rows: [...head, tableHead, ...rows] }];
 }
 
-function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now) {
+function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dateRangeLabel) {
   const T = REPORT_THEME;
   const title = bid==='ALL' ? 'ประวัติการสอนงานทั้งระบบ' : 'ประวัติการสอนงาน';
   const subtitle = bid==='ALL' ? '' : branchLabel;
 
   const dates = trains.map(t => t.date).filter(Boolean).sort();
   const fmtR = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : '—';
-  const dateRange = dates.length ? `${fmtR(dates[0])} – ${fmtR(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล';
+  const dateRange = dateRangeLabel || (dates.length ? `${fmtR(dates[0])} – ${fmtR(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล');
 
   const ev = trains.filter(t => t.eval);
   const ps = ev.filter(t => isEvalPass(t.eval.result));
@@ -6965,14 +7116,14 @@ function _buildTrainingsExcel(bid, branchLabel, trains) {
   return [{ sheet:'การสอน', rows: [...head, tableHead, ...rows] }];
 }
 
-function _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now) {
+function _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now, dateRangeLabel) {
   const T = REPORT_THEME;
   const title = bid==='ALL' ? 'ผลการประเมินทั้งระบบ' : 'ผลการประเมิน';
   const subtitle = bid==='ALL' ? '' : branchLabel;
   const ev = trains.filter(t => t.eval);
   const dates = ev.map(t => t.eval.evalDate || t.date).filter(Boolean).sort();
   const fmtR = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) : '—';
-  const dateRange = dates.length ? `${fmtR(dates[0])} – ${fmtR(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล';
+  const dateRange = dateRangeLabel || (dates.length ? `${fmtR(dates[0])} – ${fmtR(dates[dates.length-1])}` : 'ยังไม่มีข้อมูล');
 
   const passed = ev.filter(t => isEvalPass(t.eval.result));
   const failed = ev.length - passed.length;
@@ -8300,17 +8451,12 @@ function renderAdminReports() {
   return `
   <div class="topbar"><div class="topbar-title">Admin</div></div>
   <div class="page-header"><div><div class="page-title">ออกรายงาน (Admin)</div><div class="page-sub">รายงานรวมทุกสาขา</div></div></div>
-  <div class="grid-2">
-    ${[['สรุปทั้งระบบ','ภาพรวมการสอนงานทุกสาขา','summary'],
-       ['รายชื่อพนักงานทุกสาขา','รายชื่อพนักงานทั้งหมดในระบบ','employees'],
-       ['ประวัติการสอนงานทุกสาขา','บันทึกการสอนงานทั้งระบบ','trainings'],
-       ['ผลการประเมินทุกสาขา','สรุปผลการประเมินทั้งระบบ','evaluations'],
-    ].map(([title,desc,type])=>`<div class="card">
-      <div class="card-title" style="margin-bottom:6px">รายงาน${title}</div>
-      <div class="text-muted" style="margin-bottom:14px">${desc}</div>
-      <button class="btn btn-navy" onclick="exportReport('${type}')">↓ Export รายงาน</button>
-    </div>`).join('')}
-  </div>`;
+  ${_renderReportPicker([
+    ['สรุปทั้งระบบ','ภาพรวมการสอนงานทุกสาขา','summary'],
+    ['รายชื่อพนักงานทุกสาขา','รายชื่อพนักงานทั้งหมดในระบบ','employees'],
+    ['ประวัติการสอนงานทุกสาขา','บันทึกการสอนงานทั้งระบบ','trainings'],
+    ['ผลการประเมินทุกสาขา','สรุปผลการประเมินทั้งระบบ','evaluations'],
+  ])}`;
 }
 
 // ==================== ADMIN EMPLOYEES ====================
