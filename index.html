@@ -4447,25 +4447,27 @@ function renderDashPosPage(bid) {
     return '<path d="'+path+'" fill="'+s.color+'"'+handler+'><title>'+s.pos+': '+s.d.trained+' ครั้ง</title></path>';
   }).join('');
 
-  // Build legend
-  const legend = slices.map(s => {
+  // Build legend as table for clean alignment
+  const rows = slices.map(s => {
     const pct = Math.round(s.d.trained / total * 100);
     const pr = s.d.evaled ? Math.round(s.d.passed / s.d.evaled * 100) : null;
     const prCol = pr === null ? '#9CA3AF' : pr >= 80 ? '#22C55E' : pr >= 50 ? '#F59E0B' : '#EF4444';
     const safePos = s.pos.replace(/'/g, "\\'");
-    const click = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
-    return '<div'+click+' style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:11.5px"'
+    const cursor = s.isOthers ? '' : 'cursor:pointer;';
+    const click = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')"';
+    return '<tr'+click+' style="'+cursor+'border-bottom:1px solid var(--border)"'
       +' onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'transparent\'">'
-      + '<span style="width:11px;height:11px;background:'+s.color+';border-radius:3px;flex-shrink:0"></span>'
-      + '<span style="flex:1;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+s.pos+'">'+s.pos+'</span>'
-      + '<span style="font-weight:800;color:var(--text);min-width:24px;text-align:right">'+s.d.trained+'</span>'
-      + '<span style="color:var(--text3);min-width:32px;text-align:right">'+pct+'%</span>'
-      + (pr!==null ? '<span style="font-weight:700;color:'+prCol+';min-width:42px;text-align:right;font-size:10.5px">'+pr+'%</span>'
-                   : '<span style="color:var(--text4);min-width:42px;text-align:right;font-size:10.5px">—</span>')
-      + '</div>';
+      + '<td style="padding:6px 4px;width:14px"><span style="display:inline-block;width:11px;height:11px;background:'+s.color+';border-radius:3px"></span></td>'
+      + '<td style="padding:6px 8px;font-weight:600;color:var(--text);font-size:12px;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+s.pos+'">'+s.pos+'</td>'
+      + '<td style="padding:6px 8px;font-weight:800;color:var(--text);font-size:12px;text-align:right;white-space:nowrap">'+s.d.trained+'</td>'
+      + '<td style="padding:6px 8px;color:var(--text3);font-size:11.5px;text-align:right;white-space:nowrap">'+pct+'%</td>'
+      + (pr!==null
+          ? '<td style="padding:6px 8px;font-weight:700;color:'+prCol+';font-size:11.5px;text-align:right;white-space:nowrap">'+pr+'%</td>'
+          : '<td style="padding:6px 8px;color:var(--text4);font-size:11.5px;text-align:right">—</td>')
+      + '</tr>';
   }).join('');
 
-  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex:1;min-height:0">'
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;flex:1;min-height:0">'
     + '<svg width="220" height="220" viewBox="0 0 220 220" style="flex-shrink:0">'
     + arcs
     + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="var(--surface)"/>'
@@ -4473,15 +4475,17 @@ function renderDashPosPage(bid) {
     + '<text x="'+cx+'" y="'+(cy+18)+'" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text)">'+total+'</text>'
     + '<text x="'+cx+'" y="'+(cy+34)+'" text-anchor="middle" font-size="10" fill="var(--text3)">ครั้ง</text>'
     + '</svg>'
-    + '<div style="flex:1;min-width:240px;max-width:420px;overflow-y:auto;max-height:240px">'
-    + '<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);margin-bottom:2px">'
-    + '<span style="width:11px;flex-shrink:0"></span>'
-    + '<span style="flex:1">ตำแหน่ง</span>'
-    + '<span style="min-width:24px;text-align:right">สอน</span>'
-    + '<span style="min-width:32px;text-align:right">%</span>'
-    + '<span style="min-width:42px;text-align:right">ผ่าน</span>'
-    + '</div>'
-    + legend
+    + '<div style="flex:1;min-width:260px;max-width:460px;overflow-y:auto;max-height:240px">'
+    + '<table style="width:100%;border-collapse:collapse;table-layout:auto">'
+    + '<thead><tr style="border-bottom:1px solid var(--border)">'
+    + '<th style="width:14px"></th>'
+    + '<th style="padding:4px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:left">ตำแหน่ง</th>'
+    + '<th style="padding:4px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:right">สอน</th>'
+    + '<th style="padding:4px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:right">%</th>'
+    + '<th style="padding:4px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:right">ผ่าน</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>'
     + '</div></div>';
 }
 
@@ -6494,12 +6498,12 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   const GREEN = '#16A34A', RED = '#DC2626', YELLOW = '#D97706', BLUE = '#2563EB';
   const GROUP_COLORS = { 'ทีมผู้จัดการสาขา': BLUE, 'พนักงานครัว': RED, 'พนักงานบริการ': GREEN, 'อื่นๆ': '#9CA3AF' };
 
-  // SVG donut chart for the position-group breakdown
+  // SVG donut chart for the position-group breakdown (chart only — table renders metrics)
   const buildGroupPie = () => {
     const data = groups.map(g => ({ label: g, value: byGroup[g].count, color: GROUP_COLORS[g] })).filter(d => d.value > 0);
     const total = data.reduce((s,d)=>s+d.value,0);
     if (total === 0) return '';
-    const cx = 90, cy = 90, R = 78, r = 46;
+    const cx = 90, cy = 90, R = 78, r = 48;
     let acc = 0;
     const arcs = data.map(d => {
       const frac = d.value / total;
@@ -6517,22 +6521,13 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
         + ' A' + r + ',' + r + ' 0 ' + large + ' 0 ' + x4.toFixed(2) + ',' + y4.toFixed(2) + ' Z';
       return '<path d="' + path + '" fill="' + d.color + '"/>';
     }).join('');
-    const legend = data.map(d => `
-      <div style="display:flex;align-items:center;gap:9px;font-size:12px;padding:4px 0;border-bottom:1px dashed #E5E7EB">
-        <span style="width:11px;height:11px;background:${d.color};border-radius:3px;flex-shrink:0"></span>
-        <span style="flex:1;color:${BLACK};font-weight:500">${d.label}</span>
-        <span style="font-weight:800;color:${BLACK};min-width:38px;text-align:right">${d.value}</span>
-        <span style="color:${GREY};font-size:11px;min-width:38px;text-align:right;font-weight:600">${Math.round(d.value/total*100)}%</span>
-      </div>`).join('');
-    return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:10px;justify-content:flex-start">
-      <svg width="160" height="160" viewBox="0 0 180 180" style="flex-shrink:0">
-        ${arcs}
-        <circle cx="90" cy="90" r="46" fill="white"/>
-        <text x="90" y="84" text-anchor="middle" font-size="12" fill="${GREY}" font-family="Sarabun">รวม</text>
-        <text x="90" y="108" text-anchor="middle" font-size="22" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
-      </svg>
-      <div style="flex:0 1 340px;min-width:260px;max-width:380px">${legend}</div>
-    </div>`;
+    return `<svg width="170" height="170" viewBox="0 0 180 180" style="flex-shrink:0">
+      ${arcs}
+      <circle cx="90" cy="90" r="48" fill="white"/>
+      <text x="90" y="82" text-anchor="middle" font-size="11" fill="${GREY}" font-family="Sarabun">รวมพนักงาน</text>
+      <text x="90" y="106" text-anchor="middle" font-size="24" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
+      <text x="90" y="122" text-anchor="middle" font-size="10" fill="${GREY}" font-family="Sarabun">คน</text>
+    </svg>`;
   };
   const kpiCard = (label, value, sub, color) =>
     `<div style="background:white;border:1px solid #E5E7EB;border-left:3px solid ${color};border-radius:8px;padding:10px 12px;min-width:0">
@@ -6541,18 +6536,28 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       <div style="font-size:10.5px;color:#6B7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub||''}</div>
     </div>`;
 
+  const totalEmps = groups.reduce((s,g) => s + byGroup[g].count, 0);
   const groupRow = (g) => {
     const d = byGroup[g];
     if (!d.count && !d.trained) return '';
     const rate = d.evaled ? Math.round(d.passed/d.evaled*100) : null;
     const rateColor = rate===null ? '#9CA3AF' : (rate>=80?GREEN:rate>=60?YELLOW:RED);
+    const sharePct = totalEmps ? Math.round(d.count/totalEmps*100) : 0;
+    const col = GROUP_COLORS[g] || '#9CA3AF';
     return `<tr>
-      <td style="font-weight:700">${g}</td>
-      <td style="text-align:center">${d.count}</td>
+      <td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;background:${col};border-radius:3px;flex-shrink:0"></span><span style="font-weight:700">${g}</span></div></td>
+      <td style="text-align:right;font-weight:700">${d.count} <span style="color:${GREY};font-weight:500;font-size:10.5px">(${sharePct}%)</span></td>
       <td style="text-align:center">${d.trained}</td>
       <td style="text-align:center">${d.evaled}</td>
-      <td style="text-align:center">${d.passed}</td>
-      <td style="text-align:center;color:${rateColor};font-weight:700">${rate===null?'—':rate+'%'}</td>
+      <td style="text-align:center;color:${GREEN};font-weight:700">${d.passed}</td>
+      <td style="min-width:130px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:#E5E7EB;border-radius:999px;height:6px;overflow:hidden">
+            <div style="width:${rate||0}%;height:100%;background:${rateColor}"></div>
+          </div>
+          <span style="font-weight:700;color:${rateColor};min-width:36px;text-align:right;font-size:11.5px">${rate===null?'—':rate+'%'}</span>
+        </div>
+      </td>
     </tr>`;
   };
 
@@ -6627,12 +6632,16 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
     </div>
 
     <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 8px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">📊 ภาพรวมตามตำแหน่ง</h3>
-      ${buildGroupPie()}
-      <table>
-        <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:center">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">% ผ่าน</th></tr></thead>
-        <tbody>${groups.map(groupRow).join('')||'<tr><td colspan="6" style="text-align:center;color:#8A96A3">ไม่มีข้อมูล</td></tr>'}</tbody>
-      </table>
+      <h3 style="margin:0 0 10px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">📊 ภาพรวมตามตำแหน่ง</h3>
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+        ${buildGroupPie()}
+        <div style="flex:1;min-width:360px">
+          <table>
+            <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:right">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
+            <tbody>${groups.map(groupRow).join('')||'<tr><td colspan="6" style="text-align:center;color:#8A96A3">ไม่มีข้อมูล</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
