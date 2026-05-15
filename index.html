@@ -4407,45 +4407,82 @@ function renderDashPosPage(bid) {
     });
   });
   const entries = Object.entries(byPos).sort((a,b) => b[1].trained - a[1].trained);
-  const PAGE = 5;
-  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE));
-  _dashPosPage = Math.min(_dashPosPage, totalPages - 1);
   if (!entries.length) {
     el.innerHTML = '<p class="text-muted" style="text-align:center;padding:24px 0">ยังไม่มีข้อมูลการสอน</p>';
     return;
   }
-  const slice = entries.slice(_dashPosPage * PAGE, _dashPosPage * PAGE + PAGE);
-  const items = slice.map(([pos, d]) => {
-    const col = grpHex[d.group] || '#9CA3AF';
-    const pr = d.evaled ? Math.round(d.passed / d.evaled * 100) : null;
-    const barCol = pr === null ? '#9CA3AF' : pr >= 80 ? '#22C55E' : pr >= 50 ? '#F59E0B' : '#EF4444';
-    const psPct = Math.round(d.passed / Math.max(d.trained, 1) * 100);
-    const flPct = Math.round((d.evaled - d.passed) / Math.max(d.trained, 1) * 100);
-    const nePct = 100 - psPct - flPct;
-    const safePos = pos.replace(/'/g, "\\'");
-    return '<div style="padding:10px 12px;border-radius:10px;background:' + col + '08;border:1px solid ' + col + '20;cursor:pointer" onclick="showPositionTrainingModal(\'' + bid + '\',\'' + safePos + '\')">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-      + '<div style="display:flex;align-items:center;gap:7px">'
-      + '<div style="width:8px;height:8px;border-radius:50%;background:' + col + '"></div>'
-      + '<span style="font-size:12px;font-weight:700;color:var(--text)">' + pos + '</span>'
-      + '</div>'
-      + '<div style="display:flex;align-items:center;gap:8px">'
-      + '<span style="font-size:10px;color:var(--text3)">สอน ' + d.trained + ' ครั้ง</span>'
-      + (d.evaled > 0 ? '<span style="font-size:11px;color:var(--text3)">· ประเมิน ' + d.evaled + ' ครั้ง (เฉลี่ย <span style="font-weight:800;color:' + barCol + '">ผ่าน ' + pr + '%</span>)</span>' : '<span style="font-size:10px;color:var(--text4)">· ยังไม่ประเมิน</span>')
-      + '<span style="font-size:10px;color:' + col + ';font-weight:600">ดูการสอน ›</span>'
-      + '</div></div>'
-      + '<div style="height:6px;border-radius:3px;overflow:hidden;display:flex;background:#E5E7EB">'
-      + '<div style="height:100%;width:' + psPct + '%;background:#22C55E"></div>'
-      + '<div style="height:100%;width:' + flPct + '%;background:#EF4444"></div>'
-      + '<div style="height:100%;width:' + nePct + '%;background:#D1D5DB"></div>'
-      + '</div></div>';
+  // Aggregate small slices ( < 4% ) into "อื่นๆ"
+  const total = entries.reduce((s,[,d]) => s + d.trained, 0);
+  const PALETTE = ['#3B82F6','#EF4444','#22C55E','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1'];
+  let slices = [], others = {trained:0, evaled:0, passed:0, items:[]};
+  entries.forEach(([pos,d],i) => {
+    if (d.trained / total < 0.04 && entries.length > 6) {
+      others.trained += d.trained; others.evaled += d.evaled; others.passed += d.passed;
+      others.items.push(pos);
+    } else {
+      slices.push({pos, d, color: PALETTE[slices.length % PALETTE.length], group: d.group});
+    }
+  });
+  if (others.trained > 0) slices.push({pos:'อื่นๆ ('+others.items.length+')', d:others, color:'#9CA3AF', group:'', isOthers:true});
+
+  // Build SVG donut
+  const cx=110, cy=110, R=98, r=58;
+  let acc = 0;
+  const arcs = slices.map(s => {
+    const frac = s.d.trained / total;
+    const startA = acc * 2*Math.PI - Math.PI/2;
+    acc += frac;
+    const endA = acc * 2*Math.PI - Math.PI/2;
+    const large = frac > 0.5 ? 1 : 0;
+    const x1 = cx + R*Math.cos(startA), y1 = cy + R*Math.sin(startA);
+    const x2 = cx + R*Math.cos(endA),   y2 = cy + R*Math.sin(endA);
+    const x3 = cx + r*Math.cos(endA),   y3 = cy + r*Math.sin(endA);
+    const x4 = cx + r*Math.cos(startA), y4 = cy + r*Math.sin(startA);
+    const path = 'M'+x1.toFixed(2)+','+y1.toFixed(2)
+      +' A'+R+','+R+' 0 '+large+' 1 '+x2.toFixed(2)+','+y2.toFixed(2)
+      +' L'+x3.toFixed(2)+','+y3.toFixed(2)
+      +' A'+r+','+r+' 0 '+large+' 0 '+x4.toFixed(2)+','+y4.toFixed(2)+' Z';
+    const safePos = s.pos.replace(/'/g, "\\'");
+    const handler = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
+    return '<path d="'+path+'" fill="'+s.color+'"'+handler+'><title>'+s.pos+': '+s.d.trained+' ครั้ง</title></path>';
   }).join('');
-  const pager = totalPages > 1 ? '<div style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">'
-    + '<button class="btn btn-sm btn-outline" onclick="_dashPosPage--;renderDashPosPage(\'' + bid + '\')" ' + (_dashPosPage === 0 ? 'disabled' : '') + ' style="padding:3px 10px">‹</button>'
-    + '<span style="font-size:11px;color:var(--text3)">' + (_dashPosPage + 1) + '/' + totalPages + '</span>'
-    + '<button class="btn btn-sm btn-outline" onclick="_dashPosPage++;renderDashPosPage(\'' + bid + '\')" ' + (_dashPosPage >= totalPages - 1 ? 'disabled' : '') + ' style="padding:3px 10px">›</button>'
-    + '</div>' : '';
-  el.innerHTML = items + pager;
+
+  // Build legend
+  const legend = slices.map(s => {
+    const pct = Math.round(s.d.trained / total * 100);
+    const pr = s.d.evaled ? Math.round(s.d.passed / s.d.evaled * 100) : null;
+    const prCol = pr === null ? '#9CA3AF' : pr >= 80 ? '#22C55E' : pr >= 50 ? '#F59E0B' : '#EF4444';
+    const safePos = s.pos.replace(/'/g, "\\'");
+    const click = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
+    return '<div'+click+' style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:11.5px"'
+      +' onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'transparent\'">'
+      + '<span style="width:11px;height:11px;background:'+s.color+';border-radius:3px;flex-shrink:0"></span>'
+      + '<span style="flex:1;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+s.pos+'">'+s.pos+'</span>'
+      + '<span style="font-weight:800;color:var(--text);min-width:24px;text-align:right">'+s.d.trained+'</span>'
+      + '<span style="color:var(--text3);min-width:32px;text-align:right">'+pct+'%</span>'
+      + (pr!==null ? '<span style="font-weight:700;color:'+prCol+';min-width:42px;text-align:right;font-size:10.5px">'+pr+'%</span>'
+                   : '<span style="color:var(--text4);min-width:42px;text-align:right;font-size:10.5px">—</span>')
+      + '</div>';
+  }).join('');
+
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex:1;min-height:0">'
+    + '<svg width="220" height="220" viewBox="0 0 220 220" style="flex-shrink:0">'
+    + arcs
+    + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="var(--surface)"/>'
+    + '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="11" fill="var(--text3)">รวมสอน</text>'
+    + '<text x="'+cx+'" y="'+(cy+18)+'" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text)">'+total+'</text>'
+    + '<text x="'+cx+'" y="'+(cy+34)+'" text-anchor="middle" font-size="10" fill="var(--text3)">ครั้ง</text>'
+    + '</svg>'
+    + '<div style="flex:1;min-width:240px;max-width:420px;overflow-y:auto;max-height:240px">'
+    + '<div style="display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);margin-bottom:2px">'
+    + '<span style="width:11px;flex-shrink:0"></span>'
+    + '<span style="flex:1">ตำแหน่ง</span>'
+    + '<span style="min-width:24px;text-align:right">สอน</span>'
+    + '<span style="min-width:32px;text-align:right">%</span>'
+    + '<span style="min-width:42px;text-align:right">ผ่าน</span>'
+    + '</div>'
+    + legend
+    + '</div></div>';
 }
 
 function showAllEmployeesModal(bid) {
@@ -6481,27 +6518,27 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       return '<path d="' + path + '" fill="' + d.color + '"/>';
     }).join('');
     const legend = data.map(d => `
-      <div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px dashed #E5E7EB">
-        <span style="width:12px;height:12px;background:${d.color};border-radius:3px;flex-shrink:0"></span>
+      <div style="display:flex;align-items:center;gap:9px;font-size:12px;padding:4px 0;border-bottom:1px dashed #E5E7EB">
+        <span style="width:11px;height:11px;background:${d.color};border-radius:3px;flex-shrink:0"></span>
         <span style="flex:1;color:${BLACK};font-weight:500">${d.label}</span>
-        <span style="font-weight:800;color:${BLACK};min-width:42px;text-align:right">${d.value}</span>
-        <span style="color:${GREY};font-size:12px;min-width:42px;text-align:right;font-weight:600">${Math.round(d.value/total*100)}%</span>
+        <span style="font-weight:800;color:${BLACK};min-width:38px;text-align:right">${d.value}</span>
+        <span style="color:${GREY};font-size:11px;min-width:38px;text-align:right;font-weight:600">${Math.round(d.value/total*100)}%</span>
       </div>`).join('');
-    return `<div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:14px;justify-content:flex-start">
-      <svg width="200" height="200" viewBox="0 0 180 180" style="flex-shrink:0">
+    return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:10px;justify-content:flex-start">
+      <svg width="160" height="160" viewBox="0 0 180 180" style="flex-shrink:0">
         ${arcs}
         <circle cx="90" cy="90" r="46" fill="white"/>
-        <text x="90" y="84" text-anchor="middle" font-size="13" fill="${GREY}" font-family="Sarabun">รวม</text>
-        <text x="90" y="108" text-anchor="middle" font-size="24" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
+        <text x="90" y="84" text-anchor="middle" font-size="12" fill="${GREY}" font-family="Sarabun">รวม</text>
+        <text x="90" y="108" text-anchor="middle" font-size="22" font-weight="800" fill="${BLACK}" font-family="Sarabun">${total}</text>
       </svg>
-      <div style="flex:0 1 340px;min-width:280px;max-width:380px">${legend}</div>
+      <div style="flex:0 1 340px;min-width:260px;max-width:380px">${legend}</div>
     </div>`;
   };
   const kpiCard = (label, value, sub, color) =>
-    `<div style="flex:1;min-width:140px;background:white;border:1px solid #E5E7EB;border-left:4px solid ${color};border-radius:10px;padding:16px 18px">
-      <div style="font-size:11px;color:#8A96A3;font-weight:600;text-transform:uppercase;letter-spacing:.5px">${label}</div>
-      <div style="font-size:28px;font-weight:800;color:${color};margin-top:4px;line-height:1">${value}</div>
-      <div style="font-size:11.5px;color:#6B7280;margin-top:4px">${sub||''}</div>
+    `<div style="background:white;border:1px solid #E5E7EB;border-left:3px solid ${color};border-radius:8px;padding:10px 12px;min-width:0">
+      <div style="font-size:10px;color:#8A96A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${color};margin-top:2px;line-height:1">${value}</div>
+      <div style="font-size:10.5px;color:#6B7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub||''}</div>
     </div>`;
 
   const groupRow = (g) => {
@@ -6561,27 +6598,27 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
 
   return `
   <div id="report-root" style="max-width:1100px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${BLACK}">
-    <div style="background:linear-gradient(135deg,${ORANGE} 0%,${ORANGE_DARK} 100%);color:white;border-radius:14px;padding:24px 28px;margin-bottom:20px;box-shadow:0 6px 20px rgba(240,112,26,0.25)">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px">
-        <div style="display:flex;align-items:center;gap:18px">
-          <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:72px;height:72px;border-radius:14px;background:white;padding:6px;object-fit:contain;flex-shrink:0">
+    <div style="background:linear-gradient(135deg,${ORANGE} 0%,${ORANGE_DARK} 100%);color:white;border-radius:12px;padding:16px 20px;margin-bottom:14px;box-shadow:0 4px 14px rgba(240,112,26,0.22)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:56px;height:56px;border-radius:10px;background:white;padding:5px;object-fit:contain;flex-shrink:0">
           <div>
-            <div style="font-size:11px;letter-spacing:4px;opacity:.85;text-transform:uppercase;margin-bottom:6px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
-            <h1 style="font-size:26px;margin:0 0 4px;font-weight:800;letter-spacing:-.3px">${bid==='ALL'?'รายงานสรุปทั้งระบบ':'รายงานสรุปสาขา'}</h1>
-            ${bid==='ALL'?'':`<div style="font-size:14.5px;opacity:.95;font-weight:600">${branchLabel}</div>`}
-            ${branchManager?`<div style="font-size:12.5px;opacity:.8;margin-top:3px">BZM: ${branchManager}</div>`:''}
+            <div style="font-size:10px;letter-spacing:3.5px;opacity:.85;text-transform:uppercase;margin-bottom:3px;font-weight:600;font-family:'Prompt','Kanit',sans-serif">Operations Training</div>
+            <h1 style="font-size:20px;margin:0;font-weight:800;letter-spacing:-.2px;line-height:1.15">${bid==='ALL'?'รายงานสรุปทั้งระบบ':'รายงานสรุปสาขา'}</h1>
+            ${bid==='ALL'?'':`<div style="font-size:12.5px;opacity:.95;font-weight:600;margin-top:2px">${branchLabel}${branchManager?` · BZM: ${branchManager}`:''}</div>`}
+            ${bid==='ALL'&&branchManager?`<div style="font-size:12px;opacity:.85;margin-top:2px">BZM: ${branchManager}</div>`:''}
           </div>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:10.5px;opacity:.75;letter-spacing:.5px">ช่วงข้อมูล</div>
-          <div style="font-size:13px;font-weight:700;margin-bottom:8px">${dateRange}</div>
-          <div style="font-size:10.5px;opacity:.75;letter-spacing:.5px">ออกรายงานเมื่อ</div>
-          <div style="font-size:13px;font-weight:600">${now}</div>
+        <div style="text-align:right;font-size:11px;line-height:1.4">
+          <div style="opacity:.7;letter-spacing:.3px">ช่วงข้อมูล</div>
+          <div style="font-weight:700;margin-bottom:4px;font-size:12px">${dateRange}</div>
+          <div style="opacity:.7;letter-spacing:.3px">ออกรายงาน</div>
+          <div style="font-weight:600;font-size:12px">${now}</div>
         </div>
       </div>
     </div>
 
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
       ${kpiCard('พนักงาน', active.length, `จากทั้งหมด ${emps.length} คน`, BLACK)}
       ${kpiCard('บันทึกการสอน', trains.length, `${ev.length} ประเมินแล้ว`, ORANGE)}
       ${kpiCard('ผ่านเกณฑ์', ps.length, `${ev.length-ps.length} ไม่ผ่าน`, GREEN)}
@@ -6589,8 +6626,8 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       ${kpiCard('รอประเมิน', pending, `${expired} หมดเวลา`, YELLOW)}
     </div>
 
-    <div style="background:white;border-radius:12px;padding:20px 24px;margin-bottom:20px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 12px;color:${BLACK};font-size:15px;font-weight:800">📊 ภาพรวมตามตำแหน่ง</h3>
+    <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
+      <h3 style="margin:0 0 8px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">📊 ภาพรวมตามตำแหน่ง</h3>
       ${buildGroupPie()}
       <table>
         <thead><tr><th>กลุ่มตำแหน่ง</th><th style="text-align:center">พนักงาน</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">% ผ่าน</th></tr></thead>
@@ -6598,23 +6635,23 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       </table>
     </div>
 
-    <div style="background:white;border-radius:12px;padding:20px 24px;margin-bottom:20px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 12px;color:${BLACK};font-size:15px;font-weight:800">📚 ผลการประเมินแยกตาม Module</h3>
+    <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
+      <h3 style="margin:0 0 8px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">📚 ผลการประเมินแยกตาม Module</h3>
       <table>
         <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th>อัตราผ่าน</th></tr></thead>
         <tbody>${modStats.length?modStats.map(moduleRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึกการสอน</td></tr>'}</tbody>
       </table>
     </div>
 
-    <div style="background:white;border-radius:12px;padding:20px 24px;margin-bottom:20px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
-      <h3 style="margin:0 0 12px;color:${BLACK};font-size:15px;font-weight:800">🕐 บันทึกการสอนล่าสุด (8 รายการ)</h3>
+    <div style="background:white;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #E5E7EB;border-top:3px solid ${ORANGE}">
+      <h3 style="margin:0 0 8px;color:${BLACK};font-size:13.5px;font-weight:800;letter-spacing:.2px">🕐 บันทึกการสอนล่าสุด (8 รายการ)</h3>
       <table>
         <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
         <tbody>${recent.length?recent.map(recentRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึก</td></tr>'}</tbody>
       </table>
     </div>
 
-    <div style="margin-top:32px;padding-top:18px;border-top:1px dashed #CBD5E1;display:flex;justify-content:space-between;font-size:11.5px;color:#8A96A3">
+    <div style="margin-top:18px;padding-top:10px;border-top:1px dashed #CBD5E1;display:flex;justify-content:space-between;font-size:10.5px;color:#8A96A3">
       <div>ออกโดยระบบ OPT Training Record System</div>
       <div>${now}</div>
     </div>
@@ -6631,14 +6668,14 @@ function exportReport(type) {
   const style = `<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@400;500;600;700&display=swap');
     @page { size: A4; margin: 12mm; }
-    body{font-family:'Sarabun',sans-serif;padding:24px;color:#1A1A1A;background:#FAFAFA;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#1A1A1A;background:#FAFAFA;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     h2{color:#1A1A1A;font-size:18px;margin-bottom:4px;font-weight:800}
     .sub{color:#5A5A5A;font-size:13px;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
-    th{background:#1A1A1A;color:white;padding:9px 12px;text-align:left;font-size:11.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
-    td{padding:9px 12px;border-bottom:1px solid #EAEAEA;font-size:13px}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th{background:#1A1A1A;color:white;padding:6px 10px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+    td{padding:6px 10px;border-bottom:1px solid #EAEAEA;font-size:12px}
     tr:nth-child(even) td{background:#F8F8F8}
-    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:8px;justify-content:flex-end;z-index:10;margin:-24px -24px 16px}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:8px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
     .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif;display:inline-flex;align-items:center;gap:6px}
     .tbtn:hover{background:#F5F5F5}
     .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
