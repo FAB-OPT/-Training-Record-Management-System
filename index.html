@@ -6435,20 +6435,23 @@ function _renderReportPicker(reports) {
   return `
   <style>
     .rp-wrap{display:grid;gap:14px;margin-top:6px}
-    .rp-range{background:linear-gradient(135deg,#FFF8F2 0%,#FFFFFF 60%);border:1px solid #FBE0CC;border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(240,112,26,0.06)}
-    .rp-range-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .rp-range-icon{font-size:26px;line-height:1;display:flex;align-items:center;justify-content:center}
-    .rp-range-title{font-size:15px;font-weight:800;color:var(--text);line-height:1.2}
-    .rp-range-sub{font-size:11.5px;color:var(--text3)}
-    .rp-range-grid{display:flex;gap:14px;align-items:end;flex-wrap:wrap}
-    .rp-date{display:flex;flex-direction:column;gap:4px}
-    .rp-date label{font-size:10.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
-    .rp-date input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:white;color:var(--text);width:170px}
-    .rp-date input:focus{outline:none;border-color:#F0701A;box-shadow:0 0 0 3px rgba(240,112,26,0.15)}
-    .rp-quick{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-    .rp-quick-btn{padding:6px 14px;border:1px solid #E5E7EB;background:white;border-radius:999px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s}
+    .rp-range{background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    .rp-range-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;background:#FAFAFA;border-bottom:1px solid var(--border);flex-wrap:wrap}
+    .rp-range-head-left{display:flex;align-items:center;gap:10px}
+    .rp-range-icon{font-size:18px;line-height:1}
+    .rp-range-title{font-size:13px;font-weight:800;color:var(--text);letter-spacing:.2px}
+    .rp-range-sub{font-size:11px;color:var(--text3);margin-left:8px}
+    .rp-quick{display:flex;gap:4px;flex-wrap:wrap}
+    .rp-quick-btn{padding:5px 12px;border:1px solid var(--border);background:white;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .12s;font-family:inherit}
     .rp-quick-btn:hover{background:#F0701A;color:white;border-color:#F0701A}
-    .rp-hint{margin-top:12px;font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:6px}
+    .rp-quick-btn.active{background:#F0701A;color:white;border-color:#F0701A}
+    .rp-range-body{display:flex;gap:18px;padding:16px 18px;align-items:center;flex-wrap:wrap}
+    .rp-date{display:flex;align-items:center;gap:8px}
+    .rp-date label{font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap}
+    .rp-date input{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12.5px;background:white;color:var(--text);width:150px}
+    .rp-date input:focus{outline:none;border-color:#F0701A;box-shadow:0 0 0 3px rgba(240,112,26,0.12)}
+    .rp-date-arrow{color:var(--text3);font-size:14px}
+    .rp-hint{font-size:11px;color:var(--text3);background:#F9FAFB;padding:8px 18px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:6px}
     .rp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
     .rp-card{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;transition:all .15s;cursor:pointer;position:relative;overflow:hidden}
     .rp-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.07);border-color:transparent}
@@ -6463,20 +6466,10 @@ function _renderReportPicker(reports) {
   <div class="rp-wrap">
     <div class="rp-range">
       <div class="rp-range-head">
-        <div class="rp-range-icon">📅</div>
-        <div>
-          <div class="rp-range-title">เลือกช่วงข้อมูล</div>
-          <div class="rp-range-sub">กำหนดช่วงวันที่สำหรับการดึงรายงาน</div>
-        </div>
-      </div>
-      <div class="rp-range-grid">
-        <div class="rp-date">
-          <label>จากวันที่</label>
-          <input type="date" id="r-from" value="${iso(ago30)}">
-        </div>
-        <div class="rp-date">
-          <label>ถึงวันที่</label>
-          <input type="date" id="r-to" value="${iso(today)}">
+        <div class="rp-range-head-left">
+          <span class="rp-range-icon">📅</span>
+          <span class="rp-range-title">ช่วงข้อมูล</span>
+          <span class="rp-range-sub">เลือกช่วงเวลาสำหรับการดึงรายงาน</span>
         </div>
         <div class="rp-quick">
           <button class="rp-quick-btn" onclick="setReportRange(7)">7 วัน</button>
@@ -6486,7 +6479,18 @@ function _renderReportPicker(reports) {
           <button class="rp-quick-btn" onclick="setReportRange('all')">ทั้งหมด</button>
         </div>
       </div>
-      <div class="rp-hint">💡 รายชื่อพนักงานจะแสดงครบทุกคน — กรองเฉพาะการสอน/ประเมินตามวันที่เลือก</div>
+      <div class="rp-range-body">
+        <div class="rp-date">
+          <label>จาก</label>
+          <input type="date" id="r-from" value="${iso(ago30)}">
+        </div>
+        <span class="rp-date-arrow">→</span>
+        <div class="rp-date">
+          <label>ถึง</label>
+          <input type="date" id="r-to" value="${iso(today)}">
+        </div>
+      </div>
+      <div class="rp-hint">💡 รายชื่อพนักงานแสดงครบทุกคน — กรองเฉพาะการสอน/ประเมินตามช่วงเวลาที่เลือก</div>
     </div>
     <div class="rp-cards">
       ${reports.map(([title,desc,type])=>{
@@ -6544,7 +6548,7 @@ const REPORT_THEME = {
 // Minimalist hero: white card with orange left bar; logo + title left, meta on right
 function _buildReportHero(title, subtitle, branchManager, dateRange, now) {
   const T = REPORT_THEME;
-  return `<div style="background:white;border:1px solid ${T.BORDER};border-left:5px solid ${T.ORANGE};border-radius:10px;padding:18px 22px;margin-bottom:14px">
+  return `<div class="report-hero" style="background:white;border:1px solid ${T.BORDER};border-left:5px solid ${T.ORANGE};border-radius:10px;padding:18px 22px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
       <div style="display:flex;align-items:center;gap:16px">
         <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:62px;height:62px;object-fit:contain;flex-shrink:0;border-radius:50%;border:2px solid ${T.BORDER}">
@@ -6595,9 +6599,13 @@ function _buildReportFooter(now) {
   </footer>`;
 }
 
-function _buildReportShell(inner) {
+function _buildReportShell(hero, body) {
   const T = REPORT_THEME;
-  return `<div id="report-root" style="max-width:1120px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${T.BLACK}">${inner}</div>`;
+  // Hero outside .report-body so @media print can promote it to table-header-group (repeats per page)
+  return `<div id="report-root" style="max-width:1120px;margin:0 auto;font-family:'Sarabun',sans-serif;color:${T.BLACK}">
+    ${hero}
+    <div class="report-body">${body}</div>
+  </div>`;
 }
 
 function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now, dateRangeOverride) {
@@ -6721,13 +6729,8 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   const moduleRow = (m) => {
     const rateColor = m.pct===null ? '#9CA3AF' : (m.pct>=80?GREEN:m.pct>=60?YELLOW:RED);
     const barW = m.pct===null ? 0 : m.pct;
-    const isService = m.group==='Service';
-    const grpColor = isService ? GREEN : RED;
-    const grpLabel = isService ? 'บริการ' : 'ครัว';
-    const grpIcon = isService ? '🍽' : '👨‍🍳';
-    const badge = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${grpColor}15;color:${grpColor};font-size:10.5px;font-weight:700;border:1px solid ${grpColor}40">${grpIcon} ${grpLabel}</span>`;
     return `<tr>
-      <td style="font-weight:600">${m.name}<div style="margin-top:4px">${badge}</div></td>
+      <td style="font-weight:600">${m.name}</td>
       <td style="text-align:center">${m.trained}</td>
       <td style="text-align:center">${m.evaled}</td>
       <td style="text-align:center;color:${GREEN};font-weight:700">${m.passed}</td>
@@ -6766,8 +6769,8 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
   const title = bid==='ALL' ? 'รายงานสรุปทั้งระบบ' : 'รายงานสรุปสาขา';
   const subtitle = bid==='ALL' ? '' : branchLabel;
   return _buildReportShell(
-    _buildReportHero(title, subtitle, branchManager, dateRange, now)
-    + _buildReportKpiStrip([
+    _buildReportHero(title, subtitle, branchManager, dateRange, now),
+    _buildReportKpiStrip([
         ['พนักงาน', active.length, `จากทั้งหมด ${emps.length} คน`, BLACK],
         ['บันทึกการสอน', trains.length, `${ev.length} ประเมินแล้ว`, ORANGE],
         ['ผ่านเกณฑ์', ps.length, `${ev.length-ps.length} ไม่ผ่าน`, GREEN],
@@ -6784,11 +6787,22 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
             </table>
           </div>
         </div>`)
-    + _buildReportSection('📚 ผลการประเมินแยกตาม Module',
-        `<table>
-          <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">อัตราผ่าน</th></tr></thead>
-          <tbody>${modStats.length?modStats.map(moduleRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึกการสอน</td></tr>'}</tbody>
-        </table>`)
+    + _buildReportSection('📚 ผลการประเมินแยกตาม Module', (() => {
+        if (!modStats.length) return '<div style="text-align:center;color:#8A96A3;padding:20px">ยังไม่มีบันทึกการสอน</div>';
+        const cookMods = modStats.filter(m => m.group !== 'Service');
+        const svcMods  = modStats.filter(m => m.group === 'Service');
+        const subTable = (label, color, rows) => rows.length ? `
+          <div style="margin-bottom:16px">
+            <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:${color}15;border:1px solid ${color}40;border-radius:999px;color:${color};font-weight:800;font-size:12px;margin-bottom:8px">
+              กลุ่ม${label} <span style="opacity:.7;font-weight:600">(${rows.length} module)</span>
+            </div>
+            <table>
+              <thead><tr><th>Module</th><th style="text-align:center">สอน</th><th style="text-align:center">ประเมิน</th><th style="text-align:center">ผ่าน</th><th style="text-align:center">อัตราผ่าน</th></tr></thead>
+              <tbody>${rows.map(moduleRow).join('')}</tbody>
+            </table>
+          </div>` : '';
+        return subTable('ครัว', RED, cookMods) + subTable('บริการ', GREEN, svcMods);
+      })())
     + _buildReportSection('🕐 บันทึกการสอนล่าสุด (8 รายการ)',
         `<table>
           <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
@@ -6837,14 +6851,19 @@ function exportReport(type) {
     .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
     .tbtn.primary:hover{background:#C8530C}
     *{box-sizing:border-box}
+    /* Repeat report hero on every printed page using table-header-group trick */
     @media print{
       .no-print{display:none!important}
       body{background:white;padding:0;font-size:11px}
       .toolbar{display:none}
-      #report-root{max-width:none!important;margin:0!important;color:#0F1419!important}
-      section,div,h1,h2,h3,th,td{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-      section{page-break-inside:avoid}
-      tr{page-break-inside:avoid}
+      #report-root{max-width:none!important;margin:0!important;color:#0F1419!important;display:table;width:100%}
+      .report-hero{display:table-header-group}
+      .report-hero > *{display:block}
+      .report-body{display:table-row-group}
+      *,section,div,h1,h2,h3,th,td{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+      section{page-break-inside:avoid;break-inside:avoid}
+      tr{page-break-inside:avoid;break-inside:avoid}
+      thead{display:table-header-group}
       table{font-size:10.5px}
       th{padding:6px 8px!important}
       td{padding:6px 8px!important}
@@ -6852,9 +6871,10 @@ function exportReport(type) {
   </style>`;
   const titles = {summary:'รายงานสรุปสาขา',employees:'รายงานรายชื่อพนักงาน',trainings:'รายงานการสอนงาน',evaluations:'รายงานผลการประเมิน'};
   const toolbar = `<div class="toolbar no-print">
+    <span class="tbtn-hint">💡 ปุ่ม "บันทึก PDF" → เลือก "Save as PDF" ในหน้าต่างที่เปิด</span>
     <button class="tbtn" onclick="window.close()">✕ ปิด</button>
-    <button class="tbtn primary" onclick="window.print()">🖨 พิมพ์ / บันทึก PDF</button>
-    <span class="tbtn-hint">💡 เลือก "Save as PDF" / "บันทึกเป็น PDF" ในหน้าต่างพิมพ์</span>
+    <button class="tbtn" onclick="window.print()">📥 บันทึก PDF</button>
+    <button class="tbtn primary" onclick="window.print()">🖨 พิมพ์</button>
   </div>`;
   let html='';
   let excelData = null;
@@ -6985,8 +7005,8 @@ function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateR
   }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีพนักงาน</td></tr>`;
 
   return _buildReportShell(
-    _buildReportHero(title, subtitle, branchManager, dateRangeLabel||'', now)
-    + _buildReportKpiStrip([
+    _buildReportHero(title, subtitle, branchManager, dateRangeLabel||'', now),
+    _buildReportKpiStrip([
         ['พนักงานทั้งหมด', emps.length, `เปิดใช้งาน ${active.length}`, T.BLACK],
         ['ทีมผู้จัดการสาขา', byG['ทีมผู้จัดการสาขา'], '', T.BLUE],
         ['พนักงานครัว', byG['พนักงานครัว'], '', T.RED],
@@ -7061,8 +7081,8 @@ function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dat
     : `<div style="text-align:center;color:#8A96A3;padding:14px">ยังไม่มีข้อมูล</div>`;
 
   return _buildReportShell(
-    _buildReportHero(title, subtitle, branchManager, dateRange, now)
-    + _buildReportKpiStrip([
+    _buildReportHero(title, subtitle, branchManager, dateRange, now),
+    _buildReportKpiStrip([
         ['บันทึกการสอน', trains.length, '', T.ORANGE],
         ['ประเมินแล้ว', ev.length, '', T.BLACK],
         ['ผ่าน', ps.length, '', T.GREEN],
@@ -7147,8 +7167,8 @@ function _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now, d
   }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีการประเมิน</td></tr>`;
 
   return _buildReportShell(
-    _buildReportHero(title, subtitle, branchManager, dateRange, now)
-    + _buildReportKpiStrip([
+    _buildReportHero(title, subtitle, branchManager, dateRange, now),
+    _buildReportKpiStrip([
         ['ประเมินทั้งหมด', ev.length, '', T.BLACK],
         ['ผ่าน', passed.length, '', T.GREEN],
         ['ไม่ผ่าน', failed, '', T.RED],
