@@ -6835,7 +6835,7 @@ function exportReport(type) {
   else dateRangeLabel = 'ทุกช่วงเวลา';
   const style = `<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@400;500;600;700&family=Bebas+Neue&family=Montserrat:wght@500;600;700;800&display=swap');
-    @page { size: A4; margin: 12mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     h2{color:#0F1419;font-size:18px;margin-bottom:4px;font-weight:800}
     .sub{color:#6B7280;font-size:13px;margin-bottom:20px}
@@ -6851,31 +6851,62 @@ function exportReport(type) {
     .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
     .tbtn.primary:hover{background:#C8530C}
     *{box-sizing:border-box}
-    /* Repeat report hero on every printed page using table-header-group trick */
+    /* Print layout: A4 portrait — compact sizes to fit ~190mm wide without squeezing */
     @media print{
       .no-print{display:none!important}
-      body{background:white;padding:0;font-size:11px}
+      body{background:white;padding:0;font-size:10px}
       .toolbar{display:none}
       #report-root{max-width:none!important;margin:0!important;color:#0F1419!important;display:table;width:100%}
-      .report-hero{display:table-header-group}
+      .report-hero{display:table-header-group;padding:10px 14px!important;margin-bottom:8px!important}
       .report-hero > *{display:block}
+      .report-hero h1{font-size:16px!important}
+      .report-hero img{width:42px!important;height:42px!important}
       .report-body{display:table-row-group}
       *,section,div,h1,h2,h3,th,td{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-      section{page-break-inside:avoid;break-inside:avoid}
+      section{page-break-inside:avoid;break-inside:avoid;padding:10px 14px!important;margin-bottom:8px!important}
       tr{page-break-inside:avoid;break-inside:avoid}
       thead{display:table-header-group}
-      table{font-size:10.5px}
-      th{padding:6px 8px!important}
-      td{padding:6px 8px!important}
+      table{font-size:9.5px}
+      th{padding:5px 6px!important;font-size:9px!important}
+      td{padding:5px 6px!important;font-size:10px!important}
+      /* KPI strip: smaller numbers + tighter padding */
+      .report-body > div:first-child > div{padding:8px 10px!important}
+      .report-body > div:first-child > div > div:nth-child(2){font-size:18px!important;margin-top:2px!important}
+      .report-body > div:first-child > div > div:first-child{font-size:8.5px!important}
+      /* Donut chart smaller in print */
+      svg[viewBox="0 0 180 180"]{width:130px!important;height:130px!important}
     }
   </style>`;
   const titles = {summary:'รายงานสรุปสาขา',employees:'รายงานรายชื่อพนักงาน',trainings:'รายงานการสอนงาน',evaluations:'รายงานผลการประเมิน'};
   const toolbar = `<div class="toolbar no-print">
-    <span class="tbtn-hint">💡 ปุ่ม "บันทึก PDF" → เลือก "Save as PDF" ในหน้าต่างที่เปิด</span>
     <button class="tbtn" onclick="window.close()">✕ ปิด</button>
-    <button class="tbtn" onclick="window.print()">📥 บันทึก PDF</button>
+    <button class="tbtn" onclick="showPdfGuide()">📥 บันทึก PDF</button>
     <button class="tbtn primary" onclick="window.print()">🖨 พิมพ์</button>
-  </div>`;
+  </div>
+  <div id="pdf-guide" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:14px;max-width:520px;width:100%;padding:28px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-family:'Sarabun',sans-serif">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <span style="font-size:28px">📥</span>
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#0F1419">วิธีบันทึกเป็น PDF</div>
+          <div style="font-size:12.5px;color:#6B7280">ทำตาม 3 ขั้นตอนในหน้าต่างพิมพ์ที่จะเปิดขึ้น</div>
+        </div>
+      </div>
+      <ol style="margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+        <li style="display:flex;gap:12px;align-items:flex-start"><span style="background:#F0701A;color:white;font-weight:800;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">1</span><div><b>คลิกที่ช่อง "ปลายทาง"</b> (Destination) ด้านขวา</div></li>
+        <li style="display:flex;gap:12px;align-items:flex-start"><span style="background:#F0701A;color:white;font-weight:800;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">2</span><div>เลือก <b style="color:#F0701A">"บันทึกเป็น PDF"</b> / <b style="color:#F0701A">"Save as PDF"</b></div></li>
+        <li style="display:flex;gap:12px;align-items:flex-start"><span style="background:#F0701A;color:white;font-weight:800;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">3</span><div>กดปุ่ม <b>"บันทึก"</b> → ได้ไฟล์ PDF ภาษาไทยถูกต้อง</div></li>
+      </ol>
+      <div style="margin-top:18px;padding:10px 14px;background:#FEF3E7;border:1px solid #FBE0CC;border-radius:8px;font-size:12px;color:#9A4A0E">
+        💡 ใช้วิธีนี้เพราะไลบรารี PDF ในเบราว์เซอร์ทุกตัวยังแสดงสระ/วรรณยุกต์ไทยเพี้ยน — print ของเบราว์เซอร์เท่านั้นที่แสดงไทยถูกต้อง 100%
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+        <button onclick="document.getElementById('pdf-guide').style.display='none'" style="padding:9px 18px;border:1px solid #E5E7EB;background:white;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px">ยกเลิก</button>
+        <button onclick="document.getElementById('pdf-guide').style.display='none';setTimeout(window.print,200)" style="padding:9px 18px;border:none;background:#F0701A;color:white;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">เริ่ม → เปิดหน้าต่างพิมพ์</button>
+      </div>
+    </div>
+  </div>
+  <script>function showPdfGuide(){document.getElementById('pdf-guide').style.display='flex';}<\/script>`;
   let html='';
   let excelData = null;
   if(type==='summary'){
