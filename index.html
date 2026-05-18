@@ -6464,23 +6464,21 @@ function _renderReportPicker(reports) {
   return `
   <style>
     .rp-wrap{display:grid;gap:14px;margin-top:6px}
-    .rp-range{background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-    .rp-range-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;background:#FAFAFA;border-bottom:1px solid var(--border);flex-wrap:wrap}
-    .rp-range-head-left{display:flex;align-items:center;gap:10px}
-    .rp-range-icon{font-size:18px;line-height:1}
-    .rp-range-title{font-size:13px;font-weight:800;color:var(--text);letter-spacing:.2px}
-    .rp-range-sub{font-size:11px;color:var(--text3);margin-left:8px}
-    .rp-quick{display:flex;gap:4px;flex-wrap:wrap}
-    .rp-quick-btn{padding:5px 12px;border:1px solid var(--border);background:white;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .12s;font-family:inherit}
-    .rp-quick-btn:hover{background:#F0701A;color:white;border-color:#F0701A}
-    .rp-quick-btn.active{background:#F0701A;color:white;border-color:#F0701A}
-    .rp-range-body{display:flex;gap:18px;padding:16px 18px;align-items:center;flex-wrap:wrap}
-    .rp-date{display:flex;align-items:center;gap:8px}
-    .rp-date label{font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap}
-    .rp-date input{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12.5px;background:white;color:var(--text);width:150px}
-    .rp-date input:focus{outline:none;border-color:#F0701A;box-shadow:0 0 0 3px rgba(240,112,26,0.12)}
-    .rp-date-arrow{color:var(--text3);font-size:14px}
-    .rp-hint{font-size:11px;color:var(--text3);background:#F9FAFB;padding:8px 18px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:6px}
+    .rp-range{background:white;border:1px solid var(--border);border-radius:14px;padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+    .rp-range-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .rp-range-title{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--text);padding:0 6px 0 0;border-right:1px solid var(--border);margin-right:6px;line-height:1.4}
+    .rp-range-title::before{content:'📅';font-size:16px}
+    .rp-range-pills{display:flex;align-items:center;gap:6px;background:#F3F4F6;border-radius:999px;padding:4px 6px}
+    .rp-pill{display:flex;align-items:center;gap:6px;background:white;border:1px solid var(--border);border-radius:999px;padding:4px 10px 4px 12px;font-size:12px;color:var(--text);transition:all .15s}
+    .rp-pill:focus-within{border-color:#F0701A;box-shadow:0 0 0 3px rgba(240,112,26,0.15)}
+    .rp-pill-label{font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+    .rp-pill input{border:none;background:transparent;padding:0;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);outline:none;width:130px}
+    .rp-pill-arrow{color:var(--text3);font-size:14px;margin:0 2px}
+    .rp-quick{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+    .rp-quick-btn{padding:6px 14px;border:1px solid var(--border);background:white;border-radius:999px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;transition:all .12s;font-family:inherit}
+    .rp-quick-btn:hover{background:#FFF1E6;color:#F0701A;border-color:#F0701A}
+    .rp-quick-btn.active{background:#F0701A;color:white;border-color:#F0701A;box-shadow:0 4px 12px rgba(240,112,26,0.25)}
+    .rp-hint{font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:6px;padding-top:8px;border-top:1px dashed var(--border)}
     .rp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
     .rp-card{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;transition:all .15s;cursor:pointer;position:relative;overflow:hidden}
     .rp-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.07);border-color:transparent}
@@ -6494,29 +6492,23 @@ function _renderReportPicker(reports) {
   </style>
   <div class="rp-wrap">
     <div class="rp-range">
-      <div class="rp-range-head">
-        <div class="rp-range-head-left">
-          <span class="rp-range-icon">📅</span>
-          <span class="rp-range-title">ช่วงข้อมูล</span>
-          <span class="rp-range-sub">เลือกช่วงเวลาสำหรับการดึงรายงาน</span>
-        </div>
-      </div>
-      <div class="rp-range-body">
-        <div class="rp-date">
-          <label>จาก</label>
+      <div class="rp-range-row">
+        <span class="rp-range-title">ช่วงข้อมูล</span>
+        <div class="rp-pill">
+          <span class="rp-pill-label">จาก</span>
           <input type="date" id="r-from" value="${iso(ago30)}">
         </div>
-        <span class="rp-date-arrow">→</span>
-        <div class="rp-date">
-          <label>ถึง</label>
+        <span class="rp-pill-arrow">→</span>
+        <div class="rp-pill">
+          <span class="rp-pill-label">ถึง</span>
           <input type="date" id="r-to" value="${iso(today)}">
         </div>
         <div class="rp-quick">
-          <button class="rp-quick-btn" onclick="setReportRange(7)">7 วัน</button>
-          <button class="rp-quick-btn" onclick="setReportRange(30)">30 วัน</button>
-          <button class="rp-quick-btn" onclick="setReportRange(90)">90 วัน</button>
-          <button class="rp-quick-btn" onclick="setReportRange('year')">ปีนี้</button>
-          <button class="rp-quick-btn" onclick="setReportRange('all')">ทั้งหมด</button>
+          <button class="rp-quick-btn" data-range="7" onclick="setReportRange(7,this)">7 วัน</button>
+          <button class="rp-quick-btn active" data-range="30" onclick="setReportRange(30,this)">30 วัน</button>
+          <button class="rp-quick-btn" data-range="90" onclick="setReportRange(90,this)">90 วัน</button>
+          <button class="rp-quick-btn" data-range="year" onclick="setReportRange('year',this)">ปีนี้</button>
+          <button class="rp-quick-btn" data-range="all" onclick="setReportRange('all',this)">ทั้งหมด</button>
         </div>
       </div>
       <div class="rp-hint">💡 รายชื่อพนักงานแสดงครบทุกคน — กรองเฉพาะการสอน/ประเมินตามช่วงเวลาที่เลือก</div>
@@ -6540,10 +6532,11 @@ function _renderReportPicker(reports) {
   </div>`;
 }
 
-function setReportRange(spec) {
+function setReportRange(spec, btn) {
   const from = document.getElementById('r-from');
   const to = document.getElementById('r-to');
   if (!from || !to) return;
+  if (btn) document.querySelectorAll('.rp-quick-btn').forEach(b => b.classList.toggle('active', b === btn));
   const today = new Date();
   const iso = (d) => d.toISOString().slice(0,10);
   if (spec === 'all') { from.value = ''; to.value = ''; return; }
