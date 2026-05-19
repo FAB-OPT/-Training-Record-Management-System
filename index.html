@@ -4718,24 +4718,50 @@ function showDayTrainingModal(bid, date) {
   const lbl = d+' '+TH_MONTH_NAMES[parseInt(m)-1]+' '+(parseInt(y)+543);
   const ts = getBranchTrainings(bid).filter(t=>t.date&&t.date.slice(0,10)===date);
   if(!ts.length){showModal(lbl,'<p class="text-muted" style="text-align:center;padding:24px 0">ไม่มีบันทึกการสอนวันนี้</p>',null,'ปิด');return;}
-  showModal(lbl+' — '+ts.length+' ครั้ง', `
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${ts.map(t=>{
-        const mod=MODULES[t.moduleId];
-        const badge=t.eval?`<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`:isEvalDeadlinePassed(t.date)?'<span class="badge badge-gray">หมดเวลา</span>':'<span class="badge badge-yellow">รอประเมิน</span>';
-        return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:700;color:var(--primary)">${mod?.name||t.moduleId}</span>
-            ${badge}
-          </div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">ผู้สอน: ${t.trainerName}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-            ${(t.subtopics||[]).map(s=>`<span style="font-size:11px;background:var(--surface2);padding:2px 8px;border-radius:10px">${s}</span>`).join('')}
-          </div>
-          <div style="font-size:11px;color:var(--text3)">พนักงาน: ${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?e.name:'?';}).join(', ')}</div>
-        </div>`;
-      }).join('')}
-    </div>`, null, 'ปิด');
+  const isAdmin = bid === 'ALL';
+  // Group by branch for admin
+  const cards = ts.map(t => {
+    const mod = MODULES[t.moduleId];
+    const br = BRANCH_MASTER[t.branchId];
+    const brName = br ? br.name.replace(t.branchId+' ','') : '—';
+    let statusHtml;
+    if (t.eval) {
+      const passed = isEvalPass(t.eval.result);
+      statusHtml = `<span style="font-size:13px;font-weight:700;color:${passed?'#16A34A':'#DC2626'};background:${passed?'#DCFCE7':'#FEE2E2'};padding:4px 12px;border-radius:999px;white-space:nowrap">${getEvalResultLabel(t.eval.result)}</span>`;
+    } else if (isEvalDeadlinePassed(t.date)) {
+      statusHtml = `<span style="font-size:13px;font-weight:700;color:#DC2626;background:#FEE2E2;padding:4px 12px;border-radius:999px;white-space:nowrap">หมดเวลาการประเมิน</span>`;
+    } else {
+      statusHtml = `<span style="font-size:13px;font-weight:700;color:#D97706;background:#FEF3C7;padding:4px 12px;border-radius:999px;white-space:nowrap">รอประเมิน</span>`;
+    }
+    const branchTag = isAdmin ? `<div style="margin-bottom:8px;font-size:14px;color:var(--accent);font-weight:700"><span style="font-weight:800">${t.branchId}</span> ${brName}</div>` : '';
+    const subs = (t.subtopics||[]).join(', ');
+    const names = (t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?e.name:'?';}).join(', ');
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <div style="flex:1;min-width:0">
+          ${branchTag}
+          <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.3">${mod?.name||t.moduleId}</div>
+          ${subs ? `<div style="font-size:13px;color:var(--text2);margin-top:4px;line-height:1.4">${subs}</div>` : ''}
+        </div>
+        ${statusHtml}
+      </div>
+      <div style="font-size:13px;color:var(--text3);border-top:1px dashed var(--border);padding-top:10px;line-height:1.6">
+        ผู้สอน: <b style="color:var(--text)">${t.trainerName||'—'}</b>
+        <span style="color:var(--border);margin:0 8px">·</span>
+        พนักงาน: <b style="color:var(--text)">${names}</b>
+      </div>
+    </div>`;
+  }).join('');
+  const headerExtra = isAdmin ? `<div style="font-size:13px;color:var(--text3);margin-top:4px">บันทึกจาก <b style="color:var(--text)">${new Set(ts.map(t=>t.branchId)).size}</b> สาขา</div>` : '';
+  showModal(`📅 ${lbl}`, `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--text)">รวม ${ts.length} ครั้ง</div>
+        ${headerExtra}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+  `, null, 'ปิด');
 }
 
 const TH_MONTH_NAMES = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -6559,6 +6585,7 @@ function _renderReportPicker(reports) {
     summary:    { icon:'📊', color:'#F0701A' },
     employees:  { icon:'👥', color:'#2563EB' },
     trainings:  { icon:'📋', color:'#16A34A' },
+    individual: { icon:'👤', color:'#7C3AED' },
   };
   return `
   <style>
@@ -6649,6 +6676,7 @@ function renderReports() {
     ['สรุปสาขา','สรุปภาพรวมการสอนงานและประเมินผลของสาขา','summary'],
     ['รายชื่อพนักงาน','รายชื่อและข้อมูลพนักงานทั้งหมด','employees'],
     ['ประวัติการสอนและผลการประเมิน','บันทึกการสอนงานพร้อมผลการประเมินทั้งหมด','trainings'],
+    ['รายบุคคล','ประวัติการสอนงาน + ผลประเมิน + อบรมหลักสูตร ของพนักงานคนเดียว','individual'],
   ])}`;
 }
 
@@ -7029,6 +7057,10 @@ function exportReport(type) {
   <script>function showPdfGuide(){document.getElementById('pdf-guide').style.display='flex';}<\/script>`;
   let html='';
   let excelData = null;
+  if (type === 'individual') {
+    openIndividualEmpPicker(bid, branchLabel, branchManager, emps, trains, now, dateRangeLabel);
+    return;
+  }
   if(type==='summary'){
     html = _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains, now, dateRangeLabel);
     excelData = _buildBranchSummaryExcel(bid, branchLabel, branchManager, emps, trains, now, dateRangeLabel);
@@ -7364,6 +7396,245 @@ function _buildTrainingsExcel(bid, branchLabel, trains) {
     ];
   });
   return [{ sheet:'การสอน+ประเมิน', rows: [...head, tableHead, ...rows] }];
+}
+
+// ==================== Individual Employee Report ====================
+function openIndividualEmpPicker(bid, branchLabel, branchManager, emps, trains, now, dateRangeLabel) {
+  const list = emps.slice().filter(_isEmpEnabled).sort((a,b) => (a.name||'').localeCompare(b.name||'','th'));
+  const branchOpts = bid === 'ALL'
+    ? '<option value="ALL">— ทุกสาขา —</option>' + Object.keys(BRANCH_MASTER).sort().map(id => `<option value="${id}">${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('')
+    : '';
+  const renderEmpRows = (list) => list.length ? list.map(e => {
+    const br = e.branchId ? (BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','') || e.branchId) : '';
+    const branchTag = bid === 'ALL' ? `<div style="font-size:11.5px;color:var(--accent);font-weight:700;margin-top:2px">${e.branchId} ${br}</div>` : '';
+    return `<div class="ind-emp-row" onclick="_pickEmpForReport('${e.id}','${dateRangeLabel.replace(/'/g,"\\'")}','${(now||'').replace(/'/g,"\\'")}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${e.name}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${e.position||'—'} <span style="color:var(--text3);font-family:monospace;margin-left:6px">${e.empCode||''}</span></div>
+        ${branchTag}
+      </div>
+      <div style="color:var(--text3);font-size:18px">›</div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;color:var(--text3);padding:30px">ไม่พบพนักงาน</div>';
+
+  showModal('👤 เลือกพนักงาน', `
+    <style>
+      .ind-emp-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; cursor:pointer; margin-bottom:6px; transition:all .12s }
+      .ind-emp-row:hover { border-color:var(--accent); background:var(--accent-light) }
+    </style>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      ${bid === 'ALL' ? `<select class="form-select" id="ind-branch" onchange="_filterIndEmps()" style="width:200px">${branchOpts}</select>` : ''}
+      <input class="search-input" id="ind-search" placeholder="🔍 ค้นชื่อ / รหัส / ตำแหน่ง..." oninput="_filterIndEmps()" style="flex:1;min-width:200px">
+    </div>
+    <div id="ind-emp-list" style="max-height:480px;overflow-y:auto">${renderEmpRows(list)}</div>
+  `, null, 'ยกเลิก');
+  // Store data for filter
+  window._indReportCtx = { bid, branchLabel, branchManager, allEmps: emps.slice(), now, dateRangeLabel };
+}
+
+function _filterIndEmps() {
+  const ctx = window._indReportCtx; if (!ctx) return;
+  const q = (document.getElementById('ind-search')?.value||'').toLowerCase();
+  const brFilter = document.getElementById('ind-branch')?.value || '';
+  let list = ctx.allEmps.filter(_isEmpEnabled);
+  if (brFilter && brFilter !== 'ALL') list = list.filter(e => e.branchId === brFilter);
+  if (q) list = list.filter(e => (e.name||'').toLowerCase().includes(q) || (e.empCode||'').toLowerCase().includes(q) || (e.position||'').toLowerCase().includes(q));
+  list = list.sort((a,b) => (a.name||'').localeCompare(b.name||'','th'));
+  const el = document.getElementById('ind-emp-list'); if (!el) return;
+  el.innerHTML = list.length ? list.map(e => {
+    const br = e.branchId ? (BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','') || e.branchId) : '';
+    const branchTag = ctx.bid === 'ALL' ? `<div style="font-size:11.5px;color:var(--accent);font-weight:700;margin-top:2px">${e.branchId} ${br}</div>` : '';
+    return `<div class="ind-emp-row" onclick="_pickEmpForReport('${e.id}','${ctx.dateRangeLabel.replace(/'/g,"\\'")}','${(ctx.now||'').replace(/'/g,"\\'")}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${e.name}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${e.position||'—'} <span style="color:var(--text3);font-family:monospace;margin-left:6px">${e.empCode||''}</span></div>
+        ${branchTag}
+      </div>
+      <div style="color:var(--text3);font-size:18px">›</div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;color:var(--text3);padding:30px">ไม่พบพนักงาน</div>';
+}
+
+function _pickEmpForReport(empId, dateRangeLabel, now) {
+  const ctx = window._indReportCtx; if (!ctx) return;
+  const emp = ctx.allEmps.find(e => e.id === empId);
+  if (!emp) { notify('ไม่พบพนักงาน','error'); return; }
+  closeModal();
+  // Build report and open in new window using exportReport's print/PDF flow
+  const html = _buildIndividualReport(emp, now, dateRangeLabel);
+  _openReportWindow(html, `รายงานพนักงาน - ${emp.name}`);
+}
+
+function _openReportWindow(html, title) {
+  const T = REPORT_THEME;
+  const style = `<style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Prompt:wght@400;500;600;700&display=swap');
+    @page { size: A4 portrait; margin: 10mm; }
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table{width:100%;border-collapse:collapse;margin-top:0;border-radius:6px;overflow:hidden}
+    th{background:#F3F4F6;color:#374151;padding:9px 12px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid #E5E7EB}
+    td{padding:9px 12px;border-bottom:1px solid #F3F4F6;font-size:12.5px;color:#1F2937}
+    tbody tr:hover td{background:#FAFAFA}
+    tbody tr:last-child td{border-bottom:none}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;align-items:center;z-index:10;margin:-18px -18px 14px;flex-wrap:wrap}
+    .tbtn-hint{font-size:11.5px;color:#6B7280;font-weight:500;margin-right:auto}
+    .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif;display:inline-flex;align-items:center;gap:6px}
+    .tbtn:hover{background:#F5F5F5}
+    .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
+    .tbtn.primary:hover{background:#C8530C}
+    *{box-sizing:border-box}
+    @media print{
+      .no-print{display:none!important}
+      body{background:white;padding:0;font-size:10px}
+      .toolbar{display:none}
+      #report-root{max-width:none!important;margin:0!important;color:#0F1419!important;display:table;width:100%}
+      .report-hero{display:table-header-group;padding:10px 14px!important;margin-bottom:8px!important}
+      .report-hero h1{font-size:16px!important}
+      .report-hero img{width:42px!important;height:42px!important}
+      .report-body{display:table-row-group}
+      *,section,div,h1,h2,h3,th,td{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+      section{page-break-inside:avoid;break-inside:avoid;padding:10px 14px!important;margin-bottom:8px!important}
+      tr{page-break-inside:avoid;break-inside:avoid}
+      thead{display:table-header-group}
+      table{font-size:9.5px}
+      th{padding:5px 6px!important;font-size:9px!important}
+      td{padding:5px 6px!important;font-size:10px!important}
+    }
+  </style>`;
+  const toolbar = `<div class="toolbar no-print">
+    <span class="tbtn-hint">💡 ปุ่ม "บันทึก PDF" → เลือก "Save as PDF" ในหน้าต่างที่เปิด</span>
+    <button class="tbtn" onclick="window.close()">✕ ปิด</button>
+    <button class="tbtn" onclick="window.print()">📥 บันทึก PDF</button>
+    <button class="tbtn primary" onclick="window.print()">🖨 พิมพ์</button>
+  </div>`;
+  const win = window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.close();
+}
+
+function _buildIndividualReport(emp, now, dateRangeLabel) {
+  const T = REPORT_THEME;
+  const bid = emp.branchId;
+  const branch = BRANCH_MASTER[bid];
+  const branchLabel = branch ? `${bid} ${branch.name.replace(bid+' ','')}` : (bid||'—');
+  const branchManager = branch?.manager || '';
+  // Trainings where this employee is a trainee
+  const allTrains = DB.trainings.filter(t => (t.traineeIds||[]).includes(emp.id));
+  let trains = allTrains.slice();
+  // Apply date range filter from picker (re-derive bounds)
+  // dateRangeLabel format we generated: "${fromFmt} – ${toFmt}" but we don't have the raw ISO here.
+  // Just use all trainings — date filter already applied at exportReport level for trains; but here we use DB directly.
+  // For individual report we'll show all of the employee's data (lifetime) — clearer for HR.
+  trains = allTrains.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  const ev = trains.filter(t => t.eval);
+  const ps = ev.filter(t => isEvalPass(t.eval.result));
+  const passRate = ev.length ? Math.round(ps.length/ev.length*100) : 0;
+  const pending = trains.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).length;
+  const expired = trains.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
+
+  // Course history (external courses) for this employee
+  const courses = (DB.courseHistory||[]).filter(c => c.empId === emp.id || (c.empCode && c.empCode === emp.empCode)).slice()
+    .sort((a,b) => (b.courseDate||'').localeCompare(a.courseDate||''));
+
+  // Quiz results
+  const quizes = (DB.quizResults||[]).filter(q => {
+    const tr = DB.trainings.find(t => t.id === q.trainingId);
+    return tr && (tr.traineeIds||[]).includes(emp.id);
+  }).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  const subtitle = `${emp.position || '—'}${branchLabel ? ' · ' + branchLabel : ''}`;
+  // Custom hero with employee meta block
+  const customHero = `<div class="report-hero" style="background:white;border:1px solid ${T.BORDER};border-left:5px solid ${T.ORANGE};border-radius:10px;padding:18px 22px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <img src="${LOGO_DATA_URL}" alt="Santa Fe" style="width:62px;height:62px;object-fit:contain;flex-shrink:0;border-radius:50%;border:2px solid ${T.BORDER}">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:11px;letter-spacing:.4px;color:${T.ORANGE};text-transform:uppercase;font-weight:700;font-family:'Sarabun',sans-serif">Operations Training · รายงานพนักงาน</div>
+          <h1 style="font-size:22px;margin:0;font-weight:800;letter-spacing:-.3px;line-height:1;color:${T.BLACK}">👤 ${emp.name}</h1>
+          <div style="font-size:13px;color:${T.INK};font-weight:600">${subtitle}${branchManager?` <span style="color:${T.LIGHT}">·</span> <span style="color:${T.GREY};font-weight:500">BZM: ${branchManager}</span>`:''}</div>
+          <div style="font-size:12.5px;color:${T.GREY}">
+            รหัสพนักงาน: <b style="color:${T.INK}">${emp.empCode||'—'}</b> ·
+            เริ่มงาน: <b style="color:${T.INK}">${fmtDate(emp.startDate)}</b> ·
+            อายุงาน: <b style="color:${T.INK}">${calcTenure(emp.startDate)}</b>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:right;font-size:11px;line-height:1.5;color:${T.GREY}">
+        ${dateRangeLabel?`<div style="color:${T.LIGHT};font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600">ช่วงข้อมูล</div>
+        <div style="font-weight:700;color:${T.INK};font-size:12.5px;margin-bottom:6px">${dateRangeLabel}</div>`:''}
+        <div style="color:${T.LIGHT};font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600">ออกรายงาน</div>
+        <div style="font-weight:600;color:${T.INK};font-size:12.5px">${now}</div>
+      </div>
+    </div>
+  </div>`;
+
+  const trainRows = trains.length ? trains.map(t => {
+    const mod = MODULES[t.moduleId];
+    let resultCell;
+    if (t.eval) {
+      const passed = isEvalPass(t.eval.result);
+      resultCell = `<div style="color:${passed?T.GREEN:T.RED};font-weight:700;font-size:12px">${getEvalResultLabel(t.eval.result)}</div>
+        <div style="font-size:10.5px;color:${T.GREY};margin-top:2px">${fmtDate(t.eval.evalDate||t.date)} · ${t.eval.method||'—'}</div>`;
+    } else if (isEvalDeadlinePassed(t.date)) {
+      resultCell = `<div style="color:${T.RED};font-weight:700;font-size:12px">หมดเวลาการประเมิน</div>`;
+    } else {
+      resultCell = `<div style="color:${T.YELLOW};font-weight:700;font-size:12px">รอประเมิน</div>`;
+    }
+    return `<tr>
+      <td style="white-space:nowrap;font-size:11.5px">${fmtDate(t.date)}</td>
+      <td><div style="font-weight:700">${mod?.name||t.moduleId}</div>${t.subtopics?.length ? `<div style="font-size:10.5px;color:${T.GREY};margin-top:2px">${t.subtopics.join(', ')}</div>` : ''}</td>
+      <td style="font-size:11.5px">${t.trainerName||'—'}</td>
+      <td>${resultCell}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" style="text-align:center;color:#8A96A3;padding:20px">ยังไม่มีบันทึกการสอน</td></tr>`;
+
+  const courseRows = courses.length ? courses.map(c => `<tr>
+    <td style="white-space:nowrap;font-size:11.5px">${fmtDate(c.courseDate)}</td>
+    <td style="font-weight:700">${c.courseName||'—'}</td>
+    <td style="text-align:center"><span style="background:${T.BLUE}15;color:${T.BLUE};padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700">รุ่น ${c.batchNo||'—'}</span></td>
+  </tr>`).join('') : `<tr><td colspan="3" style="text-align:center;color:#8A96A3;padding:20px">ยังไม่มีประวัติการอบรมหลักสูตร</td></tr>`;
+
+  const quizRows = quizes.length ? quizes.map(q => {
+    const tr = DB.trainings.find(t => t.id === q.trainingId);
+    const modName = tr ? (MODULES[tr.moduleId]?.name || tr.moduleId) : '—';
+    const pct = q.pct ?? (q.answers && q.answers.pct) ?? (q.total ? Math.round(q.score/q.total*100) : 0);
+    const passed = pct >= 80;
+    return `<tr>
+      <td style="white-space:nowrap;font-size:11.5px">${fmtDate(q.date || (q.answers && q.answers.date))}</td>
+      <td style="font-weight:700">${modName}</td>
+      <td style="text-align:center;font-weight:700;color:${T.INK}">${q.score}/${q.total}</td>
+      <td style="text-align:center;font-weight:800;color:${passed?T.GREEN:T.RED}">${pct}%</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" style="text-align:center;color:#8A96A3;padding:20px">ยังไม่มีผลแบบทดสอบ</td></tr>`;
+
+  return _buildReportShell(
+    customHero,
+    _buildReportKpiStrip([
+        ['การสอนทั้งหมด', trains.length, '', T.ORANGE],
+        ['ประเมินแล้ว', ev.length, '', T.BLACK],
+        ['ผ่าน', ps.length, '', T.GREEN],
+        ['อัตราผ่าน', passRate+'%', '', passRate>=80?T.GREEN:passRate>=60?T.YELLOW:T.RED],
+        ['รอประเมิน', pending, '', T.YELLOW],
+        ['หมดเวลาการประเมิน', expired, '', T.RED],
+      ])
+    + _buildReportSection('📋 ประวัติการสอนงาน',
+        `<table>
+          <thead><tr><th>วันที่สอน</th><th>Module / หัวข้อย่อย</th><th>ผู้สอน</th><th>ผลการประเมิน</th></tr></thead>
+          <tbody>${trainRows}</tbody>
+        </table>`)
+    + _buildReportSection('📝 ผลแบบทดสอบ',
+        `<table>
+          <thead><tr><th>วันที่ทำ</th><th>Module</th><th style="text-align:center">คะแนน</th><th style="text-align:center">%</th></tr></thead>
+          <tbody>${quizRows}</tbody>
+        </table>`)
+    + _buildReportSection('🎓 หลักสูตรการอบรม',
+        `<table>
+          <thead><tr><th>วันที่อบรม</th><th>ชื่อหลักสูตร</th><th style="text-align:center">รุ่น</th></tr></thead>
+          <tbody>${courseRows}</tbody>
+        </table>`)
+    + _buildReportFooter(now)
+  );
 }
 
 function _buildEvaluationsReport(bid, branchLabel, branchManager, trains, now, dateRangeLabel) {
@@ -9122,6 +9393,7 @@ function renderAdminReports() {
     ['สรุปทั้งระบบ','ภาพรวมการสอนงานทุกสาขา','summary'],
     ['รายชื่อพนักงานทุกสาขา','รายชื่อพนักงานทั้งหมดในระบบ','employees'],
     ['ประวัติการสอนและผลการประเมินทุกสาขา','บันทึกการสอนงานพร้อมผลการประเมินทั้งระบบ','trainings'],
+    ['รายบุคคล','ประวัติการสอนงาน + ผลประเมิน + อบรมหลักสูตร ของพนักงานคนเดียว','individual'],
   ])}`;
 }
 
