@@ -9962,16 +9962,11 @@ function showBlockModal(dup) {
         พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้<br>
         ตรงกับข้อมูลที่กำลังเพิ่ม
       </div>
-      <div style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:left;margin-top:4px">
-        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--border)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:800;color:var(--text)">${dup.name}</div>
-            <div style="font-size:11.5px;color:var(--text3);font-family:monospace;margin-top:2px">${dup.empCode||'—'}</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:12.5px;color:var(--text2)">
-          <div style="font-weight:700;color:var(--text3)">เหตุผล:</div><div>${reason}</div>
-          <div style="font-weight:700;color:var(--text3)">วันที่ปิด:</div><div>${dateLine}</div>
+      <div style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:4px;text-align:center">
+        <div style="font-size:15px;font-weight:800;color:var(--text);padding-bottom:10px;border-bottom:1px dashed var(--border);margin-bottom:10px">${dup.name}</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">
+          <div><span style="font-weight:700;color:var(--text3)">เหตุผล:</span> ${reason}</div>
+          <div><span style="font-weight:700;color:var(--text3)">วันที่ปิด:</span> ${dateLine}</div>
         </div>
       </div>
       <div style="font-size:12.5px;color:var(--text2);background:var(--accent-light);border:1px solid rgba(240,112,26,.25);border-radius:8px;padding:10px 14px;width:100%;text-align:center;margin-top:4px">
