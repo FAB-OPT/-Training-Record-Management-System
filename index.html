@@ -5143,11 +5143,15 @@ function openAddEmployee() {
     const bid = getBranchId();
     if(!DB.employees[bid]) DB.employees[bid]=[];
     // Check for duplicate name OR emp code with a disabled employee in this branch
-    const nameNorm = name.toLowerCase().replace(/\s+/g,'');
+    // Normalize: lowercase, strip whitespace, strip Thai/EN titles (นาย, นางสาว, นาง, น.ส., ด.ช., ด.ญ., Mr., Mrs., Ms.)
+    const stripTitle = (s) => (s||'').toLowerCase()
+      .replace(/^(นาย|นางสาว|นาง|น\.?\s*ส\.?|ด\.?\s*ช\.?|ด\.?\s*ญ\.?|mr\.?|mrs\.?|ms\.?|miss)\s*/i, '')
+      .replace(/\s+/g,'');
+    const nameNorm = stripTitle(name);
     const codeNorm = empCode.toLowerCase().replace(/\s+/g,'');
     const dup = DB.employees[bid].find(x => {
       if (_isEmpEnabled(x)) return false;
-      const xName = (x.name||'').toLowerCase().replace(/\s+/g,'');
+      const xName = stripTitle(x.name);
       const xCode = (x.empCode||'').toLowerCase().replace(/\s+/g,'');
       return xName === nameNorm || (codeNorm && xCode === codeNorm);
     });
@@ -8833,12 +8837,6 @@ function adminViewBranch(bid) {
       <tbody>${emps.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>':emps.map(e=>`<tr><td>${e.name}</td><td>${e.position}</td><td>${_empStatusBadge(e)}</td><td style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td></tr>`).join('')}
       </tbody>
     </table></div>
-    ${trains.length>0?`<div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 10px">
-      <div class="card-title">ประวัติการสอน (${trains.length})</div>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Module</th><th>วันที่</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-    <tbody>${trains.slice().reverse().map(t=>`<tr><td>${MODULES[t.moduleId]?.name}</td><td style="font-size:12px">${fmtDateTime(t.date)}</td><td>${t.eval?`<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result)}</span>`:isEvalDeadlinePassed(t.date)?'<span class="badge badge-gray">หมดเวลา</span>':'<span class="badge badge-yellow">รอประเมิน</span>'}</td><td><button class="btn btn-sm btn-danger" onclick="confirmDeleteTraining('${t.id}','${bid}')">ลบ</button></td></tr>`).join('')}</tbody>
-    </table></div>`:''}
   `, null, 'ปิด');
 }
 
