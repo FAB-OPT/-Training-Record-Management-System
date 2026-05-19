@@ -9493,9 +9493,7 @@ function openAiQuizModal(mid) {
           <div class="aq-summary-text">สร้างได้ <b>${generated.length}</b> ข้อ — เลือกที่ต้องการบันทึก แล้วกด <b>"บันทึกที่เลือก"</b></div>
         </div>
         <div class="aq-toolbar">
-          <button class="btn btn-sm btn-outline" onclick="document.querySelectorAll('[id^=ai-q-]').forEach(c=>{c.checked=true;c.closest('.aq-card')?.classList.add('checked')});_updateAqCounter()">✓ เลือกทั้งหมด</button>
-          <button class="btn btn-sm btn-outline" onclick="document.querySelectorAll('[id^=ai-q-]').forEach(c=>{c.checked=false;c.closest('.aq-card')?.classList.remove('checked')});_updateAqCounter()">✗ ยกเลิกทั้งหมด</button>
-          <div class="aq-counter">เลือกแล้ว <b id="aq-selected-count">${generated.length}</b> / ${generated.length}</div>
+          <div class="aq-counter" style="margin-left:0">เลือกแล้ว <b id="aq-selected-count">${generated.length}</b> / ${generated.length}</div>
         </div>
         ${generated.map((q,i)=>`
           <label class="aq-card checked" onclick="setTimeout(_updateAqCounter,0);this.classList.toggle('checked',document.getElementById('ai-q-${i}').checked)">
