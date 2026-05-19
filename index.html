@@ -1578,130 +1578,112 @@
     .manual-card { margin: 0 -12px; border-radius: 0 !important; border-left: none; border-right: none; }
     .manual-frame { padding-top: 0 !important; height: calc(100vh - 200px); min-height: 480px; border-radius: 0 !important; }
 
-    /* ===== Team Management (จัดการสาขา & พนักงาน) — mobile ===== */
-    /* Toolbar: search full-width, stats compact */
-    .mgr-toolbar { gap: 6px !important; margin-bottom: 12px !important }
+    /* ===== Team Management (จัดการสาขา & พนักงาน) — minimal iOS list ===== */
+    /* Toolbar */
+    .mgr-toolbar { gap: 6px !important; margin-bottom: 10px !important }
     .mgr-toolbar .search-input { width: 100% !important; max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; font-size: 13px !important; padding: 8px 12px !important }
-    .mgr-toolbar .mgr-back { width: auto !important; padding: 6px 10px !important; font-size: 12px !important }
-    .mgr-toolbar .mgr-stat { padding: 4px 10px !important; font-size: 11.5px !important }
-    .mgr-toolbar .mgr-stat b { font-size: 12.5px !important }
+    .mgr-toolbar .mgr-back { width: auto !important; padding: 5px 10px !important; font-size: 12px !important }
+    .mgr-toolbar .mgr-stat { padding: 3px 9px !important; font-size: 11px !important; background: transparent !important; color: var(--text3) !important }
+    .mgr-toolbar .mgr-stat b { font-size: 12px !important; color: var(--text) !important }
 
-    /* BZM list table → card per row */
+    /* BZM list table → simple row (block layout, no grid puzzle) */
     table.cards-on-mobile.mgr-bzm-table tr {
-      display: grid !important;
-      grid-template-columns: 1fr auto;
-      column-gap: 12px; row-gap: 4px;
-      padding: 12px 14px;
+      display: block !important;
+      padding: 13px 14px;
+      position: relative;
     }
     table.cards-on-mobile.mgr-bzm-table td {
-      display: flex !important; align-items: center;
-      padding: 0 !important; min-width: 0;
-      white-space: normal !important;
+      display: inline !important;
+      padding: 0 !important; border: none !important;
+      white-space: normal !important; background: transparent !important;
     }
     table.cards-on-mobile.mgr-bzm-table td::before { display: none !important }
-    table.cards-on-mobile.mgr-bzm-table td > * { text-align: inherit }
-    /* Line 1: ชื่อ BZM (full width, big) */
     table.cards-on-mobile.mgr-bzm-table td[data-label="ชื่อ BZM"] {
-      grid-column: 1 / -1; grid-row: 1;
-      justify-content: flex-start;
-      font-size: 14.5px !important; font-weight: 800 !important;
-      padding-bottom: 6px !important;
-      border-bottom: 1px dashed var(--border) !important;
+      display: block !important;
+      font-size: 14.5px !important; font-weight: 700 !important; color: var(--text) !important;
+      margin-bottom: 3px;
+      padding-right: 28px !important;
     }
-    /* Line 2: สาขา + พนักงาน + arrow on one row */
     table.cards-on-mobile.mgr-bzm-table td[data-label="สาขา"] {
-      grid-column: 1; grid-row: 2;
-      justify-content: flex-start;
-      font-size: 12px !important; color: var(--text2);
+      font-size: 12px !important; color: var(--text3) !important; font-weight: 500 !important;
     }
-    table.cards-on-mobile.mgr-bzm-table td[data-label="สาขา"]::before {
-      content: '🏢 '; display: inline !important; margin-right: 4px; font-size: 11px; color: var(--text4); font-weight: 600;
-    }
+    table.cards-on-mobile.mgr-bzm-table td[data-label="สาขา"]::after { content: ' สาขา'; color: var(--text4); }
     table.cards-on-mobile.mgr-bzm-table td[data-label="พนักงาน"] {
-      grid-column: 1; grid-row: 2;
-      justify-content: flex-start;
-      font-size: 12px !important; color: var(--text2);
-      margin-left: 80px;
+      font-size: 12px !important; color: var(--text3) !important; font-weight: 500 !important;
     }
-    table.cards-on-mobile.mgr-bzm-table td[data-label="พนักงาน"]::before {
-      content: '👥 '; display: inline !important; margin-right: 4px; font-size: 11px; color: var(--text4); font-weight: 600;
-    }
+    table.cards-on-mobile.mgr-bzm-table td[data-label="พนักงาน"]::before { content: '  ·  '; color: var(--text4); }
+    table.cards-on-mobile.mgr-bzm-table td[data-label="พนักงาน"]::after { content: ' คน'; color: var(--text4); }
+    /* "เลือก ›" → just chevron, floated right */
     table.cards-on-mobile.mgr-bzm-table td[data-label="actions"] {
-      grid-column: 2; grid-row: 2;
-      justify-content: flex-end;
-      font-size: 13px !important; color: var(--accent) !important; font-weight: 700 !important;
+      position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+      font-size: 0 !important;
+    }
+    table.cards-on-mobile.mgr-bzm-table td[data-label="actions"]::after {
+      content: '›'; display: inline !important;
+      font-size: 22px; color: var(--text4); font-weight: 400;
     }
 
-    /* Branch detail table → card per row */
+    /* Branch detail table → minimal row (block layout) */
     table.cards-on-mobile.mgr-branch-table tr {
-      display: grid !important;
-      grid-template-columns: auto 1fr auto;
-      column-gap: 8px; row-gap: 6px;
+      display: block !important;
       padding: 12px 14px;
     }
     table.cards-on-mobile.mgr-branch-table td {
-      display: flex !important; align-items: center;
-      padding: 0 !important; min-width: 0;
-      white-space: normal !important;
+      display: inline !important;
+      padding: 0 !important; border: none !important;
+      white-space: normal !important; background: transparent !important;
     }
     table.cards-on-mobile.mgr-branch-table td::before { display: none !important }
-    /* Line 1: รหัส (left badge) + ชื่อสาขา (center) + พนักงาน badge (right) */
+    /* Line 1: รหัส (orange) + ชื่อสาขา (bold) */
     table.cards-on-mobile.mgr-branch-table td[data-label="รหัส"] {
-      grid-column: 1; grid-row: 1;
-      justify-content: center;
-      font-size: 13.5px !important; font-weight: 800 !important;
-      background: var(--accent-light); color: var(--primary);
-      padding: 3px 9px !important; border-radius: 6px;
+      font-size: 14px !important; font-weight: 700 !important;
+      color: var(--primary) !important;
+      margin-right: 8px;
     }
     table.cards-on-mobile.mgr-branch-table td[data-label="ชื่อสาขา"] {
-      grid-column: 2; grid-row: 1;
-      justify-content: flex-start;
-      font-size: 13.5px !important; font-weight: 700 !important;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap !important;
+      font-size: 14px !important; font-weight: 600 !important;
+      color: var(--text) !important;
     }
-    table.cards-on-mobile.mgr-branch-table td[data-label="พนักงาน"] {
-      grid-column: 3; grid-row: 1;
-      justify-content: flex-end;
-      font-size: 12px !important; color: var(--text2);
+    table.cards-on-mobile.mgr-branch-table td[data-label="ชื่อสาขา"]::after {
+      content: ''; display: block; height: 3px;
     }
-    table.cards-on-mobile.mgr-branch-table td[data-label="พนักงาน"]::before {
-      content: '👥 รวม '; display: inline !important; margin-right: 4px; font-size: 10.5px; color: var(--text4); font-weight: 600;
-    }
-    /* Line 2: ผจก / ครัว / บริการ inline pills */
+    /* Line 2: stats inline plain grey */
+    table.cards-on-mobile.mgr-branch-table td[data-label="พนักงาน"],
     table.cards-on-mobile.mgr-branch-table td[data-label="ผจก."],
     table.cards-on-mobile.mgr-branch-table td[data-label="ครัว"],
     table.cards-on-mobile.mgr-branch-table td[data-label="บริการ"] {
-      grid-row: 2;
-      justify-content: center;
-      font-size: 11.5px !important; font-weight: 700 !important;
-      padding: 3px 6px !important; border-radius: 6px;
+      font-size: 12px !important; color: var(--text2) !important; font-weight: 500 !important;
     }
-    table.cards-on-mobile.mgr-branch-table td[data-label="ผจก."] { grid-column: 1; background: #DBEAFE; color: #1E40AF }
-    table.cards-on-mobile.mgr-branch-table td[data-label="ผจก."]::before { content: 'ผจก. '; display: inline !important; margin-right: 3px; font-size: 10px; color: inherit; opacity: .75; font-weight: 600 }
-    table.cards-on-mobile.mgr-branch-table td[data-label="ครัว"] { grid-column: 2; background: #FEE2E2; color: #991B1B }
-    table.cards-on-mobile.mgr-branch-table td[data-label="ครัว"]::before { content: '🍳 ครัว '; display: inline !important; margin-right: 3px; font-size: 10px; color: inherit; opacity: .75; font-weight: 600 }
-    table.cards-on-mobile.mgr-branch-table td[data-label="บริการ"] { grid-column: 3; background: #DCFCE7; color: #166534 }
-    table.cards-on-mobile.mgr-branch-table td[data-label="บริการ"]::before { content: '🍽 บริการ '; display: inline !important; margin-right: 3px; font-size: 10px; color: inherit; opacity: .75; font-weight: 600 }
-    /* Line 3: actions full width */
+    table.cards-on-mobile.mgr-branch-table td[data-label="พนักงาน"]::before { content: ''; }
+    table.cards-on-mobile.mgr-branch-table td[data-label="พนักงาน"]::after { content: ' คน'; color: var(--text4); margin-right: 8px; }
+    table.cards-on-mobile.mgr-branch-table td[data-label="ผจก."]::before { content: '·  ผจก. '; color: var(--text4); }
+    table.cards-on-mobile.mgr-branch-table td[data-label="ผจก."]::after { content: ''; margin-right: 6px; }
+    table.cards-on-mobile.mgr-branch-table td[data-label="ครัว"]::before { content: '·  ครัว '; color: var(--text4); margin-left: 4px; }
+    table.cards-on-mobile.mgr-branch-table td[data-label="ครัว"]::after { content: ''; margin-right: 6px; }
+    table.cards-on-mobile.mgr-branch-table td[data-label="บริการ"]::before { content: '·  บริการ '; color: var(--text4); margin-left: 4px; }
+    /* Actions: small flat text buttons aligned right */
     table.cards-on-mobile.mgr-branch-table td[data-label="actions"] {
-      grid-column: 1 / -1; grid-row: 3;
-      justify-content: stretch; gap: 4px; flex-wrap: nowrap;
-      padding-top: 8px !important; margin-top: 2px;
+      display: flex !important;
+      margin-top: 10px;
+      padding-top: 9px !important;
       border-top: 1px solid var(--border) !important;
-      white-space: nowrap !important;
+      gap: 4px; justify-content: flex-end;
     }
     table.cards-on-mobile.mgr-branch-table td[data-label="actions"] .btn {
-      flex: 1 1 0; min-width: 0;
-      margin-left: 0 !important;
-      font-size: 11.5px !important; padding: 6px 4px !important;
+      background: transparent !important; border: none !important;
+      color: var(--text2) !important;
+      font-size: 12px !important; font-weight: 600 !important;
+      padding: 4px 8px !important; margin: 0 !important;
+      box-shadow: none !important; white-space: nowrap;
     }
+    table.cards-on-mobile.mgr-branch-table td[data-label="actions"] .btn.btn-danger { color: var(--red) !important }
 
-    /* Zone head: title + actions stack on mobile */
-    .mgr-zone { border-radius: 12px !important }
-    .mgr-zone-head { padding: 10px 12px !important; gap: 8px !important }
-    .mgr-zone-title { font-size: 14px !important }
-    .mgr-zone-title small { font-size: 10px !important }
-    .mgr-zone-actions { width: 100% !important; gap: 6px !important; flex-wrap: wrap !important }
+    /* Zone head: minimal */
+    .mgr-zone { border-radius: 10px !important; border-left-width: 3px !important; margin-bottom: 10px !important }
+    .mgr-zone-head { padding: 10px 14px !important; gap: 6px !important; background: transparent !important }
+    .mgr-zone-title { font-size: 14px !important; font-weight: 700 !important }
+    .mgr-zone-title small { font-size: 10px !important; letter-spacing: .3px !important; margin-bottom: 1px !important }
+    .mgr-zone-actions { width: 100% !important; gap: 6px !important; flex-wrap: wrap !important; margin-top: 4px }
     .mgr-zone-actions .btn { flex: 1 1 auto !important; font-size: 11.5px !important; padding: 5px 8px !important; white-space: nowrap }
   }
 
