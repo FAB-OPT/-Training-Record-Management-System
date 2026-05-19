@@ -512,11 +512,7 @@
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
   /* Top accent bar */
-  .modal::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--accent) 0%, #FF8541 50%, var(--accent) 100%);
-  }
+  .modal::before { display: none; }
   .modal-header {
     padding: 22px 28px 18px;
     border-bottom: 1px solid var(--border);
@@ -3927,7 +3923,9 @@ function showWelcomeModal(subtitle) {
       <div style="font-size:64px;line-height:1;animation:wave 1.2s ease-in-out infinite">👋</div>
       <div style="font-size:24px;font-weight:800;color:var(--text)">ยินดีต้อนรับ!</div>
       <div style="font-size:14px;color:var(--text2);font-weight:500">${subtitle}</div>
-      <button class="btn btn-accent" style="min-width:140px;padding:10px 24px;margin-top:8px" onclick="closeModal()">ตกลง</button>
+      <div style="margin-top:8px;text-align:center;width:100%">
+        <button class="btn btn-accent" style="width:160px;display:inline-flex;justify-content:center;padding:11px 0" onclick="closeModal()">ตกลง</button>
+      </div>
     </div>
   </div>`;
   ov.classList.add('open');
@@ -5209,6 +5207,7 @@ function _commitAddEmployee(bid, empCode, name, pos, start, st) {
   const _ne = mkEmployee(bid, name, pos, start, st.status);
   _ne.empCode = empCode;
   if (st.disabledReason) _ne.disabledReason = st.disabledReason;
+  if (st.status === 'resigned') _ne.disabledAt = new Date().toISOString();
   DB.employees[bid].push(_ne);
   gsSave('employees', _ne.id, _ne);
   closeModal();
@@ -5245,12 +5244,16 @@ function openEditEmployee(id) {
       ${_empStatusFormHtml(e.status, e.disabledReason)}
     </div>`, () => {
     const st = _readEmpStatusForm(); if (!st) return;
+    const wasEnabled = _isEmpEnabled(e);
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.positionGroup=getPositionGroup(e.position);
     e.startDate=document.getElementById('emp-start').value;
     e.status=st.status;
     if (st.disabledReason) e.disabledReason = st.disabledReason; else delete e.disabledReason;
+    // Track when status flips
+    if (st.status === 'resigned' && wasEnabled) e.disabledAt = new Date().toISOString();
+    else if (st.status === 'active') delete e.disabledAt;
     gsSave('employees', e.id, e);
     closeModal(); showPage('employees'); notify('อัปเดตข้อมูลสำเร็จ');
   });
@@ -8925,6 +8928,7 @@ function adminAddEmpToBranch(bid) {
     const _ne2=mkEmployee(bid,name,pos,start,st.status);
     _ne2.empCode=empCode2;
     if (st.disabledReason) _ne2.disabledReason = st.disabledReason;
+    if (st.status === 'resigned') _ne2.disabledAt = new Date().toISOString();
     DB.employees[bid].push(_ne2); gsSave('employees', _ne2.id, _ne2);
     notify('เพิ่มพนักงานสำเร็จ');
     closeModal();
@@ -8959,11 +8963,14 @@ function adminEditEmp(empId, bid) {
       ${_empStatusFormHtml(e.status, e.disabledReason)}
     </div>`, () => {
     const st = _readEmpStatusForm(); if (!st) return;
+    const wasEnabled2 = _isEmpEnabled(e);
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.startDate=document.getElementById('emp-start').value;
     e.status=st.status;
     if (st.disabledReason) e.disabledReason = st.disabledReason; else delete e.disabledReason;
+    if (st.status === 'resigned' && wasEnabled2) e.disabledAt = new Date().toISOString();
+    else if (st.status === 'active') delete e.disabledAt;
     gsSave('employees', e.id, {...e});
     notify('อัปเดตข้อมูลสำเร็จ');
     closeModal();
