@@ -5142,15 +5142,31 @@ function openAddEmployee() {
     if(!empCode||!name||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     const bid = getBranchId();
     if(!DB.employees[bid]) DB.employees[bid]=[];
-    // Check for duplicate name with a disabled employee in this branch
+    // Check for duplicate name OR emp code with a disabled employee in this branch
     const nameNorm = name.toLowerCase().replace(/\s+/g,'');
-    const dup = DB.employees[bid].find(x => !_isEmpEnabled(x) && (x.name||'').toLowerCase().replace(/\s+/g,'') === nameNorm);
+    const codeNorm = empCode.toLowerCase().replace(/\s+/g,'');
+    const dup = DB.employees[bid].find(x => {
+      if (_isEmpEnabled(x)) return false;
+      const xName = (x.name||'').toLowerCase().replace(/\s+/g,'');
+      const xCode = (x.empCode||'').toLowerCase().replace(/\s+/g,'');
+      return xName === nameNorm || (codeNorm && xCode === codeNorm);
+    });
     if (dup) {
-      const reason = dup.disabledReason ? `<div style="margin-top:8px;padding:8px 12px;background:var(--surface2);border-radius:8px;font-size:12.5px;color:var(--text2)"><b>เหตุผลการปิดใช้งาน:</b> ${dup.disabledReason}</div>` : '';
+      const matchedBy = [];
+      const dupName = (dup.name||'').toLowerCase().replace(/\s+/g,'');
+      const dupCode = (dup.empCode||'').toLowerCase().replace(/\s+/g,'');
+      if (dupName === nameNorm) matchedBy.push('ชื่อ-นามสกุล');
+      if (codeNorm && dupCode === codeNorm) matchedBy.push('รหัสพนักงาน');
+      const matchTag = `<div style="margin-bottom:8px;font-size:11.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px">ตรงกันที่: ${matchedBy.join(' + ')}</div>`;
+      const dupInfo = `<div style="margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:12.5px">
+        ${matchTag}
+        <div style="color:var(--text)"><b>${dup.name}</b> <span style="color:var(--text3);font-family:monospace">${dup.empCode||'—'}</span></div>
+        ${dup.disabledReason ? `<div style="margin-top:4px;color:var(--text2)"><b>เหตุผลการปิดใช้งาน:</b> ${dup.disabledReason}</div>` : ''}
+      </div>`;
       showConfirm(
-        `พบชื่อ <b style="color:var(--text)">"${name}"</b> ในรายชื่อพนักงานที่ปิดการใช้งานแล้วของสาขานี้${reason}<br><br>ต้องการเพิ่มพนักงานใหม่ที่ชื่อซ้ำกันหรือไม่?`,
+        `พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้ ตรงกับข้อมูลที่กำลังเพิ่ม${dupInfo}<br>ต้องการเพิ่มพนักงานใหม่หรือไม่?`,
         () => _commitAddEmployee(bid, empCode, name, pos, start, st),
-        { title:'พบชื่อพนักงานซ้ำ', icon:'⚠', danger:false, confirmText:'เพิ่มต่อไป' }
+        { title:'พบข้อมูลซ้ำ', icon:'⚠', danger:false, confirmText:'เพิ่มต่อไป' }
       );
       return;
     }
