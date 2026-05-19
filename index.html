@@ -87,8 +87,19 @@
   }
 
   /* ==================== LOGIN (v2 — centered card on pastel gradient) ==================== */
+  /* When login is showing, paint the gradient on body/html too so iOS Safari
+     bottom bar / address-bar collapse doesn't reveal a white strip */
+  body.on-login, html:has(body.on-login) {
+    background:
+      radial-gradient(ellipse 60% 50% at 15% 25%, rgba(134,239,172,0.55), transparent 60%),
+      radial-gradient(ellipse 55% 45% at 88% 18%, rgba(147,197,253,0.55), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 12% 88%, rgba(252,165,165,0.55), transparent 60%),
+      radial-gradient(ellipse 55% 45% at 90% 90%, rgba(196,181,253,0.45), transparent 60%),
+      linear-gradient(135deg, #F8FBFF 0%, #FFF8F8 100%);
+    background-attachment: fixed;
+  }
   #login-screen {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; display: flex; align-items: center; justify-content: center;
     padding: 24px;
     font-family: 'Sarabun', sans-serif;
     position: relative; z-index: 200; overflow: hidden;
@@ -1445,7 +1456,7 @@
       text-align: right !important;
     }
 
-    /* Mobile: hide pill tabs (emp + course history + trainings), show dropdown instead. */
+    /* Mobile: hide pill tabs (emp + course history), show dropdown instead. */
     .cat-tabs { display: none !important; }
     .cat-select-mobile {
       display: inline-block !important;
@@ -1454,8 +1465,48 @@
       padding: 8px 28px 8px 12px !important;
       font-size: 13px !important;
     }
+    /* Trainings page: show pill tabs (scroll), hide the dropdown alt */
+    .train-tabs-mobile.cat-tabs { display: flex !important; gap: 5px !important; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; padding-bottom: 4px; width: 100%; margin-bottom: 4px; order: -1 }
+    .train-tabs-mobile::-webkit-scrollbar { display: none; }
+    .train-tabs-mobile .train-tab { padding: 6px 11px !important; font-size: 12px !important; flex-shrink: 0; white-space: nowrap; border-bottom: 2px solid transparent }
+    .train-tabs-mobile ~ .cat-select-mobile { display: none !important; }
+    /* Module + Result dropdowns side-by-side on one row below the pills */
+    .train-tabs-mobile ~ select.form-select { flex: 1 1 calc(50% - 5px) !important; max-width: none !important; min-width: 0 !important; font-size: 12px !important; padding: 7px 22px 7px 10px !important }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
+    /* Bottom nav: shrink so 5 buttons fit on phone width */
+    body.branch-user .mobile-bottom-nav-inner { padding: 4px 6px !important }
+    body.branch-user .bottom-nav-item { padding: 4px 2px !important; min-width: 0 !important; gap: 2px !important }
+    body.branch-user .bottom-nav-icon { font-size: 19px !important }
+    body.branch-user .bottom-nav-label { font-size: 10.5px !important; max-width: 100% !important; font-weight: 600 !important }
+    /* Dashboard: ข้อมูลพนักงาน tenure tiles — compact (2 cols, tighter) */
+    .tenure-grid { gap: 6px !important }
+    .tenure-tile { padding: 8px 10px !important }
+    .tenure-tile-num { font-size: 17px !important }
+    .tenure-tile-label { font-size: 11px !important; min-height: 28px !important }
+    /* การสอนแยกตามตำแหน่ง: stack donut + table vertically, smaller donut */
+    #dash-pos-list > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important }
+    #dash-pos-list svg { width: 160px !important; height: 160px !important; margin: 0 auto }
+    #dash-pos-list > div > div:last-child { max-width: none !important; min-width: 0 !important }
+    #dash-pos-list table th { font-size: 9px !important; padding: 4px 6px !important }
+    #dash-pos-list table td { padding: 5px 6px !important; font-size: 11px !important }
+    /* Dashboard: rename to "แดชบอร์ด" on mobile via CSS swap; also slim padding */
+    .page-hero { padding: 14px 16px !important; margin-bottom: 12px !important }
+    .page-hero-title { font-size: 18px !important }
+    .page-hero-sub { font-size: 11.5px !important; margin-top: 3px !important }
+    .dash-mob-title .page-hero-title { display: none }
+    .dash-mob-title .page-hero-body::before { content: 'แดชบอร์ด'; display: block; font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -.3px }
+    /* Dashboard cards: tighter padding */
+    .card { padding: 14px !important; margin-bottom: 10px !important }
+    .stat-card { padding: 12px 14px !important }
+    .grid-2, .grid-3 { gap: 10px !important }
+    .dash-bot-grid { gap: 10px !important; margin-top: 10px !important }
+    /* Reports date picker: force from/to on one line on phones */
+    .rp-range-body { padding: 10px 12px !important; gap: 6px !important; flex-wrap: nowrap !important }
+    .rp-range-body .rp-pill { flex: 1 1 0 !important; min-width: 0 !important; padding: 4px 8px 4px 10px !important; max-width: none !important }
+    .rp-range-body .rp-pill input { width: 100% !important; min-width: 0 !important; font-size: 12px !important }
+    .rp-pill-label { font-size: 10px !important; letter-spacing: .2px !important }
+    .rp-pill-arrow { font-size: 14px !important; flex-shrink: 0 }
     /* Smaller search input on mobile (emp + course history) */
     #emp-search, #ch-search {
       padding: 7px 11px !important; font-size: 12.5px !important;
@@ -3817,6 +3868,7 @@ function logout() {
   currentUser = null;
   closeSidebar();
   document.body.classList.remove('branch-user','admin-user');
+  document.body.classList.add('on-login');
   document.getElementById('mobile-bottom-nav').classList.remove('hidden-always');
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
@@ -3837,6 +3889,7 @@ function logout() {
 }
 
 function showApp() {
+  document.body.classList.remove('on-login');
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   if (currentUser.type === 'branch') {
@@ -4242,7 +4295,7 @@ function renderDashboard() {
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
   const passRate = evaled.length ? Math.round(evaled.filter(t=>isEvalPass(t.eval.result)).length/evaled.length*100) : 0;
   return `
-  <div class="page-hero">
+  <div class="page-hero dash-mob-title">
     <div class="page-hero-body">
       <div class="page-hero-title">ภาพรวมการสอนงานของสาขา</div>
       <div class="page-hero-sub">อัปเดต ${fmtDate(new Date().toISOString())}</div>
@@ -9809,6 +9862,7 @@ let currentPage = "dashboard";
 function initApp() {
   initTheme();
   initPinBoxes();
+  document.body.classList.add('on-login');
   gsLoad();
 }
 initApp();
