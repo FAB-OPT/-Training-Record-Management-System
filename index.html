@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบบันทึกการสอนงาน</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Prompt:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -344,6 +344,9 @@
   @media (max-width: 768px) {
     .ch-course-item { grid-template-columns: 1fr auto; gap: 6px 10px; padding: 8px 12px; }
     .ch-course-name { grid-column: 1 / -1; }
+    /* Monthly chart: switch heatmap → weekly cards on phones */
+    .dash-month-heatmap { display: none !important; }
+    .dash-month-weeks { display: flex !important; }
   }
   /* Tenure breakdown tiles — 5 cols desktop, responsive on mobile */
   .tenure-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -4760,27 +4763,75 @@ function renderDashMonthChart(bid) {
     byDay[dk].n++;
   });
   const days=Array.from({length:dim},(_,i)=>{const d=String(i+1).padStart(2,'0');const k=ym+'-'+d;return {d:i+1,k,n:(byDay[k]||{n:0}).n};});
-  const maxV=Math.max(...days.map(d=>d.n),1);
-  const W=560,H=300,pL=62,pR=14,pT=70,pB=52;
-  const cW=W-pL-pR,cH=H-pT-pB;
-  const xP=i=>pL+i/(dim-1)*cW;
-  const yP=v=>pT+cH-(v/maxV)*cH;
-  const pts=days.map((d,i)=>xP(i).toFixed(1)+','+yP(d.n).toFixed(1)).join(' L');
-  const area='M'+pL+','+(pT+cH)+' L'+pts+' L'+(pL+cW).toFixed(1)+','+(pT+cH)+' Z';
-  const yTicks=[0,maxV===1?1:Math.round(maxV/2),maxV];
-  const gridSvg=yTicks.map(v=>`<line x1='${pL}' y1='${yP(v).toFixed(1)}' x2='${(pL+cW).toFixed(1)}' y2='${yP(v).toFixed(1)}' stroke='#E5E5EA' stroke-width='1' stroke-dasharray='${v===0?'none':'4,3'}'/>`).join('');
-  const yLblSvg=yTicks.map(v=>`<text x='${pL-6}' y='${(yP(v)+5).toFixed(1)}' text-anchor='end' font-size='12' font-weight='600' fill='#8E8E93'>${v}</text>`).join('');
-  const showDays=dim<=20?days:days.filter(d=>d.d===1||d.d%5===0||d.d===dim);
-  const xLblSvg=showDays.map(d=>`<text x='${xP(d.d-1).toFixed(1)}' y='${(pT+cH+16).toFixed(1)}' text-anchor='middle' font-size='11' fill='#8E8E93'>${d.d}</text>`).join('');
-  const xAxisTitle=`<text x='${(pL+cW/2).toFixed(1)}' y='${H-8}' text-anchor='middle' font-size='12' font-weight='700' fill='var(--text2)'>วันที่</text>`;
-  const yAxisTitle=`<text x='14' y='${(pT+cH/2).toFixed(1)}' text-anchor='middle' font-size='12' font-weight='700' fill='var(--text2)' transform='rotate(-90 14 ${(pT+cH/2).toFixed(1)})'>จำนวนที่สอน</text>`;
   const totalThisMonth=days.reduce((s,d)=>s+d.n,0);
-  const dotsSvg=days.map((d,i)=>{
-    const cx=xP(i).toFixed(1),cy=yP(d.n).toFixed(1);
-    if(d.n===0) return `<circle cx='${cx}' cy='${yP(0).toFixed(1)}' r='2' fill='#C7C7CC'/>`;
-    const lbY=(parseFloat(cy)-17).toFixed(1);
-    return `<circle cx='${cx}' cy='${cy}' r='9' fill='#FF6B1A' stroke='white' stroke-width='2.5' style='cursor:pointer' onclick="showDayTrainingModal('${bid}','${d.k}')"/><circle cx='${cx}' cy='${cy}' r='4' fill='white' pointer-events='none'/><text x='${cx}' y='${lbY}' text-anchor='middle' font-size='13' font-weight='800' fill='#E85A0A' stroke='white' stroke-width='3' paint-order='stroke'>${d.n}</text><circle cx='${cx}' cy='${cy}' r='18' fill='transparent' style='cursor:pointer' onclick="showDayTrainingModal('${bid}','${d.k}')"/>`;
+  const activeDays=days.filter(d=>d.n>0).length;
+  const today = new Date(new Date().getTime()+7*3600*1000).toISOString().slice(0,10);
+
+  // Color intensity per cell — all data cells use white text for consistency
+  const cellColor = (n) => {
+    if (n === 0) return { bg:'#F3F4F6', text:'#9CA3AF' };
+    if (n === 1) return { bg:'#FB923C', text:'white' };
+    if (n === 2) return { bg:'#F97316', text:'white' };
+    if (n <= 4) return { bg:'#EA580C', text:'white' };
+    return { bg:'#C2410C', text:'white' };
+  };
+
+  // ===== HEATMAP (desktop) =====
+  // Build 7-column grid. JS getDay: 0=Sun, 1=Mon, ..., 6=Sat
+  const firstDow = new Date(y, m-1, 1).getDay();
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  days.forEach(d => cells.push(d));
+  // Pad end so last row complete
+  while (cells.length % 7 !== 0) cells.push(null);
+  const dowLabels = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const heatmapHead = dowLabels.map(l => `<div style="text-align:center;font-size:11px;font-weight:700;color:var(--text3);padding:4px 0">${l}</div>`).join('');
+  const heatmapCells = cells.map(d => {
+    if (!d) return '<div></div>';
+    const c = cellColor(d.n);
+    const isToday = d.k === today;
+    const border = isToday ? '2px solid #EA580C' : '1px solid var(--border)';
+    return `<div onclick="showDayTrainingModal('${bid}','${d.k}')" style="aspect-ratio:1/1;background:${c.bg};color:${c.text};border:${border};border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .12s;position:relative;overflow:hidden" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+      <div style="position:absolute;top:5px;left:8px;font-size:11px;font-weight:700;opacity:.7">${d.d}</div>
+      ${d.n > 0 ? `<div style="display:inline-flex;align-items:baseline;gap:3px;margin-top:8px"><span style="font-size:18px;font-weight:800;line-height:1">${d.n}</span><span style="font-size:10px;font-weight:600;opacity:.85">ครั้ง</span></div>` : ''}
+    </div>`;
   }).join('');
+
+  // ===== WEEKLY CARDS (mobile) =====
+  // Split days into weeks starting from week containing day 1
+  const weeks = [];
+  let curr = [];
+  cells.forEach((d, i) => {
+    curr.push(d);
+    if (curr.length === 7) { weeks.push(curr); curr = []; }
+  });
+  const fmtThai = (iso) => {
+    const [yy,mm,dd] = iso.split('-');
+    return `${parseInt(dd,10)} ${TH_MONTH_NAMES[parseInt(mm,10)-1]}`;
+  };
+  const weeklyCards = weeks.map((w, wi) => {
+    const real = w.filter(Boolean);
+    if (!real.length) return '';
+    const sum = real.reduce((s,d) => s+d.n, 0);
+    const first = real[0], last = real[real.length-1];
+    const dayPills = real.map(d => {
+      const c = cellColor(d.n);
+      const isToday = d.k === today;
+      const border = isToday ? '2px solid #EA580C' : '1px solid var(--border)';
+      return `<div onclick="showDayTrainingModal('${bid}','${d.k}')" style="background:${c.bg};color:${c.text};border:${border};border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;min-width:0">
+        <div style="font-size:10px;font-weight:600;opacity:.85">${d.d}</div>
+        ${d.n > 0 ? `<div style="font-size:10px;line-height:1.1;margin-top:3px"><span style="font-size:13px;font-weight:800;font-family:'Prompt','Kanit',sans-serif">${d.n}</span><span style="font-size:8.5px;font-weight:600;opacity:.85"> ครั้ง</span></div>` : '<div style="font-size:13px;line-height:1;margin-top:2px;opacity:.4">·</div>'}
+      </div>`;
+    }).join('');
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text)">สัปดาห์ ${wi+1} <span style="font-size:11px;color:var(--text3);font-weight:500">${fmtThai(first.k)} – ${fmtThai(last.k)}</span></div>
+        <div style="font-size:14px;font-weight:800;color:#F0701A;font-family:'Prompt','Kanit',sans-serif">${sum} <span style="font-size:11px;color:var(--text3);font-weight:600">ครั้ง</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(${real.length},1fr);gap:4px">${dayPills}</div>
+    </div>`;
+  }).join('');
+
   const el=document.getElementById('dash-line-chart');
   if(!el) return;
   const nl=document.getElementById('dash-month-label');
@@ -4790,29 +4841,39 @@ function renderDashMonthChart(bid) {
   const nb=document.getElementById('dash-month-next');
   if(nb) nb.disabled=isCurrentMonth;
   el.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">${monthLabel} · สอนทั้งหมด <span style="color:#FF6B1A">${totalThisMonth}</span> ครั้ง</div>
-      <div style="font-size:11px;color:#8E8E93;display:flex;align-items:center;gap:5px">
-        <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#FF6B1A" stroke="white" stroke-width="1.5"/><circle cx="6" cy="6" r="2.5" fill="white"/></svg>
-        กดจุดเพื่อดูรายละเอียด
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:12px;padding:12px 16px;background:var(--surface2);border-radius:10px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="font-size:11.5px;color:var(--text3);font-weight:600">รวมทั้งเดือน</div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span style="font-size:20px;font-weight:800;color:#F0701A;line-height:1;letter-spacing:-.3px">${totalThisMonth}</span>
+          <span style="font-size:12px;color:var(--text3);font-weight:600">ครั้ง</span>
+        </div>
+      </div>
+      <div style="width:1px;height:38px;background:var(--border)"></div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="font-size:11.5px;color:var(--text3);font-weight:600">วันที่มีการสอน</div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span style="font-size:20px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.3px">${activeDays}</span>
+          <span style="font-size:12px;color:var(--text3);font-weight:600">/ ${dim} วัน</span>
+        </div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">
+        <span style="display:inline-flex;gap:2px">
+          <span style="width:10px;height:10px;background:#F3F4F6;border-radius:2px"></span>
+          <span style="width:10px;height:10px;background:#FED7AA;border-radius:2px"></span>
+          <span style="width:10px;height:10px;background:#FB923C;border-radius:2px"></span>
+          <span style="width:10px;height:10px;background:#EA580C;border-radius:2px"></span>
+        </span>
+        น้อย → มาก
       </div>
     </div>
-    <div style="overflow-x:auto">
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-        <defs><linearGradient id="areaGrad_${bid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#FF6B1A" stop-opacity="0.18"/>
-          <stop offset="100%" stop-color="#FF6B1A" stop-opacity="0.02"/>
-        </linearGradient></defs>
-        ${gridSvg}
-        ${yLblSvg}
-        ${xLblSvg}
-        ${xAxisTitle}
-        ${yAxisTitle}
-        <path d="${area}" fill="url(#areaGrad_${bid})"/>
-        <path d="M${pts}" fill="none" stroke="#FF6B1A" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-        ${dotsSvg}
-      </svg>
-    </div>`;
+    <!-- Desktop: Calendar Heatmap -->
+    <div class="dash-month-heatmap">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px">${heatmapHead}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${heatmapCells}</div>
+    </div>
+    <!-- Mobile: Weekly cards -->
+    <div class="dash-month-weeks" style="display:none;flex-direction:column;gap:8px">${weeklyCards}</div>`;
 }
 
 function showEmpTenureModal(bid, label, minMo, maxMo) {
