@@ -9496,8 +9496,8 @@ function openAiQuizModal(mid) {
           <div class="aq-counter" style="margin-left:0">เลือกแล้ว <b id="aq-selected-count">${generated.length}</b> / ${generated.length}</div>
         </div>
         ${generated.map((q,i)=>`
-          <label class="aq-card checked" onclick="setTimeout(_updateAqCounter,0);this.classList.toggle('checked',document.getElementById('ai-q-${i}').checked)">
-            <input type="checkbox" id="ai-q-${i}" checked>
+          <label class="aq-card checked" for="ai-q-${i}">
+            <input type="checkbox" id="ai-q-${i}" checked onchange="this.closest('.aq-card').classList.toggle('checked',this.checked);_updateAqCounter()">
             <div class="aq-card-head">
               <div class="aq-check">✓</div>
               <div class="aq-num">ข้อ ${i+1}</div>
