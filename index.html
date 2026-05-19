@@ -4138,6 +4138,7 @@ function openToggleEmpStatus(empId) {
       if (!reason) { notify('กรุณาระบุเหตุผล','error'); return; }
       e.status = 'resigned';
       e.disabledReason = reason;
+      e.disabledAt = new Date().toISOString();
       gsSave('employees', e.id, e);
       closeModal();
       showPage(currentPage);
@@ -4153,6 +4154,7 @@ function openToggleEmpStatus(empId) {
     `, () => {
       e.status = 'active';
       delete e.disabledReason;
+      delete e.disabledAt;
       gsSave('employees', e.id, e);
       closeModal();
       showPage(currentPage);
@@ -5162,10 +5164,14 @@ function openAddEmployee() {
       if (dupName === nameNorm) matchedBy.push('ชื่อ-นามสกุล');
       if (codeNorm && dupCode === codeNorm) matchedBy.push('รหัสพนักงาน');
       const matchTag = `<div style="margin-bottom:8px;font-size:11.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px">ตรงกันที่: ${matchedBy.join(' + ')}</div>`;
+      const disabledDate = dup.disabledAt
+        ? `<div style="margin-top:4px;color:var(--text2)"><b>วันที่ปิดใช้งาน:</b> ${fmtDate(dup.disabledAt)}</div>`
+        : '';
       const dupInfo = `<div style="margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:12.5px">
         ${matchTag}
         <div style="color:var(--text)"><b>${dup.name}</b> <span style="color:var(--text3);font-family:monospace">${dup.empCode||'—'}</span></div>
         ${dup.disabledReason ? `<div style="margin-top:4px;color:var(--text2)"><b>เหตุผลการปิดใช้งาน:</b> ${dup.disabledReason}</div>` : ''}
+        ${disabledDate}
       </div>`;
       showConfirm(
         `พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้ ตรงกับข้อมูลที่กำลังเพิ่ม${dupInfo}<br>ต้องการเพิ่มพนักงานใหม่หรือไม่?`,
