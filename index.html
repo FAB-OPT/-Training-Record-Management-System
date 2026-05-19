@@ -9507,6 +9507,7 @@ function openAiQuizModal(mid) {
         </div>
         <div class="aq-toolbar">
           <div class="aq-counter" style="margin-left:0">เลือกแล้ว <b id="aq-selected-count">${generated.length}</b> / ${generated.length}</div>
+          <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="_rejectAllAiQuestions('${mid}')">❌ ไม่เลือกข้อสอบ</button>
         </div>
         ${generated.map((q,i)=>`
           <label class="aq-card checked" for="ai-q-${i}">
@@ -9528,6 +9529,28 @@ function openAiQuizModal(mid) {
       resBox.innerHTML = `<div style="background:var(--red-light);color:var(--red);padding:12px 14px;border-radius:8px;font-size:13px">❌ ${e.message}</div>`;
     }
   }, 'สร้างข้อสอบ');
+}
+
+function _rejectAllAiQuestions(mid) {
+  const resBox = document.getElementById('ai-result');
+  if (!resBox || !resBox.dataset.questions) return;
+  showConfirm(
+    'ทั้งหมดจะถูกบันทึกเป็น "ไม่เลือก" และ AI จะไม่คิดคำถามแบบนี้อีกในครั้งต่อไป',
+    () => {
+      const qs = JSON.parse(resBox.dataset.questions);
+      if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [], aiRejected: {} };
+      if (!DB.quizMeta.aiRejected) DB.quizMeta.aiRejected = {};
+      if (!DB.quizMeta.aiRejected[mid]) DB.quizMeta.aiRejected[mid] = [];
+      qs.forEach(q => DB.quizMeta.aiRejected[mid].push({ q: q.q }));
+      if (DB.quizMeta.aiRejected[mid].length > 200) {
+        DB.quizMeta.aiRejected[mid] = DB.quizMeta.aiRejected[mid].slice(-200);
+      }
+      saveQuizMeta();
+      closeModal();
+      notify(`จำ ${qs.length} ข้อไว้แล้ว — AI จะไม่คิดซ้ำในครั้งถัดไป`);
+    },
+    { title:'ไม่เลือกข้อสอบทั้งหมด?', icon:'❌', danger:false, confirmText:'ยืนยัน' }
+  );
 }
 
 async function generateQuizWithAi(mid, n, focus, perSub) {
