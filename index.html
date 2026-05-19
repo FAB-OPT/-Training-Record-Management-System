@@ -5165,15 +5165,15 @@ function openAddEmployee() {
     if(!empCode||!name||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     const bid = getBranchId();
     if(!DB.employees[bid]) DB.employees[bid]=[];
-    // Check for duplicate name OR emp code with a disabled employee in this branch
+    // Check for duplicate name OR emp code with a disabled employee — ACROSS ALL BRANCHES
     // Normalize: lowercase, strip whitespace, strip Thai/EN titles (นาย, นางสาว, นาง, น.ส., ด.ช., ด.ญ., Mr., Mrs., Ms.)
     const stripTitle = (s) => (s||'').toLowerCase()
       .replace(/^(นาย|นางสาว|นาง|น\.?\s*ส\.?|ด\.?\s*ช\.?|ด\.?\s*ญ\.?|mr\.?|mrs\.?|ms\.?|miss)\s*/i, '')
       .replace(/\s+/g,'');
     const nameNorm = stripTitle(name);
     const codeNorm = empCode.toLowerCase().replace(/\s+/g,'');
-    const dup = DB.employees[bid].find(x => {
-      if (_isEmpEnabled(x)) return false;
+    const allDisabled = Object.values(DB.employees).flat().filter(x => !_isEmpEnabled(x));
+    const dup = allDisabled.find(x => {
       const xName = stripTitle(x.name);
       const xCode = (x.empCode||'').toLowerCase().replace(/\s+/g,'');
       return xName === nameNorm || (codeNorm && xCode === codeNorm);
@@ -9494,6 +9494,8 @@ function openAiQuizModal(mid) {
 
 async function generateQuizWithAi(mid, n, focus, perSub) {
   const m = MODULES[mid];
+  // Collect existing question texts (base + pool + custom) so AI doesn't duplicate
+  const existing = getAllQuestionsForModule(mid, true).map(q => ({ q: q.q }));
   const res = await gsFetch({
     action: 'ai_quiz',
     moduleName: m.name,
@@ -9501,7 +9503,8 @@ async function generateQuizWithAi(mid, n, focus, perSub) {
     subtopics: m.subtopics || [],
     perSub: perSub || null,
     n: n,
-    focus: focus || ''
+    focus: focus || '',
+    existingQuestions: existing
   });
   if (res.error) throw new Error(res.error);
   return res.questions || [];
@@ -9965,6 +9968,7 @@ function showBlockModal(dup) {
       <div style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:4px;text-align:center">
         <div style="font-size:15px;font-weight:800;color:var(--text);padding-bottom:10px;border-bottom:1px dashed var(--border);margin-bottom:10px">${dup.name}</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.7">
+          ${dup.branchId ? `<div><span style="font-weight:700;color:var(--text3)">สาขาที่ปิดใช้งาน:</span> <span style="color:var(--accent);font-weight:700">${dup.branchId}${BRANCH_MASTER[dup.branchId]?.name ? ' ' + BRANCH_MASTER[dup.branchId].name.replace(dup.branchId+' ','') : ''}</span></div>` : ''}
           <div><span style="font-weight:700;color:var(--text3)">เหตุผล:</span> ${reason}</div>
           <div><span style="font-weight:700;color:var(--text3)">วันที่ปิด:</span> ${dateLine}</div>
         </div>

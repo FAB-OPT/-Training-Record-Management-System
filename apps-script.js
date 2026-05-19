@@ -74,6 +74,7 @@ function generateAiQuiz(req) {
     const perSub = req.perSub || null; // [{subtopic, n}, ...] when admin set per-subtopic counts
     const n = req.n || 5;
     const focus = req.focus || '';
+    const existingQuestions = req.existingQuestions || []; // [{q, opts:{A,B,C,D}, ans}, ...]
 
     var subtopicSpec;
     if (perSub && perSub.length) {
@@ -82,16 +83,25 @@ function generateAiQuiz(req) {
       subtopicSpec = subtopics.map(function(s){ return '- ' + s; }).join('\n');
     }
 
+    // Build list of existing questions to avoid duplicating
+    var existingSpec = '';
+    if (existingQuestions.length) {
+      existingSpec = '\n\nคำถามที่มีอยู่แล้ว (อย่าสร้างคำถามที่มีเนื้อหาหรือความหมายซ้ำหรือคล้ายกับด้านล่างนี้ ห้ามถามเรื่องเดิม):\n' +
+        existingQuestions.slice(0, 60).map(function(q, i){ return (i+1) + '. ' + (q.q || '').replace(/\n/g, ' '); }).join('\n');
+    }
+
     const prompt = 'คุณเป็นผู้สร้างข้อสอบสำหรับ Santa Fe Steak (ร้านอาหาร) — สร้างข้อสอบ ' + n + ' ข้อ สำหรับ Module: "' + moduleName + '" (กลุ่ม: ' + group + ')\n\n' +
       (perSub && perSub.length ? 'จำนวนข้อสอบต่อหัวข้อย่อย (ต้องตรงเป๊ะ):\n' : 'หัวข้อย่อยที่ต้องครอบคลุม:\n') +
       subtopicSpec +
       (focus ? ('\n\nโฟกัสเพิ่มเติม: ' + focus) : '') +
+      existingSpec +
       '\n\nข้อกำหนด:\n' +
       '- คำถามภาษาไทย ชัดเจน เกี่ยวกับการปฏิบัติงานจริงในร้านอาหาร\n' +
       '- 4 ตัวเลือก A B C D ความยาวใกล้เคียงกัน\n' +
       '- คำตอบที่ถูกต้องกระจาย A/B/C/D อย่างสมดุล\n' +
       '- หลีกเลี่ยงตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"\n' +
       '- คำถามแต่ละครั้งควรหลากหลาย ไม่ซ้ำซาก\n' +
+      (existingQuestions.length ? '- **สำคัญมาก:** ห้ามสร้างคำถามที่เนื้อหาหรือความหมายซ้ำกับรายการที่ระบุไว้ข้างบน แม้จะใช้คำต่างกันก็ห้าม\n' : '') +
       (perSub && perSub.length ? '- เรียงคำถามตามลำดับหัวข้อย่อยตามที่ระบุข้างบน\n' : '') +
       '\nตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:\n' +
       '[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]';
@@ -222,3 +232,4 @@ function deleteRow(ss, name, id) {
     }
   }
 }
+
