@@ -5192,6 +5192,19 @@ function openAddEmployee() {
         ${dup.disabledReason ? `<div style="margin-top:4px;color:var(--text2)"><b>เหตุผลการปิดใช้งาน:</b> ${dup.disabledReason}</div>` : ''}
         ${disabledDate}
       </div>`;
+      // Branch users cannot add a duplicate — must contact Admin. Admin can still add (gets a confirm).
+      if (currentUser.type === 'branch') {
+        showModal('🚫 ไม่สามารถเพิ่มได้', `
+          <div style="font-size:14px;line-height:1.6;color:var(--text2)">
+            พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้ ตรงกับข้อมูลที่กำลังเพิ่ม<br>
+            สาขาไม่สามารถเพิ่มพนักงานใหม่ที่ซ้ำกับพนักงานที่ปิดใช้งานแล้วได้<br>
+            กรุณาติดต่อ <b>Team Management</b> เพื่อดำเนินการ
+          </div>
+          ${dupInfo}
+        `, null, 'รับทราบ');
+        return;
+      }
+      // Admin (Team Management) can still add with confirmation
       showConfirm(
         `พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้ ตรงกับข้อมูลที่กำลังเพิ่ม${dupInfo}<br>ต้องการเพิ่มพนักงานใหม่หรือไม่?`,
         () => _commitAddEmployee(bid, empCode, name, pos, start, st),
