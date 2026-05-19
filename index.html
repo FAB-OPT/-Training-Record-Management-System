@@ -3922,22 +3922,20 @@ function showApp() {
 function showWelcomeModal(subtitle) {
   let ov = document.getElementById('modal-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'modal-overlay'; ov.className = 'modal-overlay'; document.body.appendChild(ov); }
-  ov.innerHTML = `<div class="modal" style="max-width:380px;text-align:center">
-    <div class="modal-body" style="padding:28px 28px 14px">
-      <div style="font-size:64px;line-height:1;margin-bottom:16px;animation:wave 1.2s ease-in-out infinite">👋</div>
-      <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px">ยินดีต้อนรับ!</div>
+  ov.innerHTML = `<div class="modal welcome-modal" style="max-width:380px;text-align:center">
+    <div style="padding:32px 28px 28px;display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="font-size:64px;line-height:1;animation:wave 1.2s ease-in-out infinite">👋</div>
+      <div style="font-size:24px;font-weight:800;color:var(--text)">ยินดีต้อนรับ!</div>
       <div style="font-size:14px;color:var(--text2);font-weight:500">${subtitle}</div>
-    </div>
-    <div class="modal-footer" style="justify-content:center;border-top:none;padding-top:0;padding-bottom:24px">
-      <button class="btn btn-accent" style="min-width:120px;padding:10px 24px" onclick="closeModal()">ตกลง</button>
+      <button class="btn btn-accent" style="min-width:140px;padding:10px 24px;margin-top:8px" onclick="closeModal()">ตกลง</button>
     </div>
   </div>`;
   ov.classList.add('open');
-  // Inject wave animation keyframes once
+  // Inject welcome modal overrides + wave animation once
   if (!document.getElementById('welcome-wave-style')) {
     const s = document.createElement('style');
     s.id = 'welcome-wave-style';
-    s.textContent = '@keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(20deg)}75%{transform:rotate(-15deg)}}';
+    s.textContent = '@keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(20deg)}75%{transform:rotate(-15deg)}}.welcome-modal::before{display:none!important}';
     document.head.appendChild(s);
   }
 }
