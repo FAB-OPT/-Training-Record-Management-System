@@ -3905,6 +3905,7 @@ function showApp() {
     var _mt=document.getElementById('mobile-title'); if(_mt)_mt.textContent=b.name;
     document.getElementById('sidebar-branch-label').textContent = bid + ' ' + b.name.replace(bid+' ','');
     buildBranchNav(); showPage('dashboard'); startAutoSync();
+    setTimeout(() => showWelcomeModal(b.name.replace(bid+' ','')), 200);
   } else {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
@@ -3914,6 +3915,30 @@ function showApp() {
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
+    setTimeout(() => showWelcomeModal('Team Management'), 200);
+  }
+}
+
+function showWelcomeModal(subtitle) {
+  let ov = document.getElementById('modal-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'modal-overlay'; ov.className = 'modal-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `<div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-body" style="padding:28px 28px 14px">
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;animation:wave 1.2s ease-in-out infinite">👋</div>
+      <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px">ยินดีต้อนรับ!</div>
+      <div style="font-size:14px;color:var(--text2);font-weight:500">${subtitle}</div>
+    </div>
+    <div class="modal-footer" style="justify-content:center;border-top:none;padding-top:0;padding-bottom:24px">
+      <button class="btn btn-accent" style="min-width:120px;padding:10px 24px" onclick="closeModal()">ตกลง</button>
+    </div>
+  </div>`;
+  ov.classList.add('open');
+  // Inject wave animation keyframes once
+  if (!document.getElementById('welcome-wave-style')) {
+    const s = document.createElement('style');
+    s.id = 'welcome-wave-style';
+    s.textContent = '@keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(20deg)}75%{transform:rotate(-15deg)}}';
+    document.head.appendChild(s);
   }
 }
 
@@ -5164,9 +5189,7 @@ function openAddEmployee() {
       if (dupName === nameNorm) matchedBy.push('ชื่อ-นามสกุล');
       if (codeNorm && dupCode === codeNorm) matchedBy.push('รหัสพนักงาน');
       const matchTag = `<div style="margin-bottom:8px;font-size:11.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px">ตรงกันที่: ${matchedBy.join(' + ')}</div>`;
-      const disabledDate = dup.disabledAt
-        ? `<div style="margin-top:4px;color:var(--text2)"><b>วันที่ปิดใช้งาน:</b> ${fmtDate(dup.disabledAt)}</div>`
-        : '';
+      const disabledDate = `<div style="margin-top:4px;color:var(--text2)"><b>วันที่ปิดใช้งาน:</b> ${dup.disabledAt ? fmtDate(dup.disabledAt) : '<span style="color:var(--text3);font-style:italic">ไม่ระบุ (ปิดก่อนระบบบันทึกวันที่)</span>'}</div>`;
       const dupInfo = `<div style="margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:12.5px">
         ${matchTag}
         <div style="color:var(--text)"><b>${dup.name}</b> <span style="color:var(--text3);font-family:monospace">${dup.empCode||'—'}</span></div>
