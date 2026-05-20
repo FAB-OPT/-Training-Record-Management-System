@@ -197,9 +197,10 @@ function _chatViaGemini(req, apiKey) {
       generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
     });
 
-    // Try multiple free-tier models in order — fall through on quota errors
-    // gemini-1.5-flash-latest is the most reliable free model
-    const models = ['gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash-8b'];
+    // Try multiple free-tier models in order — fall through on quota OR not-found
+    // (Google occasionally retires aliases like 'gemini-1.5-flash-latest', so the
+    // list is ordered by "most likely still alive + free" first.)
+    const models = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
     var resp, code, body;
     var lastErr = '';
     outer: for (var mi = 0; mi < models.length; mi++) {
@@ -214,12 +215,18 @@ function _chatViaGemini(req, apiKey) {
         code = resp.getResponseCode();
         body = resp.getContentText();
         if (code === 200) break outer;
+        // Retry on transient errors
         if (code === 429 || code === 503) {
           if (attempt < 2) { Utilities.sleep(1500 * (attempt + 1)); continue; }
           lastErr = code + ' (' + models[mi] + ')';
           break; // exhausted retries on this model; try next one
         }
-        // other errors (auth, bad request) — stop completely
+        // 404 = model name retired by Google. Skip to next model in list.
+        if (code === 404) {
+          lastErr = '404 model ' + models[mi] + ' not found';
+          break; // move to next model
+        }
+        // 400/401/403 = auth/format issues — stop completely (no point trying other models)
         lastErr = code + ': ' + body.slice(0, 300);
         break outer;
       }
