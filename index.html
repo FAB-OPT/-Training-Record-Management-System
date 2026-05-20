@@ -9354,11 +9354,11 @@ function adminViewBranch(bid) {
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div class="card-title">รายชื่อพนักงาน (${emps.length})</div>
-      <button class="btn btn-sm btn-navy" onclick="closeModal();adminAddEmpToBranch('${bid}')">+ เพิ่มพนักงาน</button>
+      ${isAdminRole() ? `<button class="btn btn-sm btn-navy" onclick="closeModal();adminAddEmpToBranch('${bid}')">+ เพิ่มพนักงาน</button>` : ''}
     </div>
     <div class="table-wrap"><table class="cards-on-mobile mgr-emp-modal-table">
-      <thead><tr><th>ชื่อ</th><th>ตำแหน่ง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-      <tbody>${emps.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>':emps.map(e=>`<tr><td data-label="ชื่อ">${e.name}</td><td data-label="ตำแหน่ง">${e.position}</td><td data-label="สถานะ">${_empStatusBadge(e)}</td><td data-label="actions" style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td></tr>`).join('')}
+      <thead><tr><th>ชื่อ</th><th>ตำแหน่ง</th><th>สถานะ</th>${isAdminRole()?'<th>จัดการ</th>':''}</tr></thead>
+      <tbody>${emps.length===0?`<tr><td colspan="${isAdminRole()?4:3}" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>`:emps.map(e=>`<tr><td data-label="ชื่อ">${e.name}</td><td data-label="ตำแหน่ง">${e.position}</td><td data-label="สถานะ">${_empStatusBadge(e)}</td>${isAdminRole()?`<td data-label="actions" style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td>`:''}</tr>`).join('')}
       </tbody>
     </table></div>
   `, null, 'ปิด');
@@ -9624,8 +9624,7 @@ function renderAdminTrainings() {
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="actions" style="white-space:nowrap;text-align:right">
             <button class="btn btn-sm btn-outline" onclick="viewTraining('${t.id}')">ดู</button>
-            <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>
-            ${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}
+            ${isAdminRole() ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
     </table></div>
