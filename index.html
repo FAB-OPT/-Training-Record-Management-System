@@ -6897,7 +6897,8 @@ function openQuiz(trainingId) {
         <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">ทำข้อสอบครบ ${QUIZ_MAX_ATTEMPTS} ครั้งแล้ว</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.6">
           คะแนนสูงสุด: <strong>${Math.max(...attempts.map(r => r.pct||Math.round((r.score||0)/(r.total||1)*100)))}%</strong><br>
-          ติดต่อ Admin เพื่อปลดล็อก
+          กรุณาทบทวนและสอนงานพนักงานใหม่อีกครั้ง<br>
+          ก่อนเปิดสิทธิ์ทำข้อสอบรอบถัดไป
         </div>
       </div>
     `, null, 'ปิด');
@@ -6967,7 +6968,7 @@ function openQuiz(trainingId) {
         <div style="font-size:54px;font-weight:800;color:${passed?'var(--green)':'var(--red)'};font-family:monospace;letter-spacing:-1px">${pct}%</div>
         <div style="font-size:16px;color:var(--text2);margin-top:6px;font-weight:500">${score} จาก ${questions.length} ข้อ</div>
         <div style="margin-top:20px"><span class="badge ${passed?'badge-green':'badge-red'}" style="font-size:14px;padding:10px 22px">${passed?'✓ ผ่านเกณฑ์':'✗ ไม่ผ่านเกณฑ์ (ต้องได้ 80% ขึ้นไป)'}</span></div>
-        ${!passed ? `<div style="margin-top:18px;padding:10px 16px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text2)">${remaining > 0 ? `ทำได้อีก <strong style="color:var(--accent)">${remaining}</strong> ครั้ง (สูงสุด ${QUIZ_MAX_ATTEMPTS} ครั้ง)` : '🔒 ทำครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้งแล้ว — ติดต่อ Admin เพื่อปลดล็อก'}</div>` : ''}
+        ${!passed ? `<div style="margin-top:18px;padding:10px 16px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text2)">${remaining > 0 ? `ทำได้อีก <strong style="color:var(--accent)">${remaining}</strong> ครั้ง (สูงสุด ${QUIZ_MAX_ATTEMPTS} ครั้ง)` : '🔒 ทำครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้งแล้ว — กรุณาสอนงานพนักงานใหม่อีกครั้ง'}</div>` : ''}
       </div>
     `, null, 'ปิด');
   }, 'ส่งคำตอบ');
