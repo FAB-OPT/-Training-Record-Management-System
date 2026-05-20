@@ -7494,7 +7494,12 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       result = `<span style="color:${YELLOW};font-weight:700">รอประเมิน</span>`;
     }
     const names = (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', ');
+    const br = BRANCH_MASTER[t.branchId];
+    const branchCell = bid === 'ALL'
+      ? `<td style="white-space:nowrap;font-size:11.5px"><strong style="color:${ORANGE}">${t.branchId||''}</strong> ${br?br.name.replace(t.branchId+' ',''):''}</td>`
+      : '';
     return `<tr>
+      ${branchCell}
       <td style="white-space:nowrap">${fmtDate(t.date)}</td>
       <td style="font-weight:600">${MODULES[t.moduleId]?.name||t.moduleId}</td>
       <td>${names||'—'}</td>
@@ -7543,8 +7548,8 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       })())
     + _buildReportSection('🕐 บันทึกการสอนล่าสุด (8 รายการ)',
         `<table>
-          <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
-          <tbody>${recent.length?recent.map(recentRow).join(''):'<tr><td colspan="5" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึก</td></tr>'}</tbody>
+          <thead><tr>${bid==='ALL'?'<th>สาขา</th>':''}<th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
+          <tbody>${recent.length?recent.map(recentRow).join(''):`<tr><td colspan="${bid==='ALL'?6:5}" style="text-align:center;color:#8A96A3">ยังไม่มีบันทึก</td></tr>`}</tbody>
         </table>`)
     + _buildReportFooter(now)
   );
