@@ -4143,7 +4143,7 @@ function showApp() {
     var _mt=document.getElementById('mobile-title'); if(_mt)_mt.textContent=b.name;
     document.getElementById('sidebar-branch-label').textContent = bid + ' ' + b.name.replace(bid+' ','');
     buildBranchNav(); showPage('dashboard'); startAutoSync();
-    setTimeout(() => showWelcomeModal(b.name.replace(bid+' ','')), 200);
+    requestAnimationFrame(() => showWelcomeModal(b.name.replace(bid+' ','')));
   } else {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
@@ -4153,7 +4153,7 @@ function showApp() {
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
-    setTimeout(() => showWelcomeModal('Team Management'), 200);
+    requestAnimationFrame(() => showWelcomeModal('Team Management'));
   }
 }
 
@@ -4175,7 +4175,13 @@ function showWelcomeModal(subtitle) {
   if (!document.getElementById('welcome-wave-style')) {
     const s = document.createElement('style');
     s.id = 'welcome-wave-style';
-    s.textContent = '@keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(20deg)}75%{transform:rotate(-15deg)}}.welcome-modal::before{display:none!important}';
+    s.textContent = '@keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(20deg)}75%{transform:rotate(-15deg)}}'
+      + '.welcome-modal::before{display:none!important}'
+      /* Welcome modal: snappier than the default modal animation (which is 0.32s spring) */
+      + '.welcome-modal{animation:welcomeIn 0.18s ease-out!important}'
+      + '@keyframes welcomeIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}'
+      /* On mobile, override the slide-up too so welcome doesn\'t need to travel from bottom */
+      + '@media (max-width:768px){.welcome-modal{animation:welcomeIn 0.18s ease-out!important;border-radius:22px!important;align-self:center!important;margin:auto!important}.modal-overlay:has(.welcome-modal){align-items:center!important}}';
     document.head.appendChild(s);
   }
 }
