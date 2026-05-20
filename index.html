@@ -3904,7 +3904,7 @@ const _SB_TABLE = {
   branchOverrides: 'branch_overrides',
 };
 const _SB_FIELD_MAP = {
-  employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason' },
+  employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
   trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
@@ -4705,7 +4705,15 @@ ${empListStr}
 ${untrainedSection}
 
 ═══ การสอน 30 รายการล่าสุด ═══
-${recent||'(ยังไม่มี)'}`;
+${recent||'(ยังไม่มี)'}
+
+═══ กฎการจัดการสถานะพนักงาน (อธิบายให้ผู้ใช้ที่ถาม) ═══
+- ลาออก / ไล่ออก: หน้า "รายชื่อพนักงาน" → กดแก้ไข → เปลี่ยนสถานะเป็น "ปิดใช้งาน" + ใส่เหตุผล
+  ระบบจะเก็บประวัติการสอน/ประเมินไว้ครบ ชื่อจะหายจาก list หลัก แต่ยังย้อนดูได้
+- ย้ายสาขา (admin only): กดปุ่ม 🔁 ย้าย ในตารางพนักงานของสาขาเดิม
+  ระบบจะย้ายพนักงานคนเดิม (รหัสเดิม) ไปสาขาใหม่ ประวัติการสอนติดตามไปด้วย
+  ไม่ต้องลบ+สร้างใหม่ — ระบบเก็บประวัติการย้ายไว้ใน "ประวัติการย้ายสาขา" ของพนักงาน
+- BZM/VP/COO ย้ายไม่ได้ — ดูได้อย่างเดียว ต้องแจ้ง Admin (Kantapon)`;
 }
 
 function _chatSystemPrompt() {
@@ -9980,7 +9988,7 @@ function adminViewBranch(bid) {
     </div>
     <div class="table-wrap"><table class="cards-on-mobile mgr-emp-modal-table">
       <thead><tr><th>ชื่อ</th><th>ตำแหน่ง</th><th>สถานะ</th>${isAdminRole()?'<th>จัดการ</th>':''}</tr></thead>
-      <tbody>${emps.length===0?`<tr><td colspan="${isAdminRole()?4:3}" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>`:emps.map(e=>`<tr><td data-label="ชื่อ">${e.name}</td><td data-label="ตำแหน่ง">${e.position}</td><td data-label="สถานะ">${_empStatusBadge(e)}</td>${isAdminRole()?`<td data-label="actions" style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td>`:''}</tr>`).join('')}
+      <tbody>${emps.length===0?`<tr><td colspan="${isAdminRole()?4:3}" style="text-align:center;color:var(--text3)">ไม่มีพนักงาน</td></tr>`:emps.map(e=>`<tr><td data-label="ชื่อ">${e.name}</td><td data-label="ตำแหน่ง">${e.position}</td><td data-label="สถานะ">${_empStatusBadge(e)}</td>${isAdminRole()?`<td data-label="actions" style="white-space:nowrap"><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();adminEditEmp('${e.id}','${bid}')">แก้ไข</button><button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="closeModal();openTransferEmployee('${e.id}','${bid}')" title="ย้ายไปสาขาอื่น">🔁 ย้าย</button><button class="btn btn-sm btn-danger" onclick="confirmDeleteEmp('${e.id}','${bid}')">ลบ</button></td>`:''}</tr>`).join('')}
       </tbody>
     </table></div>
   `, null, 'ปิด');
@@ -10052,9 +10060,99 @@ function adminAddEmpToBranch(bid) {
   });
 }
 
+// ==================== EMPLOYEE BRANCH TRANSFER ====================
+// Moves an employee record from one branch to another while preserving:
+// - employee.id (so all training history stays linked)
+// - empCode, name, position, startDate
+// - transferHistory[] — appended with this move's metadata
+// Admin only.
+function openTransferEmployee(empId, fromBid) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่ย้ายสาขาได้', 'error'); return; }
+  const e = getEmployee(empId); if (!e) return;
+  const branches = Object.keys(BRANCH_MASTER).sort()
+    .filter(b => b !== e.branchId)
+    .map(b => `<option value="${b}">${b} · ${BRANCH_MASTER[b].name.replace(b+' ','')}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+  showModal(`🔁 ย้ายสาขาพนักงาน — ${e.name}`, `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text3);font-weight:700;letter-spacing:.3px;text-transform:uppercase;margin-bottom:6px">สาขาปัจจุบัน</div>
+      <div style="font-size:14px;font-weight:700"><span style="color:var(--accent)">${e.branchId}</span> ${BRANCH_MASTER[e.branchId]?.name.replace(e.branchId+' ','')||'—'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">ตำแหน่ง: ${e.position||'—'} · อายุงาน: ${calcTenure(e.startDate)}</div>
+    </div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr;display:grid;gap:14px">
+      <div>
+        <label class="form-label">ย้ายไปสาขา <span class="req">*</span></label>
+        <select class="form-select" id="xfer-to">
+          <option value="">-- เลือกสาขาปลายทาง --</option>${branches}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">วันที่ย้าย <span class="req">*</span></label>
+        <input class="form-input" type="date" id="xfer-date" value="${today}">
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label class="form-label">เหตุผล</label>
+      <input class="form-input" id="xfer-reason" placeholder="เช่น โอนย้ายตามคำสั่ง, ขอย้ายตามความสะดวก, ปรับโครงสร้าง...">
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;background:#FEF3C7;border-radius:8px;border:1px solid #FDE68A;font-size:12.5px;color:#92400E;line-height:1.55">
+      💡 ระบบจะย้ายพนักงานคนเดียวกัน (รหัสเดิม) ไปอยู่ภายใต้สาขาใหม่ — ประวัติการสอน/ประเมินเดิมจะยังอยู่ครบ และเพิ่มเข้า "ประวัติการย้าย" ของพนักงาน
+    </div>
+  `, () => {
+    const toBid = document.getElementById('xfer-to').value;
+    const xDate = document.getElementById('xfer-date').value;
+    const reason = (document.getElementById('xfer-reason').value || '').trim();
+    if (!toBid) { notify('กรุณาเลือกสาขาปลายทาง', 'error'); return; }
+    if (!xDate) { notify('กรุณาเลือกวันที่ย้าย', 'error'); return; }
+    _doTransferEmployee(empId, fromBid || e.branchId, toBid, xDate, reason);
+  }, 'ยืนยันย้ายสาขา');
+}
+
+function _doTransferEmployee(empId, fromBid, toBid, date, reason) {
+  const e = getEmployee(empId); if (!e) return;
+  const oldBid = e.branchId;
+  // Remove from old branch's array
+  if (DB.employees[oldBid]) {
+    DB.employees[oldBid] = DB.employees[oldBid].filter(x => x.id !== empId);
+  }
+  // Update branchId + append transfer history
+  e.branchId = toBid;
+  e.transferHistory = Array.isArray(e.transferHistory) ? e.transferHistory.slice() : [];
+  e.transferHistory.push({
+    from: oldBid,
+    to: toBid,
+    date: date,
+    reason: reason || '',
+    by: currentUser?.name || currentUser?.nick || '—',
+    at: new Date().toISOString(),
+  });
+  // Add to new branch's array
+  if (!DB.employees[toBid]) DB.employees[toBid] = [];
+  DB.employees[toBid].push(e);
+  // Persist
+  gsSave('employees', e.id, {...e});
+  notify(`ย้าย ${e.name} จาก ${oldBid} → ${toBid} สำเร็จ`);
+  closeModal();
+  // Re-open the destination branch view so admin sees the move
+  setTimeout(() => adminViewBranch(toBid), 150);
+}
+
 function adminEditEmp(empId, bid) {
   const e = getEmployee(empId); if(!e) return;
+  const xferHistory = Array.isArray(e.transferHistory) ? e.transferHistory : [];
+  const xferBlock = xferHistory.length ? `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text3);font-weight:700;letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">🔁 ประวัติการย้ายสาขา</div>
+      ${xferHistory.slice().reverse().map(h => `
+        <div style="font-size:12.5px;color:var(--text);padding:6px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-weight:700;color:var(--accent)">${h.from}</span>
+          <span style="color:var(--text3)"> → </span>
+          <span style="font-weight:700;color:var(--accent)">${h.to}</span>
+          <span style="color:var(--text3);font-size:11.5px;margin-left:8px">${h.date||''} ${h.reason?'· '+h.reason:''} ${h.by?'(โดย '+h.by+')':''}</span>
+        </div>`).join('')}
+    </div>` : '';
   showModal(`แก้ไขพนักงาน — สาขา ${bid}`, `
+    ${xferBlock}
     <div class="form-row">
       <div><label class="form-label">ชื่อ - นามสกุล</label><input class="form-input" id="emp-name" value="${e.name}"></div>
       <div><label class="form-label">ตำแหน่ง</label><select class="form-select" id="emp-pos"><option value="">-- เลือกตำแหน่ง --</option><option value="Service Basic P/T" ${e.position==="Service Basic P/T"?"selected":""}>Service Basic P/T</option>
