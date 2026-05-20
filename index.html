@@ -4244,6 +4244,7 @@ const BZM_NAV_ITEMS = [
   { page: 'admin-manage',          icon: '👥',  label: 'สาขา' },
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือน' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
 // VP / COO: company-wide overview + leaderboard + alerts (read-mostly).
@@ -4287,7 +4288,7 @@ const _SIDEBAR_LABELS = {
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'exec-leaderboard':     { admin: '',                              bzm: '',                            exec: 'จัดอันดับโซน BZM' },
-  'exec-alerts':          { admin: '',                              bzm: '',                            exec: 'แจ้งเตือนสำคัญ' },
+  'exec-alerts':          { admin: '',                              bzm: 'แจ้งเตือนในโซน',              exec: 'แจ้งเตือนสำคัญ' },
 };
 function _sidebarLabelFor(page) {
   const k = isBzmRole() ? 'bzm' : (isExecRole() ? 'exec' : 'admin');
@@ -10191,7 +10192,8 @@ function renderExecLeaderboard() {
 }
 
 function renderExecAlerts() {
-  const ACCESS = new Set(Object.keys(BRANCH_MASTER));
+  // Scope to whatever the user can see — BZM sees only their zone, exec/admin see all.
+  const ACCESS = new Set(getAccessibleBranches());
   const now = Date.now();
   const DAY = 86400000;
   // 1) Trainings overdue for eval (>7 days, no eval)
@@ -10240,8 +10242,8 @@ function renderExecAlerts() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">🚨 แจ้งเตือนสำคัญ</div>
-      <div class="page-hero-sub">รายการที่ต้องดูแลด่วน — ติดตามและกระตุ้นผ่าน BZM ในแต่ละโซน</div>
+      <div class="page-hero-title">🚨 ${isBzmRole() ? 'แจ้งเตือนในโซน' : 'แจ้งเตือนสำคัญ'}</div>
+      <div class="page-hero-sub">${isBzmRole() ? 'รายการในโซนของคุณที่ต้องดูแลด่วน — กระตุ้นแต่ละสาขาให้ดำเนินการ' : 'รายการที่ต้องดูแลด่วน — ติดตามและกระตุ้นผ่าน BZM ในแต่ละโซน'}</div>
     </div>
   </div>
   ${section('การสอนที่รอประเมินเกิน 7 วัน', '#F59E0B', '⏰', overdueEval.length,
