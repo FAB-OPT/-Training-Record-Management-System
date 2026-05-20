@@ -5818,8 +5818,8 @@ function renderTrainings() {
       </tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
-          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultShort(t.eval.result)}</span>`
-          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
+          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="white-space:nowrap">${getEvalResultShort(t.eval.result)}</span>`
+          : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="white-space:nowrap">หมดเวลา</span>' : '<span class="badge badge-yellow" style="white-space:nowrap">รอประเมิน</span>';
         const within7 = !isEvalDeadlinePassed(t.date);
         const canEdit = within7 && !t.eval;
         const canEval = !t.eval && within7;
@@ -5840,7 +5840,7 @@ function renderTrainings() {
           <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span></td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
-          <td data-label="สถานะ">${badge}</td>
+          <td data-label="สถานะ" style="white-space:nowrap">${badge}</td>
           <td data-label="actions" style="white-space:nowrap">
             ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
