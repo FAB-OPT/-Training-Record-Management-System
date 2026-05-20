@@ -4232,6 +4232,27 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
+// BZM (district manager): same view as admin but scoped to their zone — no quiz mgmt.
+const BZM_NAV_ITEMS = [
+  { page: 'admin-dashboard',       icon: '🏠',  label: 'หน้าหลัก' },
+  { page: 'admin-manage',          icon: '👥',  label: 'สาขา' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
+  { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
+];
+// VP / COO: company-wide overview + leaderboard + alerts (read-mostly).
+const EXEC_NAV_ITEMS = [
+  { page: 'admin-dashboard',       icon: '🏠',  label: 'ภาพรวม' },
+  { page: 'exec-leaderboard',      icon: '🏆',  label: 'จัดอันดับ' },
+  { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือน' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
+  { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
+];
+function getActiveNavItems() {
+  if (isBzmRole())  return BZM_NAV_ITEMS;
+  if (isExecRole()) return EXEC_NAV_ITEMS;
+  return ADMIN_NAV_ITEMS;
+}
 function buildBottomNav(items) {
   const inner = document.getElementById('mobile-bottom-nav-inner');
   if (!inner) return;
@@ -4251,15 +4272,27 @@ function buildBranchNav() {
   buildBottomNav(BRANCH_NAV_ITEMS);
 }
 
+// Long-form sidebar labels (different from compact bottom-nav labels)
+const _SIDEBAR_LABELS = {
+  'admin-dashboard':      { admin: 'แดชบอร์ด',                     bzm: 'แดชบอร์ดโซน',                exec: 'แดชบอร์ดภาพรวม' },
+  'admin-manage':         { admin: 'จัดการสาขา & พนักงาน',           bzm: 'สาขาในโซน',                  exec: 'เรียกดูสาขา' },
+  'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
+  'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
+  'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
+  'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
+  'exec-leaderboard':     { admin: '',                              bzm: '',                            exec: 'จัดอันดับโซน BZM' },
+  'exec-alerts':          { admin: '',                              bzm: '',                            exec: 'แจ้งเตือนสำคัญ' },
+};
+function _sidebarLabelFor(page) {
+  const k = isBzmRole() ? 'bzm' : (isExecRole() ? 'exec' : 'admin');
+  return _SIDEBAR_LABELS[page]?.[k] || _SIDEBAR_LABELS[page]?.admin || page;
+}
 function buildAdminNav() {
-  document.getElementById('sidebar-nav').innerHTML = `
-    <div class="nav-item" id="nav-admin-dashboard" onclick="showPage('admin-dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
-    <div class="nav-item" id="nav-admin-manage" onclick="showPage('admin-manage')"><span class="nav-icon">◼</span> จัดการสาขา &amp; พนักงาน</div>
-    <div class="nav-item" id="nav-admin-trainings" onclick="showPage('admin-trainings')"><span class="nav-icon">◼</span> บันทึกการสอน &amp; ประเมินผล</div>
-    <div class="nav-item" id="nav-admin-course-history" onclick="showPage('admin-course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
-    <div class="nav-item" id="nav-admin-quiz" onclick="showPage('admin-quiz')"><span class="nav-icon">◼</span> จัดการข้อสอบ</div>
-    <div class="nav-item" id="nav-admin-reports" onclick="showPage('admin-reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>`;
-  buildBottomNav(ADMIN_NAV_ITEMS);
+  const items = getActiveNavItems();
+  document.getElementById('sidebar-nav').innerHTML = items.map(it =>
+    `<div class="nav-item" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">◼</span> ${_sidebarLabelFor(it.page)}</div>`
+  ).join('');
+  buildBottomNav(items);
 }
 
 function showPage(page) {
@@ -4284,6 +4317,8 @@ function showPage(page) {
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
     'admin-bzm': () => { _adminManageTab = 'bzm'; return renderAdminManage(); },
+    'exec-leaderboard': renderExecLeaderboard,
+    'exec-alerts': renderExecAlerts,
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
@@ -4319,6 +4354,8 @@ function updateBottomNav(page) {
     'admin-course-history':  'bnav-admin-course-history',
     'admin-quiz':            'bnav-admin-quiz',
     'admin-reports':         'bnav-admin-reports',
+    'exec-leaderboard':      'bnav-exec-leaderboard',
+    'exec-alerts':           'bnav-exec-alerts',
   };
   document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
   const targetId = navMap[page];
@@ -4337,13 +4374,42 @@ let _viewBranchOverride = null;
 function getBranchId() { return _viewBranchOverride || currentUser.branchId; }
 function setViewBranch(bid) { _viewBranchOverride = bid || null; }
 function getBranchEmployees(bid) {
-  if (bid === 'ALL') return Object.values(DB.employees).flat();
+  if (bid === 'ALL') {
+    const acc = new Set(getAccessibleBranches());
+    return Object.entries(DB.employees)
+      .filter(([k]) => acc.has(k))
+      .flatMap(([, list]) => list);
+  }
   return DB.employees[bid] || [];
 }
 function getBranchTrainings(bid) {
-  if (bid === 'ALL') return DB.trainings.slice();
+  if (bid === 'ALL') {
+    const acc = new Set(getAccessibleBranches());
+    return DB.trainings.filter(t => acc.has(t.branchId));
+  }
   return DB.trainings.filter(t => t.branchId === bid);
 }
+
+// ==================== ROLE-BASED ACCESS ====================
+// Returns the branch IDs the current user is allowed to see.
+// - branch user → their single branch
+// - BZM         → branches where they are the manager (matched via BRANCH_MASTER[bid].manager)
+// - admin/vp/coo → all branches
+function getAccessibleBranches() {
+  if (!currentUser) return [];
+  if (currentUser.type === 'branch') return [currentUser.branchId];
+  if (currentUser.role === 'bzm' && currentUser.name) {
+    return Object.keys(BRANCH_MASTER).filter(bid => {
+      const mgr = BRANCH_MASTER[bid]?.manager || '';
+      return mgr.includes(currentUser.name);
+    });
+  }
+  return Object.keys(BRANCH_MASTER);
+}
+function isAdminRole()    { return currentUser?.type === 'admin' && (!currentUser.role || currentUser.role === 'admin'); }
+function isBzmRole()      { return currentUser?.type === 'admin' && currentUser.role === 'bzm'; }
+function isExecRole()     { return currentUser?.type === 'admin' && (currentUser.role === 'vp' || currentUser.role === 'coo'); }
+function isAnyAdminRole() { return currentUser?.type === 'admin'; }
 function getEmployee(id) {
   if (!id) return null;
   const sid = String(id).trim();
@@ -9969,6 +10035,178 @@ function _updateAqTotal() {
     const wrap = document.getElementById('aq-total');
     if (wrap) wrap.style.color = total > 30 ? 'var(--red)' : (total === 0 ? 'var(--text3)' : 'var(--accent)');
   }
+}
+
+// ==================== EXECUTIVE PAGES (VP / COO) ====================
+function renderExecLeaderboard() {
+  // Compute per-BZM rollup: branches, employees, sessions, eval rate, pass rate
+  const zones = getAllBzms();
+  const rows = zones.map(z => {
+    let emps = 0, sessions = 0, evaluated = 0, passed = 0;
+    z.branches.forEach(bid => {
+      const e = (DB.employees[bid] || []).filter(_isEmpEnabled);
+      emps += e.length;
+      const trains = DB.trainings.filter(t => t.branchId === bid);
+      sessions += trains.length;
+      trains.forEach(t => {
+        if (t.eval) {
+          evaluated++;
+          if (isEvalPass(t.eval.result)) passed++;
+        }
+      });
+    });
+    const evalRate = sessions ? Math.round(evaluated / sessions * 100) : 0;
+    const passRate = evaluated ? Math.round(passed / evaluated * 100) : 0;
+    // Composite score: pass rate weighted higher than eval rate
+    const score = Math.round(passRate * 0.6 + evalRate * 0.4);
+    return { name: z.name, branches: z.branches.length, emps, sessions, evaluated, passed, evalRate, passRate, score };
+  }).sort((a, b) => b.score - a.score);
+  const medals = ['🥇', '🥈', '🥉'];
+  const totalBranches = Object.keys(BRANCH_MASTER).length;
+  const totalEmps = Object.values(DB.employees).flat().filter(_isEmpEnabled).length;
+  const totalSessions = DB.trainings.length;
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">🏆 จัดอันดับโซน BZM</div>
+      <div class="page-hero-sub">เปรียบเทียบผลงานของแต่ละโซน — เรียงตามคะแนนรวม (อัตราผ่าน × 0.6 + อัตราประเมิน × 0.4)</div>
+    </div>
+  </div>
+  <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${zones.length}</div><div class="stat-label">โซน BZM</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalBranches}</div><div class="stat-label">สาขาทั้งหมด</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalEmps}</div><div class="stat-label">พนักงาน</div></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="cards-on-mobile">
+      <thead><tr>
+        <th style="width:60px;text-align:center">#</th>
+        <th>โซน BZM</th>
+        <th style="text-align:center">สาขา</th>
+        <th style="text-align:center">พนง.</th>
+        <th style="text-align:center">สอน</th>
+        <th style="text-align:center">ประเมิน</th>
+        <th style="text-align:center;color:var(--green)">ผ่าน</th>
+        <th style="text-align:center;background:var(--accent-light);color:var(--accent);font-weight:800">คะแนน</th>
+      </tr></thead>
+      <tbody>
+        ${rows.length ? rows.map((r, i) => `<tr>
+          <td data-label="อันดับ" style="text-align:center;font-size:18px;font-weight:800">${medals[i] || (i+1)}</td>
+          <td data-label="โซน" style="font-weight:700">${r.name}</td>
+          <td data-label="สาขา" style="text-align:center;font-weight:600">${r.branches}</td>
+          <td data-label="พนักงาน" style="text-align:center;font-weight:600">${r.emps}</td>
+          <td data-label="การสอน" style="text-align:center;font-weight:600">${r.sessions}</td>
+          <td data-label="ประเมิน" style="text-align:center;font-weight:600">${r.evaluated}<span style="color:var(--text3);font-size:11px;margin-left:3px">(${r.evalRate}%)</span></td>
+          <td data-label="ผ่าน" style="text-align:center;font-weight:700;color:${r.passRate>=80?'var(--green)':(r.passRate>=60?'var(--accent)':'var(--red)')}">${r.passed}<span style="font-size:11px;margin-left:3px;opacity:.85">(${r.passRate}%)</span></td>
+          <td data-label="คะแนน" style="text-align:center;font-weight:800;font-size:16px;color:${r.score>=80?'var(--green)':(r.score>=60?'var(--accent)':'var(--red)')}">${r.score}</td>
+        </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">ยังไม่มีข้อมูลโซน BZM</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderExecAlerts() {
+  const ACCESS = new Set(Object.keys(BRANCH_MASTER));
+  const now = Date.now();
+  const DAY = 86400000;
+  // 1) Trainings overdue for eval (>7 days, no eval)
+  const overdueEval = DB.trainings.filter(t => !t.eval && ACCESS.has(t.branchId) && (now - new Date(t.date||0).getTime()) > 7*DAY)
+    .sort((a,b) => new Date(a.date) - new Date(b.date));
+  // 2) Failed quizzes (locked, max attempts hit but didn't pass)
+  const failedQuiz = DB.trainings.filter(t => {
+    if (!ACCESS.has(t.branchId)) return false;
+    const attempts = _quizAttemptsFor(t.id);
+    if (attempts.length < QUIZ_MAX_ATTEMPTS) return false;
+    const bestPct = Math.max(...attempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100)));
+    return bestPct < 80;
+  });
+  // 3) New employees (joined <60 days) without any training yet
+  const newUntrained = [];
+  Object.entries(DB.employees).forEach(([bid, list]) => {
+    if (!ACCESS.has(bid)) return;
+    (list || []).filter(_isEmpEnabled).forEach(e => {
+      const tenureDays = e.startDate ? Math.floor((now - new Date(e.startDate).getTime()) / DAY) : null;
+      if (tenureDays != null && tenureDays <= 60) {
+        const hasTraining = DB.trainings.some(t => (t.traineeIds||[]).includes(e.id));
+        if (!hasTraining) newUntrained.push({ emp: e, branchId: bid, days: tenureDays });
+      }
+    });
+  });
+  // 4) Branches with no recent training activity (>30 days)
+  const inactiveBranches = [];
+  Object.keys(BRANCH_MASTER).forEach(bid => {
+    if (!ACCESS.has(bid)) return;
+    const trains = DB.trainings.filter(t => t.branchId === bid);
+    if (!trains.length) return; // skip never-active
+    const latest = Math.max(...trains.map(t => new Date(t.date||0).getTime()));
+    const daysSince = Math.floor((now - latest) / DAY);
+    if (daysSince > 30) inactiveBranches.push({ bid, daysSince });
+  });
+  const section = (title, color, icon, count, body) => `
+    <div class="card" style="padding:0;overflow:hidden;border-left:4px solid ${color};margin-bottom:14px">
+      <div style="padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)">
+        <div style="font-size:22px">${icon}</div>
+        <div style="flex:1;font-size:15px;font-weight:800;color:var(--text)">${title}</div>
+        <span class="badge" style="background:${color}1A;color:${color};font-weight:800;padding:5px 12px">${count}</span>
+      </div>
+      ${body}
+    </div>`;
+  const brName = (bid) => `<span style="color:var(--accent);font-weight:700">${bid}</span> ${BRANCH_MASTER[bid]?.name?.replace(bid+' ','')||''}`;
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">🚨 แจ้งเตือนสำคัญ</div>
+      <div class="page-hero-sub">รายการที่ต้องดูแลด่วน — ติดตามและกระตุ้นผ่าน BZM ในแต่ละโซน</div>
+    </div>
+  </div>
+  ${section('การสอนที่รอประเมินเกิน 7 วัน', '#F59E0B', '⏰', overdueEval.length,
+    overdueEval.length ? `<div style="padding:8px 14px">${overdueEval.slice(0,30).map(t => {
+      const days = Math.floor((now - new Date(t.date||0).getTime())/DAY);
+      const trainees = (t.traineeIds||[]).map(id => getEmployee(id)?.name).filter(Boolean).join(', ');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--border);gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:600;color:var(--text)">${brName(t.branchId)} · ${MODULES[t.moduleId]?.name||t.moduleId}</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">${trainees} · ${t.trainerName||'—'}</div>
+        </div>
+        <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:700">รอ ${days} วัน</span>
+      </div>`;
+    }).join('')}${overdueEval.length > 30 ? `<div style="text-align:center;color:var(--text3);font-size:11.5px;padding:8px">…และอีก ${overdueEval.length - 30} รายการ</div>` : ''}</div>`
+    : '<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px">✓ ไม่มีรายการรอประเมินเกิน 7 วัน</div>')}
+
+  ${section('ข้อสอบไม่ผ่าน (ทำครบครั้งแล้ว)', '#EF4444', '📝', failedQuiz.length,
+    failedQuiz.length ? `<div style="padding:8px 14px">${failedQuiz.slice(0,30).map(t => {
+      const trainees = (t.traineeIds||[]).map(id => getEmployee(id)?.name).filter(Boolean).join(', ');
+      const attempts = _quizAttemptsFor(t.id);
+      const bestPct = Math.max(...attempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100)));
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--border);gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:600;color:var(--text)">${brName(t.branchId)} · ${MODULES[t.moduleId]?.name||t.moduleId}</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">${trainees}</div>
+        </div>
+        <span class="badge" style="background:#FEE2E2;color:#991B1B;font-weight:700">สูงสุด ${bestPct}%</span>
+      </div>`;
+    }).join('')}</div>`
+    : '<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px">✓ ไม่มี</div>')}
+
+  ${section('พนักงานใหม่ยังไม่ได้รับการสอน (อายุงาน ≤60 วัน)', '#3B82F6', '👶', newUntrained.length,
+    newUntrained.length ? `<div style="padding:8px 14px">${newUntrained.slice(0,30).map(x => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--border);gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:600;color:var(--text)">${x.emp.name} <span style="color:var(--text3);font-weight:500">· ${x.emp.position||'—'}</span></div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">${brName(x.branchId)}</div>
+        </div>
+        <span class="badge" style="background:#DBEAFE;color:#1E40AF;font-weight:700">เริ่มงาน ${x.days} วัน</span>
+      </div>`).join('')}${newUntrained.length > 30 ? `<div style="text-align:center;color:var(--text3);font-size:11.5px;padding:8px">…และอีก ${newUntrained.length - 30} คน</div>` : ''}</div>`
+    : '<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px">✓ พนักงานใหม่ทุกคนได้รับการสอนแล้ว</div>')}
+
+  ${section('สาขาที่ไม่มีการสอนเกิน 30 วัน', '#8B5CF6', '😴', inactiveBranches.length,
+    inactiveBranches.length ? `<div style="padding:8px 14px">${inactiveBranches.sort((a,b) => b.daysSince - a.daysSince).slice(0,30).map(x => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--border);gap:8px">
+        <div style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--text)">${brName(x.bid)}</div>
+        <span class="badge" style="background:#EDE9FE;color:#5B21B6;font-weight:700">เงียบ ${x.daysSince} วัน</span>
+      </div>`).join('')}</div>`
+    : '<div style="padding:18px;text-align:center;color:var(--text3);font-size:12.5px">✓ ทุกสาขามีการสอนใน 30 วันที่ผ่านมา</div>')}
+  `;
 }
 
 function renderAdminReports() {
