@@ -4181,7 +4181,7 @@ function showApp() {
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
-    const _greet = currentUser.nick ? `Team Management · ${currentUser.nick}` : 'Team Management';
+    const _greet = currentUser.name ? `${currentUser.name} (Team Management)` : 'Team Management';
     requestAnimationFrame(() => showWelcomeModal(_greet));
   }
 }
