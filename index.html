@@ -3905,6 +3905,7 @@ const _SB_TABLE = {
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
+  chatLogs:      { sessionId:'session_id', userType:'user_type', userKey:'user_key', userName:'user_name', userRole:'user_role', branchId:'branch_id' },
   trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
@@ -4451,6 +4452,47 @@ function showApp() {
 
 // ==================== CHATBOT ====================
 let _chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+let _chatSessionId = null; // set on first message of a session
+
+function _chatUserMeta() {
+  if (!currentUser) return { userType:'unknown', userKey:'unknown', userName:'-', userRole:'-', branchId:'-' };
+  if (currentUser.type === 'branch') {
+    return {
+      userType: 'branch',
+      userKey: 'branch:' + currentUser.branchId,
+      userName: BRANCH_MASTER[currentUser.branchId]?.name || currentUser.branchId,
+      userRole: 'branch',
+      branchId: currentUser.branchId,
+    };
+  }
+  return {
+    userType: 'admin',
+    userKey: 'admin:' + (currentUser.code || currentUser.name || '-'),
+    userName: currentUser.name || currentUser.nick || '-',
+    userRole: currentUser.role || 'admin',
+    branchId: '-',
+  };
+}
+
+function _chatLogMessage(role, content, isErr) {
+  if (!_chatSessionId) _chatSessionId = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  const meta = _chatUserMeta();
+  const rec = {
+    id: 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+    ts: new Date().toISOString(),
+    sessionId: _chatSessionId,
+    userType: meta.userType,
+    userKey: meta.userKey,
+    userName: meta.userName,
+    userRole: meta.userRole,
+    branchId: meta.branchId,
+    role: role,           // 'user' | 'bot'
+    content: String(content || '').slice(0, 4000), // safety cap per message
+    err: !!isErr,
+  };
+  // Fire-and-forget — chat shouldn't block waiting on log save
+  try { gsSave('chatLogs', rec.id, rec); } catch (_) {}
+}
 
 function openChatbot() {
   const p = document.getElementById('chatbot-panel');
@@ -4760,6 +4802,7 @@ async function sendChatMessage() {
   document.querySelectorAll('#chatbot-messages .cb-quick').forEach(el => el.remove());
   _renderChatMessage('user', text);
   _chatHistory.push({ role: 'user', content: text });
+  _chatLogMessage('user', text, false);
   input.value = '';
   if (btn) btn.disabled = true;
   const typing = _renderChatTyping();
@@ -4771,17 +4814,22 @@ async function sendChatMessage() {
     });
     typing?.remove();
     if (res.error) {
-      const errDiv = _renderChatMessage('bot', 'ขออภัย เกิดข้อผิดพลาด: ' + res.error);
+      const msg = 'ขออภัย เกิดข้อผิดพลาด: ' + res.error;
+      const errDiv = _renderChatMessage('bot', msg);
       errDiv?.classList.add('err');
+      _chatLogMessage('bot', msg, true);
     } else {
       const reply = res.reply || '(ไม่มีคำตอบ)';
       _renderChatMessage('bot', reply);
       _chatHistory.push({ role: 'assistant', content: reply });
+      _chatLogMessage('bot', reply, false);
     }
   } catch (err) {
     typing?.remove();
-    const errDiv = _renderChatMessage('bot', 'ขออภัย เชื่อมต่อไม่ได้: ' + (err.message || err));
+    const msg = 'ขออภัย เชื่อมต่อไม่ได้: ' + (err.message || err);
+    const errDiv = _renderChatMessage('bot', msg);
     errDiv?.classList.add('err');
+    _chatLogMessage('bot', msg, true);
   } finally {
     if (btn) btn.disabled = false;
     input.focus();
