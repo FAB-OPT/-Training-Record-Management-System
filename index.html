@@ -721,128 +721,229 @@
   .detail-key { width: 140px; font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0; padding-top: 2px; }
   .detail-val { font-size: 14px; color: var(--text); flex: 1; }
 
-  /* ==================== CHATBOT ==================== */
+  /* ==================== CHATBOT — น้องแฮปปี้ ==================== */
+  /* Floating button (FAB) with breathing avatar + pulse ring */
   #chatbot-fab {
     position: fixed; right: 22px; bottom: 22px; z-index: 180;
-    width: 58px; height: 58px; border-radius: 50%;
-    background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
-    color: white; font-size: 28px;
+    width: 62px; height: 62px; border-radius: 50%;
+    background: linear-gradient(135deg, #FFB37A 0%, #FF8541 50%, #FF6B1A 100%);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; user-select: none;
-    box-shadow: 0 8px 24px rgba(255,107,26,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 10px 28px rgba(255,107,26,0.45), 0 0 0 4px rgba(255,255,255,0.95);
+    transition: transform 0.18s cubic-bezier(.34,1.56,.64,1);
   }
-  #chatbot-fab:hover { transform: scale(1.06); box-shadow: 0 12px 30px rgba(255,107,26,0.55); }
-  #chatbot-fab:active { transform: scale(0.96); }
+  #chatbot-fab:hover { transform: scale(1.08); }
+  #chatbot-fab:active { transform: scale(0.94); }
+  .cb-fab-avatar {
+    font-size: 30px; line-height: 1; display: inline-block;
+    animation: cbBreath 2.6s ease-in-out infinite;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+  }
+  @keyframes cbBreath { 0%,100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.08) rotate(-3deg); } }
+  .cb-fab-pulse {
+    position: absolute; inset: -4px; border-radius: 50%;
+    border: 3px solid rgba(255,107,26,0.6); pointer-events: none;
+    animation: cbPulse 2s infinite ease-out;
+  }
+  @keyframes cbPulse {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    100% { transform: scale(1.45); opacity: 0; }
+  }
+
+  /* Main panel */
   #chatbot-panel {
-    position: fixed; right: 22px; bottom: 92px; z-index: 190;
-    width: 380px; max-width: calc(100vw - 24px);
-    height: 540px; max-height: calc(100vh - 120px);
+    position: fixed; right: 22px; bottom: 98px; z-index: 190;
+    width: 400px; max-width: calc(100vw - 24px);
+    height: 580px; max-height: calc(100vh - 130px);
     background: var(--surface);
-    border-radius: 18px;
+    border-radius: 22px;
     border: 1px solid var(--border);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.22), 0 4px 16px rgba(255,107,26,0.12);
     display: flex; flex-direction: column;
     overflow: hidden;
-    animation: cbIn 0.2s ease-out;
+    animation: cbIn 0.25s cubic-bezier(.34,1.56,.64,1);
   }
-  @keyframes cbIn { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes cbIn { from { opacity: 0; transform: translateY(20px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  /* Header */
   .cb-head {
     padding: 14px 16px;
-    background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
+    background: linear-gradient(135deg, #FFA66B 0%, #FF8541 45%, #FF6B1A 100%);
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
   }
+  .cb-head::before {
+    /* subtle decorative bubbles in header */
+    content: '';
+    position: absolute; right: -20px; top: -30px;
+    width: 110px; height: 110px; border-radius: 50%;
+    background: rgba(255,255,255,0.10); pointer-events: none;
+  }
+  .cb-head-info { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; min-width: 0; }
   .cb-avatar {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: rgba(255,255,255,0.22);
+    width: 44px; height: 44px; border-radius: 50%;
+    background: white;
     display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.18), 0 0 0 3px rgba(255,255,255,0.5);
+    position: relative; flex-shrink: 0;
   }
+  .cb-avatar-emoji { font-size: 24px; animation: cbBreath 2.6s ease-in-out infinite; line-height: 1; }
+  .cb-avatar-dot {
+    position: absolute; bottom: 2px; right: 2px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #22C55E; border: 2px solid white;
+    box-shadow: 0 0 8px rgba(34,197,94,0.6);
+  }
+  .cb-name {
+    font-size: 15px; font-weight: 800; color: white; line-height: 1.2;
+    display: flex; align-items: center; gap: 6px; letter-spacing: -.2px;
+  }
+  .cb-online {
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.92);
+    background: rgba(34,197,94,0.32); padding: 2px 7px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.3); letter-spacing: 0;
+  }
+  .cb-sub { font-size: 11.5px; color: rgba(255,255,255,0.88); margin-top: 1px; }
   .cb-close {
     background: rgba(255,255,255,0.2); border: none; color: white;
-    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
-    font-size: 13px; display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s;
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+    font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+    flex-shrink: 0; position: relative; z-index: 1;
   }
-  .cb-close:hover { background: rgba(255,255,255,0.35); }
+  .cb-close:hover { background: rgba(255,255,255,0.35); transform: rotate(90deg); }
+
+  /* Body */
   .cb-body {
     flex: 1; overflow-y: auto;
-    padding: 14px 14px 6px;
-    display: flex; flex-direction: column; gap: 8px;
-    background: var(--surface2);
+    padding: 16px 14px 8px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: linear-gradient(180deg, #FFFAF5 0%, var(--surface2) 100%);
+    scroll-behavior: smooth;
   }
+  body.dark-mode .cb-body { background: linear-gradient(180deg, var(--surface2) 0%, var(--bg) 100%); }
+  .cb-body::-webkit-scrollbar { width: 6px; }
+  .cb-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
+
+  /* Message bubbles */
   .cb-msg {
-    max-width: 86%; padding: 9px 13px; border-radius: 14px;
-    font-size: 13.5px; line-height: 1.5;
+    max-width: 84%; padding: 10px 14px; border-radius: 16px;
+    font-size: 13.5px; line-height: 1.55;
     word-wrap: break-word; white-space: pre-wrap;
+    animation: cbMsgIn 0.22s ease-out;
   }
+  @keyframes cbMsgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .cb-msg.user {
     background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
     color: white; align-self: flex-end; border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 12px rgba(255,107,26,0.28);
+    font-weight: 500;
   }
   .cb-msg.bot {
+    align-self: flex-start;
     background: var(--surface); color: var(--text);
-    align-self: flex-start; border: 1px solid var(--border);
+    border: 1px solid var(--border);
     border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
-  .cb-msg.bot.err { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+  .cb-msg.bot.err {
+    background: #FEF2F2; color: #991B1B; border-color: #FECACA;
+  }
+  body.dark-mode .cb-msg.bot.err { background: #2A0F0F; color: #FCA5A5; border-color: #5C1F1F; }
+
+  /* Bot row with avatar */
+  .cb-row-bot {
+    display: flex; align-items: flex-end; gap: 8px;
+    align-self: flex-start; max-width: 92%;
+    animation: cbMsgIn 0.22s ease-out;
+  }
+  .cb-row-bot .cb-row-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, #FFA66B 0%, #FF6B1A 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(255,107,26,0.3);
+  }
+  .cb-row-bot .cb-msg { animation: none; max-width: 100%; }
+
+  /* Typing dots */
   .cb-typing {
     display: inline-flex; gap: 4px; align-items: center; padding: 2px 0;
   }
   .cb-typing span {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--text3);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
     animation: cbDot 1.2s infinite ease-in-out;
   }
   .cb-typing span:nth-child(2) { animation-delay: 0.15s; }
   .cb-typing span:nth-child(3) { animation-delay: 0.3s; }
-  @keyframes cbDot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+  @keyframes cbDot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+  /* Input footer */
   .cb-input {
-    display: flex; gap: 6px; padding: 10px 12px;
+    display: flex; gap: 8px; padding: 12px 14px;
     border-top: 1px solid var(--border);
     background: var(--surface);
     flex-shrink: 0;
+    align-items: center;
   }
   .cb-input input {
     flex: 1; min-width: 0;
-    padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px;
+    padding: 11px 16px; border: 1.5px solid var(--border); border-radius: 999px;
     font-family: inherit; font-size: 13.5px; outline: none;
     background: var(--surface2); color: var(--text);
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
   }
-  .cb-input input:focus { border-color: var(--accent); background: var(--surface); }
+  .cb-input input::placeholder { color: var(--text3); }
+  .cb-input input:focus {
+    border-color: var(--accent); background: var(--surface);
+    box-shadow: 0 0 0 4px rgba(255,107,26,0.12);
+  }
   .cb-input button {
-    width: 38px; height: 38px; border-radius: 50%;
+    width: 40px; height: 40px; border-radius: 50%;
     background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
     color: white; border: none; cursor: pointer;
-    font-size: 18px; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    transition: transform 0.12s, opacity 0.15s;
+    box-shadow: 0 4px 12px rgba(255,107,26,0.35);
+    transition: transform 0.12s, box-shadow 0.18s, opacity 0.15s;
   }
-  .cb-input button:hover { transform: scale(1.06); }
-  .cb-input button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .cb-input button:hover { transform: scale(1.08); box-shadow: 0 6px 16px rgba(255,107,26,0.45); }
+  .cb-input button:active { transform: scale(0.92); }
+  .cb-input button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Quick suggestion chips */
   .cb-quick {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0 36px;
   }
   .cb-quick button {
     background: var(--surface); border: 1px solid var(--border);
-    color: var(--text2); padding: 5px 11px; border-radius: 999px;
+    color: var(--text2); padding: 6px 12px; border-radius: 999px;
     font-family: inherit; font-size: 12px; cursor: pointer;
-    transition: all 0.12s;
+    transition: all 0.15s;
   }
-  .cb-quick button:hover { border-color: var(--accent); color: var(--accent); }
+  .cb-quick button:hover {
+    border-color: var(--accent); color: var(--accent);
+    background: var(--accent-light);
+    transform: translateY(-1px);
+  }
 
-  /* Mobile: panel slides up from bottom, fills more space */
+  /* Mobile: panel slides up, fills more space */
   @media (max-width: 540px) {
-    #chatbot-fab { right: 14px; bottom: 78px; width: 52px; height: 52px; font-size: 24px; }
+    #chatbot-fab { right: 14px; bottom: 78px; width: 56px; height: 56px; }
     body.branch-user #chatbot-fab,
-    body.admin-user #chatbot-fab { bottom: 76px; } /* clear bottom nav */
+    body.admin-user #chatbot-fab { bottom: 76px; }
+    .cb-fab-avatar { font-size: 28px; }
     #chatbot-panel {
-      right: 8px; left: 8px; bottom: 76px;
+      right: 6px; left: 6px; bottom: 76px;
       width: auto; max-width: none;
       height: calc(100vh - 130px);
+      border-radius: 18px;
     }
+    .cb-msg { max-width: 80%; font-size: 13px; }
+    .cb-quick { margin-left: 32px; }
   }
 
   @media print {
@@ -1968,23 +2069,31 @@
   </div>
 </div>
 
-<!-- CHATBOT WIDGET (filled + shown after login) -->
-<div id="chatbot-fab" onclick="openChatbot()" style="display:none">💬</div>
+<!-- CHATBOT WIDGET — น้องแฮปปี้ (filled + shown after login) -->
+<div id="chatbot-fab" onclick="openChatbot()" style="display:none">
+  <span class="cb-fab-avatar">😊</span>
+  <span class="cb-fab-pulse"></span>
+</div>
 <div id="chatbot-panel" style="display:none">
   <div class="cb-head">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div class="cb-avatar">🤖</div>
+    <div class="cb-head-info">
+      <div class="cb-avatar">
+        <span class="cb-avatar-emoji">😊</span>
+        <span class="cb-avatar-dot"></span>
+      </div>
       <div>
-        <div style="font-size:14px;font-weight:800;color:white;line-height:1.2">ผู้ช่วย AI</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.85)">ถามได้ทุกเรื่องในระบบ</div>
+        <div class="cb-name">น้องแฮปปี้ <span class="cb-online">● ออนไลน์</span></div>
+        <div class="cb-sub">ผู้ช่วย AI ของระบบ Santa Fe</div>
       </div>
     </div>
     <button class="cb-close" onclick="closeChatbot()" aria-label="ปิด">✕</button>
   </div>
   <div class="cb-body" id="chatbot-messages"></div>
   <form class="cb-input" id="chatbot-form" onsubmit="event.preventDefault();sendChatMessage()">
-    <input type="text" id="chatbot-input" placeholder="พิมพ์คำถาม…" autocomplete="off">
-    <button type="submit" id="chatbot-send" title="ส่ง">↑</button>
+    <input type="text" id="chatbot-input" placeholder="คุยกับน้องแฮปปี้ได้เลย…" autocomplete="off" maxlength="500">
+    <button type="submit" id="chatbot-send" title="ส่ง" aria-label="ส่ง">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
   </form>
 </div>
 
@@ -4365,13 +4474,14 @@ function closeChatbot() {
 }
 
 function _chatGreeting() {
-  if (!currentUser) return 'สวัสดีครับ มีอะไรให้ช่วยไหม';
+  if (!currentUser) return 'สวัสดีค่า~ มีอะไรให้น้องแฮปปี้ช่วยมั้ยคะ 😊';
   if (currentUser.type === 'branch') {
     const b = BRANCH_MASTER[currentUser.branchId];
-    return `สวัสดีค่ะ! ฉันคือผู้ช่วย AI ของสาขา ${currentUser.branchId} ${b?.name.replace(currentUser.branchId+' ','')||''}\n\nถามได้เลย เช่น วิธีบันทึกการสอน, หัวข้อใน Module ต่างๆ, หรือสรุปผลการประเมิน`;
+    return `สวัสดีค่า~ 😊\nน้องแฮปปี้เองค่า ผู้ช่วยของสาขา ${currentUser.branchId} ${b?.name.replace(currentUser.branchId+' ','')||''}\n\nถามได้เลยนะคะ เช่น วิธีบันทึกการสอน · หัวข้อใน Module ต่างๆ · ผลการประเมินของสาขา`;
   }
+  const nick = currentUser.nick||currentUser.name||'';
   const roleLabel = ({admin:'Admin', bzm:'BZM', vp:'VP', coo:'COO'})[currentUser.role] || 'Team Management';
-  return `สวัสดีค่ะ คุณ${currentUser.nick||currentUser.name||''} (${roleLabel}) 🤖\n\nฉันช่วยอะไรได้บ้าง:\n• ตอบคำถามเกี่ยวกับการใช้ระบบ\n• อธิบายเนื้อหาในแต่ละ Module\n• สรุปข้อมูลในขอบเขตที่คุณดูแล\n\nลองถามได้เลย`;
+  return `สวัสดีค่า คุณ${nick} 😊\nน้องแฮปปี้เองค่า ผู้ช่วย AI ของระบบ Santa Fe\n\nน้องช่วยได้นะคะ:\n💬 ตอบคำถามเกี่ยวกับการใช้ระบบ\n📚 อธิบายเนื้อหาแต่ละ Module\n📊 สรุป/วิเคราะห์ข้อมูลในขอบเขต ${roleLabel} ของคุณ\n\nลองถามดูเลยค่า~`;
 }
 
 function _renderChatQuickActions() {
@@ -4394,23 +4504,36 @@ function _chatAskQuick(q) {
 function _renderChatMessage(role, text) {
   const wrap = document.getElementById('chatbot-messages');
   if (!wrap) return null;
-  const div = document.createElement('div');
-  div.className = 'cb-msg ' + (role === 'user' ? 'user' : 'bot');
-  div.textContent = text;
-  wrap.appendChild(div);
+  if (role === 'user') {
+    const div = document.createElement('div');
+    div.className = 'cb-msg user';
+    div.textContent = text;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+    return div;
+  }
+  // Bot message: wrap with avatar
+  const row = document.createElement('div');
+  row.className = 'cb-row-bot';
+  row.innerHTML = '<div class="cb-row-avatar">😊</div>';
+  const msg = document.createElement('div');
+  msg.className = 'cb-msg bot';
+  msg.textContent = text;
+  row.appendChild(msg);
+  wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
-  return div;
+  return msg;
 }
 function _renderChatTyping() {
   const wrap = document.getElementById('chatbot-messages');
   if (!wrap) return null;
-  const div = document.createElement('div');
-  div.className = 'cb-msg bot';
-  div.id = 'chatbot-typing';
-  div.innerHTML = '<span class="cb-typing"><span></span><span></span><span></span></span>';
-  wrap.appendChild(div);
+  const row = document.createElement('div');
+  row.className = 'cb-row-bot';
+  row.id = 'chatbot-typing';
+  row.innerHTML = '<div class="cb-row-avatar">😊</div><div class="cb-msg bot"><span class="cb-typing"><span></span><span></span><span></span></span></div>';
+  wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
-  return div;
+  return row;
 }
 
 // Build a compact, role-scoped context string for Claude
@@ -4516,7 +4639,8 @@ ${recent||'(ยังไม่มี)'}`;
 }
 
 function _chatSystemPrompt() {
-  return `คุณคือ "ผู้ช่วย AI" ของระบบบันทึกการสอนงาน Santa Fe Steak (OPT Training)
+  return `คุณคือ "น้องแฮปปี้" — ผู้ช่วย AI สาวน้อยน่ารัก ของระบบบันทึกการสอนงาน Santa Fe Steak (OPT Training)
+บุคลิก: ใจดี อารมณ์ดี เป็นกันเอง แต่จริงจังกับข้อมูล — ลงท้าย "ค่ะ/ค่า" บ้าง ใช้ emoji 😊 เป็นบางครั้ง (ไม่ใส่ทุกประโยค)
 
 หน้าที่:
 1. ตอบคำถามเกี่ยวกับการใช้ระบบ (วิธีบันทึก, แก้ไข, ดูรายงาน ฯลฯ)
@@ -4525,6 +4649,7 @@ function _chatSystemPrompt() {
 
 กฎสำคัญ:
 - ตอบเป็นภาษาไทย กระชับ ตรงประเด็น (ไม่เกิน 6 บรรทัดเว้นแต่ถูกถามรายละเอียดมาก)
+- อย่าเรียกตัวเองว่า "ฉัน" หรือ "ผม" — เรียกตัวเองว่า "น้องแฮปปี้" หรือ "น้อง"
 - **ใช้ข้อมูลจากบล็อก "ข้อมูลปัจจุบัน" ด้านล่างเท่านั้น** — ห้ามแต่งตัวเลขหรือชื่อ
 - หากผู้ใช้ถามเรื่อง "จำนวนผู้ถูกสอน" ให้ดูฟิลด์ "ผู้ถูกสอน (unique)" — ถ้าถามรายชื่อให้ดู section "การสอน 15 รายการล่าสุด" หรือบอกตรงๆ ว่ามีในระบบเกินที่ส่งให้
 - "ผู้สอน" = คนที่สอน (trainer), "ผู้ถูกสอน" = พนักงานที่รับการสอน (trainee) — อย่าสับสน
