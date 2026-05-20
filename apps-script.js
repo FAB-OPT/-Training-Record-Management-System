@@ -200,7 +200,8 @@ function _chatViaGemini(req, apiKey) {
     // Try multiple free-tier models in order — fall through on quota OR not-found
     // (Google occasionally retires aliases like 'gemini-1.5-flash-latest', so the
     // list is ordered by "most likely still alive + free" first.)
-    const models = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+    // Order: smartest free model first, fall through to lighter/older on quota or 404
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
     var resp, code, body;
     var lastErr = '';
     outer: for (var mi = 0; mi < models.length; mi++) {

@@ -4417,18 +4417,73 @@ function _renderChatTyping() {
 function _chatBuildContext() {
   const access = (typeof getAccessibleBranches === 'function' ? getAccessibleBranches() : Object.keys(BRANCH_MASTER || {}));
   const accSet = new Set(access);
-  const emps = Object.entries(DB.employees || {})
+  const allEmps = Object.entries(DB.employees || {})
     .filter(([k]) => accSet.has(k))
-    .flatMap(([, list]) => list || [])
-    .filter(_isEmpEnabled);
+    .flatMap(([, list]) => (list || []).map(e => ({...e, _branch: BRANCH_MASTER[e.branchId]?.name||e.branchId})));
+  const emps = allEmps.filter(_isEmpEnabled);
   const trains = (DB.trainings || []).filter(t => accSet.has(t.branchId));
   const evaluated = trains.filter(t => t.eval);
   const passed = evaluated.filter(t => isEvalPass(t.eval.result));
   const passRate = evaluated.length ? Math.round(passed.length / evaluated.length * 100) : 0;
-  const recent = trains.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 8)
-    .map(t => `- ${fmtDate(t.date)} · ${t.branchId} · ${MODULES[t.moduleId]?.name||t.moduleId} · ผู้สอน ${t.trainerName||'—'} · ${t.eval ? (isEvalPass(t.eval.result)?'ผ่าน':'ไม่ผ่าน') : 'รอประเมิน'}`)
+
+  // Unique trainee names (deduplicated)
+  const traineeNames = new Set();
+  trains.forEach(t => (t.traineeIds||[]).forEach(id => {
+    const e = getEmployee(id); if (e) traineeNames.add(e.name);
+  }));
+  // Trainer leaderboard (top 5)
+  const trainerCount = {};
+  trains.forEach(t => { const n = t.trainerName||'—'; trainerCount[n] = (trainerCount[n]||0) + 1; });
+  const topTrainers = Object.entries(trainerCount).sort((a,b) => b[1]-a[1]).slice(0,5)
+    .map(([n,c]) => `${n} (${c})`).join(', ');
+
+  // Per-employee training count (for "X ถูกสอนกี่ครั้ง")
+  const empTrainCount = {};
+  trains.forEach(t => (t.traineeIds||[]).forEach(id => {
+    empTrainCount[id] = (empTrainCount[id]||0) + 1;
+  }));
+  const trainedEmps = emps.filter(e => empTrainCount[e.id]);
+  const untrainedEmps = emps.filter(e => !empTrainCount[e.id]);
+
+  // Per-branch summary
+  const perBranch = {};
+  access.forEach(bid => {
+    perBranch[bid] = { name: BRANCH_MASTER[bid]?.name||bid, emps:0, sessions:0, eval:0, pass:0 };
+  });
+  emps.forEach(e => { if (perBranch[e.branchId]) perBranch[e.branchId].emps++; });
+  trains.forEach(t => {
+    const p = perBranch[t.branchId]; if (!p) return;
+    p.sessions++;
+    if (t.eval) { p.eval++; if (isEvalPass(t.eval.result)) p.pass++; }
+  });
+  const branchLines = Object.entries(perBranch)
+    .filter(([,p]) => p.emps || p.sessions)
+    .sort((a,b) => b[1].sessions - a[1].sessions)
+    .slice(0, 15) // cap to avoid bloat
+    .map(([bid,p]) => `- ${bid} ${p.name.replace(bid+' ','')}: พนง.${p.emps} · สอน${p.sessions} · ประเมิน${p.eval}/ผ่าน${p.pass}`)
     .join('\n');
+
+  // Recent trainings with TRAINEE NAMES included (this was missing!)
+  const recent = trains.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 15).map(t => {
+    const names = (t.traineeIds||[]).map(id => getEmployee(id)?.name).filter(Boolean).join(', ');
+    const status = t.eval ? (isEvalPass(t.eval.result)?'ผ่าน':'ไม่ผ่าน') : 'รอประเมิน';
+    return `- ${fmtDate(t.date)} · ${t.branchId} · ${MODULES[t.moduleId]?.name||t.moduleId} · ผู้สอน:${t.trainerName||'—'} · ผู้ถูกสอน:${names||'—'} · ${status}`;
+  }).join('\n');
+
+  // Per-module pass rates
+  const perMod = {};
+  trains.forEach(t => {
+    const k = t.moduleId; if (!perMod[k]) perMod[k] = { name: MODULES[k]?.name||k, sessions:0, eval:0, pass:0 };
+    perMod[k].sessions++;
+    if (t.eval) { perMod[k].eval++; if (isEvalPass(t.eval.result)) perMod[k].pass++; }
+  });
+  const moduleStatsLines = Object.values(perMod)
+    .sort((a,b) => b.sessions - a.sessions)
+    .map(m => `- ${m.name}: สอน${m.sessions} · ประเมิน${m.eval}/ผ่าน${m.pass}${m.eval?` (${Math.round(m.pass/m.eval*100)}%)`:''}`)
+    .join('\n');
+
   const modules = Object.values(MODULES || {}).map(m => `- ${m.name} (${m.group||''}) → หัวข้อ: ${(m.subtopics||[]).join(' / ')}`).join('\n');
+
   let userInfo;
   if (currentUser?.type === 'branch') {
     const b = BRANCH_MASTER[currentUser.branchId];
@@ -4438,17 +4493,26 @@ function _chatBuildContext() {
     const roleLabel = ({admin:'Admin (สิทธิ์เต็ม)', bzm:'BZM (ผู้จัดการเขต — ดูเฉพาะโซนตนเอง)', vp:'VP Santa Fe (ผู้บริหาร — ดูทั้งบริษัท)', coo:'COO (ผู้บริหาร — ดูทั้งบริษัท)'})[role] || role;
     userInfo = `ผู้ใช้: ${currentUser?.name||'—'} (${currentUser?.nick||'—'}) · ${roleLabel}\nสาขาที่เข้าถึง: ${access.length} สาขา`;
   }
+
   return `${userInfo}
 
-สถิติในขอบเขตของผู้ใช้:
-- พนักงานเปิดใช้งาน: ${emps.length} คน
+ภาพรวมในขอบเขตของผู้ใช้:
+- พนักงานเปิดใช้งาน: ${emps.length} คน (ถูกสอนแล้ว ${trainedEmps.length} คน · ยังไม่ถูกสอน ${untrainedEmps.length} คน)
+- ผู้ถูกสอน (unique): ${traineeNames.size} คน
 - บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)
+- ผู้สอนสูงสุด (top 5): ${topTrainers||'—'}
 
-Modules ในระบบ:
+สาขาในขอบเขต (top ${Math.min(15, access.length)} ตามจำนวนการสอน):
+${branchLines||'(ไม่มีข้อมูล)'}
+
+สถิติแยกตาม Module:
+${moduleStatsLines||'(ยังไม่มีการสอน)'}
+
+Modules ที่มีในระบบ (พร้อมหัวข้อย่อย):
 ${modules}
 
-การสอน 8 รายการล่าสุด:
-${recent || '(ยังไม่มี)'}`;
+การสอน 15 รายการล่าสุด (รวมรายชื่อผู้ถูกสอน):
+${recent||'(ยังไม่มี)'}`;
 }
 
 function _chatSystemPrompt() {
@@ -4457,14 +4521,22 @@ function _chatSystemPrompt() {
 หน้าที่:
 1. ตอบคำถามเกี่ยวกับการใช้ระบบ (วิธีบันทึก, แก้ไข, ดูรายงาน ฯลฯ)
 2. อธิบายเนื้อหาในแต่ละ Module (Food Safety, การบริการ, การปรุงอาหาร ฯลฯ) ให้พนักงาน
-3. ช่วยสรุป/วิเคราะห์ข้อมูลจาก context ที่ได้รับ — เช่นนับสาขา, นับการสอน, หาผู้ที่ยังไม่ได้รับการสอน
+3. ช่วยสรุป/วิเคราะห์ข้อมูลจาก context — นับ, จัดอันดับ, เปรียบเทียบสาขา, หา outlier, ตอบ ad-hoc
 
-กฎ:
-- ตอบเป็นภาษาไทย กระชับ ตรงประเด็น (ไม่เกิน 4-6 บรรทัดถ้าไม่จำเป็น)
-- ใช้ข้อมูลจาก context ที่ระบบส่งให้เท่านั้น — ห้ามแต่งตัวเลข
-- ถ้าผู้ใช้ถามข้อมูลที่อยู่นอกขอบเขตของเขา ให้บอกว่าไม่มีสิทธิ์ดู
-- ถ้าไม่แน่ใจ ให้บอกตรงๆ ว่าไม่ทราบ แทนที่จะเดา
-- เนื้อหาเรื่องอาหาร/ความปลอดภัย ให้อ้างมาตรฐาน Santa Fe และความรู้ทั่วไปด้านร้านอาหาร
+กฎสำคัญ:
+- ตอบเป็นภาษาไทย กระชับ ตรงประเด็น (ไม่เกิน 6 บรรทัดเว้นแต่ถูกถามรายละเอียดมาก)
+- **ใช้ข้อมูลจากบล็อก "ข้อมูลปัจจุบัน" ด้านล่างเท่านั้น** — ห้ามแต่งตัวเลขหรือชื่อ
+- หากผู้ใช้ถามเรื่อง "จำนวนผู้ถูกสอน" ให้ดูฟิลด์ "ผู้ถูกสอน (unique)" — ถ้าถามรายชื่อให้ดู section "การสอน 15 รายการล่าสุด" หรือบอกตรงๆ ว่ามีในระบบเกินที่ส่งให้
+- "ผู้สอน" = คนที่สอน (trainer), "ผู้ถูกสอน" = พนักงานที่รับการสอน (trainee) — อย่าสับสน
+- ถ้า context ไม่มีข้อมูลพอจะตอบ ให้บอกตรงๆ ว่า "ข้อมูลที่ได้รับมีแค่ X รายการ ดูทั้งหมดที่เมนู Y" แทนที่จะเดา
+- ถ้าผู้ใช้ถามข้อมูลที่อยู่นอกขอบเขตของเขา (เช่น BZM ถามสาขานอกโซน) ให้บอกว่าไม่อยู่ในขอบเขตที่ดูแล
+- เนื้อหาเรื่องอาหาร/ความปลอดภัย ให้อ้างมาตรฐาน Santa Fe และความรู้ทั่วไปด้านร้านอาหาร — อย่าอ้างข้อมูลใน context
+
+วิธีตอบคำถามนับ/สรุป:
+- "พนักงานถูกสอนกี่คน" → ดูบรรทัด "ถูกสอนแล้ว X คน"
+- "ใครยังไม่ได้รับการสอน" → ดูบรรทัด "ยังไม่ถูกสอน X คน" (รายชื่อไม่ได้ส่ง — แนะนำให้เปิดเมนู "พนักงาน")
+- "สาขาไหนสอนเยอะสุด" → ดู "สาขาในขอบเขต" (เรียงตามจำนวนการสอนแล้ว)
+- "Module ไหนผ่านเยอะ/น้อย" → ดู "สถิติแยกตาม Module"
 
 ข้อมูลปัจจุบัน:
 ${_chatBuildContext()}`;
