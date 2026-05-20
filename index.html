@@ -6988,16 +6988,18 @@ function openQuiz(trainingId) {
   const attempts = _quizAttemptsFor(trainingId);
   if (attempts.length >= QUIZ_MAX_ATTEMPTS) {
     showModal('🔒 ทำข้อสอบครบจำนวนครั้งแล้ว', `
-      <div style="text-align:center;padding:18px 0">
-        <div style="font-size:48px;margin-bottom:10px">🔒</div>
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">ทำข้อสอบครบ ${QUIZ_MAX_ATTEMPTS} ครั้งแล้ว</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+      <div style="text-align:center;padding:4px 0">
+        <div style="font-size:38px;margin-bottom:6px">🔒</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">ทำข้อสอบครบ ${QUIZ_MAX_ATTEMPTS} ครั้งแล้ว</div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.55">
           คะแนนสูงสุด: <strong>${Math.max(...attempts.map(r => r.pct||Math.round((r.score||0)/(r.total||1)*100)))}%</strong><br>
           กรุณาทบทวนและสอนงานพนักงานใหม่อีกครั้ง<br>
           ก่อนเปิดสิทธิ์ทำข้อสอบรอบถัดไป
         </div>
       </div>
     `, null, 'ปิด');
+    const _m = document.querySelector('#modal-overlay .modal');
+    if (_m) _m.style.maxWidth = '360px';
     return;
   }
   // Pull from question pool (admin pre-generates with AI; employee gets random 5)
