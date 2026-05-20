@@ -197,22 +197,39 @@ function _chatViaGemini(req, apiKey) {
       generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
     });
 
-    // gemini-2.0-flash is on the free tier (15 req/min, 1500/day)
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+    // Try multiple free-tier models in order — fall through on quota errors
+    // gemini-1.5-flash-latest is the most reliable free model
+    const models = ['gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash-8b'];
     var resp, code, body;
-    for (var attempt = 0; attempt < 3; attempt++) {
-      resp = UrlFetchApp.fetch(url, {
-        method: 'post',
-        contentType: 'application/json',
-        payload: payload,
-        muteHttpExceptions: true,
-      });
-      code = resp.getResponseCode();
-      body = resp.getContentText();
-      if (code !== 429 && code !== 503) break;
-      Utilities.sleep(1500 * (attempt + 1));
+    var lastErr = '';
+    outer: for (var mi = 0; mi < models.length; mi++) {
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[mi] + ':generateContent?key=' + apiKey;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        resp = UrlFetchApp.fetch(url, {
+          method: 'post',
+          contentType: 'application/json',
+          payload: payload,
+          muteHttpExceptions: true,
+        });
+        code = resp.getResponseCode();
+        body = resp.getContentText();
+        if (code === 200) break outer;
+        if (code === 429 || code === 503) {
+          if (attempt < 2) { Utilities.sleep(1500 * (attempt + 1)); continue; }
+          lastErr = code + ' (' + models[mi] + ')';
+          break; // exhausted retries on this model; try next one
+        }
+        // other errors (auth, bad request) — stop completely
+        lastErr = code + ': ' + body.slice(0, 300);
+        break outer;
+      }
     }
-    if (code !== 200) return { error: 'Gemini API ' + code + ': ' + body.slice(0, 300) };
+    if (code !== 200) {
+      if (code === 429) {
+        return { error: 'โควต้า Gemini API หมดชั่วคราว — ลองใหม่ในอีก 1 นาที หรือถ้าใช้บ่อย อาจต้องสร้าง API key ใหม่ที่ aistudio.google.com (โปรเจกต์ใหม่จะได้ free tier เต็มอีกครั้ง)' };
+      }
+      return { error: 'Gemini API ' + lastErr };
+    }
 
     const data = JSON.parse(body);
     const cand = (data.candidates && data.candidates[0]) || null;
