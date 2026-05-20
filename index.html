@@ -6579,7 +6579,7 @@ const ACH_PAGE_SIZE = 100;
 function renderAdminCourseHistory() {
   // Use the same grouped UI as branch view, with bid = 'ALL' (or override)
   setViewBranch(_viewBranchOverride || 'ALL');
-  const branchOpts = Object.keys(BRANCH_MASTER).sort().map(id=>{
+  const branchOpts = getAccessibleBranches().slice().sort().map(id=>{
     const nm = (BRANCH_MASTER[id].name||'').replace(new RegExp('^'+id+'\\s*'),'');
     return `<option value="${id}"${_viewBranchOverride===id?' selected':''}>${id} · ${nm}</option>`;
   }).join('');
@@ -6601,10 +6601,10 @@ function renderAdminCourseHistory() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">ประวัติการอบรมหลักสูตรทั้งระบบ</div>
+      <div class="page-hero-title">${isAdminRole() ? 'ประวัติการอบรมหลักสูตรทั้งระบบ' : 'ประวัติการอบรมหลักสูตร'}</div>
       <div class="page-hero-sub">จัดกลุ่มตามพนักงาน — คลิกเพื่อดูหลักสูตรที่อบรม</div>
     </div>
-    <button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>
+    ${isAdminRole() ? '<button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>' : ''}
   </div>
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -8312,13 +8312,17 @@ function _buildEvaluationsExcel(bid, branchLabel, trains) {
 
 // ==================== ADMIN ====================
 function renderAdminDashboard() {
-  const branches = Object.keys(BRANCH_MASTER).sort();
+  // BZM sees only their zone's branches; admin/exec see all
+  const branches = getAccessibleBranches().slice().sort();
   const sel = _viewBranchOverride || 'ALL';
-  const branchOpts = '<option value="ALL"' + (sel==='ALL'?' selected':'') + '>📊 ทั้งระบบ (ทุกสาขา)</option>' + branches.map(id => `<option value="${id}" ${id===sel?'selected':''}>${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  const allLabel = isBzmRole() ? '📊 ภาพรวมโซน' : '📊 ทั้งระบบ (ทุกสาขา)';
+  const branchOpts = '<option value="ALL"' + (sel==='ALL'?' selected':'') + '>' + allLabel + '</option>' + branches.map(id => `<option value="${id}" ${id===sel?'selected':''}>${id} ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   const isSystem = sel === 'ALL';
-  const heroTitle = isSystem ? 'แดชบอร์ด' : `${sel} ${BRANCH_MASTER[sel].name.replace(sel+' ','')}`;
+  const heroTitle = isSystem
+    ? (isBzmRole() ? 'ภาพรวมการสอนงานของสาขา' : (isExecRole() ? 'แดชบอร์ดภาพรวม' : 'แดชบอร์ด'))
+    : `${sel} ${BRANCH_MASTER[sel].name.replace(sel+' ','')}`;
   const heroSub = isSystem
-    ? ''
+    ? (isBzmRole() ? `อัปเดต ${fmtDate(new Date())}` : '')
     : `ผู้จัดการเขต: ${BRANCH_MASTER[sel].manager}`;
   // Reuse the branch dashboard render with bid='ALL' for system view
   // Strip its inner hero so only the admin hero shows
@@ -8543,17 +8547,28 @@ function renderAdminManage() {
     .mgr-branch-actions .btn { flex:1; font-size:11.5px; padding:5px 8px }
     .mgr-zone-empty { padding:18px;text-align:center;color:var(--text3);font-size:12.5px;border:1px dashed var(--border);border-radius:8px }
   </style>
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-title">จัดการสาขา &amp; พนักงาน</div>
-      <div class="page-hero-sub">${_selectedBzm ? `กำลังดูโซน: ${_selectedBzm}` : 'เลือกโซน BZM เพื่อจัดการสาขา'}</div>
+  ${(() => {
+    // BZM: auto-pin to their own zone (skip the BZM picker step)
+    if (isBzmRole() && !_selectedBzm && currentUser?.name) _selectedBzm = currentUser.name;
+    const heroTitle = isBzmRole() ? 'สาขาในโซน' : (isExecRole() ? 'เรียกดูสาขา' : 'จัดการสาขา &amp; พนักงาน');
+    const heroSub = _selectedBzm
+      ? (isBzmRole() ? `รวม ${(getAllBzms().find(z=>z.name===_selectedBzm)?.branches.length)||0} สาขา` : `กำลังดูโซน: ${_selectedBzm}`)
+      : 'เลือกโซน BZM เพื่อจัดการสาขา';
+    const showAddBzm = !_selectedBzm && isAdminRole();
+    const showAddBranch = _selectedBzm && isAdminRole();
+    return `
+    <div class="page-hero">
+      <div class="page-hero-body">
+        <div class="page-hero-title">${heroTitle}</div>
+        <div class="page-hero-sub">${heroSub}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${showAddBzm   ? `<button class="btn btn-outline" onclick="openAddBzmModal()">+ เพิ่ม BZM</button>` : ''}
+        ${showAddBranch? `<button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>` : ''}
+      </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${_selectedBzm ? '' : `<button class="btn btn-outline" onclick="openAddBzmModal()">+ เพิ่ม BZM</button>`}
-      ${_selectedBzm ? `<button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>` : ''}
-    </div>
-  </div>
-  ${_selectedBzm ? _renderManageBzmDetail() : _renderManageBzmList()}`;
+    ${_selectedBzm ? _renderManageBzmDetail() : _renderManageBzmList()}`;
+  })()}`;
 }
 
 // Step 1: BZM picker — show all BZMs as selectable cards
@@ -8631,18 +8646,18 @@ function _renderManageBzmDetail() {
       <td data-label="บริการ" style="text-align:center;color:#16A34A;font-weight:700">${service}</td>
       <td data-label="actions" style="text-align:right;white-space:nowrap">
         <button class="btn btn-sm btn-outline" onclick="adminViewBranch('${bid}')">👥 พนักงาน</button>
-        <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditBranch('${bid}')">✏️ แก้ไข</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="openDeleteBranch('${bid}')">🗑 ลบ</button>
+        ${isAdminRole() ? `<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditBranch('${bid}')">✏️ แก้ไข</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="openDeleteBranch('${bid}')">🗑 ลบ</button>` : ''}
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">${q ? '🔍 ไม่พบสาขาที่ตรงกับการค้นหา' : 'ยังไม่มีสาขาในโซนนี้'}</td></tr>`;
-  const zoneActions = z._unassigned ? '' : `
+  const zoneActions = (z._unassigned || !isAdminRole()) ? '' : `
     <button class="btn btn-sm btn-outline" onclick="openAssignBranchesModal('${safe}')">+ เพิ่มสาขาเข้าโซน</button>
     <button class="btn btn-sm btn-outline" onclick="openRenameBzmModal('${safe}')">✏️ แก้ชื่อ BZM</button>
     <button class="btn btn-sm btn-danger" onclick="confirmDeleteBzm('${safe}')" ${z.branches.length>0?'disabled title="ย้ายสาขาออกก่อน"':''}>🗑 ลบ BZM</button>`;
   return `
   <div class="mgr-toolbar">
-    <button class="mgr-back" onclick="clearBzmSelection()">‹ กลับไปเลือก BZM</button>
+    ${isBzmRole() ? '' : `<button class="mgr-back" onclick="clearBzmSelection()">‹ กลับไปเลือก BZM</button>`}
     <input class="search-input" placeholder="🔍 ค้นหารหัสหรือชื่อสาขาในโซนนี้..." oninput="setManageSearch(this.value)" style="flex:1;min-width:200px;max-width:400px" value="${q.replace(/"/g,'&quot;')}">
     <span class="mgr-stat"><b>${z.branches.length}</b> สาขา</span>
     <span class="mgr-stat"><b>${zEmps}</b> พนักงาน</span>
@@ -9484,7 +9499,7 @@ function renderAdminTrainings() {
   else if (filter === 'expired') rows = expired;
   rows = _sortAdminTrainings(rows);
 
-  const branchOptions = Object.keys(BRANCH_MASTER).sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  const branchOptions = getAccessibleBranches().slice().sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   const _svcMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
   const _cookMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Cook');
   const _modOpt = ([k,m]) => `<option value="${k}"${k===_adminTrainModule?' selected':''}>${m.name}</option>`;
@@ -9501,7 +9516,7 @@ function renderAdminTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">บันทึกการสอน &amp; ประเมินผล</div>
+      <div class="page-hero-title">${isAnyAdminRole() && !isAdminRole() ? 'ติดตามการสอน' : 'บันทึกการสอน &amp; ประเมินผล'}</div>
     </div>
   </div>
   <div class="card">
@@ -10214,18 +10229,18 @@ function renderExecAlerts() {
 }
 
 function renderAdminReports() {
+  const scope = isBzmRole() ? 'ในโซนของคุณ' : (isExecRole() ? 'ทั้งระบบ' : 'รวมทุกสาขา');
   return `
-  <div class="topbar"><div class="topbar-title">Admin</div></div>
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">ออกรายงาน (Admin)</div>
-      <div class="page-hero-sub">รายงานรวมทุกสาขา</div>
+      <div class="page-hero-title">ออกรายงาน</div>
+      <div class="page-hero-sub">รายงาน${scope}</div>
     </div>
   </div>
   ${_renderReportPicker([
-    ['สรุปทั้งระบบ','ภาพรวมการสอนงานทุกสาขา','summary'],
-    ['รายชื่อพนักงานทุกสาขา','รายชื่อพนักงานทั้งหมดในระบบ','employees'],
-    ['ประวัติการสอนและผลการประเมินทุกสาขา','บันทึกการสอนงานพร้อมผลการประเมินทั้งระบบ','trainings'],
+    ['สรุป' + (isBzmRole()?'โซน':'ทั้งระบบ'),'ภาพรวมการสอนงาน' + (isBzmRole()?'ในโซน':'ทุกสาขา'),'summary'],
+    ['รายชื่อพนักงาน' + (isBzmRole()?'ในโซน':'ทุกสาขา'),'รายชื่อพนักงานทั้งหมด' + (isBzmRole()?'ในโซนของคุณ':'ในระบบ'),'employees'],
+    ['ประวัติการสอนและผลการประเมิน' + (isBzmRole()?'ในโซน':'ทุกสาขา'),'บันทึกการสอนงานพร้อมผลการประเมิน' + (isBzmRole()?'ในโซน':'ทั้งระบบ'),'trainings'],
     ['รายบุคคล','ประวัติการสอนงาน + ผลประเมิน + อบรมหลักสูตร ของพนักงานคนเดียว','individual'],
   ])}`;
 }
