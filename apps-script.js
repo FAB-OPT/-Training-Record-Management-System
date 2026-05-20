@@ -35,6 +35,9 @@ function doPost(e) {
   if (data.action === 'ai_quiz') {
     return respond(generateAiQuiz(data));
   }
+  if (data.action === 'chat') {
+    return respond(chatWithClaude(data));
+  }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -145,6 +148,57 @@ function generateAiQuiz(req) {
         && ['A','B','C','D'].indexOf(q.ans) >= 0;
     });
     return { questions: valid };
+  } catch (err) {
+    return { error: 'Server error: ' + err.message };
+  }
+}
+
+// ========================================================
+//  Chatbot — Claude API proxy
+//  Body: { action:'chat', messages:[{role,content},...], system:'...' }
+//  Returns: { reply:'...' } or { error:'...' }
+// ========================================================
+function chatWithClaude(req) {
+  try {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+    if (!apiKey) return { error: 'ยังไม่ได้ตั้ง ANTHROPIC_API_KEY ใน Script Properties' };
+
+    const messages = req.messages || [];
+    if (!messages.length) return { error: 'no messages' };
+    // Cap conversation length to avoid runaway cost
+    const trimmed = messages.slice(-20);
+    const system = req.system || 'คุณคือผู้ช่วย AI ตอบเป็นภาษาไทย กระชับและตรงประเด็น';
+
+    const payload = JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1024,
+      system: system,
+      messages: trimmed,
+    });
+
+    var resp, code, body;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        payload: payload,
+        muteHttpExceptions: true,
+      });
+      code = resp.getResponseCode();
+      body = resp.getContentText();
+      if (code !== 429 && code !== 529) break;
+      Utilities.sleep(1500 * (attempt + 1));
+    }
+    if (code !== 200) return { error: 'Claude API ' + code + ': ' + body.slice(0, 300) };
+
+    const data = JSON.parse(body);
+    const text = (data.content && data.content[0] && data.content[0].text) || '';
+    if (!text) return { error: 'Claude ไม่ได้ตอบกลับ' };
+    return { reply: text };
   } catch (err) {
     return { error: 'Server error: ' + err.message };
   }

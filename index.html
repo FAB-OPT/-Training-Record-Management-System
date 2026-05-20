@@ -721,9 +721,134 @@
   .detail-key { width: 140px; font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0; padding-top: 2px; }
   .detail-val { font-size: 14px; color: var(--text); flex: 1; }
 
+  /* ==================== CHATBOT ==================== */
+  #chatbot-fab {
+    position: fixed; right: 22px; bottom: 22px; z-index: 180;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
+    color: white; font-size: 28px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none;
+    box-shadow: 0 8px 24px rgba(255,107,26,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  #chatbot-fab:hover { transform: scale(1.06); box-shadow: 0 12px 30px rgba(255,107,26,0.55); }
+  #chatbot-fab:active { transform: scale(0.96); }
+  #chatbot-panel {
+    position: fixed; right: 22px; bottom: 92px; z-index: 190;
+    width: 380px; max-width: calc(100vw - 24px);
+    height: 540px; max-height: calc(100vh - 120px);
+    background: var(--surface);
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: cbIn 0.2s ease-out;
+  }
+  @keyframes cbIn { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .cb-head {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    flex-shrink: 0;
+  }
+  .cb-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .cb-close {
+    background: rgba(255,255,255,0.2); border: none; color: white;
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    font-size: 13px; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .cb-close:hover { background: rgba(255,255,255,0.35); }
+  .cb-body {
+    flex: 1; overflow-y: auto;
+    padding: 14px 14px 6px;
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--surface2);
+  }
+  .cb-msg {
+    max-width: 86%; padding: 9px 13px; border-radius: 14px;
+    font-size: 13.5px; line-height: 1.5;
+    word-wrap: break-word; white-space: pre-wrap;
+  }
+  .cb-msg.user {
+    background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
+    color: white; align-self: flex-end; border-bottom-right-radius: 4px;
+  }
+  .cb-msg.bot {
+    background: var(--surface); color: var(--text);
+    align-self: flex-start; border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .cb-msg.bot.err { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+  .cb-typing {
+    display: inline-flex; gap: 4px; align-items: center; padding: 2px 0;
+  }
+  .cb-typing span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--text3);
+    animation: cbDot 1.2s infinite ease-in-out;
+  }
+  .cb-typing span:nth-child(2) { animation-delay: 0.15s; }
+  .cb-typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes cbDot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+  .cb-input {
+    display: flex; gap: 6px; padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .cb-input input {
+    flex: 1; min-width: 0;
+    padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px;
+    font-family: inherit; font-size: 13.5px; outline: none;
+    background: var(--surface2); color: var(--text);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .cb-input input:focus { border-color: var(--accent); background: var(--surface); }
+  .cb-input button {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
+    color: white; border: none; cursor: pointer;
+    font-size: 18px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.12s, opacity 0.15s;
+  }
+  .cb-input button:hover { transform: scale(1.06); }
+  .cb-input button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .cb-quick {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+  }
+  .cb-quick button {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text2); padding: 5px 11px; border-radius: 999px;
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    transition: all 0.12s;
+  }
+  .cb-quick button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Mobile: panel slides up from bottom, fills more space */
+  @media (max-width: 540px) {
+    #chatbot-fab { right: 14px; bottom: 78px; width: 52px; height: 52px; font-size: 24px; }
+    body.branch-user #chatbot-fab,
+    body.admin-user #chatbot-fab { bottom: 76px; } /* clear bottom nav */
+    #chatbot-panel {
+      right: 8px; left: 8px; bottom: 76px;
+      width: auto; max-width: none;
+      height: calc(100vh - 130px);
+    }
+  }
+
   @media print {
     .sidebar, .btn, .modal-overlay, .topbar { display: none !important; }
     .main { margin-left: 0; padding: 0; }
+    #chatbot-fab, #chatbot-panel { display: none !important; }
   }
 
   /* ==================== MOBILE TOP BAR ==================== */
@@ -1841,6 +1966,26 @@
   <div class="mobile-bottom-nav-inner" id="mobile-bottom-nav-inner">
     <!-- Branch user nav (filled by buildBottomNav) -->
   </div>
+</div>
+
+<!-- CHATBOT WIDGET (filled + shown after login) -->
+<div id="chatbot-fab" onclick="openChatbot()" style="display:none">💬</div>
+<div id="chatbot-panel" style="display:none">
+  <div class="cb-head">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="cb-avatar">🤖</div>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:white;line-height:1.2">ผู้ช่วย AI</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.85)">ถามได้ทุกเรื่องในระบบ</div>
+      </div>
+    </div>
+    <button class="cb-close" onclick="closeChatbot()" aria-label="ปิด">✕</button>
+  </div>
+  <div class="cb-body" id="chatbot-messages"></div>
+  <form class="cb-input" id="chatbot-form" onsubmit="event.preventDefault();sendChatMessage()">
+    <input type="text" id="chatbot-input" placeholder="พิมพ์คำถาม…" autocomplete="off">
+    <button type="submit" id="chatbot-send" title="ส่ง">↑</button>
+  </form>
 </div>
 
 <!-- LOGIN -->
@@ -4189,6 +4334,177 @@ function showApp() {
     const _roleGreet = ({ admin: 'Admin', bzm: 'BZM', vp: 'VP. Santa Fe', coo: 'COO' })[currentUser.role] || 'Team Management';
     const _greet = currentUser.name ? `${currentUser.name} (${_roleGreet})` : 'Team Management';
     requestAnimationFrame(() => showWelcomeModal(_greet));
+  }
+  // Show chat FAB once logged in
+  const _fab = document.getElementById('chatbot-fab');
+  if (_fab) _fab.style.display = 'flex';
+}
+
+// ==================== CHATBOT ====================
+let _chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+
+function openChatbot() {
+  const p = document.getElementById('chatbot-panel');
+  const f = document.getElementById('chatbot-fab');
+  if (!p) return;
+  p.style.display = 'flex';
+  if (f) f.style.display = 'none';
+  // Seed greeting once
+  if (!_chatHistory.length) {
+    const greet = _chatGreeting();
+    _renderChatMessage('bot', greet);
+    _renderChatQuickActions();
+  }
+  setTimeout(() => document.getElementById('chatbot-input')?.focus(), 50);
+}
+function closeChatbot() {
+  const p = document.getElementById('chatbot-panel');
+  const f = document.getElementById('chatbot-fab');
+  if (p) p.style.display = 'none';
+  if (f) f.style.display = 'flex';
+}
+
+function _chatGreeting() {
+  if (!currentUser) return 'สวัสดีครับ มีอะไรให้ช่วยไหม';
+  if (currentUser.type === 'branch') {
+    const b = BRANCH_MASTER[currentUser.branchId];
+    return `สวัสดีค่ะ! ฉันคือผู้ช่วย AI ของสาขา ${currentUser.branchId} ${b?.name.replace(currentUser.branchId+' ','')||''}\n\nถามได้เลย เช่น วิธีบันทึกการสอน, หัวข้อใน Module ต่างๆ, หรือสรุปผลการประเมิน`;
+  }
+  const roleLabel = ({admin:'Admin', bzm:'BZM', vp:'VP', coo:'COO'})[currentUser.role] || 'Team Management';
+  return `สวัสดีค่ะ คุณ${currentUser.nick||currentUser.name||''} (${roleLabel}) 🤖\n\nฉันช่วยอะไรได้บ้าง:\n• ตอบคำถามเกี่ยวกับการใช้ระบบ\n• อธิบายเนื้อหาในแต่ละ Module\n• สรุปข้อมูลในขอบเขตที่คุณดูแล\n\nลองถามได้เลย`;
+}
+
+function _renderChatQuickActions() {
+  const wrap = document.getElementById('chatbot-messages');
+  if (!wrap) return;
+  const isAdminish = currentUser?.type === 'admin';
+  const quicks = isAdminish
+    ? ['สรุปสาขาที่อัตราผ่านต่ำสุด', 'มีพนักงานใหม่กี่คนยังไม่ได้รับการสอน?', 'Module 1 Food Safety มีหัวข้ออะไรบ้าง']
+    : ['วิธีบันทึกการสอน', 'หัวข้อ Module 1 Food Safety', 'การประเมินมีกี่ระดับ'];
+  const div = document.createElement('div');
+  div.className = 'cb-quick';
+  div.innerHTML = quicks.map(q => `<button onclick="_chatAskQuick('${q.replace(/'/g,"\\'")}')">${q}</button>`).join('');
+  wrap.appendChild(div);
+}
+function _chatAskQuick(q) {
+  document.getElementById('chatbot-input').value = q;
+  sendChatMessage();
+}
+
+function _renderChatMessage(role, text) {
+  const wrap = document.getElementById('chatbot-messages');
+  if (!wrap) return null;
+  const div = document.createElement('div');
+  div.className = 'cb-msg ' + (role === 'user' ? 'user' : 'bot');
+  div.textContent = text;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return div;
+}
+function _renderChatTyping() {
+  const wrap = document.getElementById('chatbot-messages');
+  if (!wrap) return null;
+  const div = document.createElement('div');
+  div.className = 'cb-msg bot';
+  div.id = 'chatbot-typing';
+  div.innerHTML = '<span class="cb-typing"><span></span><span></span><span></span></span>';
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return div;
+}
+
+// Build a compact, role-scoped context string for Claude
+function _chatBuildContext() {
+  const access = (typeof getAccessibleBranches === 'function' ? getAccessibleBranches() : Object.keys(BRANCH_MASTER || {}));
+  const accSet = new Set(access);
+  const emps = Object.entries(DB.employees || {})
+    .filter(([k]) => accSet.has(k))
+    .flatMap(([, list]) => list || [])
+    .filter(_isEmpEnabled);
+  const trains = (DB.trainings || []).filter(t => accSet.has(t.branchId));
+  const evaluated = trains.filter(t => t.eval);
+  const passed = evaluated.filter(t => isEvalPass(t.eval.result));
+  const passRate = evaluated.length ? Math.round(passed.length / evaluated.length * 100) : 0;
+  const recent = trains.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 8)
+    .map(t => `- ${fmtDate(t.date)} · ${t.branchId} · ${MODULES[t.moduleId]?.name||t.moduleId} · ผู้สอน ${t.trainerName||'—'} · ${t.eval ? (isEvalPass(t.eval.result)?'ผ่าน':'ไม่ผ่าน') : 'รอประเมิน'}`)
+    .join('\n');
+  const modules = Object.values(MODULES || {}).map(m => `- ${m.name} (${m.group||''}) → หัวข้อ: ${(m.subtopics||[]).join(' / ')}`).join('\n');
+  let userInfo;
+  if (currentUser?.type === 'branch') {
+    const b = BRANCH_MASTER[currentUser.branchId];
+    userInfo = `ผู้ใช้: พนักงานสาขา ${currentUser.branchId} ${b?.name.replace(currentUser.branchId+' ','')||''}\nสิทธิ์: ดู/แก้ไขข้อมูลสาขาตนเอง`;
+  } else {
+    const role = currentUser?.role || 'admin';
+    const roleLabel = ({admin:'Admin (สิทธิ์เต็ม)', bzm:'BZM (ผู้จัดการเขต — ดูเฉพาะโซนตนเอง)', vp:'VP Santa Fe (ผู้บริหาร — ดูทั้งบริษัท)', coo:'COO (ผู้บริหาร — ดูทั้งบริษัท)'})[role] || role;
+    userInfo = `ผู้ใช้: ${currentUser?.name||'—'} (${currentUser?.nick||'—'}) · ${roleLabel}\nสาขาที่เข้าถึง: ${access.length} สาขา`;
+  }
+  return `${userInfo}
+
+สถิติในขอบเขตของผู้ใช้:
+- พนักงานเปิดใช้งาน: ${emps.length} คน
+- บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)
+
+Modules ในระบบ:
+${modules}
+
+การสอน 8 รายการล่าสุด:
+${recent || '(ยังไม่มี)'}`;
+}
+
+function _chatSystemPrompt() {
+  return `คุณคือ "ผู้ช่วย AI" ของระบบบันทึกการสอนงาน Santa Fe Steak (OPT Training)
+
+หน้าที่:
+1. ตอบคำถามเกี่ยวกับการใช้ระบบ (วิธีบันทึก, แก้ไข, ดูรายงาน ฯลฯ)
+2. อธิบายเนื้อหาในแต่ละ Module (Food Safety, การบริการ, การปรุงอาหาร ฯลฯ) ให้พนักงาน
+3. ช่วยสรุป/วิเคราะห์ข้อมูลจาก context ที่ได้รับ — เช่นนับสาขา, นับการสอน, หาผู้ที่ยังไม่ได้รับการสอน
+
+กฎ:
+- ตอบเป็นภาษาไทย กระชับ ตรงประเด็น (ไม่เกิน 4-6 บรรทัดถ้าไม่จำเป็น)
+- ใช้ข้อมูลจาก context ที่ระบบส่งให้เท่านั้น — ห้ามแต่งตัวเลข
+- ถ้าผู้ใช้ถามข้อมูลที่อยู่นอกขอบเขตของเขา ให้บอกว่าไม่มีสิทธิ์ดู
+- ถ้าไม่แน่ใจ ให้บอกตรงๆ ว่าไม่ทราบ แทนที่จะเดา
+- เนื้อหาเรื่องอาหาร/ความปลอดภัย ให้อ้างมาตรฐาน Santa Fe และความรู้ทั่วไปด้านร้านอาหาร
+
+ข้อมูลปัจจุบัน:
+${_chatBuildContext()}`;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatbot-input');
+  const btn = document.getElementById('chatbot-send');
+  if (!input) return;
+  const text = (input.value || '').trim();
+  if (!text) return;
+  // Remove quick-actions if still present
+  document.querySelectorAll('#chatbot-messages .cb-quick').forEach(el => el.remove());
+  _renderChatMessage('user', text);
+  _chatHistory.push({ role: 'user', content: text });
+  input.value = '';
+  if (btn) btn.disabled = true;
+  const typing = _renderChatTyping();
+  try {
+    const res = await gsFetch({
+      action: 'chat',
+      system: _chatSystemPrompt(),
+      messages: _chatHistory,
+    });
+    typing?.remove();
+    if (res.error) {
+      const errDiv = _renderChatMessage('bot', 'ขออภัย เกิดข้อผิดพลาด: ' + res.error);
+      errDiv?.classList.add('err');
+    } else {
+      const reply = res.reply || '(ไม่มีคำตอบ)';
+      _renderChatMessage('bot', reply);
+      _chatHistory.push({ role: 'assistant', content: reply });
+    }
+  } catch (err) {
+    typing?.remove();
+    const errDiv = _renderChatMessage('bot', 'ขออภัย เชื่อมต่อไม่ได้: ' + (err.message || err));
+    errDiv?.classList.add('err');
+  } finally {
+    if (btn) btn.disabled = false;
+    input.focus();
   }
 }
 
