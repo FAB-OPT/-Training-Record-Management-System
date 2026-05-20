@@ -128,18 +128,24 @@
     position: relative;
     overflow: hidden;
   }
-  /* App icon at top of card — iOS-style rounded tile so white bg looks intentional in dark mode */
+  /* App icon at top of card — no tile, blend the white PNG bg with the card */
   .login-app-icon {
-    width: 96px; height: 96px;
-    border-radius: 22px;
-    overflow: hidden;
-    background: #FFFFFF;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04);
+    width: 110px; height: 110px;
     display: flex; align-items: center; justify-content: center;
     margin: 0 auto 4px;
+    background: transparent;
   }
-  .login-app-icon img { width: 100%; height: 100%; object-fit: contain; }
-  body.dark-mode .login-app-icon { box-shadow: 0 8px 22px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08); }
+  /* Light mode: multiply makes the PNG's white bg vanish into the white card */
+  .login-app-icon img {
+    width: 100%; height: 100%; object-fit: contain;
+    mix-blend-mode: multiply;
+  }
+  /* Dark mode: invert+hue-rotate turns white→black while keeping Fab's colors true,
+     then screen blends the black bg into the dark card */
+  body.dark-mode .login-app-icon img {
+    filter: invert(1) hue-rotate(180deg);
+    mix-blend-mode: screen;
+  }
   .login-title {
     text-align: center; font-size: 21px; font-weight: 800; color: var(--text);
     margin: -6px 0 2px; letter-spacing: -.6px; line-height: 1.5;
@@ -845,7 +851,7 @@
     .login-btn { padding: 14px !important; font-size: 16px !important; border-radius: 12px !important; }
     .login-tabs { margin-bottom: 20px !important; }
     .login-tab { padding: 10px 12px !important; font-size: 14px !important; }
-    .login-app-icon { width: 84px !important; height: 84px !important; border-radius: 19px !important; }
+    .login-app-icon { width: 92px !important; height: 92px !important; }
     .login-title { font-size: 16px !important; letter-spacing: -.5px !important; }
 
     /* Layout */
