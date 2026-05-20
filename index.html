@@ -4174,13 +4174,13 @@ function showApp() {
   } else {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
-    var _mt2=document.getElementById('mobile-title'); if(_mt2)_mt2.textContent='Admin';
-    document.getElementById('sidebar-branch-label').textContent = 'ADMIN';
+    var _mt2=document.getElementById('mobile-title'); if(_mt2)_mt2.textContent = currentUser.nick || currentUser.name || 'Admin';
+    document.getElementById('sidebar-branch-label').textContent = currentUser.name || currentUser.nick || 'ADMIN';
     // Admin now uses the bottom nav too (scrollable on mobile)
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
-    const _greet = currentUser.nick && currentUser.nick !== 'Admin' ? `Team Management · ${currentUser.nick}` : 'Team Management';
+    const _greet = currentUser.nick ? `Team Management · ${currentUser.nick}` : 'Team Management';
     requestAnimationFrame(() => showWelcomeModal(_greet));
   }
 }
