@@ -2007,7 +2007,19 @@ const BRANCH_MASTER = {
   '5091': { name: '5091 ปตท.เกษรนวมินทร์', manager: 'นพชัย จันทร์รุ่ง (พี่นพ)' },
 };
 
-const ADMIN_CODE = '601183';
+// Team Management codes — keyed by 6-digit pin. Each entry has name/nick/role.
+// All entries grant the same Team Management access; role is informational only.
+const ADMIN_CODES = {
+  '601183': { name: 'Admin',                   nick: 'Admin',       role: 'admin' },
+  '490033': { name: 'นิรุต เจริญศิลป์',           nick: 'พี่รุต',      role: 'bzm'   },
+  '500759': { name: 'พัทธดนย์ วัฒนายุทธ',        nick: 'พี่ปิ๊ก',      role: 'bzm'   },
+  '510620': { name: 'สีวิกา สังข์ด้วง',           nick: 'พี่เจี๊ยบ',     role: 'bzm'   },
+  '520532': { name: 'ศุกร์แสง วัฒนาฟุ้งเจริญ',     nick: 'พี่หยี',      role: 'bzm'   },
+  '570998': { name: 'นพชัย จันทร์รุ่ง',           nick: 'พี่นพ',       role: 'bzm'   },
+  '601338': { name: 'อนุรักษ์ สอนภักดี',          nick: 'พี่เอ็ม',     role: 'bzm'   },
+  '582134': { name: 'ณธวรรท ศิริเมธานณ',        nick: 'พี่บิ๊ก',      role: 'bzm'   },
+  '480808': { name: 'อารียา สันเต๊ะ',            nick: 'พี่ก๊ะ',      role: 'vp'    },
+};
 const POSITION_MASTER = {
   "S001": {
     "name": "Service Basic P/T",
@@ -4028,8 +4040,10 @@ function doLogin() {
   clearLoginErrors();
   if (loginType === 'admin') {
     const pin = getPinValue('admin-pin-boxes');
-    if (pin === ADMIN_CODE) {
-      currentUser = { type: 'admin' }; showApp();
+    const admin = ADMIN_CODES[pin];
+    if (admin) {
+      currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role };
+      showApp();
     } else {
       showPinError('admin-pin-boxes', 'รหัสไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
     }
@@ -4165,7 +4179,8 @@ function showApp() {
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
-    requestAnimationFrame(() => showWelcomeModal('Team Management'));
+    const _greet = currentUser.nick && currentUser.nick !== 'Admin' ? `Team Management · ${currentUser.nick}` : 'Team Management';
+    requestAnimationFrame(() => showWelcomeModal(_greet));
   }
 }
 
