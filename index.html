@@ -6132,8 +6132,15 @@ function toggleCheck(el) { setTimeout(()=>{ el.classList.toggle('checked', el.qu
 function viewTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
   const deadline = new Date(t.date); deadline.setDate(deadline.getDate()+EVAL_DEADLINE_DAYS);
-  const canEval = !t.eval && !isEvalDeadlinePassed(t.date);
+  // Only branch users (or admin acting on their own branch) should see the eval button.
+  // BZM / VP / COO / Admin viewing system-wide are observers — eval must be done by the branch.
+  const canEval = !t.eval && !isEvalDeadlinePassed(t.date) && currentUser?.type === 'branch';
+  const br = BRANCH_MASTER[t.branchId];
+  const branchRow = (currentUser?.type !== 'branch' && br)
+    ? `<div class="detail-row"><div class="detail-key">สาขา</div><div class="detail-val"><strong style="color:var(--accent)">${t.branchId}</strong> ${br.name.replace(t.branchId+' ','')}</div></div>`
+    : '';
   showModal('รายละเอียดการสอนงาน', `
+    ${branchRow}
     <div class="detail-row"><div class="detail-key">Module</div><div class="detail-val"><strong>${MODULES[t.moduleId]?.name}</strong></div></div>
     <div class="detail-row"><div class="detail-key">วันที่สอน</div><div class="detail-val">${fmtDateTime(t.date)}</div></div>
     <div class="detail-row"><div class="detail-key">ผู้สอน</div><div class="detail-val">${t.trainerName}</div></div>
@@ -7781,13 +7788,19 @@ function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateR
     return (a.name||'').localeCompare(b.name||'','th');
   });
 
+  const showBranchCol = bid === 'ALL';
   const rows = sorted.length ? sorted.map(e => {
     const enabled = _isEmpEnabled(e);
     const grp = getPositionGroup(e.position);
     const dotCol = T.GROUP_COLORS[grp] || '#9CA3AF';
     const statusLabel = _empStatusLabel(e);
     const statusColor = enabled ? T.GREEN : T.RED;
+    const br = BRANCH_MASTER[e.branchId];
+    const branchCell = showBranchCol
+      ? `<td style="white-space:nowrap;font-size:11.5px"><strong style="color:${T.ORANGE}">${e.branchId||''}</strong> ${br?br.name.replace(e.branchId+' ',''):''}</td>`
+      : '';
     return `<tr${enabled?'':' style="opacity:.6"'}>
+      ${branchCell}
       <td style="font-family:monospace;color:${T.GREY}">${e.empCode||'—'}</td>
       <td style="font-weight:600">${e.name}</td>
       <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;background:${dotCol};border-radius:50%"></span>${e.position||'—'}</span></td>
@@ -7795,7 +7808,7 @@ function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateR
       <td>${calcTenure(e.startDate)}</td>
       <td><span style="color:${statusColor};font-weight:700">${statusLabel}</span>${!enabled&&e.disabledReason?` <span style="color:${T.GREY};font-size:11px">(${e.disabledReason})</span>`:''}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="6" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีพนักงาน</td></tr>`;
+  }).join('') : `<tr><td colspan="${showBranchCol?7:6}" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีพนักงาน</td></tr>`;
 
   return _buildReportShell(
     _buildReportHero(title, subtitle, branchManager, dateRangeLabel||'', now),
@@ -7808,7 +7821,7 @@ function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateR
       ])
     + _buildReportSection('👥 รายชื่อพนักงาน',
         `<table>
-          <thead><tr><th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr></thead>
+          <thead><tr>${showBranchCol?'<th>สาขา</th>':''}<th>รหัสพนักงาน</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>วันเริ่มงาน</th><th>อายุงาน</th><th>สถานะ</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`)
     + _buildReportFooter(now)
@@ -7817,10 +7830,15 @@ function _buildEmployeesReport(bid, branchLabel, branchManager, emps, now, dateR
 
 function _buildEmployeesExcel(bid, branchLabel, emps) {
   const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
-  const head = [['รายชื่อพนักงาน'],['สาขา', branchLabel],[]];
-  const tableHead = ['รหัสพนักงาน','ชื่อ','ตำแหน่ง','กลุ่ม','วันเริ่มงาน','อายุงาน','สถานะ','เหตุผล'];
-  const rows = emps.map(e => [e.empCode||'', e.name||'', e.position||'', getPositionGroup(e.position)||'',
-    fmt(e.startDate), calcTenure(e.startDate), _empStatusLabel(e), e.disabledReason||'']);
+  const showBranchCol = bid === 'ALL';
+  const head = [['รายชื่อพนักงาน'],['ขอบเขต', branchLabel],[]];
+  const tableHead = [...(showBranchCol?['รหัสสาขา','ชื่อสาขา']:[]),'รหัสพนักงาน','ชื่อ','ตำแหน่ง','กลุ่ม','วันเริ่มงาน','อายุงาน','สถานะ','เหตุผล'];
+  const rows = emps.map(e => {
+    const br = BRANCH_MASTER[e.branchId];
+    const branchCells = showBranchCol ? [e.branchId||'', br?br.name.replace(e.branchId+' ',''):''] : [];
+    return [...branchCells, e.empCode||'', e.name||'', e.position||'', getPositionGroup(e.position)||'',
+      fmt(e.startDate), calcTenure(e.startDate), _empStatusLabel(e), e.disabledReason||''];
+  });
   return [{ sheet:'พนักงาน', rows: [...head, tableHead, ...rows] }];
 }
 
@@ -7945,14 +7963,19 @@ function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dat
     const modCell = `<div style="font-weight:700;font-size:12px">${mod?.name||t.moduleId}</div>
       <div style="margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">${groupBadge}</div>
       ${subs ? `<div style="font-size:10.5px;color:${T.GREY};margin-top:3px;line-height:1.35">${subs}</div>` : ''}`;
+    const br = BRANCH_MASTER[t.branchId];
+    const branchCell = (bid === 'ALL')
+      ? `<td style="vertical-align:top;white-space:nowrap;font-size:11px"><strong style="color:${T.ORANGE}">${t.branchId||''}</strong> ${br?br.name.replace(t.branchId+' ',''):''}</td>`
+      : '';
     return `<tr>
+      ${branchCell}
       <td style="white-space:nowrap;vertical-align:top;font-size:11.5px">${fmtDate(t.date)}</td>
       <td style="vertical-align:top;min-width:200px">${modCell}</td>
       <td style="vertical-align:top">${names||'—'}</td>
       <td style="vertical-align:top;font-weight:600;font-size:11.5px">${t.trainerName||'—'}</td>
       <td style="vertical-align:top;min-width:200px">${resultCell}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="5" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีบันทึก</td></tr>`;
+  }).join('') : `<tr><td colspan="${bid==='ALL'?6:5}" style="text-align:center;color:#8A96A3;padding:24px">ยังไม่มีบันทึก</td></tr>`;
 
   const trainerListHtml = topTrainers.length
     ? `<table><thead><tr><th>ผู้สอน</th><th style="text-align:right">จำนวนครั้ง</th></tr></thead>
@@ -7974,7 +7997,7 @@ function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dat
     + _buildReportSection('📋 รายละเอียดการสอนและการประเมิน',
         `<table>
           <thead><tr>
-            <th>วันที่สอน</th><th>Module / หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผลการประเมิน</th>
+            ${bid==='ALL'?'<th>สาขา</th>':''}<th>วันที่สอน</th><th>Module / หัวข้อย่อย</th><th>พนักงาน</th><th>ผู้สอน</th><th>ผลการประเมิน</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>`)
@@ -7984,8 +8007,9 @@ function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dat
 
 function _buildTrainingsExcel(bid, branchLabel, trains) {
   const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('th-TH') : '';
-  const head = [['ประวัติการสอนและผลการประเมิน'],['สาขา', branchLabel],[]];
-  const tableHead = ['วันที่สอน','Module','กลุ่ม','หัวข้อย่อย','พนักงาน','ผู้สอน','วันที่ประเมิน','วิธีประเมิน','ผลการประเมิน','คะแนน','สถานะ','หมายเหตุ'];
+  const showBranchCol = bid === 'ALL';
+  const head = [['ประวัติการสอนและผลการประเมิน'],['ขอบเขต', branchLabel],[]];
+  const tableHead = [...(showBranchCol?['รหัสสาขา','ชื่อสาขา']:[]),'วันที่สอน','Module','กลุ่ม','หัวข้อย่อย','พนักงาน','ผู้สอน','วันที่ประเมิน','วิธีประเมิน','ผลการประเมิน','คะแนน','สถานะ','หมายเหตุ'];
   const rows = trains.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(t => {
     const mod = MODULES[t.moduleId];
     let status, result = '', score = '';
@@ -7998,7 +8022,9 @@ function _buildTrainingsExcel(bid, branchLabel, trains) {
     } else {
       status = 'รอประเมิน';
     }
-    return [
+    const br = BRANCH_MASTER[t.branchId];
+    const branchCells = showBranchCol ? [t.branchId||'', br?br.name.replace(t.branchId+' ',''):''] : [];
+    return [...branchCells,
       fmt(t.date), mod?.name||t.moduleId, mod?(mod.group==='Service'?'บริการ':'ครัว'):'',
       (t.subtopics||[]).join(', '),
       (t.traineeIds||[]).map(id=>getEmployee(id)?.name||'?').join(', '),
