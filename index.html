@@ -7544,10 +7544,40 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
 }
 
 function exportReport(type) {
-  const bid = currentUser.type==='branch' ? getBranchId() : 'ALL';
-  let trains = bid==='ALL' ? DB.trainings : DB.trainings.filter(t=>t.branchId===bid);
-  const emps = bid==='ALL' ? Object.values(DB.employees).flat() : getBranchEmployees(bid);
-  const branchLabel = bid==='ALL' ? 'ทุกสาขา' : `${bid} ${BRANCH_MASTER[bid]?.name.replace(bid+' ','')||''}`;
+  // 'individual' shows its own picker downstream
+  if (type === 'individual') { return _runExportReport(type, currentUser.type==='branch' ? getBranchId() : 'ALL'); }
+  // Non-branch users: let them pick scope (ภาพรวมโซน / สาขาเฉพาะ)
+  if (currentUser.type !== 'branch') return _openReportScopePicker(type);
+  return _runExportReport(type, getBranchId());
+}
+
+// Picker modal: choose to run the report across ALL accessible branches or one branch
+function _openReportScopePicker(type) {
+  const branches = getAccessibleBranches().slice().sort();
+  const allLabel = isBzmRole() ? '📊 ภาพรวมโซน (ทุกสาขาในโซน)' : '📊 ภาพรวมทั้งระบบ (ทุกสาขา)';
+  const opts = `<option value="ALL" selected>${allLabel}</option>` +
+    branches.map(id => `<option value="${id}">${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  showModal('เลือกขอบเขตรายงาน', `
+    <div style="padding:6px 0">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">เลือกให้รายงานครอบคลุมข้อมูลของสาขาใด</div>
+      <label class="form-label">ขอบเขต</label>
+      <select class="form-select" id="rscope-sel" style="width:100%">${opts}</select>
+    </div>
+  `, () => {
+    const bid = document.getElementById('rscope-sel').value || 'ALL';
+    closeModal();
+    setTimeout(() => _runExportReport(type, bid), 50);
+  }, 'ออกรายงาน');
+  const m = document.querySelector('#modal-overlay .modal');
+  if (m) m.style.maxWidth = '460px';
+}
+
+function _runExportReport(type, bid) {
+  let trains = bid==='ALL' ? getBranchTrainings('ALL') : DB.trainings.filter(t=>t.branchId===bid);
+  const emps = bid==='ALL' ? getBranchEmployees('ALL') : getBranchEmployees(bid);
+  const branchLabel = bid==='ALL'
+    ? (isBzmRole() ? `ทุกสาขาในโซน (${currentUser.name||''})` : 'ทุกสาขา')
+    : `${bid} ${BRANCH_MASTER[bid]?.name.replace(bid+' ','')||''}`;
   const branchManager = bid==='ALL' ? '' : (BRANCH_MASTER[bid]?.manager || '—');
   const now = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
 
@@ -8328,7 +8358,7 @@ function renderAdminDashboard() {
   // Strip its inner hero so only the admin hero shows
   if (!isSystem) setViewBranch(sel);
   else setViewBranch('ALL');
-  const dashHtml = renderDashboard().replace(/<div class="page-hero">[\s\S]*?<\/div>\s*<\/div>/, '');
+  const dashHtml = renderDashboard().replace(/<div class="page-hero[^"]*">[\s\S]*?<\/div>\s*<\/div>/, '');
   // For the system view, append per-branch summary + per-module results below
   const extra = isSystem ? renderAdminSystemExtras() : '';
   return `
@@ -8549,7 +8579,11 @@ function renderAdminManage() {
   </style>
   ${(() => {
     // BZM: auto-pin to their own zone (skip the BZM picker step)
-    if (isBzmRole() && !_selectedBzm && currentUser?.name) _selectedBzm = currentUser.name;
+    // Zone name in BRANCH_MASTER is the full "ชื่อจริง (นิค)" — find the one containing this user's name
+    if (isBzmRole() && !_selectedBzm && currentUser?.name) {
+      const myZone = getAllBzms().find(z => z.name.includes(currentUser.name));
+      if (myZone) _selectedBzm = myZone.name;
+    }
     const heroTitle = isBzmRole() ? 'สาขาในโซน' : (isExecRole() ? 'เรียกดูสาขา' : 'จัดการสาขา &amp; พนักงาน');
     const heroSub = _selectedBzm
       ? (isBzmRole() ? `รวม ${(getAllBzms().find(z=>z.name===_selectedBzm)?.branches.length)||0} สาขา` : `กำลังดูโซน: ${_selectedBzm}`)
