@@ -4526,31 +4526,46 @@ function showEvalExpiredWarning(trainingId) {
     </div>
   `, () => { closeModal(); openEvalModal(trainingId); }, 'ประเมินต่อ');
 }
-function getAccumulatedSubtopics(branchId, moduleId, traineeIds) {
+// Subtopics are only "accumulated" once a training has been evaluated (t.eval set).
+// Trainings that are recorded but pending evaluation don't contribute — they can
+// be deleted without affecting the historical tally. The optional includeIds list
+// lets callers (e.g. quiz eligibility check) also include specific unevaluated
+// trainings — needed because the quiz itself counts as the evaluation method.
+function getAccumulatedSubtopics(branchId, moduleId, traineeIds, includeIds) {
   const tidSet = new Set((traineeIds || []).filter(Boolean));
+  const incSet = new Set(includeIds || []);
   return new Set(
     getBranchTrainings(branchId)
       .filter(t => t.moduleId === moduleId &&
-        (tidSet.size === 0 || (t.traineeIds || []).some(id => tidSet.has(id))))
+        (tidSet.size === 0 || (t.traineeIds || []).some(id => tidSet.has(id))) &&
+        (t.eval || incSet.has(t.id)))
       .flatMap(t => t.subtopics || [])
   );
 }
-function isModuleComplete(training) {
+function isModuleComplete(training, includeSelf) {
   if (!training.moduleId || !MODULES[training.moduleId]) return false;
   const required = MODULES[training.moduleId].subtopics || [];
   if (!required.length) return false;
-  const taught = getAccumulatedSubtopics(training.branchId, training.moduleId, training.traineeIds);
+  const taught = getAccumulatedSubtopics(
+    training.branchId, training.moduleId, training.traineeIds,
+    includeSelf ? [training.id] : null
+  );
   return required.every(s => taught.has(s));
 }
-function getSubtopicProgress(training) {
+function getSubtopicProgress(training, includeSelf) {
   const required = MODULES[training.moduleId]?.subtopics || [];
   if (!required.length) return {done: 0, total: 0};
-  const taught = getAccumulatedSubtopics(training.branchId, training.moduleId, training.traineeIds);
+  const taught = getAccumulatedSubtopics(
+    training.branchId, training.moduleId, training.traineeIds,
+    includeSelf ? [training.id] : null
+  );
   return {done: required.filter(s => taught.has(s)).length, total: required.length};
 }
 
-// For each (employee, subtopic) pair, find the earliest training that covered it
-// Returns: { [empId]: { [subtopic]: training | null } }
+// For each (employee, subtopic) pair, find the session that contributed it.
+// Prefer the earliest EVALUATED session (counts as "ครบ"); fall back to the
+// earliest pending session (shown as "รอประเมิน" — won't yet count toward สะสม).
+// Returns: { [empId]: { [subtopic]: { session, evaluated: bool } | null } }
 function getSubtopicCoverageMap(branchId, moduleId, traineeIds) {
   const required = MODULES[moduleId]?.subtopics || [];
   const sessions = getBranchTrainings(branchId)
@@ -4560,10 +4575,14 @@ function getSubtopicCoverageMap(branchId, moduleId, traineeIds) {
   (traineeIds || []).forEach(empId => {
     map[empId] = {};
     required.forEach(sub => {
-      map[empId][sub] = sessions.find(s =>
+      const matches = sessions.filter(s =>
         (s.traineeIds || []).includes(empId) &&
         (s.subtopics || []).includes(sub)
-      ) || null;
+      );
+      const evaluated = matches.find(s => !!s.eval);
+      if (evaluated) { map[empId][sub] = { session: evaluated, evaluated: true }; }
+      else if (matches[0]) { map[empId][sub] = { session: matches[0], evaluated: false }; }
+      else { map[empId][sub] = null; }
     });
   });
   return map;
@@ -4577,30 +4596,37 @@ function showSubtopicBreakdown(trainingId) {
   const required = mod.subtopics || [];
   const coverage = getSubtopicCoverageMap(t.branchId, t.moduleId, t.traineeIds);
   const trainees = (t.traineeIds || []).map(id => getEmployee(id)).filter(Boolean);
-  const fmtSession = (s) => {
+  const fmtSession = (s, evaluated) => {
     if (!s) return '';
     const dateStr = fmtDate(s.date);
     const isThis = s.id === t.id;
-    return `<span style="font-size:11px;color:${isThis?'var(--accent)':'var(--text3)'};font-weight:${isThis?'700':'500'}">${isThis?'session นี้':dateStr+' · '+(s.trainerName||'—')}</span>`;
+    const statusTag = evaluated
+      ? `<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#DCFCE7;color:#166534;font-size:10px;font-weight:700">ประเมินแล้ว</span>`
+      : `<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700">รอประเมิน</span>`;
+    return `<span style="font-size:11px;color:${isThis?'var(--accent)':'var(--text3)'};font-weight:${isThis?'700':'500'}">${isThis?'session นี้':dateStr+' · '+(s.trainerName||'—')}</span>${statusTag}`;
   };
   const body = trainees.map(emp => {
-    const done = required.filter(s => coverage[emp.id]?.[s]).length;
+    // "Done" for the per-employee summary = evaluated-only (matches the accumulation rule)
+    const done = required.filter(s => coverage[emp.id]?.[s]?.evaluated).length;
     const complete = done === required.length;
     return `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--border)">
           <div style="font-size:14.5px;font-weight:700;color:var(--text)">${emp.name}</div>
-          <span class="badge ${complete?'badge-green':'badge-navy'}" style="font-size:11px;font-weight:700">${done}/${required.length} หัวข้อ${complete?' ✓':''}</span>
+          <span class="badge ${complete?'badge-green':'badge-navy'}" style="font-size:11px;font-weight:700">สะสม ${done}/${required.length} หัวข้อ${complete?' ✓':''}</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${required.map(sub => {
-            const s = coverage[emp.id]?.[sub];
-            const isDone = !!s;
+            const c = coverage[emp.id]?.[sub];
+            const isEvaluated = !!c?.evaluated;
+            const isPending = !!c && !c.evaluated;
+            const dotBg = isEvaluated ? '#22C55E' : (isPending ? '#F59E0B' : 'var(--surface3)');
+            const dotIcon = isEvaluated ? '✓' : (isPending ? '⋯' : '');
             return `<div style="display:flex;align-items:flex-start;gap:10px;padding:4px 0">
-              <span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;background:${isDone?'#22C55E':'var(--surface3)'};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;line-height:1">${isDone?'✓':''}</span>
+              <span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;background:${dotBg};color:white;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;line-height:1">${dotIcon}</span>
               <div style="flex:1;min-width:0">
-                <div style="font-size:13px;color:${isDone?'var(--text)':'var(--text3)'};font-weight:${isDone?'600':'500'}">${sub}</div>
-                ${isDone ? `<div style="margin-top:2px">${fmtSession(s)}</div>` : `<div style="font-size:11px;color:var(--text4);margin-top:2px;font-style:italic">ยังไม่ได้สอน</div>`}
+                <div style="font-size:13px;color:${c?'var(--text)':'var(--text3)'};font-weight:${c?'600':'500'}">${sub}</div>
+                ${c ? `<div style="margin-top:2px">${fmtSession(c.session, isEvaluated)}</div>` : `<div style="font-size:11px;color:var(--text4);margin-top:2px;font-style:italic">ยังไม่ได้สอน</div>`}
               </div>
             </div>`;
           }).join('')}
@@ -4609,8 +4635,9 @@ function showSubtopicBreakdown(trainingId) {
     `;
   }).join('');
   showModal(`📋 ความคืบหน้า — ${mod.name}`, `
-    <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;padding:10px 14px;background:var(--accent-light);border-radius:8px;border:1px solid rgba(255,107,26,0.18)">
-      💡 ระบบรวมหัวข้อที่สอนจากทุก session ของพนักงานคนเดียวกันใน Module นี้ — เมื่อสอนครบทุกหัวข้อจะเปิดให้ทำข้อสอบได้
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;padding:10px 14px;background:var(--accent-light);border-radius:8px;border:1px solid rgba(255,107,26,0.18);line-height:1.55">
+      💡 หัวข้อจะนับ <b>สะสม</b> เฉพาะเมื่อ session ที่สอนถูก<b>ประเมิน</b>แล้ว<br>
+      🟢 ประเมินแล้ว · 🟡 รอประเมิน (ยังไม่นับสะสม) · ⚪ ยังไม่ได้สอน
     </div>
     ${body}
   `, null, 'ปิด');
@@ -4619,14 +4646,16 @@ function showSubtopicBreakdown(trainingId) {
 // only the LATEST one (by date) is the quiz-eligible record. The earlier sessions
 // just contributed subtopics on the way to completion — they shouldn't get their
 // own quiz.
+// Note: uses includeSelf=true because the quiz IS the evaluation step for this
+// training — so the training itself counts toward completion even before t.eval is set.
 function isLatestCompletingTraining(t) {
-  if (!isModuleComplete(t)) return false;
+  if (!isModuleComplete(t, true)) return false;
   const overlap = (a, b) => (a||[]).some(id => (b||[]).includes(id));
   const siblings = DB.trainings.filter(x =>
     x.branchId === t.branchId &&
     x.moduleId === t.moduleId &&
     overlap(x.traineeIds, t.traineeIds) &&
-    isModuleComplete(x)
+    isModuleComplete(x, true)
   );
   if (siblings.length <= 1) return true;
   // Pick the latest by date; tie-break by id so result is deterministic
@@ -5721,7 +5750,7 @@ function renderTrainings() {
         return `<tr>
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(t.date)}</span><span class="dt-long">${fmtDateTimeLong(t.date)}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`<strong>${e.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${e.position} · ${calcTenureShort(e.startDate)}</span>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
-          <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total} 🔍</span></td>
+          <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span></td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="สถานะ">${badge}</td>
