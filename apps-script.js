@@ -154,26 +154,90 @@ function generateAiQuiz(req) {
 }
 
 // ========================================================
-//  Chatbot — Claude API proxy
+//  Chatbot — prefers Gemini (free) and falls back to Claude
 //  Body: { action:'chat', messages:[{role,content},...], system:'...' }
 //  Returns: { reply:'...' } or { error:'...' }
+//
+//  FREE setup (recommended):
+//  1. Get free API key from https://aistudio.google.com/app/apikey
+//     (no credit card required, 15 req/min · 1500 req/day)
+//  2. Script Properties → add "GEMINI_API_KEY" = AIza...
+//
+//  Paid fallback (Claude — only if GEMINI_API_KEY is not set):
+//  3. Script Properties → add "ANTHROPIC_API_KEY" = sk-ant-...
 // ========================================================
 function chatWithClaude(req) {
-  try {
-    const apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
-    if (!apiKey) return { error: 'ยังไม่ได้ตั้ง ANTHROPIC_API_KEY ใน Script Properties' };
+  // Prefer free Gemini; fall back to paid Claude
+  const props = PropertiesService.getScriptProperties();
+  const geminiKey = props.getProperty('GEMINI_API_KEY');
+  if (geminiKey) return _chatViaGemini(req, geminiKey);
+  const anthropicKey = props.getProperty('ANTHROPIC_API_KEY');
+  if (anthropicKey) return _chatViaClaude(req, anthropicKey);
+  return { error: 'ยังไม่ได้ตั้ง GEMINI_API_KEY หรือ ANTHROPIC_API_KEY ใน Script Properties' };
+}
 
-    const messages = req.messages || [];
+function _chatViaGemini(req, apiKey) {
+  try {
+    const messages = (req.messages || []).slice(-20);
     if (!messages.length) return { error: 'no messages' };
-    // Cap conversation length to avoid runaway cost
-    const trimmed = messages.slice(-20);
+    const system = req.system || 'คุณคือผู้ช่วย AI ตอบเป็นภาษาไทย กระชับและตรงประเด็น';
+
+    // Convert Anthropic-style messages → Gemini format
+    // (role 'assistant' → 'model'; content string → parts:[{text}])
+    const contents = messages.map(function(m) {
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: String(m.content || '') }]
+      };
+    });
+
+    const payload = JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: contents,
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
+    });
+
+    // gemini-2.0-flash is on the free tier (15 req/min, 1500/day)
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+    var resp, code, body;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      resp = UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: payload,
+        muteHttpExceptions: true,
+      });
+      code = resp.getResponseCode();
+      body = resp.getContentText();
+      if (code !== 429 && code !== 503) break;
+      Utilities.sleep(1500 * (attempt + 1));
+    }
+    if (code !== 200) return { error: 'Gemini API ' + code + ': ' + body.slice(0, 300) };
+
+    const data = JSON.parse(body);
+    const cand = (data.candidates && data.candidates[0]) || null;
+    const text = (cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text) || '';
+    if (!text) {
+      const blockReason = cand && cand.finishReason;
+      return { error: 'Gemini ไม่ได้ตอบกลับ' + (blockReason ? ' (' + blockReason + ')' : '') };
+    }
+    return { reply: text };
+  } catch (err) {
+    return { error: 'Server error: ' + err.message };
+  }
+}
+
+function _chatViaClaude(req, apiKey) {
+  try {
+    const messages = (req.messages || []).slice(-20);
+    if (!messages.length) return { error: 'no messages' };
     const system = req.system || 'คุณคือผู้ช่วย AI ตอบเป็นภาษาไทย กระชับและตรงประเด็น';
 
     const payload = JSON.stringify({
       model: 'claude-sonnet-4-5',
       max_tokens: 1024,
       system: system,
-      messages: trimmed,
+      messages: messages,
     });
 
     var resp, code, body;
@@ -181,10 +245,7 @@ function chatWithClaude(req) {
       resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
         method: 'post',
         contentType: 'application/json',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         payload: payload,
         muteHttpExceptions: true,
       });
