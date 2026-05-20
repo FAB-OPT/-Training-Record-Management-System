@@ -565,8 +565,12 @@
     box-shadow: 0 12px 26px rgba(255,107,26,0.42);
   }
   @media (max-width: 768px) {
-    .modal-overlay { padding: 0; align-items: flex-end; }
-    .modal { border-radius: 22px 22px 0 0; max-height: 95vh; width: 100%; animation: modalInMobile 0.3s cubic-bezier(.34,1.56,.64,1); }
+    /* Mobile: drop backdrop-filter (very expensive on iOS Safari → causes modal open lag) */
+    .modal-overlay { padding: 0; align-items: flex-end; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(20,12,4,0.5) !important; }
+    .modal-overlay.open { animation: modalOverlayInMobile 0.15s ease-out !important; }
+    @keyframes modalOverlayInMobile { from { opacity: 0; } to { opacity: 1; } }
+    /* Faster slide-up + cheaper easing (no spring overshoot) — composited transform only */
+    .modal { border-radius: 22px 22px 0 0; max-height: 95vh; width: 100%; animation: modalInMobile 0.2s ease-out; will-change: transform; }
     @keyframes modalInMobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
     .modal-header { padding: 18px 20px 14px; }
     .modal-body { padding: 20px; }
