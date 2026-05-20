@@ -4180,12 +4180,14 @@ function showApp() {
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
     var _mt2=document.getElementById('mobile-title'); if(_mt2)_mt2.textContent = currentUser.nick || currentUser.name || 'Admin';
     const _adminName = currentUser.name || currentUser.nick || 'ADMIN';
-    document.getElementById('sidebar-branch-label').innerHTML = `${_adminName}<div style="font-size:11px;font-weight:600;color:var(--accent);opacity:.7;margin-top:3px;letter-spacing:.4px;text-transform:uppercase">Team Management</div>`;
+    const _roleLabel = ({ admin: 'ADMIN', bzm: 'BZM', vp: 'VP. SANTA FE', coo: 'COO' })[currentUser.role] || 'TEAM MANAGEMENT';
+    document.getElementById('sidebar-branch-label').innerHTML = `${_adminName}<div style="font-size:11px;font-weight:600;color:var(--accent);opacity:.7;margin-top:3px;letter-spacing:.4px;text-transform:uppercase">${_roleLabel}</div>`;
     // Admin now uses the bottom nav too (scrollable on mobile)
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
-    const _greet = currentUser.name ? `${currentUser.name} (Team Management)` : 'Team Management';
+    const _roleGreet = ({ admin: 'Admin', bzm: 'BZM', vp: 'VP. Santa Fe', coo: 'COO' })[currentUser.role] || 'Team Management';
+    const _greet = currentUser.name ? `${currentUser.name} (${_roleGreet})` : 'Team Management';
     requestAnimationFrame(() => showWelcomeModal(_greet));
   }
 }
