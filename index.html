@@ -2096,7 +2096,10 @@
         <div class="cb-sub">ผู้ช่วย AI ของระบบ Santa Fe</div>
       </div>
     </div>
-    <button class="cb-close" onclick="closeChatbot()" aria-label="ปิด">✕</button>
+    <div style="display:flex;gap:6px;align-items:center;position:relative;z-index:1">
+      <button class="cb-close" onclick="clearChatHistoryConfirm()" title="ล้างประวัติการคุย" aria-label="ล้างประวัติ" style="font-size:13px">🗑</button>
+      <button class="cb-close" onclick="closeChatbot()" aria-label="ปิด">✕</button>
+    </div>
   </div>
   <div class="cb-body" id="chatbot-messages"></div>
   <form class="cb-input" id="chatbot-form" onsubmit="event.preventDefault();sendChatMessage()">
@@ -4465,6 +4468,42 @@ function showApp() {
 let _chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
 let _chatSessionId = null; // set on first message of a session
 
+// Persistent per-user chat storage (localStorage)
+// Each user gets their own thread — branch:5001 has different history than admin:601183.
+// Storage key isolates by userKey so multiple people sharing the same browser don't see
+// each other's conversations.
+function _chatStorageKey() {
+  if (!currentUser) return null;
+  if (currentUser.type === 'branch') return 'opt_chat_history_branch_' + currentUser.branchId;
+  return 'opt_chat_history_admin_' + (currentUser.code || currentUser.name || 'unknown');
+}
+function _loadChatHistory() {
+  try {
+    const key = _chatStorageKey(); if (!key) return;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.messages)) _chatHistory = data.messages;
+    if (data.sessionId) _chatSessionId = data.sessionId;
+  } catch (_) {}
+}
+function _saveChatHistory() {
+  try {
+    const key = _chatStorageKey(); if (!key) return;
+    // Cap stored history at 50 messages (most recent) to bound size
+    const messages = _chatHistory.slice(-50);
+    localStorage.setItem(key, JSON.stringify({ messages, sessionId: _chatSessionId, savedAt: Date.now() }));
+  } catch (_) {}
+}
+function _clearChatHistory() {
+  try {
+    const key = _chatStorageKey(); if (!key) return;
+    localStorage.removeItem(key);
+  } catch (_) {}
+  _chatHistory = [];
+  _chatSessionId = null;
+}
+
 function _chatUserMeta() {
   if (!currentUser) return { userType:'unknown', userKey:'unknown', userName:'-', userRole:'-', branchId:'-' };
   if (currentUser.type === 'branch') {
@@ -4511,13 +4550,29 @@ function openChatbot() {
   if (!p) return;
   p.style.display = 'flex';
   if (f) f.style.display = 'none';
-  // Seed greeting once
-  if (!_chatHistory.length) {
+  // First open of this session: load saved history for the current user
+  if (!_chatHistory.length) _loadChatHistory();
+  // Clear panel and re-render
+  const wrap = document.getElementById('chatbot-messages');
+  if (wrap) wrap.innerHTML = '';
+  if (_chatHistory.length) {
+    // Replay saved messages
+    _chatHistory.forEach(m => _renderChatMessage(m.role === 'user' ? 'user' : 'bot', m.content));
+  } else {
+    // Fresh session: greeting + quick actions
     const greet = _chatGreeting();
     _renderChatMessage('bot', greet);
     _renderChatQuickActions();
   }
   setTimeout(() => document.getElementById('chatbot-input')?.focus(), 50);
+}
+
+function clearChatHistoryConfirm() {
+  if (confirm('ล้างประวัติการคุยกับน้องแฮปปี้ทั้งหมดของคุณ?')) {
+    _clearChatHistory();
+    closeChatbot();
+    setTimeout(() => openChatbot(), 100);
+  }
 }
 function closeChatbot() {
   const p = document.getElementById('chatbot-panel');
@@ -4813,6 +4868,7 @@ async function sendChatMessage() {
   document.querySelectorAll('#chatbot-messages .cb-quick').forEach(el => el.remove());
   _renderChatMessage('user', text);
   _chatHistory.push({ role: 'user', content: text });
+  _saveChatHistory();
   _chatLogMessage('user', text, false);
   input.value = '';
   if (btn) btn.disabled = true;
@@ -4833,6 +4889,7 @@ async function sendChatMessage() {
       const reply = res.reply || '(ไม่มีคำตอบ)';
       _renderChatMessage('bot', reply);
       _chatHistory.push({ role: 'assistant', content: reply });
+      _saveChatHistory();
       _chatLogMessage('bot', reply, false);
     }
   } catch (err) {
@@ -11396,8 +11453,9 @@ function renderAdminChatLogs() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">💬 ประวัติแชตบอท</div>
-      <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ</div>
+      <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ${(DB.chatLogs||[]).length === 0 ? ' · <strong style="color:var(--accent)">ถ้าโชว์ 0 ทั้งหมด → ยังไม่ได้ deploy apps-script ตัวล่าสุด</strong>' : ''}</div>
     </div>
+    <button class="btn btn-outline" onclick="gsLoadFromSheets().then(() => { document.getElementById('main-content').innerHTML = renderAdminChatLogs(); notify('โหลดข้อมูลล่าสุดสำเร็จ'); })">🔄 รีเฟรชข้อมูล</button>
   </div>
 
   <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
