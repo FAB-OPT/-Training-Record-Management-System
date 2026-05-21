@@ -11464,58 +11464,66 @@ function openCaseDetail(caseId) {
   const cat = CASE_CATEGORIES[c.category] || CASE_CATEGORIES.other;
   const st  = CASE_STATUS[c.status] || CASE_STATUS.open;
   const pr  = CASE_PRIORITY[c.priority] || CASE_PRIORITY.normal;
-  const isBranchView = currentUser?.type === 'branch';
   const isStaffView = currentUser?.type === 'admin';
   const closed = c.status === 'closed';
 
+  // Message thread — chat-style bubbles, no large author label (timestamp + side tells you who)
   const messagesHtml = (c.messages || []).map(m => {
     const isFromBranch = m.role === 'branch';
     const align = isFromBranch ? 'flex-start' : 'flex-end';
     const bg = isFromBranch ? 'var(--surface2)' : 'linear-gradient(135deg,#FF8541,#FF6B1A)';
     const col = isFromBranch ? 'var(--text)' : 'white';
     const radius = isFromBranch ? '14px 14px 14px 4px' : '14px 14px 4px 14px';
-    const tag = isFromBranch ? `<span style="font-size:10.5px;color:#16A34A;background:#DCFCE7;padding:2px 8px;border-radius:999px;font-weight:700;margin-right:6px">สาขา</span>` : `<span style="font-size:10.5px;color:#DC2626;background:#FEE2E2;padding:2px 8px;border-radius:999px;font-weight:700;margin-right:6px">Admin</span>`;
-    return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:12px">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:3px">${tag}${m.author||'-'} · ${fmtDateTime(m.ts)}</div>
-      <div style="background:${bg};color:${col};padding:10px 14px;border-radius:${radius};max-width:80%;white-space:pre-wrap;word-wrap:break-word;font-size:13.5px;line-height:1.55">${(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    const meta = isFromBranch
+      ? `<span style="color:#16A34A;font-weight:700">${m.author||'สาขา'}</span> · ${fmtDateTime(m.ts)}`
+      : `<span style="color:var(--accent);font-weight:700">Admin · ${m.author||'-'}</span> · ${fmtDateTime(m.ts)}`;
+    return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:10px">
+      <div style="background:${bg};color:${col};padding:10px 14px;border-radius:${radius};max-width:82%;white-space:pre-wrap;word-wrap:break-word;font-size:13.5px;line-height:1.55;${!isFromBranch?'box-shadow:0 3px 10px rgba(255,107,26,0.25)':''}">${(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:4px;padding:0 4px">${meta}</div>
     </div>`;
-  }).join('') || '<div style="text-align:center;color:var(--text3);padding:24px">(ยังไม่มีข้อความ)</div>';
+  }).join('') || '<div style="text-align:center;color:var(--text3);padding:32px;font-size:12.5px">(ยังไม่มีข้อความ)</div>';
 
-  // Admin actions: change status, reply
-  const adminActions = isStaffView ? `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:10px">
-      <div style="font-size:12px;color:var(--text2);font-weight:700;align-self:center;margin-right:6px">เปลี่ยนสถานะ:</div>
-      ${Object.entries(CASE_STATUS).map(([k,v]) => k===c.status ? '' : `<button class="btn btn-sm" style="background:${v.bg};color:${v.color};border:1px solid ${v.color}33;font-weight:700;padding:4px 12px" onclick="changeCaseStatus('${c.id}','${k}')">${v.label}</button>`).join('')}
+  // Status switcher: segmented row where current status is filled, others are click-to-switch
+  const statusSwitcher = isStaffView ? `
+    <div style="display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px;margin-bottom:12px">
+      ${Object.entries(CASE_STATUS).map(([k,v]) => {
+        const active = k === c.status;
+        return `<button onclick="${active?'':"changeCaseStatus('"+c.id+"','"+k+"')"}" style="flex:1;padding:7px 8px;border:none;background:${active?v.color:'transparent'};color:${active?'white':'var(--text2)'};font-weight:${active?'800':'600'};font-size:11.5px;border-radius:7px;cursor:${active?'default':'pointer'};font-family:inherit;transition:all .15s" ${active?'disabled':''}>${v.label}</button>`;
+      }).join('')}
     </div>` : '';
 
-  const replyArea = closed ? '' : `
-    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">
-      <label class="form-label">ตอบกลับ</label>
-      <textarea class="form-textarea" id="case-reply" rows="3" placeholder="พิมพ์ข้อความ..." maxlength="2000"></textarea>
-      <div style="display:flex;justify-content:flex-end;margin-top:8px">
-        <button class="btn btn-navy" onclick="replyToCase('${c.id}')">📤 ส่ง</button>
-      </div>
-    </div>`;
+  // Reply input (hidden when case is closed)
+  const replyArea = closed
+    ? `<div style="text-align:center;color:var(--text3);font-size:12.5px;padding:14px;background:var(--surface2);border-radius:10px;margin-top:8px">🔒 เคสนี้ถูกปิดแล้ว — ไม่สามารถตอบกลับได้</div>`
+    : `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <textarea class="form-textarea" id="case-reply" rows="2" placeholder="พิมพ์ข้อความ…" maxlength="2000" style="flex:1;min-height:42px;resize:vertical"></textarea>
+          <button class="btn btn-accent" onclick="replyToCase('${c.id}')" style="padding:9px 16px;height:42px;flex-shrink:0;font-weight:700">ส่ง</button>
+        </div>
+      </div>`;
 
+  // Compact header: pills inline with case meta (no heavy panel)
   showModal(`📨 ${c.subject}`, `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <span style="font-size:11.5px;color:${cat.color};background:${cat.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">${cat.icon} ${cat.label}</span>
-        <span style="font-size:11.5px;color:${st.color};background:${st.bg};padding:3px 10px;border-radius:999px;font-weight:700">${st.label}</span>
-        <span style="font-size:11.5px;color:${pr.color};background:${pr.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">⚡ ${pr.label}</span>
-      </div>
-      <div style="font-size:12px;color:var(--text3);line-height:1.6">
-        จาก <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ผู้แจ้ง: <strong>${c.reporterName||'-'}</strong><br>
-        เปิดเมื่อ ${fmtDateTime(c.createdAt)} · ID: ${c.id}
-        ${c.resolvedAt ? `<br>แก้ไขแล้วเมื่อ ${fmtDateTime(c.resolvedAt)} โดย ${c.resolvedBy||'-'}` : ''}
-      </div>
+    <!-- pills row -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:11px;color:${cat.color};background:${cat.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">${cat.icon} ${cat.label}</span>
+      <span style="font-size:11px;color:${st.color};background:${st.bg};padding:3px 10px;border-radius:999px;font-weight:700">${st.label}</span>
+      ${c.priority === 'urgent' ? `<span style="font-size:11px;color:${pr.color};background:${pr.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">⚡ ${pr.label}</span>` : ''}
     </div>
-    ${adminActions}
-    <div style="max-height:380px;overflow-y:auto;padding-right:4px">${messagesHtml}</div>
+    <!-- compact meta -->
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ผู้แจ้ง <strong style="color:var(--text2)">${c.reporterName||'-'}</strong>
+      · เปิด ${fmtDateTime(c.createdAt)}
+      ${c.resolvedAt ? ` · <span style="color:#16A34A;font-weight:700">✓ แก้ไขแล้ว ${fmtDate(c.resolvedAt)}</span>` : ''}
+    </div>
+    <!-- status switcher (admin only) -->
+    ${statusSwitcher}
+    <!-- thread -->
+    <div style="max-height:340px;overflow-y:auto;padding-right:4px;margin-bottom:8px">${messagesHtml}</div>
     ${replyArea}
-  `, null, 'ปิด');
+  `, null, null, 'ปิด');
   const m = document.querySelector('#modal-overlay .modal');
-  if (m) m.style.maxWidth = '600px';
+  if (m) m.style.maxWidth = '560px';
 }
 
 function replyToCase(caseId) {
