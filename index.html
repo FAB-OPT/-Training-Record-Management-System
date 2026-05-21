@@ -2395,20 +2395,47 @@ function _effectiveAdminCodes() {
   Object.entries(ADMIN_CODES).forEach(([k,v]) => { map[k] = { ...v }; });
   (DB.adminUsers || []).forEach(u => {
     if (!u || !u.id) return;
-    // Parse allowedPages if stored as JSON string (Sheets storage)
+    // Parse allowedPages — accepts either:
+    //   • Array of page ids (legacy v1): treated as { page: 'full' } for each
+    //   • Object map (current): { 'admin-cases': 'view'|'full' }  (missing = none)
     let allowed = u.allowedPages;
     if (typeof allowed === 'string') {
       try { allowed = JSON.parse(allowed); } catch (_) { allowed = null; }
+    }
+    let perms = null;
+    if (Array.isArray(allowed) && allowed.length) {
+      perms = {}; allowed.forEach(p => { perms[p] = 'full'; });
+    } else if (allowed && typeof allowed === 'object') {
+      perms = allowed;
     }
     map[String(u.id)] = {
       name: u.name || '-',
       nick: u.nick || '-',
       role: u.role || 'admin',
-      allowedPages: Array.isArray(allowed) && allowed.length ? allowed : null,
+      pagePerms: perms, // null = use role default (full for all role pages)
     };
   });
   return map;
 }
+
+// Permission helpers — used by admin pages to gate view / edit buttons.
+// Returns the permission level for the current user on `page`:
+//   'full' | 'view' | 'none'
+function getPagePerm(page) {
+  if (!currentUser) return 'none';
+  if (currentUser.type === 'branch') return 'full';
+  // Per-user override via จัดการผู้ใช้งาน
+  const perms = currentUser.pagePerms;
+  if (perms && typeof perms === 'object' && !Array.isArray(perms)) {
+    return perms[page] || 'none';
+  }
+  // No override → role default. Visible = full.
+  const nav = isBzmRole() ? BZM_NAV_ITEMS
+    : (isExecRole() ? EXEC_NAV_ITEMS : ADMIN_NAV_ITEMS);
+  return nav.some(it => it.page === page) ? 'full' : 'none';
+}
+function canViewPage(page) { return getPagePerm(page) !== 'none'; }
+function canEditPage(page) { return getPagePerm(page) === 'full'; }
 
 // All admin-area pages available for granular permission selection
 const ALL_ADMIN_PAGES = [
@@ -4543,7 +4570,7 @@ function doLogin() {
     const pin = getPinValue('admin-pin-boxes');
     const admin = _effectiveAdminCodes()[pin];
     if (admin) {
-      currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role, allowedPages: admin.allowedPages || null };
+      currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role, pagePerms: admin.pagePerms || null };
       showApp();
     } else {
       showPinError('admin-pin-boxes', 'รหัสไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
@@ -5373,9 +5400,9 @@ const EXEC_NAV_ITEMS = [
 ];
 function getActiveNavItems() {
   // Per-user override (set in จัดการผู้ใช้งาน) — picks exactly which menu items to show
-  if (Array.isArray(currentUser?.allowedPages) && currentUser.allowedPages.length) {
-    const set = new Set(currentUser.allowedPages);
-    return ALL_ADMIN_PAGES.filter(p => set.has(p.page));
+  const perms = currentUser?.pagePerms;
+  if (perms && typeof perms === 'object' && !Array.isArray(perms) && Object.keys(perms).length) {
+    return ALL_ADMIN_PAGES.filter(p => perms[p.page] && perms[p.page] !== 'none');
   }
   // Otherwise fall back to role-based defaults
   if (isBzmRole())  return BZM_NAV_ITEMS;
@@ -10884,7 +10911,7 @@ function renderAdminTrainings() {
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="actions" style="white-space:nowrap;text-align:right">
             <button class="btn btn-sm btn-outline" onclick="viewTraining('${t.id}')">ดู</button>
-            ${isAdminRole() ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
+            ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
     </table></div>
@@ -11905,7 +11932,8 @@ function openCaseDetail(caseId) {
   }).join('') || '<div style="text-align:center;color:var(--text3);padding:32px;font-size:12.5px">(ยังไม่มีข้อความ)</div>';
 
   // Status switcher: segmented row where current status is filled, others are click-to-switch
-  const statusSwitcher = isStaffView ? `
+  // Hidden when user has view-only permission on the cases page
+  const statusSwitcher = isStaffView && canEditPage('admin-cases') ? `
     <div style="display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px;margin-bottom:12px">
       ${Object.entries(CASE_STATUS).map(([k,v]) => {
         const active = k === c.status;
@@ -11913,9 +11941,12 @@ function openCaseDetail(caseId) {
       }).join('')}
     </div>` : '';
 
-  // Reply input (hidden when case is closed)
+  // Reply input (hidden when case is closed OR user has view-only perm on cases)
+  const canReply = currentUser?.type === 'branch' || canEditPage('admin-cases');
   const replyArea = closed
     ? `<div style="text-align:center;color:var(--text3);font-size:12.5px;padding:14px;background:var(--surface2);border-radius:10px;margin-top:8px">🔒 เคสนี้ถูกปิดแล้ว — ไม่สามารถตอบกลับได้</div>`
+    : !canReply
+    ? `<div style="text-align:center;color:var(--text3);font-size:12.5px;padding:14px;background:var(--surface2);border-radius:10px;margin-top:8px">👁 คุณมีสิทธิ์ดูอย่างเดียว — ไม่สามารถตอบกลับเคสได้</div>`
     : `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
         <div style="display:flex;gap:8px;align-items:flex-end">
           <textarea class="form-textarea" id="case-reply" rows="2" placeholder="พิมพ์ข้อความ…" maxlength="2000" style="flex:1;min-height:42px;resize:vertical"></textarea>
@@ -11938,7 +11969,7 @@ function openCaseDetail(caseId) {
         · เปิด ${fmtDateTime(c.createdAt)}
         ${c.resolvedAt ? ` · <span style="color:#16A34A;font-weight:700">✓ แก้ไขแล้ว ${fmtDate(c.resolvedAt)}</span>` : ''}
       </div>
-      ${isAdminRole() ? `<button class="btn btn-sm btn-danger" onclick="deleteCase('${c.id}')" style="flex-shrink:0;font-size:11.5px;padding:4px 10px">🗑 ลบเคส</button>` : ''}
+      ${isAdminRole() && canEditPage('admin-cases') ? `<button class="btn btn-sm btn-danger" onclick="deleteCase('${c.id}')" style="flex-shrink:0;font-size:11.5px;padding:4px 10px">🗑 ลบเคส</button>` : ''}
     </div>
     <!-- status switcher (admin only) -->
     ${statusSwitcher}
@@ -12147,28 +12178,47 @@ function _openAdminUserForm(existing) {
   const name = existing?.name || '';
   const nick = existing?.nick || '';
   const role = existing?.role || 'bzm';
-  // Parse allowedPages (might be string in storage)
-  let allowedPages = existing?.allowedPages;
-  if (typeof allowedPages === 'string') {
-    try { allowedPages = JSON.parse(allowedPages); } catch (_) { allowedPages = null; }
+  // Parse stored allowedPages — accept legacy array OR new object map
+  let stored = existing?.allowedPages;
+  if (typeof stored === 'string') {
+    try { stored = JSON.parse(stored); } catch (_) { stored = null; }
   }
-  // Default = role-based defaults if no override set
-  const defaultPages = !Array.isArray(allowedPages) || !allowedPages.length
-    ? (role === 'bzm' ? BZM_NAV_ITEMS.map(i=>i.page)
-      : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS.map(i=>i.page)
-      : ADMIN_NAV_ITEMS.map(i=>i.page)))
-    : allowedPages;
-  const hasOverride = Array.isArray(allowedPages) && allowedPages.length > 0;
+  // Normalize to {page: 'full'|'view'|'none'}
+  let currentPerms = {};
+  let hasOverride = false;
+  if (Array.isArray(stored) && stored.length) {
+    stored.forEach(p => { currentPerms[p] = 'full'; });
+    hasOverride = true;
+  } else if (stored && typeof stored === 'object') {
+    currentPerms = { ...stored };
+    hasOverride = Object.keys(currentPerms).length > 0;
+  } else {
+    // No override → use role defaults (all visible = full)
+    const def = role === 'bzm' ? BZM_NAV_ITEMS
+      : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS : ADMIN_NAV_ITEMS);
+    def.forEach(it => { currentPerms[it.page] = 'full'; });
+  }
   const roleOpts = Object.entries(ADMIN_USER_ROLES).map(([k,v]) =>
     `<option value="${k}"${k===role?' selected':''}>${v.label} — ${v.desc}</option>`
   ).join('');
-  // Permission checkbox grid
-  const pageCheckboxes = ALL_ADMIN_PAGES.map(p => `
-    <label class="au-perm" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12.5px">
-      <input type="checkbox" class="au-perm-cb" value="${p.page}"${defaultPages.includes(p.page)?' checked':''} style="margin:0">
+  // Permission row per page: 3-segment toggle (ไม่เห็น / ดู / เต็ม)
+  const pageCheckboxes = ALL_ADMIN_PAGES.map(p => {
+    const cur = currentPerms[p.page] || 'none';
+    const seg = (val, label, color) => {
+      const active = cur === val;
+      return `<button type="button" data-page="${p.page}" data-val="${val}" onclick="_auSetPerm('${p.page}','${val}')" style="flex:1;padding:5px 6px;border:none;background:${active?color:'transparent'};color:${active?'white':'var(--text2)'};font-weight:${active?'800':'600'};font-size:10.5px;border-radius:5px;cursor:pointer;font-family:inherit;transition:all .12s">${label}</button>`;
+    };
+    return `
+    <div class="au-perm" data-page-row="${p.page}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
       <span style="font-size:14px">${p.icon}</span>
-      <span style="flex:1">${p.label}</span>
-    </label>`).join('');
+      <span style="flex:1;font-size:12px">${p.label}</span>
+      <div style="display:flex;gap:3px;background:var(--surface);padding:3px;border-radius:7px;border:1px solid var(--border)">
+        ${seg('none', 'ซ่อน', '#6B7280')}
+        ${seg('view', 'ดู', '#3B82F6')}
+        ${seg('full', 'เต็ม', '#16A34A')}
+      </div>
+    </div>`;
+  }).join('');
 
   const titleText = isOverride
     ? `✏️ แก้ไข & ตั้งสิทธิ์ ${pin} (override รหัสระบบ)`
@@ -12203,22 +12253,26 @@ function _openAdminUserForm(existing) {
     <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
       <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span>🔓 สิทธิ์การเข้าถึงเมนู <span class="req">*</span></span>
-        <span style="display:flex;gap:6px">
-          <button type="button" onclick="_auTogglePerms(true)" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11.5px;cursor:pointer;color:var(--text2);font-family:inherit">เลือกทั้งหมด</button>
-          <button type="button" onclick="_auTogglePerms(false)" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11.5px;cursor:pointer;color:var(--text2);font-family:inherit">ล้างทั้งหมด</button>
+        <span style="display:flex;gap:4px">
+          <button type="button" onclick="_auTogglePerms('full')" style="padding:4px 9px;background:#DCFCE7;border:1px solid #86EFAC;border-radius:6px;font-size:11px;cursor:pointer;color:#166534;font-family:inherit;font-weight:700">ทั้งหมด เต็ม</button>
+          <button type="button" onclick="_auTogglePerms('view')" style="padding:4px 9px;background:#DBEAFE;border:1px solid #93C5FD;border-radius:6px;font-size:11px;cursor:pointer;color:#1E40AF;font-family:inherit;font-weight:700">ทั้งหมด ดู</button>
+          <button type="button" onclick="_auTogglePerms('none')" style="padding:4px 9px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;color:var(--text2);font-family:inherit">ล้าง</button>
         </span>
       </label>
-      <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px">
-        เลือกเมนูที่ผู้ใช้จะเข้าถึงได้ · ${hasOverride?'<span style="color:var(--accent);font-weight:700">กำลังใช้สิทธิ์เฉพาะ (custom)</span>':'<span style="color:var(--text3)">กำลังใช้สิทธิ์ default ของ ' + (ADMIN_USER_ROLES[role]?.label||role) + '</span>'}
+      <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.55">
+        <strong style="color:#6B7280">ซ่อน</strong> = ไม่เห็นเมนู · <strong style="color:#3B82F6">ดู</strong> = อ่านอย่างเดียว · <strong style="color:#16A34A">เต็ม</strong> = แก้ไข/ลบได้
+        <br>${hasOverride?'<span style="color:var(--accent);font-weight:700">กำลังใช้สิทธิ์เฉพาะ (custom)</span>':'<span>กำลังใช้สิทธิ์ default ของ <strong>' + (ADMIN_USER_ROLES[role]?.label||role) + '</strong> — เปลี่ยน role แล้วกดบันทึก จะใช้ค่า default ของ role ใหม่</span>'}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="au-perms-grid">${pageCheckboxes}</div>
+      <div style="display:flex;flex-direction:column;gap:6px" id="au-perms-grid">${pageCheckboxes}</div>
     </div>
   `, () => {
     const newPin = document.getElementById('au-pin').value.trim();
     const newName = document.getElementById('au-name').value.trim();
     const newNick = document.getElementById('au-nick').value.trim();
     const newRole = document.getElementById('au-role').value;
-    const newAllowed = [...document.querySelectorAll('.au-perm-cb:checked')].map(cb => cb.value);
+    const permsMap = _auReadPerms();
+    const visiblePages = Object.entries(permsMap).filter(([,v]) => v && v !== 'none');
+    const newAllowed = permsMap; // store the full map (with view/full info, drops 'none')
     if (!/^\d{6}$/.test(newPin)) { notify('รหัส PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
     // Uniqueness check — only when PIN changed (or new user).
     // Override mode INTENTIONALLY uses a default-system PIN so skip the ADMIN_CODES check there.
@@ -12230,12 +12284,15 @@ function _openAdminUserForm(existing) {
       if (BRANCH_MASTER[newPin]) { notify('รหัสนี้ตรงกับรหัสสาขา', 'error'); return; }
     }
     if (!newName) { notify('กรุณากรอกชื่อ', 'error'); return; }
-    if (newAllowed.length === 0) { notify('กรุณาเลือกอย่างน้อย 1 เมนู', 'error'); return; }
+    if (visiblePages.length === 0) { notify('กรุณาเลือกอย่างน้อย 1 เมนู (ดู หรือ เต็ม)', 'error'); return; }
+    // Strip 'none' entries from saved map (cleaner storage)
+    const cleanedPerms = {};
+    Object.entries(newAllowed).forEach(([k,v]) => { if (v && v !== 'none') cleanedPerms[k] = v; });
     const now = new Date().toISOString();
     const rec = {
       id: newPin,
       name: newName, nick: newNick || '-', role: newRole,
-      allowedPages: newAllowed,
+      allowedPages: cleanedPerms, // {pageId: 'view'|'full'} map; stored as JSON string in Sheets
       updatedAt: now,
       createdAt: existing?.createdAt || now,
       createdBy: existing?.createdBy || (currentUser?.name || 'Admin'),
@@ -12256,7 +12313,7 @@ function _openAdminUserForm(existing) {
       currentUser.name = newName;
       currentUser.nick = newNick || '-';
       currentUser.role = newRole;
-      currentUser.allowedPages = newAllowed;
+      currentUser.pagePerms = cleanedPerms;
       // Rebuild nav to reflect new permissions
       if (typeof buildAdminNav === 'function') buildAdminNav();
     }
@@ -12268,16 +12325,48 @@ function _openAdminUserForm(existing) {
   if (m) m.style.maxWidth = '560px';
 }
 
-// Helpers: select-all / clear-all permissions; reset perms when role changes
-function _auTogglePerms(on) {
-  document.querySelectorAll('.au-perm-cb').forEach(cb => { cb.checked = on; });
+// Helpers for the per-page permission grid (3-segment toggle: none/view/full)
+function _auSetPerm(page, val) {
+  // Re-render the row's segment by toggling the active class on buttons
+  const row = document.querySelector(`[data-page-row="${page}"]`);
+  if (!row) return;
+  const colors = { none:'#6B7280', view:'#3B82F6', full:'#16A34A' };
+  row.querySelectorAll('button[data-page]').forEach(b => {
+    const active = b.dataset.val === val;
+    b.style.background = active ? colors[val] : 'transparent';
+    b.style.color = active ? 'white' : 'var(--text2)';
+    b.style.fontWeight = active ? '800' : '600';
+  });
+  // Store current value via data attr on the row
+  row.dataset.curPerm = val;
+}
+function _auTogglePerms(val) {
+  // val: 'none' | 'view' | 'full' — applies to all rows
+  document.querySelectorAll('[data-page-row]').forEach(row => {
+    _auSetPerm(row.dataset.pageRow, val);
+  });
 }
 function _auRoleChanged(role) {
-  const def = role === 'bzm' ? BZM_NAV_ITEMS.map(i=>i.page)
-    : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS.map(i=>i.page)
-    : ADMIN_NAV_ITEMS.map(i=>i.page));
-  const set = new Set(def);
-  document.querySelectorAll('.au-perm-cb').forEach(cb => { cb.checked = set.has(cb.value); });
+  const def = role === 'bzm' ? BZM_NAV_ITEMS
+    : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS : ADMIN_NAV_ITEMS);
+  const set = new Set(def.map(i => i.page));
+  document.querySelectorAll('[data-page-row]').forEach(row => {
+    _auSetPerm(row.dataset.pageRow, set.has(row.dataset.pageRow) ? 'full' : 'none');
+  });
+}
+// Read currently-selected perms from the form
+function _auReadPerms() {
+  const out = {};
+  document.querySelectorAll('[data-page-row]').forEach(row => {
+    const page = row.dataset.pageRow;
+    // Find the active button (active = colored bg)
+    const activeBtn = row.querySelector('button[data-page][style*="white"]');
+    let val = 'none';
+    if (activeBtn) val = activeBtn.dataset.val;
+    if (row.dataset.curPerm) val = row.dataset.curPerm;
+    out[page] = val;
+  });
+  return out;
 }
 function confirmDeleteAdminUser(pin) {
   if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
