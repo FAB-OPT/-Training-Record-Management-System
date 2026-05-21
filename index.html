@@ -12096,7 +12096,7 @@ function renderAdminUsers() {
           <td data-label="ตำแหน่ง"><span style="font-size:11px;color:white;background:${role.color};padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:.3px">${role.label}</span></td>
           <td data-label="ประเภท" style="font-size:11.5px;color:var(--text3)">${r.isCustom ? '<span style="color:#16A34A">🟢 Custom</span>' : '<span style="color:var(--text4)">🔒 Default</span>'}</td>
           <td data-label="actions" style="text-align:right;white-space:nowrap">
-            ${r._hard ? `<span style="font-size:11px;color:var(--text4);font-style:italic">รหัสระบบ (แก้ไม่ได้)</span>` : `
+            ${r._hard ? `<button class="btn btn-sm btn-outline" onclick="openOverrideDefaultUser('${r.pin}')" title="แก้ไข — ระบบจะสร้าง custom override">✏️ แก้ไข & ตั้งสิทธิ์</button>` : `
               <button class="btn btn-sm btn-outline" onclick="openEditAdminUser('${r.pin}')">แก้ไข</button>
               ${isSelf ? '' : `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="confirmDeleteAdminUser('${r.pin}')">ลบ</button>`}
             `}
@@ -12116,6 +12116,24 @@ function openAddAdminUser() {
   if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
   _openAdminUserForm(null);
 }
+// Open the form pre-filled with a hardcoded default user's data — the save
+// will create a custom override (same PIN) that takes precedence over the default.
+function openOverrideDefaultUser(pin) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
+  const def = ADMIN_CODES[pin];
+  if (!def) return;
+  const pseudo = {
+    id: pin,
+    name: def.name,
+    nick: def.nick,
+    role: def.role,
+    allowedPages: null, // null = pick up role defaults in form
+    createdAt: null,
+    createdBy: 'system',
+    _isOverride: true,
+  };
+  _openAdminUserForm(pseudo);
+}
 function openEditAdminUser(pin) {
   if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
   const u = (DB.adminUsers || []).find(x => String(x.id) === String(pin));
@@ -12124,6 +12142,7 @@ function openEditAdminUser(pin) {
 }
 function _openAdminUserForm(existing) {
   const isEdit = !!existing;
+  const isOverride = !!existing?._isOverride;
   const pin = existing?.id || '';
   const name = existing?.name || '';
   const nick = existing?.nick || '';
@@ -12151,14 +12170,22 @@ function _openAdminUserForm(existing) {
       <span style="flex:1">${p.label}</span>
     </label>`).join('');
 
-  showModal(isEdit ? `✏️ แก้ไขผู้ใช้ ${pin}` : '+ เพิ่มผู้ใช้งานใหม่', `
-    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#92400E;line-height:1.55">
-      ⚠ รหัส PIN ใช้ login (6 หลัก) — เก็บเป็นความลับ · เปลี่ยน PIN ได้แต่ผู้ใช้ต้องจดรหัสใหม่
-    </div>
+  const titleText = isOverride
+    ? `✏️ แก้ไข & ตั้งสิทธิ์ ${pin} (override รหัสระบบ)`
+    : (isEdit ? `✏️ แก้ไขผู้ใช้ ${pin}` : '+ เพิ่มผู้ใช้งานใหม่');
+  const noticeBox = isOverride
+    ? `<div style="background:#DBEAFE;border:1px solid #93C5FD;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#1E40AF;line-height:1.55">
+        ℹ คุณกำลังแก้ไข <strong>รหัสระบบ ${pin} (${name})</strong> — ระบบจะสร้าง <strong>custom override</strong> ที่ใช้ PIN เดียวกัน → ครั้งหน้า login จะใช้ค่าใหม่นี้แทน · PIN เปลี่ยนไม่ได้ในโหมด override
+      </div>`
+    : `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#92400E;line-height:1.55">
+        ⚠ รหัส PIN ใช้ login (6 หลัก) — เก็บเป็นความลับ · เปลี่ยน PIN ได้แต่ผู้ใช้ต้องจดรหัสใหม่
+      </div>`;
+  showModal(titleText, `
+    ${noticeBox}
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div>
         <label class="form-label">รหัส PIN (6 หลัก) <span class="req">*</span></label>
-        <input class="form-input" id="au-pin" type="text" inputmode="numeric" maxlength="6" placeholder="000000" value="${pin}">
+        <input class="form-input" id="au-pin" type="text" inputmode="numeric" maxlength="6" placeholder="000000" value="${pin}" ${isOverride?'readonly style="background:var(--surface2);cursor:not-allowed"':''}>
       </div>
       <div>
         <label class="form-label">ตำแหน่ง (default) <span class="req">*</span></label>
@@ -12193,9 +12220,10 @@ function _openAdminUserForm(existing) {
     const newRole = document.getElementById('au-role').value;
     const newAllowed = [...document.querySelectorAll('.au-perm-cb:checked')].map(cb => cb.value);
     if (!/^\d{6}$/.test(newPin)) { notify('รหัส PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
-    // Uniqueness check — only when PIN changed (or new user)
+    // Uniqueness check — only when PIN changed (or new user).
+    // Override mode INTENTIONALLY uses a default-system PIN so skip the ADMIN_CODES check there.
     if (!isEdit || newPin !== pin) {
-      if (ADMIN_CODES[newPin]) { notify('รหัสนี้เป็นรหัสระบบอยู่แล้ว', 'error'); return; }
+      if (!isOverride && ADMIN_CODES[newPin]) { notify('รหัสนี้เป็นรหัสระบบอยู่แล้ว', 'error'); return; }
       if ((DB.adminUsers || []).some(u => String(u.id) === newPin && String(u.id) !== pin)) {
         notify('รหัสนี้มีอยู่แล้ว', 'error'); return;
       }
@@ -12232,10 +12260,10 @@ function _openAdminUserForm(existing) {
       // Rebuild nav to reflect new permissions
       if (typeof buildAdminNav === 'function') buildAdminNav();
     }
-    notify(isEdit ? 'แก้ไขผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ');
+    notify(isOverride ? 'สร้าง override สำเร็จ — ใช้ครั้งหน้า login' : (isEdit ? 'แก้ไขผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ'));
     closeModal();
     setTimeout(() => document.getElementById('main-content').innerHTML = renderAdminUsers(), 100);
-  }, isEdit ? 'บันทึก' : 'เพิ่มผู้ใช้');
+  }, isOverride ? 'สร้าง override' : (isEdit ? 'บันทึก' : 'เพิ่มผู้ใช้'));
   const m = document.querySelector('#modal-overlay .modal');
   if (m) m.style.maxWidth = '560px';
 }
