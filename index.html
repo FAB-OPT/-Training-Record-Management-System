@@ -313,6 +313,28 @@
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn-theme-toggle:hover { background: var(--accent); color: #FFFFFF; border-color: var(--accent); }
+  /* Test-mode toggle — visible only for admin (display set via JS) */
+  .btn-test-toggle {
+    width: 100%; padding: 10px; background: #FEF3C7; border: 1px solid #FCD34D;
+    color: #92400E; border-radius: 8px; cursor: pointer; font-family: 'Sarabun', sans-serif;
+    font-size: 13px; font-weight: 700; transition: all 0.18s; margin-bottom: 8px;
+    align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-test-toggle:hover { background: #FDE68A; }
+  .btn-test-toggle.active { background: #DC2626; color: white; border-color: #DC2626; }
+  .btn-test-toggle.active:hover { background: #B91C1C; }
+  /* Top-of-page banner shown when test mode is on */
+  #test-mode-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 250;
+    background: repeating-linear-gradient(45deg, #FBBF24 0 12px, #F59E0B 12px 24px);
+    color: #422006; padding: 6px 16px; text-align: center;
+    font-size: 12.5px; font-weight: 800; letter-spacing: .5px;
+    display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  body.test-mode #test-mode-banner { display: block; }
+  body.test-mode .sidebar { top: 28px; height: calc(100vh - 28px); }
+  body.test-mode .main { padding-top: 60px; }
+  body.test-mode .topbar { top: 28px; }
   .btn-sync { width:100%; padding:9px; background:transparent; border:1px solid var(--border); color:var(--text3); border-radius:8px; cursor:pointer; font-family:'Sarabun',sans-serif; font-size:12px; font-weight:600; transition:all 0.18s; margin-bottom:8px; }
   .btn-sync:hover { background:var(--surface2); color:var(--text); }
   .btn-sync.syncing { opacity:0.6; cursor:not-allowed; }
@@ -2144,6 +2166,9 @@
   </div>
 </div>
 
+<!-- TEST MODE BANNER (shown when admin enables test mode) -->
+<div id="test-mode-banner">🧪 โหมดทดสอบ ENABLED — Admin · ข้อมูลและการแก้ไขอาจไม่ใช่ของจริง · กดปุ่ม "โหมดทดสอบ" ในแถบซ้ายเพื่อปิด</div>
+
 <!-- CHATBOT WIDGET — น้องแฮปปี้ (filled + shown after login) -->
 <div id="chatbot-fab" onclick="openChatbot()" style="display:none">
   <img class="cb-fab-avatar" src="nong-happy.png" alt="น้องแฮปปี้">
@@ -2257,6 +2282,10 @@
     </div>
     <div class="nav" id="sidebar-nav"></div>
     <div class="sidebar-footer">
+      <button class="btn-test-toggle" id="test-mode-btn" onclick="toggleTestMode()" style="display:none" title="โหมดทดสอบ — Admin เท่านั้น">
+        <span id="test-mode-icon">🧪</span>
+        <span id="test-mode-label">โหมดทดสอบ</span>
+      </button>
       <button class="btn-theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark/light mode">
         <span id="theme-toggle-icon">🌙</span>
         <span id="theme-toggle-label">Dark Mode</span>
@@ -4500,6 +4529,44 @@ function toggleTheme() {
   try { localStorage.setItem('opt_theme', isDark ? 'dark' : 'light'); } catch(_) {}
   applyThemeToggleUI(isDark);
 }
+
+// ==================== TEST MODE (admin-only toggle) ====================
+// Adds a body.test-mode class + yellow striped banner at the top of the app.
+// Persisted to localStorage so it survives page refresh.
+function isTestMode() { return document.body.classList.contains('test-mode'); }
+function toggleTestMode() {
+  if (!isAdminRole()) { notify('โหมดทดสอบเปิด/ปิดได้เฉพาะ Admin', 'error'); return; }
+  const on = !isTestMode();
+  document.body.classList.toggle('test-mode', on);
+  try { localStorage.setItem('opt_test_mode', on ? '1' : '0'); } catch(_) {}
+  applyTestModeUI(on);
+  notify(on ? 'เปิดโหมดทดสอบแล้ว' : 'ปิดโหมดทดสอบแล้ว');
+}
+function applyTestModeUI(on) {
+  const btn = document.getElementById('test-mode-btn');
+  if (!btn) return;
+  btn.classList.toggle('active', on);
+  const icon = document.getElementById('test-mode-icon');
+  const label = document.getElementById('test-mode-label');
+  if (icon) icon.textContent = on ? '🛑' : '🧪';
+  if (label) label.textContent = on ? 'ปิดโหมดทดสอบ' : 'โหมดทดสอบ';
+}
+function initTestModeButton() {
+  const btn = document.getElementById('test-mode-btn');
+  if (!btn) return;
+  // Only Admin sees / can toggle
+  if (!isAdminRole()) {
+    btn.style.display = 'none';
+    document.body.classList.remove('test-mode'); // safety: never leak test mode to non-admin
+    return;
+  }
+  btn.style.display = 'flex';
+  let saved = null;
+  try { saved = localStorage.getItem('opt_test_mode'); } catch(_) {}
+  const on = saved === '1';
+  document.body.classList.toggle('test-mode', on);
+  applyTestModeUI(on);
+}
 function applyThemeToggleUI(isDark) {
   const icon = document.getElementById('theme-toggle-icon');
   const label = document.getElementById('theme-toggle-label');
@@ -4533,6 +4600,10 @@ function initTheme() {
 
 function logout() {
   stopAutoSync();
+  // Drop test-mode class on logout — never leak it to the next user (or login screen)
+  document.body.classList.remove('test-mode');
+  const _tb = document.getElementById('test-mode-btn');
+  if (_tb) _tb.style.display = 'none';
   // Wipe in-memory chat state so the next user (or fresh login of same user)
   // starts clean. Their persisted localStorage thread will reload on next chat open.
   _chatHistory = [];
@@ -4593,6 +4664,8 @@ function showApp() {
     const _greet = currentUser.name ? `${currentUser.name} (${_roleGreet})` : 'Team Management';
     requestAnimationFrame(() => showWelcomeModal(_greet));
   }
+  // Test-mode button visible (+ restore saved state) for admin only
+  initTestModeButton();
   // Show chat FAB once logged in
   const _fab = document.getElementById('chatbot-fab');
   if (_fab) _fab.style.display = 'flex';
