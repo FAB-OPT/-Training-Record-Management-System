@@ -715,6 +715,24 @@
   .topbar-right-text { font-size: 13px; color: var(--text2); font-weight: 500; }
   .topbar-avatar { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: 700; }
 
+  /* Notification badge (e.g. unread case count on menu items) */
+  .nav-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 6px;
+    background: #EF4444; color: white;
+    border-radius: 999px;
+    font-size: 10.5px; font-weight: 800; line-height: 1;
+    box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+    margin-left: 6px; vertical-align: middle;
+    font-family: 'Sarabun','Prompt','Kanit',sans-serif;
+  }
+  .nav-badge.bn-badge {
+    position: absolute; top: 2px; right: 6px;
+    min-width: 16px; height: 16px; font-size: 9.5px;
+    padding: 0 4px;
+  }
+  .bottom-nav-item { position: relative; }
+
   /* Detail row */
   .detail-row { display: flex; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .detail-row:last-child { border-bottom: none; }
@@ -4418,10 +4436,18 @@ let _autoSyncTimer = null;
 
 function startAutoSync() {
   stopAutoSync();
-  gsLoad().then(() => { if (currentUser) showPage(currentPage); });
+  gsLoad().then(() => {
+    if (currentUser) showPage(currentPage);
+    // Wait a tick for chatLogs/cases aux load to settle, then update badge + notify
+    setTimeout(() => {
+      refreshCaseBadge();
+      _maybeNotifyCaseUpdates();
+    }, 1200);
+  });
   _autoSyncTimer = setInterval(async () => {
     await gsLoad();
     if (currentUser) showPage(currentPage);
+    setTimeout(refreshCaseBadge, 1200);
   }, 30000);
 }
 
@@ -11089,6 +11115,86 @@ function renderExecLeaderboard() {
   </div>`;
 }
 
+// ==================== CASES — Unread badge / notifications ====================
+// Tracks the user's "last viewed cases page at" timestamp per user so we can
+// surface a badge count + a one-shot notify() on app open when something has
+// been updated by the other side.
+function _caseLastViewKey() {
+  if (!currentUser) return null;
+  if (currentUser.type === 'branch') return 'opt_cases_lastview_branch_' + currentUser.branchId;
+  return 'opt_cases_lastview_admin_' + (currentUser.code || currentUser.name || 'unknown');
+}
+function _markCasesViewed() {
+  try {
+    const k = _caseLastViewKey(); if (!k) return;
+    localStorage.setItem(k, new Date().toISOString());
+  } catch (_) {}
+}
+function _getCaseLastView() {
+  try {
+    const k = _caseLastViewKey(); if (!k) return null;
+    return localStorage.getItem(k);
+  } catch (_) { return null; }
+}
+// Count of cases relevant to the user that have updates since last view.
+// - Branch user: cases of their branch with updatedAt newer than last view AND
+//   last message is from admin (so we don't ping for their own messages)
+// - Admin/BZM/Exec: cases with status 'open' OR cases whose last message is
+//   from a branch user and updatedAt > last view
+function _caseUnreadCount() {
+  if (!currentUser) return 0;
+  const list = _accessibleCases();
+  const lastView = _getCaseLastView();
+  const lastViewTs = lastView ? new Date(lastView).getTime() : 0;
+  const isBranch = currentUser.type === 'branch';
+  let count = 0;
+  for (const c of list) {
+    const updated = new Date(c.updatedAt || c.createdAt || 0).getTime();
+    if (updated <= lastViewTs) continue;
+    const msgs = c.messages || [];
+    const lastMsg = msgs.length ? msgs[msgs.length - 1] : null;
+    if (isBranch) {
+      // Show when admin sent the latest update (status change or reply)
+      if (!lastMsg || lastMsg.role !== 'branch') count++;
+      else if ((c.resolvedAt && new Date(c.resolvedAt).getTime() > lastViewTs)) count++;
+    } else {
+      // Admin side: brand-new "open" cases or branch replies
+      if (c.status === 'open') count++;
+      else if (lastMsg && lastMsg.role === 'branch') count++;
+    }
+  }
+  return count;
+}
+// Refresh badge in sidebar nav + mobile bottom nav
+function refreshCaseBadge() {
+  const n = _caseUnreadCount();
+  document.querySelectorAll('[data-case-badge]').forEach(el => el.remove());
+  if (!n) return;
+  const html = `<span class="nav-badge" data-case-badge>${n > 99 ? '99+' : n}</span>`;
+  // Sidebar entries
+  ['nav-cases', 'nav-admin-cases'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.insertAdjacentHTML('beforeend', ' ' + html);
+  });
+  // Bottom nav entries
+  ['bnav-cases', 'bnav-admin-cases'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.querySelector('.bottom-nav-icon')?.insertAdjacentHTML('afterend', html.replace('nav-badge', 'nav-badge bn-badge'));
+  });
+}
+// On app load: if there's anything to see, show a one-shot toast
+function _maybeNotifyCaseUpdates() {
+  const n = _caseUnreadCount();
+  if (n > 0) {
+    setTimeout(() => {
+      const msg = currentUser?.type === 'branch'
+        ? `📨 มี ${n} เคสมีการอัปเดตจาก Admin`
+        : `📨 มี ${n} เคสรอตอบรับ / มีข้อความใหม่`;
+      notify(msg);
+    }, 1500);
+  }
+}
+
 // ==================== CASES (branch ↔ admin communication) ====================
 // Data model per case:
 //   id, branchId, branchName, reporterName, category, subject, description,
@@ -11164,6 +11270,9 @@ function _caseRowCard(c, isAdminView) {
 }
 
 function renderBranchCases() {
+  // Mark viewed (clears badge + future "what's new" diff)
+  _markCasesViewed();
+  setTimeout(refreshCaseBadge, 0);
   const bid = currentUser.branchId;
   const b = BRANCH_MASTER[bid];
   const list = _accessibleCases().sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''));
@@ -11212,6 +11321,8 @@ function renderBranchCases() {
 }
 
 function renderAdminCases() {
+  _markCasesViewed();
+  setTimeout(refreshCaseBadge, 0);
   const list = _accessibleCases().sort((a,b) => {
     // open > in_progress > resolved > closed; within same status, newest first
     const order = { open:0, in_progress:1, resolved:2, closed:3 };
@@ -11424,7 +11535,7 @@ function replyToCase(caseId) {
   gsSave('cases', c.id, c);
   notify('ส่งข้อความสำเร็จ');
   closeModal();
-  setTimeout(() => openCaseDetail(caseId), 120);
+  setTimeout(() => { openCaseDetail(caseId); refreshCaseBadge(); }, 120);
 }
 
 function changeCaseStatus(caseId, newStatus) {
