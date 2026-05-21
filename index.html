@@ -2166,8 +2166,8 @@
   </div>
 </div>
 
-<!-- TEST MODE BANNER (shown when admin enables test mode) -->
-<div id="test-mode-banner">🧪 โหมดทดสอบ ENABLED — Admin · ข้อมูลและการแก้ไขอาจไม่ใช่ของจริง · กดปุ่ม "โหมดทดสอบ" ในแถบซ้ายเพื่อปิด</div>
+<!-- TEST MODE BANNER (broadcast to all users when admin enables test mode) -->
+<div id="test-mode-banner">🧪 ระบบอยู่ในโหมดทดสอบ — การบันทึก / แก้ไข / ลบ ระหว่างนี้จะไม่ถูกเก็บลงระบบ (refresh แล้วหาย)</div>
 
 <!-- CHATBOT WIDGET — น้องแฮปปี้ (filled + shown after login) -->
 <div id="chatbot-fab" onclick="openChatbot()" style="display:none">
@@ -4082,14 +4082,14 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[] } : { deleted: [], disabled: [] },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode } : { deleted: [], disabled: [], testMode: false },
   };
 }
 async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -4121,7 +4121,20 @@ function _applyServerData(d) {
   DB.customQuiz   = d.customQuiz || [];
   DB.courseHistory= d.courseHistory || [];
   DB.quizMeta     = d.quizMeta || { deleted: [], disabled: [] };
+  // Broadcast test-mode state from backend → all users see the same banner
+  if (DB.quizMeta && typeof DB.quizMeta.testMode === 'boolean') {
+    _applyTestModeFromServer(DB.quizMeta.testMode);
+  }
   try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
+}
+
+// Sync test-mode flag from backend (called by both _applyServerData and gsLoadFromSheets)
+function _applyTestModeFromServer(on) {
+  const cur = document.body.classList.contains('test-mode');
+  if (cur === on) return;
+  document.body.classList.toggle('test-mode', on);
+  // Update admin's button if they have it
+  if (typeof applyTestModeUI === 'function') applyTestModeUI(on);
 }
 
 // Push current in-memory DB up to Supabase (used as one-shot migration from Sheets)
@@ -4180,7 +4193,10 @@ async function gsLoadFromSheets() {
   });
   if (data.quizMeta) {
     const m = parseJSON(data.quizMeta, null);
-    if (m) DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [] };
+    if (m) {
+      DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [], testMode: !!m.testMode };
+      _applyTestModeFromServer(!!m.testMode);
+    }
   }
   if (Array.isArray(data.courseHistory)) {
     DB.courseHistory = data.courseHistory.map(c => ({...c, branchId: String(c.branchId||'').trim()}));
@@ -4295,16 +4311,23 @@ async function gsFetch(payload) {
   if (!resp.ok) throw new Error('GS HTTP ' + resp.status);
   return await resp.json();
 }
-// Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget)
+// Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget).
+// TEST MODE: when ON, skip ALL backend writes except quizMeta (so the test-mode
+// toggle itself can still flip back off). Local DB still mutates, so the UI
+// reflects the change until next refresh — at which point auto-sync pulls
+// real data back, effectively "discarding" the test edit.
 function gsSave(collection, id, record) {
+  if (isTestMode() && collection !== 'quizMeta') return;
   sbSaveOne(collection, id, record).catch(e => console.error('SB save error', collection, id, e));
   gsPost({action:'save', collection, id, record});
 }
 function gsDel(collection, id) {
+  if (isTestMode() && collection !== 'quizMeta') return;
   sbDelOne(collection, id).catch(e => console.error('SB del error', collection, id, e));
   gsPost({action:'delete', collection, id});
 }
 function gsSaveMany(collection, records) {
+  if (isTestMode() && collection !== 'quizMeta') return;
   sbSaveMany(collection, records).catch(e => console.error('SB save_many error', collection, e));
   gsPost({action:'save_many', collection, records});
 }
@@ -4530,17 +4553,29 @@ function toggleTheme() {
   applyThemeToggleUI(isDark);
 }
 
-// ==================== TEST MODE (admin-only toggle) ====================
-// Adds a body.test-mode class + yellow striped banner at the top of the app.
-// Persisted to localStorage so it survives page refresh.
+// ==================== TEST MODE (admin-only toggle, system-wide) ====================
+// State lives in DB.quizMeta.testMode (server-persisted), so when admin turns
+// it on every other user (branches/BZM/VP/COO) sees the banner too on their
+// next auto-sync. While on, gsSave / gsDel / gsSaveMany skip backend writes
+// — local DB changes still happen (UI updates) but vanish on refresh.
 function isTestMode() { return document.body.classList.contains('test-mode'); }
 function toggleTestMode() {
   if (!isAdminRole()) { notify('โหมดทดสอบเปิด/ปิดได้เฉพาะ Admin', 'error'); return; }
   const on = !isTestMode();
+  showConfirm(on
+    ? 'เปิดโหมดทดสอบทั้งระบบ?\n\n• ทุกผู้ใช้จะเห็น banner แจ้งว่ากำลังทดสอบ\n• การบันทึก / แก้ไข / ลบ ทุกชนิด จะไม่ถูกเก็บ\n• Refresh แล้วข้อมูลกลับเป็นของจริง'
+    : 'ปิดโหมดทดสอบ?\n\nกลับไปบันทึกข้อมูลจริงให้ทุกผู้ใช้',
+    () => _commitTestMode(on),
+    { title: on ? 'เปิดโหมดทดสอบ' : 'ปิดโหมดทดสอบ', icon: on ? '🧪' : '🛑', confirmText: on ? 'เปิด' : 'ปิด', danger: !on ? false : false }
+  );
+}
+function _commitTestMode(on) {
   document.body.classList.toggle('test-mode', on);
-  try { localStorage.setItem('opt_test_mode', on ? '1' : '0'); } catch(_) {}
   applyTestModeUI(on);
-  notify(on ? 'เปิดโหมดทดสอบแล้ว' : 'ปิดโหมดทดสอบแล้ว');
+  // Persist to backend so every other user sees it on their next sync
+  DB.quizMeta = { ...(DB.quizMeta||{}), testMode: on };
+  gsSave('quizMeta', 'singleton', DB.quizMeta); // whitelisted in test mode
+  notify(on ? 'เปิดโหมดทดสอบทั้งระบบ' : 'ปิดโหมดทดสอบ — กลับมาบันทึกปกติ');
 }
 function applyTestModeUI(on) {
   const btn = document.getElementById('test-mode-btn');
@@ -4554,18 +4589,16 @@ function applyTestModeUI(on) {
 function initTestModeButton() {
   const btn = document.getElementById('test-mode-btn');
   if (!btn) return;
-  // Only Admin sees / can toggle
   if (!isAdminRole()) {
     btn.style.display = 'none';
-    document.body.classList.remove('test-mode'); // safety: never leak test mode to non-admin
+    // Branches/BZM/VP/COO: the body.test-mode class is set by _applyTestModeFromServer
+    // when sync pulls quizMeta. Don't force-clear it here.
     return;
   }
   btn.style.display = 'flex';
-  let saved = null;
-  try { saved = localStorage.getItem('opt_test_mode'); } catch(_) {}
-  const on = saved === '1';
-  document.body.classList.toggle('test-mode', on);
-  applyTestModeUI(on);
+  // Initial state mirrors server (already applied via _applyTestModeFromServer
+  // when initial gsLoad ran). Just update the button label.
+  applyTestModeUI(isTestMode());
 }
 function applyThemeToggleUI(isDark) {
   const icon = document.getElementById('theme-toggle-icon');
@@ -4600,10 +4633,11 @@ function initTheme() {
 
 function logout() {
   stopAutoSync();
-  // Drop test-mode class on logout — never leak it to the next user (or login screen)
-  document.body.classList.remove('test-mode');
+  // Test mode is now server-side state — only hide the toggle button on logout
+  // (banner stays hidden because login screen has no .test-mode class until app reload)
   const _tb = document.getElementById('test-mode-btn');
   if (_tb) _tb.style.display = 'none';
+  document.body.classList.remove('test-mode'); // login screen shouldn't show banner
   // Wipe in-memory chat state so the next user (or fresh login of same user)
   // starts clean. Their persisted localStorage thread will reload on next chat open.
   _chatHistory = [];
