@@ -4148,18 +4148,43 @@ async function gsFetch(payload) {
   if (!resp.ok) throw new Error('GS HTTP ' + resp.status);
   return await resp.json();
 }
-// Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget)
-function gsSave(collection, id, record) {
-  sbSaveOne(collection, id, record).catch(e => console.error('SB save error', collection, id, e));
-  gsPost({action:'save', collection, id, record});
+// Sequential dual-write: Supabase (primary) MUST succeed first, then mirror to Sheets.
+// If Supabase fails → don't write to Sheets either (prevents divergence where one
+// backend has data the other doesn't). Sheets write stays fire-and-forget because
+// the user has already been told "saved" once Supabase confirms.
+async function gsSave(collection, id, record) {
+  try {
+    await sbSaveOne(collection, id, record);
+  } catch (e) {
+    console.error('SB save failed → skip Sheets mirror', collection, id, e);
+    if (typeof notify === 'function') notify('Supabase บันทึกไม่สำเร็จ — ไม่ได้ mirror ไป Sheets', 'error');
+    return;
+  }
+  // Mirror to Google Sheets (background, doesn't block UI)
+  try { gsPost({action:'save', collection, id, record}); }
+  catch (e) { console.error('Sheets mirror failed (data is safe in SB)', collection, id, e); }
 }
-function gsDel(collection, id) {
-  sbDelOne(collection, id).catch(e => console.error('SB del error', collection, id, e));
-  gsPost({action:'delete', collection, id});
+async function gsDel(collection, id) {
+  try {
+    await sbDelOne(collection, id);
+  } catch (e) {
+    console.error('SB delete failed → skip Sheets mirror', collection, id, e);
+    if (typeof notify === 'function') notify('Supabase ลบไม่สำเร็จ — ไม่ได้ mirror ไป Sheets', 'error');
+    return;
+  }
+  try { gsPost({action:'delete', collection, id}); }
+  catch (e) { console.error('Sheets delete mirror failed (data removed in SB)', collection, id, e); }
 }
-function gsSaveMany(collection, records) {
-  sbSaveMany(collection, records).catch(e => console.error('SB save_many error', collection, e));
-  gsPost({action:'save_many', collection, records});
+async function gsSaveMany(collection, records) {
+  try {
+    await sbSaveMany(collection, records);
+  } catch (e) {
+    console.error('SB save_many failed → skip Sheets mirror', collection, e);
+    if (typeof notify === 'function') notify('Supabase บันทึก batch ไม่สำเร็จ — ไม่ได้ mirror ไป Sheets', 'error');
+    return;
+  }
+  try { gsPost({action:'save_many', collection, records}); }
+  catch (e) { console.error('Sheets save_many mirror failed', collection, e); }
 }
 function mkEmployee(bid, name, pos, start, status) {
   return {id:genId('E'), branchId:bid, name, position:pos, positionGroup:getPositionGroup(pos), startDate:start, status};
