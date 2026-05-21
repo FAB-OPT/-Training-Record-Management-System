@@ -715,6 +715,27 @@
   .topbar-right-text { font-size: 13px; color: var(--text2); font-weight: 500; }
   .topbar-avatar { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: 700; }
 
+  /* ==================== iPad / tablet (768-1024) ==================== */
+  /* Tablet sits between mobile bottom-nav UX and full desktop sidebar.
+     Bigger tap targets, slightly looser spacing, wider modals. */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .modal { max-width: 720px !important; }
+    .btn { padding: 10px 18px; font-size: 14px; min-height: 44px; }
+    .btn-sm { padding: 7px 14px; font-size: 12.5px; min-height: 36px; }
+    .form-input, .form-select, .form-textarea {
+      min-height: 44px; font-size: 14.5px;
+    }
+    .form-textarea { min-height: 80px; }
+    /* Case cards: more breathing room */
+    .case-card { padding: 18px 20px !important; }
+    /* Bigger nav-badge so it's tappable */
+    .nav-badge { min-width: 20px; height: 20px; font-size: 11px; }
+    /* Chat panel can be wider on tablet */
+    #chatbot-panel { width: 440px; height: 620px; }
+    /* Better stat card padding */
+    .stat-card { padding: 16px; }
+  }
+
   /* Notification badge (e.g. unread case count on menu items) */
   .nav-badge {
     display: inline-flex; align-items: center; justify-content: center;
@@ -11237,21 +11258,41 @@ function _caseRowCard(c, isAdminView) {
   const msgCount = (c.messages || []).length;
   const lastMsg = msgCount ? c.messages[msgCount-1] : null;
   const lastTs = lastMsg ? lastMsg.ts : c.createdAt;
-  return `<div onclick="openCaseDetail('${c.id}')" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s;border-left:4px solid ${cat.color}" onmouseenter="this.style.boxShadow='0 6px 18px rgba(0,0,0,.08)'" onmouseleave="this.style.boxShadow='none'">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+  // Time-ago format (e.g. "5 นาทีที่แล้ว", "3 ชม.ที่แล้ว", "2 วันที่แล้ว")
+  const ago = (() => {
+    const diff = Date.now() - new Date(lastTs).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'เพิ่งนี้';
+    if (mins < 60) return mins + ' นาทีที่แล้ว';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + ' ชม.ที่แล้ว';
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return days + ' วันที่แล้ว';
+    return fmtDate(lastTs);
+  })();
+  // "Last activity by" pill — quickly see if it's your turn to reply
+  const lastByPill = lastMsg ? (lastMsg.role === 'branch'
+    ? '<span style="font-size:10px;color:#16A34A;background:#DCFCE7;padding:1px 7px;border-radius:999px;font-weight:700">สาขา</span>'
+    : '<span style="font-size:10px;color:#DC2626;background:#FEE2E2;padding:1px 7px;border-radius:999px;font-weight:700">Admin</span>'
+  ) : '';
+  return `<div class="case-card" onclick="openCaseDetail('${c.id}')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:all .18s;border-left:4px solid ${cat.color}" onmouseenter="this.style.boxShadow='0 8px 22px rgba(0,0,0,.08)';this.style.transform='translateY(-1px)'" onmouseleave="this.style.boxShadow='none';this.style.transform='translateY(0)'">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-          <span style="font-size:12px;color:${cat.color};font-weight:700">${cat.icon} ${cat.label}</span>
-          <span style="font-size:10px;background:${st.bg};color:${st.color};padding:2px 9px;border-radius:999px;font-weight:700">${st.label}</span>
-          ${c.priority === 'urgent' ? `<span style="font-size:10px;color:${pr.color};font-weight:700;background:${pr.color}1A;padding:2px 8px;border-radius:999px">⚡ ${pr.label}</span>` : ''}
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <span style="font-size:11px;color:${cat.color};font-weight:700">${cat.icon} ${cat.label}</span>
+          <span style="font-size:9.5px;color:var(--text4)">•</span>
+          <span style="font-size:10.5px;background:${st.bg};color:${st.color};padding:2px 9px;border-radius:999px;font-weight:700">${st.label}</span>
+          ${c.priority === 'urgent' ? `<span style="font-size:10.5px;color:${pr.color};font-weight:700;background:${pr.color}1A;padding:2px 8px;border-radius:999px">⚡ ด่วน</span>` : ''}
         </div>
-        <div style="font-size:14.5px;font-weight:700;color:var(--text);line-height:1.35">${c.subject||'(ไม่มีหัวข้อ)'}</div>
-        ${isAdminView ? `<div style="font-size:11.5px;color:var(--text3);margin-top:3px">จาก <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ${c.reporterName||'-'}</div>` : ''}
+        <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:4px">${c.subject||'(ไม่มีหัวข้อ)'}</div>
+        ${isAdminView ? `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">📍 <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · 👤 ${c.reporterName||'-'}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--text3)">
+          ${msgCount ? `<span>💬 ${msgCount} ข้อความ</span><span style="color:var(--text4)">•</span>` : ''}
+          <span>🕐 ${ago}</span>
+          ${lastByPill ? `<span style="color:var(--text4)">•</span><span style="font-size:10.5px;color:var(--text3)">ล่าสุด ${lastByPill}</span>` : ''}
+        </div>
       </div>
-      <div style="text-align:right;font-size:11px;color:var(--text3);white-space:nowrap">
-        <div>${fmtDate(lastTs)}</div>
-        ${msgCount ? `<div style="margin-top:3px;font-weight:700;color:var(--accent)">💬 ${msgCount}</div>` : ''}
-      </div>
+      <div style="color:var(--text4);font-size:22px;font-weight:300">›</div>
     </div>
   </div>`;
 }
