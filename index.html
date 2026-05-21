@@ -4103,11 +4103,16 @@ async function gsLoadFromSheets() {
   }
   // Chat conversation history (for admin viewer)
   if (Array.isArray(data.chatLogs)) {
-    DB.chatLogs = data.chatLogs.map(l => ({...l, err: l.err === true || l.err === 'true'}));
+    DB.chatLogs = data.chatLogs.map(l => ({
+      ...l,
+      branchId: l.branchId == null || l.branchId === '-' ? '-' : String(l.branchId),
+      err: l.err === true || l.err === 'true',
+    }));
   }
   // Branch ↔ admin cases
   if (Array.isArray(data.cases)) {
     DB.cases = data.cases.map(c => {
+      c.branchId = c.branchId == null ? '' : String(c.branchId).trim();
       // messages stored as JSON string in Sheets; parse back to array
       if (typeof c.messages === 'string') {
         try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; }
@@ -4126,10 +4131,19 @@ async function _loadAuxFromSheets() {
     const resp = await fetch(GS_URL + '?action=load');
     const data = await resp.json();
     if (Array.isArray(data.chatLogs)) {
-      DB.chatLogs = data.chatLogs.map(l => ({...l, err: l.err === true || l.err === 'true'}));
+      // Sheets auto-coerces "5001" → number 5001; normalize string IDs so filters match.
+      DB.chatLogs = data.chatLogs.map(l => ({
+        ...l,
+        branchId: l.branchId == null || l.branchId === '-' ? '-' : String(l.branchId),
+        err: l.err === true || l.err === 'true',
+      }));
     }
     if (Array.isArray(data.cases)) {
       DB.cases = data.cases.map(c => {
+        // CRITICAL: branchId must be string ('5001') not number (5001) or the
+        // branch-user filter c.branchId === currentUser.branchId returns false
+        // and the case disappears from the branch's case list.
+        c.branchId = c.branchId == null ? '' : String(c.branchId).trim();
         if (typeof c.messages === 'string') {
           try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; }
         }
