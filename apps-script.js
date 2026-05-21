@@ -22,6 +22,7 @@ function doGet(e) {
       courseHistory: readSheet(ss, 'courseHistory'),
       quizMeta:      readSheetSingleton(ss, 'quizMeta'),
       chatLogs:      readSheet(ss, 'chatLogs'),
+      cases:         readSheet(ss, 'cases'),
     };
     return respond(result);
   }

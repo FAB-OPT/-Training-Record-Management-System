@@ -3916,6 +3916,7 @@ const _SB_TABLE = {
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
   chatLogs:      { sessionId:'session_id', userType:'user_type', userKey:'user_key', userName:'user_name', userRole:'user_role', branchId:'branch_id' },
+  cases:         { branchId:'branch_id', branchName:'branch_name', reporterName:'reporter_name', createdAt:'created_at', updatedAt:'updated_at', resolvedAt:'resolved_at', resolvedBy:'resolved_by' },
   trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
@@ -4882,6 +4883,7 @@ const BRANCH_NAV_ITEMS = [
   { page: 'employees',      icon: '👥',  label: 'พนักงาน' },
   { page: 'trainings',      icon: '📚',  label: 'การสอน' },
   { page: 'course-history', icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'cases',          icon: '📨',  label: 'เคส' },
   { page: 'reports',        icon: '📊',  label: 'รายงาน' },
 ];
 const ADMIN_NAV_ITEMS = [
@@ -4890,6 +4892,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
+  { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'admin-chat-logs',       icon: '💬',  label: 'แชตบอท' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
@@ -4899,6 +4902,7 @@ const BZM_NAV_ITEMS = [
   { page: 'admin-manage',          icon: '👥',  label: 'สาขา' },
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือน' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
@@ -4943,6 +4947,7 @@ const _SIDEBAR_LABELS = {
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
+  'admin-cases':          { admin: 'เคสจากสาขา',                     bzm: 'เคสในโซน',                    exec: 'เคสทั้งระบบ' },
   'exec-leaderboard':     { admin: '',                              bzm: '',                            exec: 'จัดอันดับโซน BZM' },
   'exec-alerts':          { admin: '',                              bzm: 'แจ้งเตือนในโซน',              exec: 'แจ้งเตือนสำคัญ' },
 };
@@ -4983,6 +4988,8 @@ function showPage(page) {
     'exec-leaderboard': renderExecLeaderboard,
     'exec-alerts': renderExecAlerts,
     'admin-chat-logs': renderAdminChatLogs,
+    'cases': renderBranchCases,
+    'admin-cases': renderAdminCases,
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
@@ -5018,8 +5025,11 @@ function updateBottomNav(page) {
     'admin-course-history':  'bnav-admin-course-history',
     'admin-quiz':            'bnav-admin-quiz',
     'admin-reports':         'bnav-admin-reports',
+    'admin-chat-logs':       'bnav-admin-chat-logs',
+    'admin-cases':           'bnav-admin-cases',
     'exec-leaderboard':      'bnav-exec-leaderboard',
     'exec-alerts':           'bnav-exec-alerts',
+    'cases':                 'bnav-cases',
   };
   document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
   const targetId = navMap[page];
@@ -10936,6 +10946,361 @@ function renderExecLeaderboard() {
       </tbody>
     </table>
   </div>`;
+}
+
+// ==================== CASES (branch ↔ admin communication) ====================
+// Data model per case:
+//   id, branchId, branchName, reporterName, category, subject, description,
+//   status: 'open' | 'in_progress' | 'resolved' | 'closed',
+//   priority: 'low' | 'normal' | 'high' | 'urgent',
+//   createdAt, updatedAt, resolvedAt, resolvedBy,
+//   messages: [{ role, author, content, ts }]
+
+const CASE_CATEGORIES = {
+  data:    { label: 'ขอแก้ไขข้อมูล',     color: '#3B82F6', icon: '📝' },
+  tech:    { label: 'ปัญหาทางเทคนิค',    color: '#EF4444', icon: '🛠' },
+  hr:      { label: 'พนักงาน / ทรัพยากรบุคคล', color: '#8B5CF6', icon: '👥' },
+  request: { label: 'ขอข้อมูล / ขอความช่วยเหลือ', color: '#F59E0B', icon: '🤝' },
+  other:   { label: 'อื่นๆ',              color: '#6B7280', icon: '📨' },
+};
+const CASE_STATUS = {
+  open:        { label: 'รอตอบรับ',     color: '#F59E0B', bg: '#FEF3C7' },
+  in_progress: { label: 'กำลังดำเนินการ', color: '#3B82F6', bg: '#DBEAFE' },
+  resolved:    { label: 'แก้ไขแล้ว',     color: '#16A34A', bg: '#DCFCE7' },
+  closed:      { label: 'ปิด',           color: '#6B7280', bg: '#F3F4F6' },
+};
+const CASE_PRIORITY = {
+  low:    { label: 'ปกติ',  color: '#6B7280' },
+  normal: { label: 'ทั่วไป', color: '#3B82F6' },
+  high:   { label: 'สูง',   color: '#F59E0B' },
+  urgent: { label: 'ด่วน',  color: '#EF4444' },
+};
+
+let _caseFilter = { status: '', branch: '', category: '', search: '' };
+
+function _accessibleCases() {
+  const list = (DB.cases || []).slice();
+  if (currentUser?.type === 'branch') {
+    return list.filter(c => c.branchId === currentUser.branchId);
+  }
+  if (isBzmRole()) {
+    const acc = new Set(getAccessibleBranches());
+    return list.filter(c => acc.has(c.branchId));
+  }
+  return list; // admin/vp/coo see all
+}
+
+function setCaseFilter(k, v) {
+  _caseFilter[k] = v;
+  const fn = currentUser?.type === 'branch' ? renderBranchCases : renderAdminCases;
+  document.getElementById('main-content').innerHTML = fn();
+}
+
+function _caseRowCard(c, isAdminView) {
+  const cat = CASE_CATEGORIES[c.category] || CASE_CATEGORIES.other;
+  const st  = CASE_STATUS[c.status] || CASE_STATUS.open;
+  const pr  = CASE_PRIORITY[c.priority] || CASE_PRIORITY.normal;
+  const msgCount = (c.messages || []).length;
+  const lastMsg = msgCount ? c.messages[msgCount-1] : null;
+  const lastTs = lastMsg ? lastMsg.ts : c.createdAt;
+  return `<div onclick="openCaseDetail('${c.id}')" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s;border-left:4px solid ${cat.color}" onmouseenter="this.style.boxShadow='0 6px 18px rgba(0,0,0,.08)'" onmouseleave="this.style.boxShadow='none'">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-size:12px;color:${cat.color};font-weight:700">${cat.icon} ${cat.label}</span>
+          <span style="font-size:10px;background:${st.bg};color:${st.color};padding:2px 9px;border-radius:999px;font-weight:700">${st.label}</span>
+          ${c.priority === 'urgent' || c.priority === 'high' ? `<span style="font-size:10px;color:${pr.color};font-weight:700;background:${pr.color}1A;padding:2px 8px;border-radius:999px">⚡ ${pr.label}</span>` : ''}
+        </div>
+        <div style="font-size:14.5px;font-weight:700;color:var(--text);line-height:1.35">${c.subject||'(ไม่มีหัวข้อ)'}</div>
+        ${isAdminView ? `<div style="font-size:11.5px;color:var(--text3);margin-top:3px">จาก <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ${c.reporterName||'-'}</div>` : ''}
+      </div>
+      <div style="text-align:right;font-size:11px;color:var(--text3);white-space:nowrap">
+        <div>${fmtDate(lastTs)}</div>
+        ${msgCount ? `<div style="margin-top:3px;font-weight:700;color:var(--accent)">💬 ${msgCount}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBranchCases() {
+  const bid = currentUser.branchId;
+  const b = BRANCH_MASTER[bid];
+  const list = _accessibleCases().sort((a,b) => (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||''));
+  const f = _caseFilter;
+  let filtered = list;
+  if (f.status) filtered = filtered.filter(c => c.status === f.status);
+  if (f.category) filtered = filtered.filter(c => c.category === f.category);
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    filtered = filtered.filter(c => (c.subject||'').toLowerCase().includes(q) || (c.description||'').toLowerCase().includes(q));
+  }
+  const counts = { open:0, in_progress:0, resolved:0, closed:0 };
+  list.forEach(c => { if (counts[c.status]!=null) counts[c.status]++; });
+
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">📨 ติดต่อ Admin</div>
+      <div class="page-hero-sub">แจ้งเคส · ขอข้อมูล · ปัญหาทางเทคนิค → ทีม Admin จะตอบกลับที่นี่</div>
+    </div>
+    <button class="btn btn-navy" onclick="openCreateCase()">+ แจ้งเคสใหม่</button>
+  </div>
+
+  <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','open')"><div class="stat-value" style="font-size:20px;color:#F59E0B;font-weight:800">${counts.open}</div><div class="stat-label">รอตอบรับ</div></div>
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','in_progress')"><div class="stat-value" style="font-size:20px;color:#3B82F6;font-weight:800">${counts.in_progress}</div><div class="stat-label">กำลังดำเนินการ</div></div>
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','resolved')"><div class="stat-value" style="font-size:20px;color:#16A34A;font-weight:800">${counts.resolved}</div><div class="stat-label">แก้ไขแล้ว</div></div>
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','')"><div class="stat-value" style="font-size:20px;color:var(--accent);font-weight:800">${list.length}</div><div class="stat-label">ทั้งหมด</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;padding:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input class="search-input" placeholder="🔍 ค้นหา..." oninput="setCaseFilter('search', this.value)" style="flex:1;min-width:200px" value="${(f.search||'').replace(/"/g,'&quot;')}">
+      <select class="form-select" onchange="setCaseFilter('status', this.value)" style="min-width:140px">
+        <option value=""${!f.status?' selected':''}>— ทุกสถานะ —</option>
+        ${Object.entries(CASE_STATUS).map(([k,v]) => `<option value="${k}"${f.status===k?' selected':''}>${v.label}</option>`).join('')}
+      </select>
+      <select class="form-select" onchange="setCaseFilter('category', this.value)" style="min-width:160px">
+        <option value=""${!f.category?' selected':''}>— ทุกหมวด —</option>
+        ${Object.entries(CASE_CATEGORIES).map(([k,v]) => `<option value="${k}"${f.category===k?' selected':''}>${v.icon} ${v.label}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  ${filtered.length ? filtered.map(c => _caseRowCard(c, false)).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">📭 ยังไม่มีเคส — กด <b>+ แจ้งเคสใหม่</b> เพื่อสร้าง</div>'}`;
+}
+
+function renderAdminCases() {
+  const list = _accessibleCases().sort((a,b) => {
+    // open > in_progress > resolved > closed; within same status, newest first
+    const order = { open:0, in_progress:1, resolved:2, closed:3 };
+    const oa = order[a.status] ?? 4, ob = order[b.status] ?? 4;
+    if (oa !== ob) return oa - ob;
+    return (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'');
+  });
+  const f = _caseFilter;
+  let filtered = list;
+  if (f.status) filtered = filtered.filter(c => c.status === f.status);
+  if (f.branch) filtered = filtered.filter(c => c.branchId === f.branch);
+  if (f.category) filtered = filtered.filter(c => c.category === f.category);
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    filtered = filtered.filter(c =>
+      (c.subject||'').toLowerCase().includes(q) ||
+      (c.description||'').toLowerCase().includes(q) ||
+      (c.branchId||'').toLowerCase().includes(q) ||
+      (c.reporterName||'').toLowerCase().includes(q)
+    );
+  }
+  const counts = { open:0, in_progress:0, resolved:0, closed:0 };
+  list.forEach(c => { if (counts[c.status]!=null) counts[c.status]++; });
+
+  const branchOpts = getAccessibleBranches().slice().sort()
+    .map(bid => `<option value="${bid}"${f.branch===bid?' selected':''}>${bid} ${BRANCH_MASTER[bid]?.name.replace(bid+' ','')||''}</option>`).join('');
+
+  const heroTitle = isBzmRole() ? '📨 เคสในโซน' : (isExecRole() ? '📨 เคสทั้งระบบ' : '📨 เคสจากสาขา');
+
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">${heroTitle}</div>
+      <div class="page-hero-sub">เคสที่สาขาแจ้งมา · เรียงตามสถานะ (รอตอบรับ → กำลังดำเนินการ → แก้ไขแล้ว → ปิด)</div>
+    </div>
+  </div>
+
+  <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','open')"><div class="stat-value" style="font-size:22px;color:#F59E0B;font-weight:800">${counts.open}</div><div class="stat-label">รอตอบรับ</div></div>
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','in_progress')"><div class="stat-value" style="font-size:22px;color:#3B82F6;font-weight:800">${counts.in_progress}</div><div class="stat-label">กำลังดำเนินการ</div></div>
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','resolved')"><div class="stat-value" style="font-size:22px;color:#16A34A;font-weight:800">${counts.resolved}</div><div class="stat-label">แก้ไขแล้ว</div></div>
+    <div class="stat-card" style="padding:12px;text-align:center;cursor:pointer" onclick="setCaseFilter('status','')"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${list.length}</div><div class="stat-label">ทั้งหมด</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;padding:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input class="search-input" placeholder="🔍 ค้นหา หัวข้อ / สาขา / ผู้แจ้ง..." oninput="setCaseFilter('search', this.value)" style="flex:1;min-width:200px" value="${(f.search||'').replace(/"/g,'&quot;')}">
+      <select class="form-select" onchange="setCaseFilter('status', this.value)" style="min-width:140px">
+        <option value=""${!f.status?' selected':''}>— ทุกสถานะ —</option>
+        ${Object.entries(CASE_STATUS).map(([k,v]) => `<option value="${k}"${f.status===k?' selected':''}>${v.label}</option>`).join('')}
+      </select>
+      <select class="form-select" onchange="setCaseFilter('branch', this.value)" style="min-width:180px">
+        <option value=""${!f.branch?' selected':''}>— ทุกสาขา —</option>${branchOpts}
+      </select>
+      <select class="form-select" onchange="setCaseFilter('category', this.value)" style="min-width:160px">
+        <option value=""${!f.category?' selected':''}>— ทุกหมวด —</option>
+        ${Object.entries(CASE_CATEGORIES).map(([k,v]) => `<option value="${k}"${f.category===k?' selected':''}>${v.icon} ${v.label}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  ${filtered.length ? filtered.map(c => _caseRowCard(c, true)).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">📭 ไม่พบเคสที่ตรงกับ filter</div>'}`;
+}
+
+function openCreateCase() {
+  if (currentUser?.type !== 'branch' && !isAdminRole()) {
+    notify('เฉพาะสาขาเท่านั้นที่แจ้งเคสใหม่ได้', 'error');
+    return;
+  }
+  const bid = currentUser.branchId || 'ALL';
+  const bname = BRANCH_MASTER[bid]?.name.replace(bid+' ','') || '';
+  showModal('📨 แจ้งเคสใหม่ — ติดต่อ Admin', `
+    <div style="background:var(--accent-light);border:1px solid rgba(255,107,26,0.18);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);line-height:1.55">
+      💡 อธิบายเรื่องที่ต้องการแจ้งให้ละเอียด ทีม Admin จะตอบกลับโดยเร็วที่สุด · กรณีเร่งด่วนเลือก priority "ด่วน"
+    </div>
+    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <label class="form-label">หมวดหมู่ <span class="req">*</span></label>
+        <select class="form-select" id="case-category">
+          ${Object.entries(CASE_CATEGORIES).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">ความเร่งด่วน</label>
+        <select class="form-select" id="case-priority">
+          ${Object.entries(CASE_PRIORITY).map(([k,v]) => `<option value="${k}"${k==='normal'?' selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label class="form-label">หัวข้อ <span class="req">*</span></label>
+      <input class="form-input" id="case-subject" placeholder="เช่น ขอแก้ไขรหัสพนักงาน, ระบบไม่ยอม save..." maxlength="120">
+    </div>
+    <div style="margin-top:14px">
+      <label class="form-label">รายละเอียด <span class="req">*</span></label>
+      <textarea class="form-textarea" id="case-description" rows="6" placeholder="อธิบายเรื่องที่ต้องการแจ้ง — ระบุข้อมูลให้ครบ เช่น ชื่อพนักงาน, รหัส, วันที่, error message..." maxlength="2000"></textarea>
+    </div>
+    <div style="margin-top:14px">
+      <label class="form-label">ผู้แจ้ง</label>
+      <input class="form-input" id="case-reporter" placeholder="ชื่อ - ตำแหน่ง" maxlength="60">
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:var(--text3)">
+      📍 สาขา: <strong style="color:var(--accent)">${bid}</strong> ${bname}
+    </div>
+  `, () => {
+    const category = document.getElementById('case-category').value;
+    const priority = document.getElementById('case-priority').value;
+    const subject = document.getElementById('case-subject').value.trim();
+    const description = document.getElementById('case-description').value.trim();
+    const reporter = document.getElementById('case-reporter').value.trim() || (currentUser.nick || currentUser.name || '-');
+    if (!subject) { notify('กรุณากรอกหัวข้อ', 'error'); return; }
+    if (!description) { notify('กรุณากรอกรายละเอียด', 'error'); return; }
+    const now = new Date().toISOString();
+    const c = {
+      id: 'CASE-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6).toUpperCase(),
+      branchId: bid,
+      branchName: bname,
+      reporterName: reporter,
+      category,
+      priority,
+      subject,
+      description,
+      status: 'open',
+      createdAt: now,
+      updatedAt: now,
+      messages: [{ role:'branch', author: reporter, content: description, ts: now }],
+    };
+    if (!DB.cases) DB.cases = [];
+    DB.cases.push(c);
+    gsSave('cases', c.id, c);
+    notify('แจ้งเคสสำเร็จ — Admin จะตอบกลับเร็วที่สุด ✓');
+    closeModal();
+    setTimeout(() => document.getElementById('main-content').innerHTML = (currentUser.type==='branch' ? renderBranchCases() : renderAdminCases()), 100);
+  }, 'แจ้งเคส');
+}
+
+function openCaseDetail(caseId) {
+  const c = (DB.cases || []).find(x => x.id === caseId); if (!c) return;
+  const cat = CASE_CATEGORIES[c.category] || CASE_CATEGORIES.other;
+  const st  = CASE_STATUS[c.status] || CASE_STATUS.open;
+  const pr  = CASE_PRIORITY[c.priority] || CASE_PRIORITY.normal;
+  const isBranchView = currentUser?.type === 'branch';
+  const isStaffView = currentUser?.type === 'admin';
+  const closed = c.status === 'closed';
+
+  const messagesHtml = (c.messages || []).map(m => {
+    const isFromBranch = m.role === 'branch';
+    const align = isFromBranch ? 'flex-start' : 'flex-end';
+    const bg = isFromBranch ? 'var(--surface2)' : 'linear-gradient(135deg,#FF8541,#FF6B1A)';
+    const col = isFromBranch ? 'var(--text)' : 'white';
+    const radius = isFromBranch ? '14px 14px 14px 4px' : '14px 14px 4px 14px';
+    const tag = isFromBranch ? `<span style="font-size:10.5px;color:#16A34A;background:#DCFCE7;padding:2px 8px;border-radius:999px;font-weight:700;margin-right:6px">สาขา</span>` : `<span style="font-size:10.5px;color:#DC2626;background:#FEE2E2;padding:2px 8px;border-radius:999px;font-weight:700;margin-right:6px">Admin</span>`;
+    return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:3px">${tag}${m.author||'-'} · ${fmtDateTime(m.ts)}</div>
+      <div style="background:${bg};color:${col};padding:10px 14px;border-radius:${radius};max-width:80%;white-space:pre-wrap;word-wrap:break-word;font-size:13.5px;line-height:1.55">${(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    </div>`;
+  }).join('') || '<div style="text-align:center;color:var(--text3);padding:24px">(ยังไม่มีข้อความ)</div>';
+
+  // Admin actions: change status, reply
+  const adminActions = isStaffView ? `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:10px">
+      <div style="font-size:12px;color:var(--text2);font-weight:700;align-self:center;margin-right:6px">เปลี่ยนสถานะ:</div>
+      ${Object.entries(CASE_STATUS).map(([k,v]) => k===c.status ? '' : `<button class="btn btn-sm" style="background:${v.bg};color:${v.color};border:1px solid ${v.color}33;font-weight:700;padding:4px 12px" onclick="changeCaseStatus('${c.id}','${k}')">${v.label}</button>`).join('')}
+    </div>` : '';
+
+  const replyArea = closed ? '' : `
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">
+      <label class="form-label">ตอบกลับ</label>
+      <textarea class="form-textarea" id="case-reply" rows="3" placeholder="พิมพ์ข้อความ..." maxlength="2000"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-navy" onclick="replyToCase('${c.id}')">📤 ส่ง</button>
+      </div>
+    </div>`;
+
+  showModal(`📨 ${c.subject}`, `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:11.5px;color:${cat.color};background:${cat.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">${cat.icon} ${cat.label}</span>
+        <span style="font-size:11.5px;color:${st.color};background:${st.bg};padding:3px 10px;border-radius:999px;font-weight:700">${st.label}</span>
+        <span style="font-size:11.5px;color:${pr.color};background:${pr.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">⚡ ${pr.label}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6">
+        จาก <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ผู้แจ้ง: <strong>${c.reporterName||'-'}</strong><br>
+        เปิดเมื่อ ${fmtDateTime(c.createdAt)} · ID: ${c.id}
+        ${c.resolvedAt ? `<br>แก้ไขแล้วเมื่อ ${fmtDateTime(c.resolvedAt)} โดย ${c.resolvedBy||'-'}` : ''}
+      </div>
+    </div>
+    ${adminActions}
+    <div style="max-height:380px;overflow-y:auto;padding-right:4px">${messagesHtml}</div>
+    ${replyArea}
+  `, null, 'ปิด');
+  const m = document.querySelector('#modal-overlay .modal');
+  if (m) m.style.maxWidth = '600px';
+}
+
+function replyToCase(caseId) {
+  const c = (DB.cases || []).find(x => x.id === caseId); if (!c) return;
+  const ta = document.getElementById('case-reply');
+  const text = (ta?.value || '').trim();
+  if (!text) { notify('กรุณาพิมพ์ข้อความก่อนส่ง', 'error'); return; }
+  const isBranch = currentUser?.type === 'branch';
+  const role = isBranch ? 'branch' : 'admin';
+  const author = isBranch ? (c.reporterName || currentUser.branchId) : (currentUser.name || currentUser.nick || 'Admin');
+  const now = new Date().toISOString();
+  c.messages = c.messages || [];
+  c.messages.push({ role, author, content: text, ts: now });
+  c.updatedAt = now;
+  // First admin reply auto-moves status from "open" → "in_progress"
+  if (!isBranch && c.status === 'open') c.status = 'in_progress';
+  gsSave('cases', c.id, c);
+  notify('ส่งข้อความสำเร็จ ✓');
+  closeModal();
+  setTimeout(() => openCaseDetail(caseId), 120);
+}
+
+function changeCaseStatus(caseId, newStatus) {
+  const c = (DB.cases || []).find(x => x.id === caseId); if (!c) return;
+  if (!CASE_STATUS[newStatus]) return;
+  if (c.status === newStatus) return;
+  const now = new Date().toISOString();
+  c.status = newStatus;
+  c.updatedAt = now;
+  if (newStatus === 'resolved') {
+    c.resolvedAt = now;
+    c.resolvedBy = currentUser?.name || currentUser?.nick || 'Admin';
+  }
+  gsSave('cases', c.id, c);
+  notify('เปลี่ยนสถานะเป็น "' + CASE_STATUS[newStatus].label + '" ✓');
+  closeModal();
+  setTimeout(() => openCaseDetail(caseId), 120);
 }
 
 // ==================== ADMIN CHAT LOGS VIEWER ====================
