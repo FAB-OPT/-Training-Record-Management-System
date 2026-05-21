@@ -735,9 +735,10 @@
   #chatbot-fab:hover { transform: scale(1.08); }
   #chatbot-fab:active { transform: scale(0.94); }
   .cb-fab-avatar {
-    font-size: 30px; line-height: 1; display: inline-block;
+    width: 100%; height: 100%;
+    object-fit: cover; border-radius: 50%;
+    display: block;
     animation: cbBreath 2.6s ease-in-out infinite;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18));
   }
   @keyframes cbBreath { 0%,100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.08) rotate(-3deg); } }
   .cb-fab-pulse {
@@ -784,12 +785,17 @@
   .cb-head-info { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; min-width: 0; }
   .cb-avatar {
     width: 44px; height: 44px; border-radius: 50%;
+    overflow: hidden;
     background: white;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 4px 10px rgba(0,0,0,0.18), 0 0 0 3px rgba(255,255,255,0.5);
     position: relative; flex-shrink: 0;
   }
-  .cb-avatar-emoji { font-size: 24px; animation: cbBreath 2.6s ease-in-out infinite; line-height: 1; }
+  .cb-avatar-img {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    animation: cbBreath 2.6s ease-in-out infinite;
+  }
   .cb-avatar-dot {
     position: absolute; bottom: 2px; right: 2px;
     width: 11px; height: 11px; border-radius: 50%;
@@ -861,10 +867,14 @@
   }
   .cb-row-bot .cb-row-avatar {
     width: 28px; height: 28px; border-radius: 50%;
+    overflow: hidden;
     background: linear-gradient(135deg, #FFA66B 0%, #FF6B1A 100%);
     display: flex; align-items: center; justify-content: center;
-    font-size: 15px; flex-shrink: 0;
+    flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(255,107,26,0.3);
+  }
+  .cb-row-bot .cb-row-avatar img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
   }
   .cb-row-bot .cb-msg { animation: none; max-width: 100%; }
 
@@ -2071,14 +2081,14 @@
 
 <!-- CHATBOT WIDGET — น้องแฮปปี้ (filled + shown after login) -->
 <div id="chatbot-fab" onclick="openChatbot()" style="display:none">
-  <span class="cb-fab-avatar">😊</span>
+  <img class="cb-fab-avatar" src="nong-happy.png" alt="น้องแฮปปี้">
   <span class="cb-fab-pulse"></span>
 </div>
 <div id="chatbot-panel" style="display:none">
   <div class="cb-head">
     <div class="cb-head-info">
       <div class="cb-avatar">
-        <span class="cb-avatar-emoji">😊</span>
+        <img class="cb-avatar-img" src="nong-happy.png" alt="น้องแฮปปี้">
         <span class="cb-avatar-dot"></span>
       </div>
       <div>
@@ -4557,7 +4567,7 @@ function _renderChatMessage(role, text) {
   // Bot message: wrap with avatar
   const row = document.createElement('div');
   row.className = 'cb-row-bot';
-  row.innerHTML = '<div class="cb-row-avatar">😊</div>';
+  row.innerHTML = '<div class="cb-row-avatar"><img src="nong-happy.png" alt=""></div>';
   const msg = document.createElement('div');
   msg.className = 'cb-msg bot';
   msg.textContent = text;
@@ -4572,7 +4582,7 @@ function _renderChatTyping() {
   const row = document.createElement('div');
   row.className = 'cb-row-bot';
   row.id = 'chatbot-typing';
-  row.innerHTML = '<div class="cb-row-avatar">😊</div><div class="cb-msg bot"><span class="cb-typing"><span></span><span></span><span></span></span></div>';
+  row.innerHTML = '<div class="cb-row-avatar"><img src="nong-happy.png" alt=""></div><div class="cb-msg bot"><span class="cb-typing"><span></span><span></span><span></span></span></div>';
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
   return row;
