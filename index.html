@@ -3878,7 +3878,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], chatLogs: [], cases: [] };
 try {
   const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
   if (_c && _c.employees && _c.trainings) {
@@ -4090,7 +4090,43 @@ async function gsLoadFromSheets() {
   if (Array.isArray(data.courseHistory)) {
     DB.courseHistory = data.courseHistory.map(c => ({...c, branchId: String(c.branchId||'').trim()}));
   }
+  // Chat conversation history (for admin viewer)
+  if (Array.isArray(data.chatLogs)) {
+    DB.chatLogs = data.chatLogs.map(l => ({...l, err: l.err === true || l.err === 'true'}));
+  }
+  // Branch ↔ admin cases
+  if (Array.isArray(data.cases)) {
+    DB.cases = data.cases.map(c => {
+      // messages stored as JSON string in Sheets; parse back to array
+      if (typeof c.messages === 'string') {
+        try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; }
+      }
+      if (!Array.isArray(c.messages)) c.messages = [];
+      return c;
+    });
+  }
   try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
+}
+
+// chatLogs and cases are stored ONLY in Google Sheets (not migrated to Supabase),
+// so we always need a side-fetch even when the main load goes through Supabase.
+async function _loadAuxFromSheets() {
+  try {
+    const resp = await fetch(GS_URL + '?action=load');
+    const data = await resp.json();
+    if (Array.isArray(data.chatLogs)) {
+      DB.chatLogs = data.chatLogs.map(l => ({...l, err: l.err === true || l.err === 'true'}));
+    }
+    if (Array.isArray(data.cases)) {
+      DB.cases = data.cases.map(c => {
+        if (typeof c.messages === 'string') {
+          try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; }
+        }
+        if (!Array.isArray(c.messages)) c.messages = [];
+        return c;
+      });
+    }
+  } catch (e) { console.warn('Aux load (chatLogs/cases) failed:', e); }
 }
 
 // Main load: Supabase first, auto-migrate from Sheets on first run if SB empty
@@ -4102,6 +4138,8 @@ async function gsLoad() {
       const isEmpty = !sbData.employees.length && !sbData.trainings.length;
       if (!isEmpty) {
         _applyServerData(sbData);
+        // Side-fetch the Sheets-only collections (chatLogs, cases)
+        _loadAuxFromSheets();
         return;
       }
       // Supabase empty → one-shot migrate from Sheets
