@@ -20,7 +20,8 @@ function doGet(e) {
       quizResults:   readSheet(ss, 'quizResults'),
       customQuiz:    readSheet(ss, 'customQuiz'),
       courseHistory: readSheet(ss, 'courseHistory'),
-      quizMeta:      readSheetSingleton(ss, 'quizMeta')
+      quizMeta:      readSheetSingleton(ss, 'quizMeta'),
+      chatLogs:      readSheet(ss, 'chatLogs'),
     };
     return respond(result);
   }

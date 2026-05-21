@@ -4880,6 +4880,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
+  { page: 'admin-chat-logs',       icon: '💬',  label: 'แชตบอท' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
 // BZM (district manager): same view as admin but scoped to their zone — no quiz mgmt.
@@ -4931,6 +4932,7 @@ const _SIDEBAR_LABELS = {
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
+  'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
   'exec-leaderboard':     { admin: '',                              bzm: '',                            exec: 'จัดอันดับโซน BZM' },
   'exec-alerts':          { admin: '',                              bzm: 'แจ้งเตือนในโซน',              exec: 'แจ้งเตือนสำคัญ' },
 };
@@ -4970,6 +4972,7 @@ function showPage(page) {
     'admin-bzm': () => { _adminManageTab = 'bzm'; return renderAdminManage(); },
     'exec-leaderboard': renderExecLeaderboard,
     'exec-alerts': renderExecAlerts,
+    'admin-chat-logs': renderAdminChatLogs,
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
@@ -10923,6 +10926,133 @@ function renderExecLeaderboard() {
       </tbody>
     </table>
   </div>`;
+}
+
+// ==================== ADMIN CHAT LOGS VIEWER ====================
+let _chatLogFilter = { search: '', user: '', role: '', status: '', days: 30 };
+
+function setChatLogFilter(k, v) {
+  _chatLogFilter[k] = v;
+  document.getElementById('main-content').innerHTML = renderAdminChatLogs();
+}
+
+function renderAdminChatLogs() {
+  if (!isAdminRole()) {
+    return '<div style="padding:40px;text-align:center;color:var(--text3)">หน้านี้สำหรับ Admin เท่านั้น</div>';
+  }
+  const logs = (DB.chatLogs || []).slice();
+  const now = Date.now();
+  const DAY = 86400000;
+  const f = _chatLogFilter;
+
+  // Apply filters
+  let filtered = logs;
+  if (f.days && f.days !== 'all') {
+    const cutoff = now - Number(f.days) * DAY;
+    filtered = filtered.filter(l => new Date(l.ts || 0).getTime() >= cutoff);
+  }
+  if (f.user)   filtered = filtered.filter(l => (l.userKey||'') === f.user);
+  if (f.role)   filtered = filtered.filter(l => (l.userRole||'') === f.role);
+  if (f.status === 'err') filtered = filtered.filter(l => l.err);
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    filtered = filtered.filter(l => (l.content||'').toLowerCase().includes(q) || (l.userName||'').toLowerCase().includes(q));
+  }
+  // Sort by ts desc
+  filtered.sort((a,b) => (b.ts||'').localeCompare(a.ts||''));
+
+  // Stats
+  const totalMsgs = filtered.length;
+  const userMsgs = filtered.filter(l => l.role === 'user').length;
+  const botMsgs  = filtered.filter(l => l.role === 'bot').length;
+  const errMsgs  = filtered.filter(l => l.err).length;
+  const uniqUsers = new Set(filtered.map(l => l.userKey)).size;
+  const uniqSessions = new Set(filtered.map(l => l.sessionId)).size;
+
+  // Distinct user dropdown
+  const userMap = {};
+  logs.forEach(l => { if (l.userKey && !userMap[l.userKey]) userMap[l.userKey] = { name: l.userName || l.userKey, role: l.userRole || '' }; });
+  const userOpts = Object.entries(userMap).sort((a,b) => a[1].name.localeCompare(b[1].name, 'th'))
+    .map(([k, v]) => `<option value="${k}"${k===f.user?' selected':''}>${v.name} (${v.role||'-'})</option>`).join('');
+
+  // Group by sessionId — show as conversation cards
+  const bySession = {};
+  filtered.forEach(l => {
+    const sid = l.sessionId || '_';
+    if (!bySession[sid]) bySession[sid] = [];
+    bySession[sid].push(l);
+  });
+  // Sessions sorted by latest message desc
+  const sessions = Object.entries(bySession)
+    .map(([sid, msgs]) => ({ sid, msgs: msgs.slice().sort((a,b) => (a.ts||'').localeCompare(b.ts||'')) }))
+    .sort((a,b) => (b.msgs[b.msgs.length-1].ts||'').localeCompare(a.msgs[a.msgs.length-1].ts||''))
+    .slice(0, 80); // cap UI to 80 sessions for perf
+
+  const sessionsHtml = sessions.length ? sessions.map(s => {
+    const first = s.msgs[0];
+    const last  = s.msgs[s.msgs.length-1];
+    const errIn = s.msgs.some(m => m.err);
+    const roleColor = ({branch:'#16A34A', admin:'#DC2626', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777'})[first.userRole] || '#6B7280';
+    return `<div class="cl-session" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;${errIn?'border-left:4px solid #EF4444':''}">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--border)">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:14px;font-weight:800;color:var(--text)">${first.userName||'-'} <span style="font-size:11px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;margin-left:6px;font-weight:700;letter-spacing:.3px">${(first.userRole||'-').toUpperCase()}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700;margin-left:6px">${first.branchId}</span>` : ''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">เริ่ม ${fmtDateTime(first.ts)} · ${s.msgs.length} ข้อความ${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}</div>
+        </div>
+        <span style="font-size:11px;color:var(--text3);font-family:monospace">${s.sid.slice(0,12)}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${s.msgs.map(m => {
+          const isUser = m.role === 'user';
+          const bg = isUser ? 'linear-gradient(135deg,#FF8541,#FF6B1A)' : (m.err ? '#FEE2E2' : 'var(--surface2)');
+          const col = isUser ? 'white' : (m.err ? '#991B1B' : 'var(--text)');
+          const align = isUser ? 'flex-end' : 'flex-start';
+          const radius = isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
+          return `<div style="align-self:${align};max-width:80%">
+            <div style="background:${bg};color:${col};padding:8px 12px;border-radius:${radius};font-size:13px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word">${(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${m.err?' · ⚠ error':''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">ไม่พบประวัติแชตที่ตรงกับ filter</div>';
+
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">💬 ประวัติแชตบอท</div>
+      <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ</div>
+    </div>
+  </div>
+
+  <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalMsgs}</div><div class="stat-label">ข้อความ</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${uniqUsers}</div><div class="stat-label">ผู้ใช้</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:#22C55E;font-weight:800">${uniqSessions}</div><div class="stat-label">บทสนทนา</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:${errMsgs?'#EF4444':'var(--text3)'};font-weight:800">${errMsgs}</div><div class="stat-label">Error</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;padding:14px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input class="search-input" placeholder="🔍 ค้นหาในข้อความ / ชื่อผู้ใช้..." oninput="setChatLogFilter('search', this.value)" style="flex:1;min-width:220px" value="${(f.search||'').replace(/"/g,'&quot;')}">
+      <select class="form-select" onchange="setChatLogFilter('user', this.value)" style="min-width:180px">
+        <option value="">— ทุกผู้ใช้ —</option>${userOpts}
+      </select>
+      <select class="form-select" onchange="setChatLogFilter('role', this.value)" style="min-width:120px">
+        <option value="">— ทุก Role —</option>
+        ${['branch','admin','bzm','vp','coo'].map(r => `<option value="${r}"${r===f.role?' selected':''}>${r.toUpperCase()}</option>`).join('')}
+      </select>
+      <select class="form-select" onchange="setChatLogFilter('status', this.value)" style="min-width:120px">
+        <option value=""${!f.status?' selected':''}>— ทุกสถานะ —</option>
+        <option value="err"${f.status==='err'?' selected':''}>เฉพาะ Error</option>
+      </select>
+      <select class="form-select" onchange="setChatLogFilter('days', this.value)" style="min-width:120px">
+        ${[7,30,90,'all'].map(d => `<option value="${d}"${String(f.days)===String(d)?' selected':''}>${d==='all'?'ทุกช่วงเวลา':'ย้อนหลัง '+d+' วัน'}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  <div>${sessionsHtml}</div>`;
 }
 
 function renderExecAlerts() {
