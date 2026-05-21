@@ -23,6 +23,7 @@ function doGet(e) {
       quizMeta:      readSheetSingleton(ss, 'quizMeta'),
       chatLogs:      readSheet(ss, 'chatLogs'),
       cases:         readSheet(ss, 'cases'),
+      adminUsers:    readSheet(ss, 'adminUsers'),
     };
     return respond(result);
   }

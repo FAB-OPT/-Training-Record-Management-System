@@ -2388,6 +2388,17 @@ const BRANCH_MASTER = {
   '5509': { name: '5509 โลตัส นครอินทร์',         manager: 'สีวิกา สังข์ด้วง (พี่เจี๊ยบ)' },
 };
 
+// Build runtime admin-code map: hardcoded defaults below + any extra users added
+// via the จัดการผู้ใช้ page (DB.adminUsers). Custom entries with the same pin override defaults.
+function _effectiveAdminCodes() {
+  const map = { ...ADMIN_CODES };
+  (DB.adminUsers || []).forEach(u => {
+    if (!u || !u.id) return;
+    map[String(u.id)] = { name: u.name || '-', nick: u.nick || '-', role: u.role || 'admin' };
+  });
+  return map;
+}
+
 // Team Management codes — keyed by 6-digit pin. Each entry has name/nick/role.
 // All entries grant the same Team Management access; role is informational only.
 const ADMIN_CODES = {
@@ -3988,7 +3999,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], chatLogs: [], cases: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], chatLogs: [], cases: [], adminUsers: [] };
 try {
   const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
   if (_c && _c.employees && _c.trainings) {
@@ -4030,6 +4041,7 @@ const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
   chatLogs:      { sessionId:'session_id', userType:'user_type', userKey:'user_key', userName:'user_name', userRole:'user_role', branchId:'branch_id' },
   cases:         { branchId:'branch_id', branchName:'branch_name', reporterName:'reporter_name', reporterRole:'reporter_role', createdAt:'created_at', updatedAt:'updated_at', resolvedAt:'resolved_at', resolvedBy:'resolved_by' },
+  adminUsers:    { createdAt:'created_at', updatedAt:'updated_at', createdBy:'created_by' },
   trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
@@ -4266,7 +4278,11 @@ async function _loadAuxFromSheets() {
         return c;
       });
     }
-  } catch (e) { console.warn('Aux load (chatLogs/cases) failed:', e); }
+    if (Array.isArray(data.adminUsers)) {
+      // id is the PIN code — coerce to string (Sheets auto-numeric like '601183' → 601183)
+      DB.adminUsers = data.adminUsers.map(u => ({ ...u, id: String(u.id || '').trim() }));
+    }
+  } catch (e) { console.warn('Aux load (chatLogs/cases/adminUsers) failed:', e); }
 }
 
 // Main load: Supabase first, auto-migrate from Sheets on first run if SB empty
@@ -4499,7 +4515,7 @@ function doLogin() {
   clearLoginErrors();
   if (loginType === 'admin') {
     const pin = getPinValue('admin-pin-boxes');
-    const admin = ADMIN_CODES[pin];
+    const admin = _effectiveAdminCodes()[pin];
     if (admin) {
       currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role };
       showApp();
@@ -5308,6 +5324,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับ' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'admin-chat-logs',       icon: '💬',  label: 'แชตบอท' },
+  { page: 'admin-users',           icon: '🔐',  label: 'ผู้ใช้' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
 // BZM (district manager): same view as admin but scoped to their zone — no quiz mgmt.
@@ -5363,6 +5380,7 @@ const _SIDEBAR_LABELS = {
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
+  'admin-users':          { admin: 'จัดการผู้ใช้งาน',                 bzm: '',                            exec: '' },
   'admin-cases':          { admin: 'เคสจากสาขา',                     bzm: 'เคสในโซน',                    exec: 'เคสทั้งระบบ' },
   'exec-leaderboard':     { admin: 'จัดอันดับโซน BZM',                bzm: '',                            exec: 'จัดอันดับโซน BZM' },
   'exec-alerts':          { admin: '',                              bzm: 'แจ้งเตือนในโซน',              exec: 'แจ้งเตือนสำคัญ' },
@@ -5406,6 +5424,7 @@ function showPage(page) {
     'exec-leaderboard': renderExecLeaderboard,
     'exec-alerts': renderExecAlerts,
     'admin-chat-logs': renderAdminChatLogs,
+    'admin-users': renderAdminUsers,
     'cases': renderBranchCases,
     'admin-cases': renderAdminCases,
   };
@@ -11952,6 +11971,206 @@ function deleteCase(caseId) {
       refreshCaseBadge();
     }, 120);
   }, { title:'ลบเคส', icon:'🗑', confirmText:'ลบเคส' });
+}
+
+// ==================== ADMIN USERS MANAGEMENT (Team Management codes) ====================
+// Admin-only page to view / add / edit / delete Team Management user codes.
+// Hardcoded ADMIN_CODES = system defaults (always available, read-only).
+// DB.adminUsers = custom users persisted to backend (CRUD via this page).
+
+const ADMIN_USER_ROLES = {
+  admin: { label: 'Admin',          color: '#DC2626', desc: 'สิทธิ์เต็ม — เพิ่ม/แก้/ลบทุกอย่าง' },
+  coo:   { label: 'COO',            color: '#7C3AED', desc: 'ผู้บริหาร — ดูทั้งบริษัท' },
+  vp:    { label: 'VP. Santa Fe',   color: '#7C3AED', desc: 'ผู้บริหาร — ดูทั้งบริษัท' },
+  bzm:   { label: 'BZM',            color: '#3B82F6', desc: 'ผู้จัดการเขต — เฉพาะโซนตนเอง' },
+};
+
+let _adminUserSearch = '';
+function setAdminUserSearch(v) {
+  _adminUserSearch = v;
+  document.getElementById('main-content').innerHTML = renderAdminUsers();
+}
+
+function renderAdminUsers() {
+  if (!isAdminRole()) {
+    return '<div style="padding:40px;text-align:center;color:var(--text3)">หน้านี้สำหรับ Admin เท่านั้น</div>';
+  }
+  const customMap = {};
+  (DB.adminUsers || []).forEach(u => { if (u && u.id) customMap[String(u.id)] = u; });
+  // Combine hardcoded defaults + custom (custom overrides if same pin)
+  const rows = Object.entries(ADMIN_CODES).map(([pin, u]) => ({
+    pin, name: u.name, nick: u.nick, role: u.role, isCustom: false, _hard: true
+  })).filter(r => !customMap[r.pin]).concat(
+    (DB.adminUsers || []).map(u => ({
+      pin: String(u.id), name: u.name||'-', nick: u.nick||'-', role: u.role||'admin',
+      isCustom: true, createdBy: u.createdBy, createdAt: u.createdAt, updatedAt: u.updatedAt
+    }))
+  );
+
+  const q = (_adminUserSearch || '').toLowerCase().trim();
+  const filtered = q ? rows.filter(r =>
+    r.pin.includes(q) || (r.name||'').toLowerCase().includes(q) ||
+    (r.nick||'').toLowerCase().includes(q) || (r.role||'').toLowerCase().includes(q)
+  ) : rows;
+  filtered.sort((a,b) => {
+    // Sort by role order: admin, coo, vp, bzm
+    const order = { admin:0, coo:1, vp:2, bzm:3 };
+    const oa = order[a.role] ?? 9, ob = order[b.role] ?? 9;
+    if (oa !== ob) return oa - ob;
+    return (a.name||'').localeCompare(b.name||'', 'th');
+  });
+
+  // Stats per role
+  const byRole = { admin:0, bzm:0, vp:0, coo:0 };
+  rows.forEach(r => { if (byRole[r.role] != null) byRole[r.role]++; });
+
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">🔐 จัดการผู้ใช้งาน</div>
+      <div class="page-hero-sub">เพิ่ม / แก้ไข / ลบ รหัส Team Management — รหัสที่เพิ่มที่นี่ใช้ login ได้ทันที</div>
+    </div>
+    <button class="btn btn-navy" onclick="openAddAdminUser()">+ เพิ่มผู้ใช้</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+    <div class="stat-card" style="padding:14px;text-align:center;border-left:4px solid #DC2626"><div style="font-size:22px">🟦</div><div class="stat-value" style="font-size:22px;color:#DC2626;font-weight:800">${byRole.admin}</div><div class="stat-label">Admin</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center;border-left:4px solid #7C3AED"><div style="font-size:22px">🟪</div><div class="stat-value" style="font-size:22px;color:#7C3AED;font-weight:800">${byRole.coo}</div><div class="stat-label">COO</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center;border-left:4px solid #7C3AED"><div style="font-size:22px">🟪</div><div class="stat-value" style="font-size:22px;color:#7C3AED;font-weight:800">${byRole.vp}</div><div class="stat-label">VP</div></div>
+    <div class="stat-card" style="padding:14px;text-align:center;border-left:4px solid #3B82F6"><div style="font-size:22px">🟧</div><div class="stat-value" style="font-size:22px;color:#3B82F6;font-weight:800">${byRole.bzm}</div><div class="stat-label">BZM</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;padding:10px 12px">
+    <input class="search-input" placeholder="🔍 ค้นหา รหัส / ชื่อ / นิค / role..." oninput="setAdminUserSearch(this.value)" style="width:100%" value="${(_adminUserSearch||'').replace(/"/g,'&quot;')}">
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="cards-on-mobile">
+      <thead><tr>
+        <th style="width:120px">รหัส (PIN)</th>
+        <th>ชื่อ - นามสกุล</th>
+        <th>ชื่อเล่น</th>
+        <th>ตำแหน่ง</th>
+        <th>ประเภท</th>
+        <th style="text-align:right;width:170px">จัดการ</th>
+      </tr></thead>
+      <tbody>${filtered.length ? filtered.map(r => {
+        const role = ADMIN_USER_ROLES[r.role] || ADMIN_USER_ROLES.admin;
+        const isSelf = currentUser?.code === r.pin;
+        return `<tr>
+          <td data-label="รหัส" style="font-family:monospace;font-weight:800;font-size:14px;color:var(--primary)">${r.pin}</td>
+          <td data-label="ชื่อ" style="font-weight:600">${r.name||'-'} ${isSelf?'<span style="font-size:10px;background:var(--accent);color:white;padding:2px 7px;border-radius:999px;margin-left:4px">คุณ</span>':''}</td>
+          <td data-label="นิค" style="color:var(--text2)">${r.nick||'-'}</td>
+          <td data-label="ตำแหน่ง"><span style="font-size:11px;color:white;background:${role.color};padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:.3px">${role.label}</span></td>
+          <td data-label="ประเภท" style="font-size:11.5px;color:var(--text3)">${r.isCustom ? '<span style="color:#16A34A">🟢 Custom</span>' : '<span style="color:var(--text4)">🔒 Default</span>'}</td>
+          <td data-label="actions" style="text-align:right;white-space:nowrap">
+            ${r._hard ? `<span style="font-size:11px;color:var(--text4);font-style:italic">รหัสระบบ (แก้ไม่ได้)</span>` : `
+              <button class="btn btn-sm btn-outline" onclick="openEditAdminUser('${r.pin}')">แก้ไข</button>
+              ${isSelf ? '' : `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="confirmDeleteAdminUser('${r.pin}')">ลบ</button>`}
+            `}
+          </td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px">ไม่พบผู้ใช้</td></tr>`}</tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:14px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--text2);line-height:1.6">
+    💡 <strong>รหัสระบบ</strong> (🔒 Default) — รหัสเริ่มต้น 10 ตัวที่ hardcode ไว้ในระบบ แก้ไม่ได้ แต่สามารถ override ได้โดยเพิ่ม custom user ที่ใช้รหัสเดียวกัน<br>
+    🟢 <strong>Custom</strong> — รหัสที่ Admin เพิ่ม sync ไปทุกอุปกรณ์ผ่าน Supabase + Google Sheets · แก้/ลบได้
+  </div>`;
+}
+
+function openAddAdminUser() {
+  if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
+  _openAdminUserForm(null);
+}
+function openEditAdminUser(pin) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
+  const u = (DB.adminUsers || []).find(x => String(x.id) === String(pin));
+  if (!u) { notify('ไม่พบผู้ใช้นี้ หรือเป็นรหัสระบบที่แก้ไม่ได้', 'error'); return; }
+  _openAdminUserForm(u);
+}
+function _openAdminUserForm(existing) {
+  const isEdit = !!existing;
+  const pin = existing?.id || '';
+  const name = existing?.name || '';
+  const nick = existing?.nick || '';
+  const role = existing?.role || 'bzm';
+  const roleOpts = Object.entries(ADMIN_USER_ROLES).map(([k,v]) =>
+    `<option value="${k}"${k===role?' selected':''}>${v.label} — ${v.desc}</option>`
+  ).join('');
+  showModal(isEdit ? `✏️ แก้ไขผู้ใช้ ${pin}` : '+ เพิ่มผู้ใช้งานใหม่', `
+    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#92400E;line-height:1.55">
+      ⚠ รหัสนี้คือ PIN ที่ใช้ login (6 หลัก) — ระวังการเก็บความลับ
+    </div>
+    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <label class="form-label">รหัส PIN (6 หลัก) <span class="req">*</span></label>
+        <input class="form-input" id="au-pin" type="text" inputmode="numeric" maxlength="6" placeholder="000000" value="${pin}" ${isEdit?'readonly style="background:var(--surface2);cursor:not-allowed"':''}>
+      </div>
+      <div>
+        <label class="form-label">ตำแหน่ง <span class="req">*</span></label>
+        <select class="form-select" id="au-role">${roleOpts}</select>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label class="form-label">ชื่อ - นามสกุล <span class="req">*</span></label>
+      <input class="form-input" id="au-name" placeholder="เช่น สมชาย ใจดี" maxlength="80" value="${name.replace(/"/g,'&quot;')}">
+    </div>
+    <div style="margin-top:14px">
+      <label class="form-label">ชื่อเล่น</label>
+      <input class="form-input" id="au-nick" placeholder="เช่น พี่ชาย" maxlength="40" value="${nick.replace(/"/g,'&quot;')}">
+    </div>
+  `, () => {
+    const newPin = document.getElementById('au-pin').value.trim();
+    const newName = document.getElementById('au-name').value.trim();
+    const newNick = document.getElementById('au-nick').value.trim();
+    const newRole = document.getElementById('au-role').value;
+    if (!isEdit) {
+      if (!/^\d{6}$/.test(newPin)) { notify('รหัส PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
+      // Uniqueness: against hardcoded + custom + branch IDs
+      if (ADMIN_CODES[newPin]) { notify('รหัสนี้เป็นรหัสระบบอยู่แล้ว', 'error'); return; }
+      if ((DB.adminUsers || []).some(u => String(u.id) === newPin)) { notify('รหัสนี้มีอยู่แล้ว', 'error'); return; }
+      if (BRANCH_MASTER[newPin]) { notify('รหัสนี้ตรงกับรหัสสาขา', 'error'); return; }
+    }
+    if (!newName) { notify('กรุณากรอกชื่อ', 'error'); return; }
+    const now = new Date().toISOString();
+    const rec = {
+      id: isEdit ? existing.id : newPin,
+      name: newName, nick: newNick || '-', role: newRole,
+      updatedAt: now,
+    };
+    if (!isEdit) {
+      rec.createdAt = now;
+      rec.createdBy = currentUser?.name || 'Admin';
+    } else {
+      rec.createdAt = existing.createdAt || now;
+      rec.createdBy = existing.createdBy || '-';
+    }
+    if (!DB.adminUsers) DB.adminUsers = [];
+    const idx = DB.adminUsers.findIndex(u => String(u.id) === String(rec.id));
+    if (idx >= 0) DB.adminUsers[idx] = rec;
+    else DB.adminUsers.push(rec);
+    gsSave('adminUsers', rec.id, rec);
+    notify(isEdit ? 'แก้ไขผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ');
+    closeModal();
+    setTimeout(() => document.getElementById('main-content').innerHTML = renderAdminUsers(), 100);
+  }, isEdit ? 'บันทึก' : 'เพิ่มผู้ใช้');
+  const m = document.querySelector('#modal-overlay .modal');
+  if (m) m.style.maxWidth = '480px';
+}
+function confirmDeleteAdminUser(pin) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
+  if (currentUser?.code === pin) { notify('ลบบัญชีของตัวเองไม่ได้', 'error'); return; }
+  const u = (DB.adminUsers || []).find(x => String(x.id) === String(pin));
+  if (!u) return;
+  showConfirm(`ลบผู้ใช้ "${u.name}" (รหัส ${pin}) ออกจากระบบถาวร?`, () => {
+    DB.adminUsers = DB.adminUsers.filter(x => String(x.id) !== String(pin));
+    gsDel('adminUsers', pin);
+    notify('ลบผู้ใช้สำเร็จ');
+    closeModal();
+    setTimeout(() => document.getElementById('main-content').innerHTML = renderAdminUsers(), 100);
+  }, { title:'ลบผู้ใช้', icon:'🔐', confirmText:'ลบ' });
 }
 
 // ==================== ADMIN CHAT LOGS VIEWER ====================
