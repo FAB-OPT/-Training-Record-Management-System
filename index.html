@@ -284,6 +284,21 @@
   .nav-item.active { background: var(--accent); color: #FFFFFF; font-weight: 700; box-shadow: 0 4px 14px rgba(255,107,26,0.36); }
   .nav-item.active .nav-icon { color: #FFFFFF; }
   .nav-item .nav-icon { width: 18px; text-align: center; font-size: 15px; flex-shrink: 0; color: var(--text3); transition: color 0.18s; }
+  /* "ติดต่อ Admin" entry — gentle blue tint to distinguish from regular nav items */
+  .nav-item.nav-contact {
+    background: rgba(59,130,246,0.08);
+    color: #3B82F6;
+    border: 1px solid rgba(59,130,246,0.18);
+    font-weight: 600;
+  }
+  .nav-item.nav-contact:hover { background: rgba(59,130,246,0.16); color: #2563EB; }
+  .nav-item.nav-contact.active {
+    background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+    color: #FFFFFF;
+    box-shadow: 0 4px 14px rgba(59,130,246,0.36);
+    border-color: transparent;
+  }
+  body.dark-mode .nav-item.nav-contact { background: rgba(96,165,250,0.12); color: #93C5FD; border-color: rgba(96,165,250,0.25); }
   .sidebar-footer { padding: 14px; border-top: 1px solid var(--border); }
   .btn-logout {
     width: 100%; padding: 10px; background: var(--red-light); border: 1px solid rgba(220,38,38,0.32);
@@ -2147,6 +2162,7 @@
       </div>
     </div>
     <div style="display:flex;gap:6px;align-items:center;position:relative;z-index:1">
+      <button class="cb-close" onclick="viewChatHistoryAll()" title="ดูประวัติทั้งหมด" aria-label="ประวัติทั้งหมด" style="font-size:14px">📋</button>
       <button class="cb-close" onclick="clearChatHistoryConfirm()" title="ล้างประวัติการคุย" aria-label="ล้างประวัติ" style="font-size:13px">🗑</button>
       <button class="cb-close" onclick="closeChatbot()" aria-label="ปิด">✕</button>
     </div>
@@ -4690,11 +4706,43 @@ function openChatbot() {
 }
 
 function clearChatHistoryConfirm() {
-  if (confirm('ล้างประวัติการคุยกับน้องแฮปปี้ทั้งหมดของคุณ?')) {
+  showConfirm('ล้างบทสนทนาทั้งหมดกับน้องแฮปปี้?\n\nประวัติการคุยของคุณจะถูกลบจากเครื่องนี้ — เริ่มต้นใหม่ทันที', () => {
     _clearChatHistory();
     closeChatbot();
     setTimeout(() => openChatbot(), 100);
+  }, { title: 'ล้างประวัติแชต', icon: '🗑', confirmText: 'ล้างประวัติ' });
+}
+
+// View full chat history as a transcript (separate modal)
+function viewChatHistoryAll() {
+  // Use saved + current in-memory history (already kept in sync)
+  const msgs = _chatHistory || [];
+  if (!msgs.length) {
+    notify('ยังไม่มีประวัติการคุยกับน้องแฮปปี้', 'error');
+    return;
   }
+  const fmt = (m) => {
+    const isUser = m.role === 'user';
+    const tag = isUser
+      ? '<span style="font-size:10.5px;color:#FF6B1A;background:#FFE5D4;padding:2px 8px;border-radius:999px;font-weight:700">คุณ</span>'
+      : '<span style="font-size:10.5px;color:#7C3AED;background:#EDE9FE;padding:2px 8px;border-radius:999px;font-weight:700">น้องแฮปปี้</span>';
+    const bg = isUser ? 'var(--surface2)' : 'var(--surface)';
+    const border = isUser ? 'var(--border)' : 'rgba(124,58,237,0.18)';
+    return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:10px 14px;margin-bottom:8px">
+      <div style="margin-bottom:5px">${tag}</div>
+      <div style="font-size:13.5px;line-height:1.55;color:var(--text);white-space:pre-wrap;word-wrap:break-word">${String(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    </div>`;
+  };
+  showModal(`📋 ประวัติการคุยทั้งหมด (${msgs.length} ข้อความ)`, `
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;padding:10px 14px;background:var(--accent-light);border-radius:8px;border:1px solid rgba(255,107,26,0.18)">
+      💡 บทสนทนาทั้งหมดของคุณกับน้องแฮปปี้ในเครื่องนี้ — เก็บไว้สูงสุด 50 ข้อความล่าสุด
+    </div>
+    <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
+      ${msgs.map(fmt).join('')}
+    </div>
+  `, null, null, 'ปิด');
+  const m = document.querySelector('#modal-overlay .modal');
+  if (m) m.style.maxWidth = '640px';
 }
 function closeChatbot() {
   const p = document.getElementById('chatbot-panel');
@@ -5143,13 +5191,13 @@ function buildBottomNav(items) {
 
 function buildBranchNav() {
   document.getElementById('sidebar-nav').innerHTML = `
-    <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">◼</span> แดชบอร์ด</div>
-    <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">◼</span> รายชื่อพนักงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">◼</span> บันทึกการสอน &amp; ประเมินผล</div>
-    <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">◼</span> ประวัติการอบรมหลักสูตร</div>
-    <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">◼</span> ออกรายงาน</div>
-    <div style="height:1px;background:var(--border);margin:8px 12px"></div>
-    <div class="nav-item" id="nav-cases" onclick="showPage('cases')" style="color:var(--accent)"><span class="nav-icon">📨</span> ติดต่อ Admin</div>`;
+    <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
+    <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอน &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
+    <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">📊</span> ออกรายงาน</div>
+    <div style="height:1px;background:var(--border);margin:10px 16px"></div>
+    <div class="nav-item nav-contact" id="nav-cases" onclick="showPage('cases')"><span class="nav-icon">📨</span> ติดต่อ Admin</div>`;
   buildBottomNav(BRANCH_NAV_ITEMS);
 }
 
@@ -5172,9 +5220,11 @@ function _sidebarLabelFor(page) {
 }
 function buildAdminNav() {
   const items = getActiveNavItems();
-  document.getElementById('sidebar-nav').innerHTML = items.map(it =>
-    `<div class="nav-item" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">◼</span> ${_sidebarLabelFor(it.page)}</div>`
-  ).join('');
+  document.getElementById('sidebar-nav').innerHTML = items.map(it => {
+    const isContact = it.page === 'admin-cases';
+    const cls = 'nav-item' + (isContact ? ' nav-contact' : '');
+    return `<div class="${cls}" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">${it.icon}</span> ${_sidebarLabelFor(it.page)}</div>`;
+  }).join('');
   buildBottomNav(items);
 }
 
