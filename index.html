@@ -11138,31 +11138,17 @@ function _getCaseLastView() {
   } catch (_) { return null; }
 }
 // Count of cases relevant to the user that have updates since last view.
-// - Branch user: cases of their branch with updatedAt newer than last view AND
-//   last message is from admin (so we don't ping for their own messages)
-// - Admin/BZM/Exec: cases with status 'open' OR cases whose last message is
-//   from a branch user and updatedAt > last view
+// Simple rule: anything updated AFTER the user's last visit counts as unread.
+// (The user's own actions call _markCasesViewed() so they don't ping themselves.)
 function _caseUnreadCount() {
   if (!currentUser) return 0;
   const list = _accessibleCases();
   const lastView = _getCaseLastView();
   const lastViewTs = lastView ? new Date(lastView).getTime() : 0;
-  const isBranch = currentUser.type === 'branch';
   let count = 0;
   for (const c of list) {
     const updated = new Date(c.updatedAt || c.createdAt || 0).getTime();
-    if (updated <= lastViewTs) continue;
-    const msgs = c.messages || [];
-    const lastMsg = msgs.length ? msgs[msgs.length - 1] : null;
-    if (isBranch) {
-      // Show when admin sent the latest update (status change or reply)
-      if (!lastMsg || lastMsg.role !== 'branch') count++;
-      else if ((c.resolvedAt && new Date(c.resolvedAt).getTime() > lastViewTs)) count++;
-    } else {
-      // Admin side: brand-new "open" cases or branch replies
-      if (c.status === 'open') count++;
-      else if (lastMsg && lastMsg.role === 'branch') count++;
-    }
+    if (updated > lastViewTs) count++;
   }
   return count;
 }
@@ -11537,11 +11523,14 @@ function openCaseDetail(caseId) {
       <span style="font-size:11px;color:${st.color};background:${st.bg};padding:3px 10px;border-radius:999px;font-weight:700">${st.label}</span>
       ${c.priority === 'urgent' ? `<span style="font-size:11px;color:${pr.color};background:${pr.color}1A;padding:3px 10px;border-radius:999px;font-weight:700">⚡ ${pr.label}</span>` : ''}
     </div>
-    <!-- compact meta -->
-    <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-      <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ผู้แจ้ง <strong style="color:var(--text2)">${c.reporterName||'-'}</strong>
-      · เปิด ${fmtDateTime(c.createdAt)}
-      ${c.resolvedAt ? ` · <span style="color:#16A34A;font-weight:700">✓ แก้ไขแล้ว ${fmtDate(c.resolvedAt)}</span>` : ''}
+    <!-- compact meta + admin delete -->
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="flex:1;font-size:11.5px;color:var(--text3);line-height:1.5">
+        <strong style="color:var(--accent)">${c.branchId}</strong> ${c.branchName||''} · ผู้แจ้ง <strong style="color:var(--text2)">${c.reporterName||'-'}</strong>
+        · เปิด ${fmtDateTime(c.createdAt)}
+        ${c.resolvedAt ? ` · <span style="color:#16A34A;font-weight:700">✓ แก้ไขแล้ว ${fmtDate(c.resolvedAt)}</span>` : ''}
+      </div>
+      ${isAdminRole() ? `<button class="btn btn-sm btn-danger" onclick="deleteCase('${c.id}')" style="flex-shrink:0;font-size:11.5px;padding:4px 10px">🗑 ลบเคส</button>` : ''}
     </div>
     <!-- status switcher (admin only) -->
     ${statusSwitcher}
@@ -11568,6 +11557,7 @@ function replyToCase(caseId) {
   // First admin reply auto-moves status from "open" → "in_progress"
   if (!isBranch && c.status === 'open') c.status = 'in_progress';
   gsSave('cases', c.id, c);
+  _markCasesViewed(); // own action — don't badge ourselves
   notify('ส่งข้อความสำเร็จ');
   closeModal();
   setTimeout(() => { openCaseDetail(caseId); refreshCaseBadge(); }, 120);
@@ -11585,9 +11575,26 @@ function changeCaseStatus(caseId, newStatus) {
     c.resolvedBy = currentUser?.name || currentUser?.nick || 'Admin';
   }
   gsSave('cases', c.id, c);
+  _markCasesViewed();
   notify('เปลี่ยนสถานะเป็น "' + CASE_STATUS[newStatus].label + '"');
   closeModal();
-  setTimeout(() => openCaseDetail(caseId), 120);
+  setTimeout(() => { openCaseDetail(caseId); refreshCaseBadge(); }, 120);
+}
+
+// Delete a case (admin only)
+function deleteCase(caseId) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่ลบเคสได้', 'error'); return; }
+  const c = (DB.cases || []).find(x => x.id === caseId); if (!c) return;
+  showConfirm(`ลบเคส "${c.subject}" ออกจากระบบถาวร?\n\nเคสและบทสนทนาทั้งหมดจะหายไป — กู้คืนไม่ได้`, () => {
+    DB.cases = DB.cases.filter(x => x.id !== caseId);
+    gsDel('cases', caseId);
+    notify('ลบเคสสำเร็จ');
+    closeModal();
+    setTimeout(() => {
+      document.getElementById('main-content').innerHTML = renderAdminCases();
+      refreshCaseBadge();
+    }, 120);
+  }, { title:'ลบเคส', icon:'🗑', confirmText:'ลบเคส' });
 }
 
 // ==================== ADMIN CHAT LOGS VIEWER ====================
