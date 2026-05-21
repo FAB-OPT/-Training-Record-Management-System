@@ -3948,7 +3948,7 @@ const _SB_TABLE = {
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
   chatLogs:      { sessionId:'session_id', userType:'user_type', userKey:'user_key', userName:'user_name', userRole:'user_role', branchId:'branch_id' },
-  cases:         { branchId:'branch_id', branchName:'branch_name', reporterName:'reporter_name', createdAt:'created_at', updatedAt:'updated_at', resolvedAt:'resolved_at', resolvedBy:'resolved_by' },
+  cases:         { branchId:'branch_id', branchName:'branch_name', reporterName:'reporter_name', reporterRole:'reporter_role', createdAt:'created_at', updatedAt:'updated_at', resolvedAt:'resolved_at', resolvedBy:'resolved_by' },
   trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
@@ -11358,6 +11358,7 @@ function renderAdminCases() {
       <div class="page-hero-title">${heroTitle}</div>
       <div class="page-hero-sub">เคสที่สาขาแจ้งมา · เรียงตามสถานะ (รอตอบรับ → กำลังดำเนินการ → แก้ไขแล้ว → ปิด)</div>
     </div>
+    ${!isAdminRole() ? '<button class="btn btn-navy" onclick="openCreateCase()">+ แจ้งเคสใหม่</button>' : ''}
   </div>
 
   <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
@@ -11388,16 +11389,30 @@ function renderAdminCases() {
 }
 
 function openCreateCase() {
-  if (currentUser?.type !== 'branch' && !isAdminRole()) {
-    notify('เฉพาะสาขาเท่านั้นที่แจ้งเคสใหม่ได้', 'error');
+  // Admin cannot create cases — only reply/edit/delete
+  if (isAdminRole()) {
+    notify('Admin ไม่สามารถแจ้งเคสได้ — ใช้สำหรับตอบกลับเท่านั้น', 'error');
     return;
   }
-  const bid = currentUser.branchId || 'ALL';
-  const bname = BRANCH_MASTER[bid]?.name.replace(bid+' ','') || '';
+  const isBranch = currentUser?.type === 'branch';
+  // Branch user: branch is fixed; non-branch (BZM/VP/COO): they pick which branch the issue belongs to
+  const fixedBid = isBranch ? currentUser.branchId : null;
+  const fixedBname = isBranch ? (BRANCH_MASTER[fixedBid]?.name.replace(fixedBid+' ','') || '') : '';
+  const branchOpts = !isBranch ? getAccessibleBranches().slice().sort()
+    .map(b => `<option value="${b}">${b} · ${BRANCH_MASTER[b].name.replace(b+' ','')}</option>`).join('') : '';
+
   showModal('📨 แจ้งเคสใหม่ — ติดต่อ Admin', `
     <div style="background:var(--accent-light);border:1px solid rgba(255,107,26,0.18);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);line-height:1.55">
       💡 อธิบายเรื่องที่ต้องการแจ้งให้ละเอียด ทีม Admin จะตอบกลับโดยเร็วที่สุด · กรณีเร่งด่วนเลือก priority "ด่วน"
     </div>
+    ${!isBranch ? `
+    <div style="margin-bottom:14px">
+      <label class="form-label">สาขาที่เกี่ยวข้อง <span class="req">*</span></label>
+      <select class="form-select" id="case-branch">
+        <option value="">— เลือกสาขา —</option>
+        ${branchOpts}
+      </select>
+    </div>` : ''}
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div>
         <label class="form-label">หมวดหมู่ <span class="req">*</span></label>
@@ -11422,12 +11437,20 @@ function openCreateCase() {
     </div>
     <div style="margin-top:14px">
       <label class="form-label">ผู้แจ้ง</label>
-      <input class="form-input" id="case-reporter" placeholder="ชื่อ - ตำแหน่ง" maxlength="60">
+      <input class="form-input" id="case-reporter" placeholder="ชื่อ - ตำแหน่ง" maxlength="60" value="${currentUser?.name||currentUser?.nick||''}">
     </div>
+    ${isBranch ? `
     <div style="margin-top:10px;font-size:11.5px;color:var(--text3)">
-      📍 สาขา: <strong style="color:var(--accent)">${bid}</strong> ${bname}
-    </div>
+      📍 สาขา: <strong style="color:var(--accent)">${fixedBid}</strong> ${fixedBname}
+    </div>` : ''}
   `, () => {
+    let bid = fixedBid;
+    let bname = fixedBname;
+    if (!isBranch) {
+      bid = document.getElementById('case-branch').value;
+      if (!bid) { notify('กรุณาเลือกสาขาที่เกี่ยวข้อง', 'error'); return; }
+      bname = BRANCH_MASTER[bid]?.name.replace(bid+' ','') || '';
+    }
     const category = document.getElementById('case-category').value;
     const priority = document.getElementById('case-priority').value;
     const subject = document.getElementById('case-subject').value.trim();
@@ -11436,11 +11459,14 @@ function openCreateCase() {
     if (!subject) { notify('กรุณากรอกหัวข้อ', 'error'); return; }
     if (!description) { notify('กรุณากรอกรายละเอียด', 'error'); return; }
     const now = new Date().toISOString();
+    // Role tag on the first message helps admins see who sent it (branch vs BZM/VP/COO)
+    const reporterRole = isBranch ? 'branch' : (currentUser?.role || 'admin');
     const c = {
       id: 'CASE-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6).toUpperCase(),
       branchId: bid,
       branchName: bname,
       reporterName: reporter,
+      reporterRole,
       category,
       priority,
       subject,
@@ -11448,7 +11474,7 @@ function openCreateCase() {
       status: 'open',
       createdAt: now,
       updatedAt: now,
-      messages: [{ role:'branch', author: reporter, content: description, ts: now }],
+      messages: [{ role: 'branch', author: reporter, content: description, ts: now }],
     };
     if (!DB.cases) DB.cases = [];
     DB.cases.push(c);
