@@ -202,14 +202,14 @@ function _chatViaGemini(req, apiKey) {
     // (Google occasionally retires aliases like 'gemini-1.5-flash-latest', so the
     // list is ordered by "most likely still alive + free" first.)
     // Order: smartest free model first, fall through to lighter/older on quota or 404
+    // Gemini 1.5 line was deprecated by Google in Sep 2025 — removed from list.
+    // Order: most capable free model first; lite/older as backups during rate limits.
     const models = [
       'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
       'gemini-2.0-flash',
       'gemini-2.0-flash-001',
       'gemini-flash-latest',
-      'gemini-2.5-flash-lite',
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-8b',
     ];
     var resp, code, body;
     var lastErr = '';
