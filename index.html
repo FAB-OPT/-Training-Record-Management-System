@@ -4407,6 +4407,14 @@ function initTheme() {
 
 function logout() {
   stopAutoSync();
+  // Wipe in-memory chat state so the next user (or fresh login of same user)
+  // starts clean. Their persisted localStorage thread will reload on next chat open.
+  _chatHistory = [];
+  _chatSessionId = null;
+  const cbPanel = document.getElementById('chatbot-panel');
+  if (cbPanel) cbPanel.style.display = 'none';
+  const cbFab = document.getElementById('chatbot-fab');
+  if (cbFab) cbFab.style.display = 'none';
   currentUser = null;
   closeSidebar();
   document.body.classList.remove('branch-user','admin-user');
@@ -4478,6 +4486,9 @@ function _chatStorageKey() {
   return 'opt_chat_history_admin_' + (currentUser.code || currentUser.name || 'unknown');
 }
 function _loadChatHistory() {
+  // Always reset first — prevents previous user's history bleeding into new login
+  _chatHistory = [];
+  _chatSessionId = null;
   try {
     const key = _chatStorageKey(); if (!key) return;
     const raw = localStorage.getItem(key);
@@ -4550,8 +4561,9 @@ function openChatbot() {
   if (!p) return;
   p.style.display = 'flex';
   if (f) f.style.display = 'none';
-  // First open of this session: load saved history for the current user
-  if (!_chatHistory.length) _loadChatHistory();
+  // Always reload from storage — _loadChatHistory resets _chatHistory first,
+  // so a different user opening the chat sees their own thread (not the previous user's)
+  _loadChatHistory();
   // Clear panel and re-render
   const wrap = document.getElementById('chatbot-messages');
   if (wrap) wrap.innerHTML = '';
