@@ -752,25 +752,40 @@
   .topbar-right-text { font-size: 13px; color: var(--text2); font-weight: 500; }
   .topbar-avatar { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: 700; }
 
-  /* ==================== iPad / tablet (768-1024) ==================== */
-  /* Tablet sits between mobile bottom-nav UX and full desktop sidebar.
-     Bigger tap targets, slightly looser spacing, wider modals. */
-  @media (min-width: 769px) and (max-width: 1024px) {
-    .modal { max-width: 720px !important; }
+  /* ==================== iPad / tablet (720-1024) ==================== */
+  /* Tablet sits between phone (drawer sidebar) and full desktop.
+     Force the desktop sidebar back on (not the mobile drawer overlay)
+     so iPad users have permanent navigation visible. */
+  @media (min-width: 720px) and (max-width: 1024px) {
+    /* Restore desktop sidebar layout — overrides the max-width:768 mobile rules */
+    .sidebar { transform: none !important; width: 230px !important; }
+    .sidebar-overlay { display: none !important; }
+    body:has(.mobile-bottom-nav:not(.hidden-always)) .main { padding-bottom: 28px !important; }
+    .main { margin-left: 230px !important; padding: 28px 24px !important; }
+    .topbar { display: flex !important; left: 230px; }
+    .mobile-topbar { display: none !important; }
+    .mobile-bottom-nav { display: none !important; }
+    .hamburger { display: none !important; }
+    /* Slightly bigger touch targets */
     .btn { padding: 10px 18px; font-size: 14px; min-height: 44px; }
     .btn-sm { padding: 7px 14px; font-size: 12.5px; min-height: 36px; }
-    .form-input, .form-select, .form-textarea {
-      min-height: 44px; font-size: 14.5px;
-    }
+    .form-input, .form-select, .form-textarea { min-height: 44px; font-size: 14.5px; }
     .form-textarea { min-height: 80px; }
-    /* Case cards: more breathing room */
+    /* Modal a bit wider relative to viewport */
+    .modal { max-width: 90vw !important; }
+    /* Case cards: extra breathing room */
     .case-card { padding: 18px 20px !important; }
     /* Bigger nav-badge so it's tappable */
     .nav-badge { min-width: 20px; height: 20px; font-size: 11px; }
     /* Chat panel can be wider on tablet */
-    #chatbot-panel { width: 440px; height: 620px; }
-    /* Better stat card padding */
-    .stat-card { padding: 16px; }
+    #chatbot-panel { width: 420px; height: 620px; }
+    /* Stat card padding */
+    .stat-card { padding: 14px; }
+    /* Sidebar nav: trim text size + padding to fit narrower 230px sidebar */
+    .nav-item { font-size: 13px; padding: 9px 10px; gap: 9px; }
+    .branch-id { font-size: 19px; }
+    .branch-label { font-size: 14px; }
+    body.admin-user .branch-label { font-size: 15px; }
   }
 
   /* Notification badge (e.g. unread case count on menu items) */
