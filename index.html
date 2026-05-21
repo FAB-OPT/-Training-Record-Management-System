@@ -2391,13 +2391,39 @@ const BRANCH_MASTER = {
 // Build runtime admin-code map: hardcoded defaults below + any extra users added
 // via the จัดการผู้ใช้ page (DB.adminUsers). Custom entries with the same pin override defaults.
 function _effectiveAdminCodes() {
-  const map = { ...ADMIN_CODES };
+  const map = {};
+  Object.entries(ADMIN_CODES).forEach(([k,v]) => { map[k] = { ...v }; });
   (DB.adminUsers || []).forEach(u => {
     if (!u || !u.id) return;
-    map[String(u.id)] = { name: u.name || '-', nick: u.nick || '-', role: u.role || 'admin' };
+    // Parse allowedPages if stored as JSON string (Sheets storage)
+    let allowed = u.allowedPages;
+    if (typeof allowed === 'string') {
+      try { allowed = JSON.parse(allowed); } catch (_) { allowed = null; }
+    }
+    map[String(u.id)] = {
+      name: u.name || '-',
+      nick: u.nick || '-',
+      role: u.role || 'admin',
+      allowedPages: Array.isArray(allowed) && allowed.length ? allowed : null,
+    };
   });
   return map;
 }
+
+// All admin-area pages available for granular permission selection
+const ALL_ADMIN_PAGES = [
+  { page: 'admin-dashboard',       icon: '🏠',  label: 'แดชบอร์ด' },
+  { page: 'admin-manage',          icon: '👥',  label: 'จัดการสาขา & พนักงาน' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
+  { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
+  { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
+  { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับโซน BZM' },
+  { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือนสำคัญ' },
+  { page: 'admin-cases',           icon: '📨',  label: 'จัดการเคส' },
+  { page: 'admin-chat-logs',       icon: '💬',  label: 'ประวัติแชตบอท' },
+  { page: 'admin-users',           icon: '🔐',  label: 'จัดการผู้ใช้งาน' },
+  { page: 'admin-reports',         icon: '📊',  label: 'ออกรายงาน' },
+];
 
 // Team Management codes — keyed by 6-digit pin. Each entry has name/nick/role.
 // All entries grant the same Team Management access; role is informational only.
@@ -4041,7 +4067,7 @@ const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
   chatLogs:      { sessionId:'session_id', userType:'user_type', userKey:'user_key', userName:'user_name', userRole:'user_role', branchId:'branch_id' },
   cases:         { branchId:'branch_id', branchName:'branch_name', reporterName:'reporter_name', reporterRole:'reporter_role', createdAt:'created_at', updatedAt:'updated_at', resolvedAt:'resolved_at', resolvedBy:'resolved_by' },
-  adminUsers:    { createdAt:'created_at', updatedAt:'updated_at', createdBy:'created_by' },
+  adminUsers:    { createdAt:'created_at', updatedAt:'updated_at', createdBy:'created_by', allowedPages:'allowed_pages' },
   trainings:     { branchId:'branch_id', moduleId:'module_id', traineeIds:'trainee_ids', trainerName:'trainer_name' },
   quizResults:   { trainingId:'training_id', branchId:'branch_id', empId:'emp_id', moduleId:'module_id' },
   customQuiz:    { moduleId:'module_id' },
@@ -4517,7 +4543,7 @@ function doLogin() {
     const pin = getPinValue('admin-pin-boxes');
     const admin = _effectiveAdminCodes()[pin];
     if (admin) {
-      currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role };
+      currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role, allowedPages: admin.allowedPages || null };
       showApp();
     } else {
       showPinError('admin-pin-boxes', 'รหัสไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
@@ -5346,6 +5372,12 @@ const EXEC_NAV_ITEMS = [
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
 function getActiveNavItems() {
+  // Per-user override (set in จัดการผู้ใช้งาน) — picks exactly which menu items to show
+  if (Array.isArray(currentUser?.allowedPages) && currentUser.allowedPages.length) {
+    const set = new Set(currentUser.allowedPages);
+    return ALL_ADMIN_PAGES.filter(p => set.has(p.page));
+  }
+  // Otherwise fall back to role-based defaults
   if (isBzmRole())  return BZM_NAV_ITEMS;
   if (isExecRole()) return EXEC_NAV_ITEMS;
   return ADMIN_NAV_ITEMS;
@@ -12096,21 +12128,41 @@ function _openAdminUserForm(existing) {
   const name = existing?.name || '';
   const nick = existing?.nick || '';
   const role = existing?.role || 'bzm';
+  // Parse allowedPages (might be string in storage)
+  let allowedPages = existing?.allowedPages;
+  if (typeof allowedPages === 'string') {
+    try { allowedPages = JSON.parse(allowedPages); } catch (_) { allowedPages = null; }
+  }
+  // Default = role-based defaults if no override set
+  const defaultPages = !Array.isArray(allowedPages) || !allowedPages.length
+    ? (role === 'bzm' ? BZM_NAV_ITEMS.map(i=>i.page)
+      : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS.map(i=>i.page)
+      : ADMIN_NAV_ITEMS.map(i=>i.page)))
+    : allowedPages;
+  const hasOverride = Array.isArray(allowedPages) && allowedPages.length > 0;
   const roleOpts = Object.entries(ADMIN_USER_ROLES).map(([k,v]) =>
     `<option value="${k}"${k===role?' selected':''}>${v.label} — ${v.desc}</option>`
   ).join('');
+  // Permission checkbox grid
+  const pageCheckboxes = ALL_ADMIN_PAGES.map(p => `
+    <label class="au-perm" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12.5px">
+      <input type="checkbox" class="au-perm-cb" value="${p.page}"${defaultPages.includes(p.page)?' checked':''} style="margin:0">
+      <span style="font-size:14px">${p.icon}</span>
+      <span style="flex:1">${p.label}</span>
+    </label>`).join('');
+
   showModal(isEdit ? `✏️ แก้ไขผู้ใช้ ${pin}` : '+ เพิ่มผู้ใช้งานใหม่', `
     <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#92400E;line-height:1.55">
-      ⚠ รหัสนี้คือ PIN ที่ใช้ login (6 หลัก) — ระวังการเก็บความลับ
+      ⚠ รหัส PIN ใช้ login (6 หลัก) — เก็บเป็นความลับ · เปลี่ยน PIN ได้แต่ผู้ใช้ต้องจดรหัสใหม่
     </div>
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div>
         <label class="form-label">รหัส PIN (6 หลัก) <span class="req">*</span></label>
-        <input class="form-input" id="au-pin" type="text" inputmode="numeric" maxlength="6" placeholder="000000" value="${pin}" ${isEdit?'readonly style="background:var(--surface2);cursor:not-allowed"':''}>
+        <input class="form-input" id="au-pin" type="text" inputmode="numeric" maxlength="6" placeholder="000000" value="${pin}">
       </div>
       <div>
-        <label class="form-label">ตำแหน่ง <span class="req">*</span></label>
-        <select class="form-select" id="au-role">${roleOpts}</select>
+        <label class="form-label">ตำแหน่ง (default) <span class="req">*</span></label>
+        <select class="form-select" id="au-role" onchange="_auRoleChanged(this.value)">${roleOpts}</select>
       </div>
     </div>
     <div style="margin-top:14px">
@@ -12121,43 +12173,83 @@ function _openAdminUserForm(existing) {
       <label class="form-label">ชื่อเล่น</label>
       <input class="form-input" id="au-nick" placeholder="เช่น พี่ชาย" maxlength="40" value="${nick.replace(/"/g,'&quot;')}">
     </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
+      <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span>🔓 สิทธิ์การเข้าถึงเมนู <span class="req">*</span></span>
+        <span style="display:flex;gap:6px">
+          <button type="button" onclick="_auTogglePerms(true)" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11.5px;cursor:pointer;color:var(--text2);font-family:inherit">เลือกทั้งหมด</button>
+          <button type="button" onclick="_auTogglePerms(false)" style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11.5px;cursor:pointer;color:var(--text2);font-family:inherit">ล้างทั้งหมด</button>
+        </span>
+      </label>
+      <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px">
+        เลือกเมนูที่ผู้ใช้จะเข้าถึงได้ · ${hasOverride?'<span style="color:var(--accent);font-weight:700">กำลังใช้สิทธิ์เฉพาะ (custom)</span>':'<span style="color:var(--text3)">กำลังใช้สิทธิ์ default ของ ' + (ADMIN_USER_ROLES[role]?.label||role) + '</span>'}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="au-perms-grid">${pageCheckboxes}</div>
+    </div>
   `, () => {
     const newPin = document.getElementById('au-pin').value.trim();
     const newName = document.getElementById('au-name').value.trim();
     const newNick = document.getElementById('au-nick').value.trim();
     const newRole = document.getElementById('au-role').value;
-    if (!isEdit) {
-      if (!/^\d{6}$/.test(newPin)) { notify('รหัส PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
-      // Uniqueness: against hardcoded + custom + branch IDs
+    const newAllowed = [...document.querySelectorAll('.au-perm-cb:checked')].map(cb => cb.value);
+    if (!/^\d{6}$/.test(newPin)) { notify('รหัส PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
+    // Uniqueness check — only when PIN changed (or new user)
+    if (!isEdit || newPin !== pin) {
       if (ADMIN_CODES[newPin]) { notify('รหัสนี้เป็นรหัสระบบอยู่แล้ว', 'error'); return; }
-      if ((DB.adminUsers || []).some(u => String(u.id) === newPin)) { notify('รหัสนี้มีอยู่แล้ว', 'error'); return; }
+      if ((DB.adminUsers || []).some(u => String(u.id) === newPin && String(u.id) !== pin)) {
+        notify('รหัสนี้มีอยู่แล้ว', 'error'); return;
+      }
       if (BRANCH_MASTER[newPin]) { notify('รหัสนี้ตรงกับรหัสสาขา', 'error'); return; }
     }
     if (!newName) { notify('กรุณากรอกชื่อ', 'error'); return; }
+    if (newAllowed.length === 0) { notify('กรุณาเลือกอย่างน้อย 1 เมนู', 'error'); return; }
     const now = new Date().toISOString();
     const rec = {
-      id: isEdit ? existing.id : newPin,
+      id: newPin,
       name: newName, nick: newNick || '-', role: newRole,
+      allowedPages: newAllowed,
       updatedAt: now,
+      createdAt: existing?.createdAt || now,
+      createdBy: existing?.createdBy || (currentUser?.name || 'Admin'),
     };
-    if (!isEdit) {
-      rec.createdAt = now;
-      rec.createdBy = currentUser?.name || 'Admin';
-    } else {
-      rec.createdAt = existing.createdAt || now;
-      rec.createdBy = existing.createdBy || '-';
-    }
     if (!DB.adminUsers) DB.adminUsers = [];
+    // If PIN changed → delete old record first
+    if (isEdit && newPin !== pin) {
+      DB.adminUsers = DB.adminUsers.filter(u => String(u.id) !== pin);
+      gsDel('adminUsers', pin);
+    }
     const idx = DB.adminUsers.findIndex(u => String(u.id) === String(rec.id));
     if (idx >= 0) DB.adminUsers[idx] = rec;
     else DB.adminUsers.push(rec);
     gsSave('adminUsers', rec.id, rec);
+    // If editing self → update currentUser in memory so UI reflects new perms
+    if (isEdit && currentUser?.code === pin) {
+      currentUser.code = newPin;
+      currentUser.name = newName;
+      currentUser.nick = newNick || '-';
+      currentUser.role = newRole;
+      currentUser.allowedPages = newAllowed;
+      // Rebuild nav to reflect new permissions
+      if (typeof buildAdminNav === 'function') buildAdminNav();
+    }
     notify(isEdit ? 'แก้ไขผู้ใช้สำเร็จ' : 'เพิ่มผู้ใช้สำเร็จ');
     closeModal();
     setTimeout(() => document.getElementById('main-content').innerHTML = renderAdminUsers(), 100);
   }, isEdit ? 'บันทึก' : 'เพิ่มผู้ใช้');
   const m = document.querySelector('#modal-overlay .modal');
-  if (m) m.style.maxWidth = '480px';
+  if (m) m.style.maxWidth = '560px';
+}
+
+// Helpers: select-all / clear-all permissions; reset perms when role changes
+function _auTogglePerms(on) {
+  document.querySelectorAll('.au-perm-cb').forEach(cb => { cb.checked = on; });
+}
+function _auRoleChanged(role) {
+  const def = role === 'bzm' ? BZM_NAV_ITEMS.map(i=>i.page)
+    : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS.map(i=>i.page)
+    : ADMIN_NAV_ITEMS.map(i=>i.page));
+  const set = new Set(def);
+  document.querySelectorAll('.au-perm-cb').forEach(cb => { cb.checked = set.has(cb.value); });
 }
 function confirmDeleteAdminUser(pin) {
   if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
