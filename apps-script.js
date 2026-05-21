@@ -202,7 +202,15 @@ function _chatViaGemini(req, apiKey) {
     // (Google occasionally retires aliases like 'gemini-1.5-flash-latest', so the
     // list is ordered by "most likely still alive + free" first.)
     // Order: smartest free model first, fall through to lighter/older on quota or 404
-    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+    const models = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-001',
+      'gemini-flash-latest',
+      'gemini-2.5-flash-lite',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b',
+    ];
     var resp, code, body;
     var lastErr = '';
     outer: for (var mi = 0; mi < models.length; mi++) {
@@ -236,6 +244,12 @@ function _chatViaGemini(req, apiKey) {
     if (code !== 200) {
       if (code === 429) {
         return { error: 'โควต้า Gemini API หมดชั่วคราว — ลองใหม่ในอีก 1 นาที หรือถ้าใช้บ่อย อาจต้องสร้าง API key ใหม่ที่ aistudio.google.com (โปรเจกต์ใหม่จะได้ free tier เต็มอีกครั้ง)' };
+      }
+      if (code === 404) {
+        return { error: 'ทุก Gemini model ส่งกลับ 404 — น่าจะยังไม่ได้เปิดใช้ Generative Language API ในโปรเจกต์ของ key นี้\n\nวิธีแก้:\n1. ไปที่ https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com\n2. เลือกโปรเจกต์ที่ key อยู่ (มุมบนซ้าย)\n3. กดปุ่ม ENABLE\n4. รอ 1 นาทีแล้วลองใหม่' };
+      }
+      if (code === 400 || code === 401 || code === 403) {
+        return { error: 'Gemini API ' + code + ' — น่าจะ API key ผิดหรือถูก revoke ลองสร้าง key ใหม่ที่ aistudio.google.com\n\nรายละเอียด: ' + lastErr };
       }
       return { error: 'Gemini API ' + lastErr };
     }
