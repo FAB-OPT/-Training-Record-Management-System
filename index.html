@@ -11417,100 +11417,155 @@ function renderAdminCases() {
 }
 
 function openCreateCase() {
-  // Admin cannot create cases — only reply/edit/delete
   if (isAdminRole()) {
     notify('Admin ไม่สามารถแจ้งเคสได้ — ใช้สำหรับตอบกลับเท่านั้น', 'error');
     return;
   }
   const isBranch = currentUser?.type === 'branch';
-  // Branch user: branch is fixed; non-branch (BZM/VP/COO): they pick which branch the issue belongs to
   const fixedBid = isBranch ? currentUser.branchId : null;
   const fixedBname = isBranch ? (BRANCH_MASTER[fixedBid]?.name.replace(fixedBid+' ','') || '') : '';
   const branchOpts = !isBranch ? getAccessibleBranches().slice().sort()
     .map(b => `<option value="${b}">${b} · ${BRANCH_MASTER[b].name.replace(b+' ','')}</option>`).join('') : '';
 
+  // Visual category tile grid (3 cols)
+  const catGrid = Object.entries(CASE_CATEGORIES).map(([k,v]) => `
+    <button type="button" class="cf-cat-tile" data-cat="${k}" onclick="_cfPickCat('${k}')" style="background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:14px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .15s;font-family:inherit;text-align:center">
+      <div style="font-size:24px;line-height:1">${v.icon}</div>
+      <div style="font-size:11.5px;font-weight:700;color:var(--text2);line-height:1.3">${v.label}</div>
+    </button>`).join('');
+
+  // Priority chips (3 colors)
+  const prChips = Object.entries(CASE_PRIORITY).map(([k,v]) => `
+    <button type="button" class="cf-pr-chip" data-pr="${k}" onclick="_cfPickPr('${k}')" style="background:var(--surface);border:2px solid var(--border);color:var(--text2);padding:9px 18px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;transition:all .15s">
+      ${v.label}
+    </button>`).join('');
+
   showModal('📨 แจ้งเคสใหม่ — ติดต่อ Admin', `
-    <div style="background:var(--accent-light);border:1px solid rgba(255,107,26,0.18);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);line-height:1.55">
-      💡 อธิบายเรื่องที่ต้องการแจ้งให้ละเอียด ทีม Admin จะตอบกลับโดยเร็วที่สุด · กรณีเร่งด่วนเลือก priority "ด่วน"
-    </div>
+    <style>
+      .cf-cat-tile:hover { border-color: var(--accent) !important; }
+      .cf-cat-tile.active { background: var(--accent) !important; border-color: var(--accent) !important; }
+      .cf-cat-tile.active > div { color: white !important; }
+      .cf-pr-chip:hover { border-color: var(--accent) !important; }
+      .cf-pr-chip.active { color: white !important; border-color: transparent !important; }
+      .cf-pr-chip.active[data-pr="ask"]    { background: #16A34A !important; }
+      .cf-pr-chip.active[data-pr="normal"] { background: #3B82F6 !important; }
+      .cf-pr-chip.active[data-pr="urgent"] { background: #EF4444 !important; }
+      .cf-field-err { border-color: #EF4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.12) !important; }
+      .cf-grp { margin-bottom: 18px; }
+      .cf-grp-label { display:block; font-size:12.5px; font-weight:700; color:var(--text2); margin-bottom:8px; letter-spacing:.2px; }
+      .cf-grp-label .req { color: #EF4444; }
+      .cf-counter { text-align:right; font-size:11px; color:var(--text3); margin-top:4px; }
+    </style>
+    <input type="hidden" id="case-category" value="">
+    <input type="hidden" id="case-priority" value="">
     ${!isBranch ? `
-    <div style="margin-bottom:14px">
-      <label class="form-label">สาขาที่เกี่ยวข้อง <span class="req">*</span></label>
-      <select class="form-select" id="case-branch">
-        <option value="">— เลือกสาขา —</option>
-        ${branchOpts}
-      </select>
-    </div>` : ''}
-    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div>
-        <label class="form-label">หมวดหมู่ <span class="req">*</span></label>
-        <select class="form-select" id="case-category">
-          ${Object.entries(CASE_CATEGORIES).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+      <div class="cf-grp">
+        <label class="cf-grp-label">📍 สาขาที่เกี่ยวข้อง <span class="req">*</span></label>
+        <select class="form-select" id="case-branch">
+          <option value="">— เลือกสาขา —</option>${branchOpts}
         </select>
-      </div>
-      <div>
-        <label class="form-label">ความเร่งด่วน</label>
-        <select class="form-select" id="case-priority">
-          ${Object.entries(CASE_PRIORITY).map(([k,v]) => `<option value="${k}"${k==='normal'?' selected':''}>${v.label}</option>`).join('')}
-        </select>
-      </div>
+      </div>` : `
+      <div style="background:var(--accent-light);border:1px solid rgba(255,107,26,0.22);border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:13px">
+        📍 สาขา: <strong style="color:var(--accent)">${fixedBid}</strong> ${fixedBname}
+      </div>`}
+
+    <div class="cf-grp">
+      <label class="cf-grp-label">หมวดหมู่ <span class="req">*</span></label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="case-cat-grid">${catGrid}</div>
     </div>
-    <div style="margin-top:14px">
-      <label class="form-label">หัวข้อ <span class="req">*</span></label>
-      <input class="form-input" id="case-subject" placeholder="เช่น ขอแก้ไขรหัสพนักงาน, ระบบไม่ยอม save..." maxlength="120">
+
+    <div class="cf-grp">
+      <label class="cf-grp-label">ความเร่งด่วน <span class="req">*</span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="case-pr-row">${prChips}</div>
     </div>
-    <div style="margin-top:14px">
-      <label class="form-label">รายละเอียด <span class="req">*</span></label>
-      <textarea class="form-textarea" id="case-description" rows="6" placeholder="อธิบายเรื่องที่ต้องการแจ้ง — ระบุข้อมูลให้ครบ เช่น ชื่อพนักงาน, รหัส, วันที่, error message..." maxlength="2000"></textarea>
+
+    <div class="cf-grp">
+      <label class="cf-grp-label">หัวข้อ <span class="req">*</span></label>
+      <input class="form-input" id="case-subject" placeholder="เช่น ขอแก้ไขรหัสพนักงาน, ระบบไม่ยอม save…" maxlength="120" oninput="document.getElementById('case-subject-count').textContent = this.value.length;this.classList.remove('cf-field-err')">
+      <div class="cf-counter"><span id="case-subject-count">0</span>/120</div>
     </div>
-    <div style="margin-top:14px">
-      <label class="form-label">ผู้แจ้ง</label>
-      <input class="form-input" id="case-reporter" placeholder="ชื่อ - ตำแหน่ง" maxlength="60" value="${currentUser?.name||currentUser?.nick||''}">
+
+    <div class="cf-grp">
+      <label class="cf-grp-label">รายละเอียด <span class="req">*</span></label>
+      <textarea class="form-textarea" id="case-description" rows="5" placeholder="อธิบายเรื่องที่ต้องการแจ้ง — ระบุข้อมูลให้ครบ เช่น ชื่อพนักงาน, รหัส, วันที่, error message…" maxlength="2000" oninput="document.getElementById('case-desc-count').textContent = this.value.length;this.classList.remove('cf-field-err')"></textarea>
+      <div class="cf-counter"><span id="case-desc-count">0</span>/2000</div>
     </div>
-    ${isBranch ? `
-    <div style="margin-top:10px;font-size:11.5px;color:var(--text3)">
-      📍 สาขา: <strong style="color:var(--accent)">${fixedBid}</strong> ${fixedBname}
-    </div>` : ''}
+
+    <div class="cf-grp" style="margin-bottom:4px">
+      <label class="cf-grp-label">ผู้แจ้ง <span class="req">*</span></label>
+      <input class="form-input" id="case-reporter" placeholder="ชื่อ - ตำแหน่ง" maxlength="60" value="${currentUser?.name||currentUser?.nick||''}" oninput="this.classList.remove('cf-field-err')">
+    </div>
   `, () => {
-    let bid = fixedBid;
-    let bname = fixedBname;
+    // Validate
+    const errs = [];
+    const cat = document.getElementById('case-category').value;
+    const pr  = document.getElementById('case-priority').value;
+    const subEl = document.getElementById('case-subject');
+    const descEl = document.getElementById('case-description');
+    const repEl = document.getElementById('case-reporter');
+    const branchEl = document.getElementById('case-branch');
+    const subject = subEl.value.trim();
+    const description = descEl.value.trim();
+    const reporter = repEl.value.trim();
+    let bid = fixedBid, bname = fixedBname;
     if (!isBranch) {
-      bid = document.getElementById('case-branch').value;
-      if (!bid) { notify('กรุณาเลือกสาขาที่เกี่ยวข้อง', 'error'); return; }
-      bname = BRANCH_MASTER[bid]?.name.replace(bid+' ','') || '';
+      bid = branchEl?.value || '';
+      if (!bid) { branchEl?.classList.add('cf-field-err'); errs.push('สาขา'); }
+      else bname = BRANCH_MASTER[bid]?.name.replace(bid+' ','') || '';
     }
-    const category = document.getElementById('case-category').value;
-    const priority = document.getElementById('case-priority').value;
-    const subject = document.getElementById('case-subject').value.trim();
-    const description = document.getElementById('case-description').value.trim();
-    const reporter = document.getElementById('case-reporter').value.trim() || (currentUser.nick || currentUser.name || '-');
-    if (!subject) { notify('กรุณากรอกหัวข้อ', 'error'); return; }
-    if (!description) { notify('กรุณากรอกรายละเอียด', 'error'); return; }
+    if (!cat) { document.querySelectorAll('.cf-cat-tile').forEach(t => t.style.borderColor='#EF4444'); errs.push('หมวดหมู่'); }
+    if (!pr)  { document.querySelectorAll('.cf-pr-chip').forEach(t => t.style.borderColor='#EF4444'); errs.push('ความเร่งด่วน'); }
+    if (!subject)     { subEl.classList.add('cf-field-err');  errs.push('หัวข้อ'); }
+    if (!description) { descEl.classList.add('cf-field-err'); errs.push('รายละเอียด'); }
+    if (!reporter)    { repEl.classList.add('cf-field-err');  errs.push('ผู้แจ้ง'); }
+    if (errs.length) { notify('กรุณากรอก: ' + errs.join(', '), 'error'); return; }
+
     const now = new Date().toISOString();
-    // Role tag on the first message helps admins see who sent it (branch vs BZM/VP/COO)
     const reporterRole = isBranch ? 'branch' : (currentUser?.role || 'admin');
     const c = {
       id: 'CASE-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6).toUpperCase(),
-      branchId: bid,
-      branchName: bname,
-      reporterName: reporter,
-      reporterRole,
-      category,
-      priority,
-      subject,
-      description,
+      branchId: bid, branchName: bname,
+      reporterName: reporter, reporterRole,
+      category: cat, priority: pr,
+      subject, description,
       status: 'open',
-      createdAt: now,
-      updatedAt: now,
+      createdAt: now, updatedAt: now,
       messages: [{ role: 'branch', author: reporter, content: description, ts: now }],
     };
     if (!DB.cases) DB.cases = [];
     DB.cases.push(c);
     gsSave('cases', c.id, c);
+    _markCasesViewed();
     notify('แจ้งเคสสำเร็จ Admin จะตอบกลับเร็วที่สุด');
     closeModal();
-    setTimeout(() => document.getElementById('main-content').innerHTML = (currentUser.type==='branch' ? renderBranchCases() : renderAdminCases()), 100);
+    setTimeout(() => {
+      document.getElementById('main-content').innerHTML = (currentUser.type==='branch' ? renderBranchCases() : renderAdminCases());
+      refreshCaseBadge();
+    }, 100);
   }, 'แจ้งเคส');
+  // Set default selections after modal mounts
+  setTimeout(() => {
+    _cfPickPr('normal'); // sensible default for priority; category must be picked
+  }, 50);
+  const m = document.querySelector('#modal-overlay .modal');
+  if (m) m.style.maxWidth = '560px';
+}
+
+// Internal: set selected category tile
+function _cfPickCat(k) {
+  document.getElementById('case-category').value = k;
+  document.querySelectorAll('.cf-cat-tile').forEach(t => {
+    t.classList.toggle('active', t.dataset.cat === k);
+    t.style.borderColor = ''; // clear any error highlight
+  });
+}
+// Internal: set selected priority chip
+function _cfPickPr(k) {
+  document.getElementById('case-priority').value = k;
+  document.querySelectorAll('.cf-pr-chip').forEach(t => {
+    t.classList.toggle('active', t.dataset.pr === k);
+    t.style.borderColor = '';
+  });
 }
 
 function openCaseDetail(caseId) {
