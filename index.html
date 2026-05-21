@@ -598,7 +598,7 @@
   .progress-yellow { background: var(--yellow); }
 
   /* ==================== NOTIFICATION ==================== */
-  .notif { position: fixed; top: 20px; right: 20px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 13px 18px; font-size: 13.5px; z-index: 999; box-shadow: var(--shadow-lg); transform: translateX(200%); transition: transform 0.3s cubic-bezier(.34,1.56,.64,1); max-width: 300px; font-weight: 600; }
+  .notif { position: fixed; top: 20px; right: 20px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 13px 18px; font-size: 13.5px; z-index: 999; box-shadow: var(--shadow-lg); transform: translateX(200%); transition: transform 0.3s cubic-bezier(.34,1.56,.64,1); max-width: 380px; font-weight: 600; line-height: 1.45; }
   /* Sync button: branch users don't need it */
   body.branch-user #sync-btn { display: none; }
   .notif.show { transform: translateX(0); }
@@ -11342,7 +11342,7 @@ function openCreateCase() {
     if (!DB.cases) DB.cases = [];
     DB.cases.push(c);
     gsSave('cases', c.id, c);
-    notify('แจ้งเคสสำเร็จ — Admin จะตอบกลับเร็วที่สุด ✓');
+    notify('แจ้งเคสสำเร็จ Admin จะตอบกลับเร็วที่สุด');
     closeModal();
     setTimeout(() => document.getElementById('main-content').innerHTML = (currentUser.type==='branch' ? renderBranchCases() : renderAdminCases()), 100);
   }, 'แจ้งเคส');
@@ -11422,7 +11422,7 @@ function replyToCase(caseId) {
   // First admin reply auto-moves status from "open" → "in_progress"
   if (!isBranch && c.status === 'open') c.status = 'in_progress';
   gsSave('cases', c.id, c);
-  notify('ส่งข้อความสำเร็จ ✓');
+  notify('ส่งข้อความสำเร็จ');
   closeModal();
   setTimeout(() => openCaseDetail(caseId), 120);
 }
@@ -11439,7 +11439,7 @@ function changeCaseStatus(caseId, newStatus) {
     c.resolvedBy = currentUser?.name || currentUser?.nick || 'Admin';
   }
   gsSave('cases', c.id, c);
-  notify('เปลี่ยนสถานะเป็น "' + CASE_STATUS[newStatus].label + '" ✓');
+  notify('เปลี่ยนสถานะเป็น "' + CASE_STATUS[newStatus].label + '"');
   closeModal();
   setTimeout(() => openCaseDetail(caseId), 120);
 }
