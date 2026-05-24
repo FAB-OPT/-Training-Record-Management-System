@@ -7784,7 +7784,7 @@ function renderAdminCourseHistory() {
       <div class="page-hero-title">${isAdminRole() ? 'ประวัติการอบรมหลักสูตรทั้งระบบ' : 'ประวัติการอบรมหลักสูตร'}</div>
       <div class="page-hero-sub">จัดกลุ่มตามพนักงาน — คลิกเพื่อดูหลักสูตรที่อบรม</div>
     </div>
-    ${isAdminRole() ? '<button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button>' : ''}
+    ${isAdminRole() ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบรายการซ้ำ</button><button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button></div>' : ''}
   </div>
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -7950,6 +7950,37 @@ function _chPick(row, keys) {
     if (v != null && String(v).trim() !== '') return String(v).trim();
   }
   return '';
+}
+
+// Cleanup duplicate course-history records (admin only). Records are considered
+// duplicates when (empId+empCode | courseName | batchNo | courseDate) all match.
+// Keeps the first occurrence (lowest id); deletes the rest from backend + local DB.
+function cleanupDuplicateCourseHistory() {
+  if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
+  const list = (DB.courseHistory || []).slice();
+  if (!list.length) { notify('ยังไม่มีข้อมูลหลักสูตร', 'error'); return; }
+  // Build signature → keep first id
+  const seen = new Map(); // sig → first record
+  const dupes = [];
+  list.forEach(c => {
+    const key = (c.empId || c.empCode || c.empName || '') + '|'
+              + ((c.courseName||'').trim()) + '|'
+              + (c.batchNo || '') + '|'
+              + (c.courseDate || '');
+    if (!seen.has(key)) { seen.set(key, c); }
+    else { dupes.push(c); }
+  });
+  if (dupes.length === 0) { notify('ไม่พบรายการซ้ำ ✓'); return; }
+  showConfirm(`พบรายการซ้ำ ${dupes.length} รายการ จากทั้งหมด ${list.length} รายการ\n\nระบบจะลบ ${dupes.length} รายการที่ซ้ำออก เก็บไว้ครั้งแรกที่บันทึก`, () => {
+    // Remove from local DB
+    const removedIds = new Set(dupes.map(d => d.id));
+    DB.courseHistory = list.filter(c => !removedIds.has(c.id));
+    // Delete from backend (sequential to avoid Apps Script rate-limit)
+    dupes.forEach(d => { if (d.id) gsDel('courseHistory', d.id); });
+    notify(`ลบรายการซ้ำ ${dupes.length} รายการสำเร็จ`);
+    closeModal();
+    setTimeout(() => document.getElementById('main-content').innerHTML = renderAdminCourseHistory(), 120);
+  }, { title:'ลบรายการซ้ำ', icon:'🧹', confirmText:`ลบ ${dupes.length} รายการ`, danger:true });
 }
 
 function openCourseHistoryImport() {
