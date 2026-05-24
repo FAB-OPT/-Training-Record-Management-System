@@ -7512,9 +7512,16 @@ function _chGetGroupedFiltered() {
     if (!map.has(k)) map.set(k, { key: k, items: [] });
     map.get(k).items.push(c);
   });
-  // Sort items within each group by date desc, sort groups by latest date desc
+  // Dedupe items within each group — same course+batch+date is the same enrollment,
+  // even if imported twice. Keep the first occurrence per (course|batch|date) signature.
   const groups = [];
   map.forEach(g => {
+    const seen = new Set();
+    g.items = g.items.filter(it => {
+      const sig = ((it.courseName||'').trim()) + '|' + (it.batchNo||'') + '|' + (it.courseDate||'');
+      if (seen.has(sig)) return false;
+      seen.add(sig); return true;
+    });
     g.items.sort((a,b)=>(b.courseDate||'').localeCompare(a.courseDate||''));
     const e = getEmployee(g.items[0].empId);
     g.empCode = (e&&e.empCode) || g.items[0].empCode || '—';
