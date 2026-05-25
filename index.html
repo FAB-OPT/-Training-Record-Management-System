@@ -1825,8 +1825,10 @@
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
     /* Bottom nav: shrink so 5 buttons fit on phone width */
-    body.branch-user .mobile-bottom-nav-inner { padding: 4px 6px !important }
-    body.branch-user .bottom-nav-item { padding: 4px 2px !important; min-width: 0 !important; gap: 2px !important }
+    body.branch-user .mobile-bottom-nav-inner { padding: 4px 4px !important; gap: 0 !important }
+    body.branch-user .bottom-nav-item { padding: 4px 0 !important; min-width: 0 !important; gap: 2px !important; flex: 1 1 0 !important }
+    body.branch-user .bottom-nav-icon { font-size: 18px !important }
+    body.branch-user .bottom-nav-label { font-size: 9.5px !important; max-width: 100% !important; font-weight: 600 !important; padding: 0 1px !important }
     body.branch-user .bottom-nav-icon { font-size: 19px !important }
     body.branch-user .bottom-nav-label { font-size: 10.5px !important; max-width: 100% !important; font-weight: 600 !important }
     /* Dashboard cards: force IDENTICAL block layout — no grid gap differences */
@@ -2125,12 +2127,15 @@
   }
 
   @media (max-width: 480px) {
-    .main { padding: 68px 10px 80px !important; }
+    /* Use safe-area-inset for iPhone notch + home indicator */
+    html, body { overflow-x: hidden; max-width: 100vw; }
+    .main { padding: 68px 10px calc(80px + env(safe-area-inset-bottom)) !important; overflow-x: hidden; }
+    .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
     .stats-grid { gap: 6px; }
     .stat-card { padding: 12px 10px; }
     .stat-value { font-size: 20px !important; }
     .page-title { font-size: 16px; }
-    .card { padding: 12px !important; }
+    .card { padding: 12px !important; max-width: 100%; box-sizing: border-box; }
     .pin-box { width: 42px !important; height: 48px !important; font-size: 18px !important; }
     .pin-boxes { gap: 6px !important; }
     table { font-size: 11.5px; }
@@ -2138,6 +2143,15 @@
     .modal { max-height: 95vh !important; }
     .login-panel { padding: 18px 20px 24px !important; }
     .login-section-title { font-size: 20px; }
+    /* Dashboard hero title shouldn't overflow */
+    .page-hero { max-width: 100%; box-sizing: border-box; overflow: hidden; }
+    .page-hero-title { font-size: 18px !important; word-break: break-word; }
+    /* Topbar/sidebar tile labels stay inside */
+    .branch-label { font-size: 13px !important; word-break: break-word; }
+    /* Bottom nav for branch (6 items) — tighter still on smallest phones */
+    body.branch-user .bottom-nav-item { padding: 3px 0 !important }
+    body.branch-user .bottom-nav-icon { font-size: 17px !important }
+    body.branch-user .bottom-nav-label { font-size: 9px !important; letter-spacing: -.2px }
   }
 
   /* Prevent iOS zoom on input focus */
