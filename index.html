@@ -11477,8 +11477,8 @@ function renderExecLeaderboard() {
     });
     const evalRate = sessions ? Math.round(evaluated / sessions * 100) : 0;
     const passRate = evaluated ? Math.round(passed / evaluated * 100) : 0;
-    // Composite score: pass rate weighted higher than eval rate
-    const score = Math.round(passRate * 0.6 + evalRate * 0.4);
+    // Composite score: ถ่วงเท่ากัน (คุณภาพ = ความครอบคลุม)
+    const score = Math.round(passRate * 0.5 + evalRate * 0.5);
     return { name: z.name, branches: z.branches.length, emps, sessions, evaluated, passed, evalRate, passRate, score };
   }).sort((a, b) => b.score - a.score);
   const medals = ['🥇', '🥈', '🥉'];
@@ -11489,7 +11489,7 @@ function renderExecLeaderboard() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">🏆 จัดอันดับโซน BZM</div>
-      <div class="page-hero-sub">เปรียบเทียบผลงานของแต่ละโซน — เรียงตามคะแนนรวม (อัตราผ่าน × 0.6 + อัตราประเมิน × 0.4)</div>
+      <div class="page-hero-sub">เปรียบเทียบผลงานของแต่ละโซน — เรียงตามคะแนนรวม (เฉลี่ย อัตราผ่าน + อัตราประเมิน · ถ่วง 50/50)</div>
     </div>
   </div>
   <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
