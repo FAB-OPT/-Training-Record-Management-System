@@ -11510,16 +11510,30 @@ function renderExecLeaderboard() {
         <th style="text-align:center;background:var(--accent-light);color:var(--accent);font-weight:800">คะแนน</th>
       </tr></thead>
       <tbody>
-        ${rows.length ? rows.map((r, i) => `<tr>
-          <td data-label="อันดับ" style="text-align:center;font-size:18px;font-weight:800">${medals[i] || (i+1)}</td>
+        ${rows.length ? rows.map((r, i) => {
+          const hasData = r.sessions > 0 || r.score > 0;
+          const sCol = r.score >= 70 ? 'var(--green)' : r.score >= 40 ? 'var(--accent)' : (r.score > 0 ? 'var(--red)' : 'var(--text3)');
+          const rank = (r.score > 0 && i < 3)
+            ? `<span style="font-size:20px">${medals[i]}</span>`
+            : `<span style="color:var(--text3);font-weight:700;font-size:14px">${i+1}</span>`;
+          const rowStyle = (i === 0 && r.score > 0) ? 'background:rgba(255,107,26,0.06)' : (hasData ? '' : 'opacity:.5');
+          const passCol = r.passRate>=80?'var(--green)':(r.passRate>=60?'var(--accent)':(r.evaluated?'var(--red)':'var(--text3)'));
+          return `<tr style="${rowStyle}">
+          <td data-label="อันดับ" style="text-align:center">${rank}</td>
           <td data-label="โซน" style="font-weight:700">${r.name}</td>
           <td data-label="สาขา" style="text-align:center;font-weight:600">${r.branches}</td>
           <td data-label="พนักงาน" style="text-align:center;font-weight:600">${r.emps}</td>
           <td data-label="การสอน" style="text-align:center;font-weight:600">${r.sessions}</td>
           <td data-label="ประเมิน" style="text-align:center;font-weight:600">${r.evaluated}<span style="color:var(--text3);font-size:11px;margin-left:3px">(${r.evalRate}%)</span></td>
-          <td data-label="ผ่าน" style="text-align:center;font-weight:700;color:${r.passRate>=80?'var(--green)':(r.passRate>=60?'var(--accent)':'var(--red)')}">${r.passed}<span style="font-size:11px;margin-left:3px;opacity:.85">(${r.passRate}%)</span></td>
-          <td data-label="คะแนน" style="text-align:center;font-weight:800;font-size:16px;color:${r.score>=80?'var(--green)':(r.score>=60?'var(--accent)':'var(--red)')}">${r.score}</td>
-        </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">ยังไม่มีข้อมูลโซน BZM</td></tr>'}
+          <td data-label="ผ่าน" style="text-align:center;font-weight:700;color:${passCol}">${r.passed}<span style="font-size:11px;margin-left:3px;opacity:.85">(${r.passRate}%)</span></td>
+          <td data-label="คะแนน">
+            <div style="display:flex;align-items:center;gap:8px;min-width:118px">
+              <div style="flex:1;height:8px;border-radius:999px;background:rgba(148,163,184,0.25);overflow:hidden"><div style="height:100%;width:${r.score}%;background:${sCol};border-radius:999px;transition:width .35s"></div></div>
+              <span style="font-weight:800;font-size:15px;color:${sCol};min-width:26px;text-align:right">${r.score}</span>
+            </div>
+          </td>
+        </tr>`;
+        }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">ยังไม่มีข้อมูลโซน BZM</td></tr>'}
       </tbody>
     </table>
   </div>`;
