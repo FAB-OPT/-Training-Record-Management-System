@@ -4608,6 +4608,16 @@ function clearLoginErrors() {
   if (be) { be.textContent = ''; be.classList.remove('show'); }
   if (ae) { ae.textContent = ''; ae.classList.remove('show'); }
 }
+// เขียน fab_session ตอน login โดยตรง — ให้ trySsoAutoLogin กู้ได้ตอนรีเฟรช (กันเด้งออก)
+function _writeFabSession() {
+  if (!currentUser) return;
+  try {
+    var s = (currentUser.type === 'branch')
+      ? { role: 'branch', code: currentUser.branchId, branchCode: currentUser.branchId, loggedInAt: new Date().toISOString() }
+      : { role: currentUser.role || 'admin', code: currentUser.code, name: currentUser.name, nick: currentUser.nick, loggedInAt: new Date().toISOString() };
+    localStorage.setItem('fab_session', JSON.stringify(s));
+  } catch (_) {}
+}
 function doLogin() {
   clearLoginErrors();
   if (loginType === 'admin') {
@@ -4615,6 +4625,7 @@ function doLogin() {
     const admin = _effectiveAdminCodes()[pin];
     if (admin) {
       currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role, pagePerms: admin.pagePerms || null };
+      _writeFabSession();
       showApp();
     } else {
       showPinError('admin-pin-boxes', 'รหัสไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
@@ -4622,7 +4633,9 @@ function doLogin() {
   } else {
     const pin = getPinValue('branch-pin-boxes');
     if (BRANCH_MASTER[pin]) {
-      currentUser = { type: 'branch', branchId: pin }; showApp();
+      currentUser = { type: 'branch', branchId: pin };
+      _writeFabSession();
+      showApp();
     } else {
       showPinError('branch-pin-boxes', 'รหัสสาขาไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
     }
