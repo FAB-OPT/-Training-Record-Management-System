@@ -945,13 +945,13 @@
     animation: cbMsgIn 0.22s ease-out;
   }
   /* จัดรูปแบบข้อความบอท (markdown เบา ๆ) ให้อ่านง่าย */
-  .cb-msg.bot .cb-h { font-weight: 800; margin: 6px 0 2px; font-size: 14.5px; }
-  .cb-msg.bot .cb-h:first-child { margin-top: 0; }
-  .cb-msg.bot .cb-gap { height: 7px; }
-  .cb-msg.bot .cb-list { margin: 3px 0 3px 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
-  .cb-msg.bot .cb-list li { padding-left: 2px; }
-  .cb-msg.bot code { background: rgba(255,107,26,0.12); color: var(--accent); padding: 1px 5px; border-radius: 5px; font-size: 0.92em; font-family: 'IBM Plex Sans Thai', monospace; }
-  .cb-msg.bot b { font-weight: 800; }
+  .cb-h { font-weight: 800; margin: 6px 0 2px; font-size: 1em; }
+  .cb-h:first-child { margin-top: 0; }
+  .cb-gap { height: 7px; }
+  .cb-list { margin: 3px 0 3px 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+  .cb-list li { padding-left: 2px; }
+  .cb-msg.bot code, .cb-fmt code { background: rgba(255,107,26,0.12); color: var(--accent); padding: 1px 5px; border-radius: 5px; font-size: 0.92em; font-family: 'IBM Plex Sans Thai', monospace; }
+  .cb-msg.bot b, .cb-fmt b { font-weight: 800; }
   .cb-msg.user { white-space: pre-wrap; }
   @keyframes cbMsgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .cb-msg.user {
@@ -12603,12 +12603,14 @@ function renderAdminChatLogs() {
       <div style="display:flex;flex-direction:column;gap:6px">
         ${s.msgs.map(m => {
           const isUser = m.role === 'user';
+          const isBotFmt = (m.role === 'bot' && !m.err);
           const bg = isUser ? 'linear-gradient(135deg,#FF8541,#FF6B1A)' : (m.err ? '#FEE2E2' : 'var(--surface2)');
           const col = isUser ? 'white' : (m.err ? '#991B1B' : 'var(--text)');
           const align = isUser ? 'flex-end' : 'flex-start';
           const radius = isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
-          return `<div style="align-self:${align};max-width:80%">
-            <div style="background:${bg};color:${col};padding:8px 12px;border-radius:${radius};font-size:13px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word">${(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          const body = isBotFmt ? _chatFormat(m.content) : (m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          return `<div style="align-self:${align};max-width:82%">
+            <div class="${isBotFmt?'cb-fmt':''}" style="background:${bg};color:${col};padding:9px 13px;border-radius:${radius};font-size:14px;line-height:1.55;${isBotFmt?'':'white-space:pre-wrap;'}word-wrap:break-word">${body}</div>
             <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${m.err?' · ⚠ error':''}</div>
           </div>`;
         }).join('')}
