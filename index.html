@@ -4745,6 +4745,8 @@ function logout() {
   const cbFab = document.getElementById('chatbot-fab');
   if (cbFab) cbFab.style.display = 'none';
   currentUser = null;
+  // ออกจากระบบ → ล้าง SSO session ด้วย ไม่งั้น initApp จะ auto-login กลับเข้ามาทันทีตอน reload
+  try { localStorage.removeItem('fab_session'); } catch (_) {}
   closeSidebar();
   document.body.classList.remove('branch-user','admin-user');
   document.body.classList.add('on-login');
@@ -13164,11 +13166,63 @@ function showLockModal(emp) {
 
 // ==================== INIT ====================
 let currentPage = "dashboard";
+
+/* ───────────── SSO — ล็อกอินอัตโนมัติจาก Hub (localStorage.fab_session) ─────────────
+   Hub (fab-operations-hub) เก็บ session ไว้ที่ localStorage.fab_session ก่อน redirect
+   มาที่นี่ (same origin = fab-opt.github.io). อ่านค่านั้นแล้ว map เข้า currentUser ของ
+   Training เพื่อข้ามหน้า PIN. TTL 8 ชม. — ต้องตรงกับ Hub.
+   Map เฉพาะ user ที่ Training รู้จัก (BRANCH_MASTER / _effectiveAdminCodes) เพื่อคง
+   ระบบสิทธิ์ต่อหน้า (pagePerms) ไว้; ถ้าไม่รู้จัก → ตกไปหน้า login ปกติ. */
+const FAB_SESSION_KEY = 'fab_session';
+const FAB_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 ชม. (ตรงกับ Hub)
+
+function _readFabSession() {
+  try {
+    const raw = localStorage.getItem(FAB_SESSION_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || !s.loggedInAt) return null;
+    const age = Date.now() - new Date(s.loggedInAt).getTime();
+    if (isNaN(age) || age > FAB_SESSION_TTL_MS) return null;
+    return s;
+  } catch (_) { return null; }
+}
+
+function trySsoAutoLogin() {
+  if (currentUser) return false; // ล็อกอินอยู่แล้ว
+  const s = _readFabSession();
+  if (!s) return false;
+
+  // สาขา — code/branchCode คือรหัสสาขา
+  if (s.role === 'branch') {
+    const bid = String(s.branchCode || s.code || '');
+    if (bid && BRANCH_MASTER[bid]) {
+      currentUser = { type: 'branch', branchId: bid };
+      showApp();
+      return true;
+    }
+    return false;
+  }
+
+  // Team Management / แอดมิน — code คือ PIN 6 หลัก
+  const code = String(s.code || '');
+  const admin = code ? _effectiveAdminCodes()[code] : null;
+  if (admin) {
+    currentUser = { type: 'admin', code, name: admin.name, nick: admin.nick, role: admin.role, pagePerms: admin.pagePerms || null };
+    showApp();
+    return true;
+  }
+  return false;
+}
+
 function initApp() {
   initTheme();
   initPinBoxes();
   document.body.classList.add('on-login');
-  gsLoad();
+  // SSO: ลองทันที — ครอบคลุมสาขา + แอดมิน built-in (ไม่ต้องรอโหลดข้อมูล จึงไม่กระพริบ)
+  try { trySsoAutoLogin(); } catch (_) {}
+  // โหลดข้อมูลแล้วลองอีกครั้ง — เผื่อเป็นแอดมินที่เพิ่มเองใน "จัดการผู้ใช้งาน" (ต้องรอ DB.adminUsers)
+  gsLoad().then(() => { if (!currentUser) { try { trySsoAutoLogin(); } catch (_) {} } });
 }
 initApp();
 
