@@ -12535,6 +12535,36 @@ function setChatLogFilter(k, v) {
   document.getElementById('main-content').innerHTML = renderAdminChatLogs();
 }
 
+// เปิดบทสนทนาเดียวเป็น popup (กดจากรายการ)
+function openChatLogSession(sid) {
+  const msgs = (DB.chatLogs || []).filter(l => (l.sessionId || '_') === sid)
+    .slice().sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  if (!msgs.length) { notify('ไม่พบบทสนทนา', 'error'); return; }
+  const esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const first = msgs[0];
+  const roleColor = ({ branch:'#16A34A', admin:'#DC2626', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777' })[first.userRole] || '#6B7280';
+  const bubbles = msgs.map(m => {
+    const isUser = m.role === 'user';
+    const isBotFmt = (m.role === 'bot' && !m.err);
+    const bg = isUser ? 'linear-gradient(135deg,#FF8541,#FF6B1A)' : (m.err ? '#FEE2E2' : 'var(--surface2)');
+    const col = isUser ? 'white' : (m.err ? '#991B1B' : 'var(--text)');
+    const align = isUser ? 'flex-end' : 'flex-start';
+    const radius = isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
+    const body = isBotFmt ? _chatFormat(m.content) : esc(m.content);
+    return `<div style="align-self:${align};max-width:86%">
+      <div class="${isBotFmt?'cb-fmt':''}" style="background:${bg};color:${col};padding:9px 13px;border-radius:${radius};font-size:14px;line-height:1.55;${isBotFmt?'':'white-space:pre-wrap;'}word-wrap:break-word">${body}</div>
+      <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${m.err?' · ⚠ error':''}</div>
+    </div>`;
+  }).join('');
+  const header = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
+    <div><div style="font-size:15px;font-weight:800;color:var(--text)">${esc(first.userName)||'-'} <span style="font-size:10.5px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;font-weight:700">${esc((first.userRole||'-').toUpperCase())}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700">${esc(first.branchId)}</span>` : ''}</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:3px">เริ่ม ${fmtDateTime(first.ts)} · ${msgs.length} ข้อความ</div></div>
+    <span style="font-size:11px;color:var(--text3);font-family:monospace">${esc(String(sid).slice(0,12))}</span>
+  </div>`;
+  showModal('💬 บทสนทนา', header + `<div style="max-height:62vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px">${bubbles}</div>`, null, null, 'ปิด');
+  const mo = document.querySelector('#modal-overlay .modal'); if (mo) mo.style.maxWidth = '620px';
+}
+
 function renderAdminChatLogs() {
   if (!isAdminRole()) {
     return '<div style="padding:40px;text-align:center;color:var(--text3)">หน้านี้สำหรับ Admin เท่านั้น</div>';
@@ -12587,34 +12617,23 @@ function renderAdminChatLogs() {
     .sort((a,b) => (b.msgs[b.msgs.length-1].ts||'').localeCompare(a.msgs[a.msgs.length-1].ts||''))
     .slice(0, 80); // cap UI to 80 sessions for perf
 
+  const _esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const sessionsHtml = sessions.length ? sessions.map(s => {
     const first = s.msgs[0];
     const last  = s.msgs[s.msgs.length-1];
     const errIn = s.msgs.some(m => m.err);
     const roleColor = ({branch:'#16A34A', admin:'#DC2626', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777'})[first.userRole] || '#6B7280';
-    return `<div class="cl-session" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;${errIn?'border-left:4px solid #EF4444':''}">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--border)">
+    const rawPrev = String(last.content || '').replace(/[*#`>]/g,'').replace(/\s+/g,' ').trim();
+    const preview = _esc(rawPrev.slice(0, 90)) + (rawPrev.length > 90 ? '…' : '');
+    return `<div onclick="openChatLogSession('${s.sid}')" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s,transform .15s;${errIn?'border-left:4px solid #EF4444;':''}" onmouseenter="this.style.boxShadow='0 6px 18px rgba(0,0,0,.07)';this.style.transform='translateY(-1px)'" onmouseleave="this.style.boxShadow='none';this.style.transform='translateY(0)'">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div style="min-width:0;flex:1">
-          <div style="font-size:14px;font-weight:800;color:var(--text)">${first.userName||'-'} <span style="font-size:11px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;margin-left:6px;font-weight:700;letter-spacing:.3px">${(first.userRole||'-').toUpperCase()}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700;margin-left:6px">${first.branchId}</span>` : ''}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:3px">เริ่ม ${fmtDateTime(first.ts)} · ${s.msgs.length} ข้อความ${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--text)">${_esc(first.userName)||'-'} <span style="font-size:10.5px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;font-weight:700;letter-spacing:.3px">${_esc((first.userRole||'-').toUpperCase())}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700">${_esc(first.branchId)}</span>` : ''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}</div>
         </div>
-        <span style="font-size:11px;color:var(--text3);font-family:monospace">${s.sid.slice(0,12)}</span>
+        <span style="font-size:18px;color:var(--text3);flex-shrink:0">›</span>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${s.msgs.map(m => {
-          const isUser = m.role === 'user';
-          const isBotFmt = (m.role === 'bot' && !m.err);
-          const bg = isUser ? 'linear-gradient(135deg,#FF8541,#FF6B1A)' : (m.err ? '#FEE2E2' : 'var(--surface2)');
-          const col = isUser ? 'white' : (m.err ? '#991B1B' : 'var(--text)');
-          const align = isUser ? 'flex-end' : 'flex-start';
-          const radius = isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
-          const body = isBotFmt ? _chatFormat(m.content) : (m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          return `<div style="align-self:${align};max-width:82%">
-            <div class="${isBotFmt?'cb-fmt':''}" style="background:${bg};color:${col};padding:9px 13px;border-radius:${radius};font-size:14px;line-height:1.55;${isBotFmt?'':'white-space:pre-wrap;'}word-wrap:break-word">${body}</div>
-            <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${m.err?' · ⚠ error':''}</div>
-          </div>`;
-        }).join('')}
-      </div>
+      <div style="font-size:12.5px;color:var(--text2);margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${last.role==='user'?'👤':'🤖'} ${preview}</div>
     </div>`;
   }).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">ไม่พบประวัติแชตที่ตรงกับ filter</div>';
 
