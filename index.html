@@ -939,11 +939,20 @@
 
   /* Message bubbles */
   .cb-msg {
-    max-width: 84%; padding: 10px 14px; border-radius: 16px;
-    font-size: 13.5px; line-height: 1.55;
-    word-wrap: break-word; white-space: pre-wrap;
+    max-width: 84%; padding: 11px 15px; border-radius: 16px;
+    font-size: 14.5px; line-height: 1.62;
+    word-wrap: break-word; overflow-wrap: anywhere;
     animation: cbMsgIn 0.22s ease-out;
   }
+  /* จัดรูปแบบข้อความบอท (markdown เบา ๆ) ให้อ่านง่าย */
+  .cb-msg.bot .cb-h { font-weight: 800; margin: 6px 0 2px; font-size: 14.5px; }
+  .cb-msg.bot .cb-h:first-child { margin-top: 0; }
+  .cb-msg.bot .cb-gap { height: 7px; }
+  .cb-msg.bot .cb-list { margin: 3px 0 3px 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+  .cb-msg.bot .cb-list li { padding-left: 2px; }
+  .cb-msg.bot code { background: rgba(255,107,26,0.12); color: var(--accent); padding: 1px 5px; border-radius: 5px; font-size: 0.92em; font-family: 'IBM Plex Sans Thai', monospace; }
+  .cb-msg.bot b { font-weight: 800; }
+  .cb-msg.user { white-space: pre-wrap; }
   @keyframes cbMsgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .cb-msg.user {
     background: linear-gradient(135deg, #FF8541 0%, #FF6B1A 100%);
@@ -1063,7 +1072,7 @@
     .cb-online { font-size: 9.5px; padding: 1px 6px; }
     .cb-sub { font-size: 10.5px; }
     .cb-body { padding: 12px 12px 6px; gap: 8px; }
-    .cb-msg { max-width: 82%; font-size: 13px; padding: 8px 12px; }
+    .cb-msg { max-width: 84%; font-size: 14px; padding: 9px 13px; }
     .cb-quick { margin-left: 32px; }
     .cb-quick button { font-size: 11.5px; padding: 5px 10px; }
     .cb-input { padding: 10px 12px; gap: 6px; }
@@ -5013,6 +5022,29 @@ function _chatAskQuick(q) {
   sendChatMessage();
 }
 
+// แปลง markdown เบา ๆ ของบอท → HTML อ่านง่าย (escape ก่อนกัน XSS)
+function _chatFormat(text) {
+  let s = String(text == null ? '' : text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const lines = s.split('\n');
+  let html = '', inUl = false, inOl = false;
+  const closeLists = () => { if (inUl) { html += '</ul>'; inUl = false; } if (inOl) { html += '</ol>'; inOl = false; } };
+  lines.forEach(line => {
+    const t = line.trim();
+    const b = /^[-•*]\s+(.*)$/.exec(t);
+    const n = /^\d+[.)]\s+(.*)$/.exec(t);
+    const h = /^#{1,4}\s+(.*)$/.exec(t);
+    if (b) { if (inOl) { html += '</ol>'; inOl = false; } if (!inUl) { html += '<ul class="cb-list">'; inUl = true; } html += '<li>' + b[1] + '</li>'; }
+    else if (n) { if (inUl) { html += '</ul>'; inUl = false; } if (!inOl) { html += '<ol class="cb-list">'; inOl = true; } html += '<li>' + n[1] + '</li>'; }
+    else if (h) { closeLists(); html += '<div class="cb-h">' + h[1] + '</div>'; }
+    else if (t === '') { closeLists(); html += '<div class="cb-gap"></div>'; }
+    else { closeLists(); html += '<div>' + line + '</div>'; }
+  });
+  closeLists();
+  return html;
+}
+
 function _renderChatMessage(role, text) {
   const wrap = document.getElementById('chatbot-messages');
   if (!wrap) return null;
@@ -5030,7 +5062,7 @@ function _renderChatMessage(role, text) {
   row.innerHTML = '<div class="cb-row-avatar"><img src="nong-happy.png" alt=""></div>';
   const msg = document.createElement('div');
   msg.className = 'cb-msg bot';
-  msg.textContent = text;
+  msg.innerHTML = _chatFormat(text);
   row.appendChild(msg);
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
@@ -11496,6 +11528,12 @@ function renderExecLeaderboard() {
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${zones.length}</div><div class="stat-label">โซน BZM</div></div>
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalBranches}</div><div class="stat-label">สาขาทั้งหมด</div></div>
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalEmps}</div><div class="stat-label">พนักงาน</div></div>
+  </div>
+  <div class="card" style="padding:11px 15px;margin-bottom:14px;background:var(--accent-light);border:1px solid rgba(255,107,26,0.18);display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12.5px;color:var(--text2);line-height:1.5">
+    <span style="font-weight:800;color:var(--accent)">ℹ️ วิธีคิดคะแนน</span>
+    <span><b>อัตราประเมิน</b> = ประเมินแล้ว ÷ การสอน × 100</span>
+    <span><b>อัตราผ่าน</b> = ผ่านเกณฑ์ ÷ ประเมินแล้ว × 100</span>
+    <span style="font-weight:700;color:var(--text)"><b style="color:var(--accent)">คะแนนรวม</b> = (อัตราผ่าน + อัตราประเมิน) ÷ 2</span>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
     <table class="cards-on-mobile">
