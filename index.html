@@ -2231,7 +2231,7 @@
 </div>
 
 <!-- LOGIN -->
-<div id="login-screen">
+<div id="login-screen" style="display:none">
   <div class="login-card">
     <!-- LEFT HERO -->
     <div class="login-hero">
@@ -4747,6 +4747,9 @@ function logout() {
   currentUser = null;
   // ออกจากระบบ → ล้าง SSO session ด้วย ไม่งั้น initApp จะ auto-login กลับเข้ามาทันทีตอน reload
   try { localStorage.removeItem('fab_session'); } catch (_) {}
+  // กลับไปหน้า Hub (Training เป็นระบบใน Hub) — ไม่แสดงหน้า login ของ Training
+  try { window.location.href = '/fab-operations-hub/?logout=1'; } catch (_) { window.location.href = '/fab-operations-hub/'; }
+  return;
   closeSidebar();
   document.body.classList.remove('branch-user','admin-user');
   document.body.classList.add('on-login');
@@ -4782,7 +4785,6 @@ function showApp() {
     var _mt=document.getElementById('mobile-title'); if(_mt)_mt.textContent=b.name;
     document.getElementById('sidebar-branch-label').textContent = bid + ' ' + b.name.replace(bid+' ','');
     buildBranchNav(); showPage('dashboard'); startAutoSync();
-    requestAnimationFrame(() => showWelcomeModal(b.name.replace(bid+' ','')));
   } else {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
@@ -4796,7 +4798,6 @@ function showApp() {
     buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
     const _roleGreet = ({ admin: 'Admin', bzm: 'BZM', vp: 'VP. Santa Fe', coo: 'COO' })[currentUser.role] || 'Team Management';
     const _greet = currentUser.name ? `${currentUser.name} (${_roleGreet})` : 'Team Management';
-    requestAnimationFrame(() => showWelcomeModal(_greet));
   }
   // Test-mode button visible (+ restore saved state) for admin only
   initTestModeButton();
@@ -13218,9 +13219,14 @@ function trySsoAutoLogin() {
 function initApp() {
   initTheme();
   initPinBoxes();
-  document.body.classList.add('on-login');
-  // SSO: ลองทันที — ครอบคลุมสาขา + แอดมิน built-in (ไม่ต้องรอโหลดข้อมูล จึงไม่กระพริบ)
+  // SSO: ลองทันที (สาขา + แอดมิน built-in) ก่อนแสดงหน้า login — กันกระพริบ
   try { trySsoAutoLogin(); } catch (_) {}
+  // SSO ไม่สำเร็จ → ค่อยแสดงหน้า login ของ Training
+  if (!currentUser) {
+    document.body.classList.add('on-login');
+    var _ls = document.getElementById('login-screen');
+    if (_ls) _ls.style.display = 'flex';
+  }
   // โหลดข้อมูลแล้วลองอีกครั้ง — เผื่อเป็นแอดมินที่เพิ่มเองใน "จัดการผู้ใช้งาน" (ต้องรอ DB.adminUsers)
   gsLoad().then(() => { if (!currentUser) { try { trySsoAutoLogin(); } catch (_) {} } });
 }
