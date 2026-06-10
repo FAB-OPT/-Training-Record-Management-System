@@ -5514,7 +5514,7 @@ function buildBranchNav() {
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-item" id="nav-reports" onclick="showPage('reports')"><span class="nav-icon">📊</span> ออกรายงาน</div>
     <div style="height:1px;background:var(--border);margin:10px 16px"></div>
-    <div class="nav-item nav-contact" id="nav-cases" onclick="showPage('cases')"><span class="nav-icon">📨</span> ติดต่อ Admin</div>`;
+    <div class="nav-item" id="nav-cases" onclick="showPage('cases')"><span class="nav-icon">📨</span> ติดต่อ Admin</div>`;
   buildBottomNav(BRANCH_NAV_ITEMS);
 }
 
@@ -5539,9 +5539,7 @@ function _sidebarLabelFor(page) {
 function buildAdminNav() {
   const items = getActiveNavItems();
   document.getElementById('sidebar-nav').innerHTML = items.map(it => {
-    const isContact = it.page === 'admin-cases';
-    const cls = 'nav-item' + (isContact ? ' nav-contact' : '');
-    return `<div class="${cls}" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">${it.icon}</span> ${_sidebarLabelFor(it.page)}</div>`;
+    return `<div class="nav-item" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">${it.icon}</span> ${_sidebarLabelFor(it.page)}</div>`;
   }).join('');
   buildBottomNav(items);
 }
@@ -11582,6 +11580,7 @@ function renderExecLeaderboard() {
               <div style="flex:1;height:8px;border-radius:999px;background:rgba(148,163,184,0.25);overflow:hidden"><div style="height:100%;width:${r.score}%;background:${sCol};border-radius:999px;transition:width .35s"></div></div>
               <span style="font-weight:800;font-size:15px;color:${sCol};min-width:26px;text-align:right">${r.score}</span>
             </div>
+            ${r.sessions ? `<div style="font-size:10.5px;color:var(--text3);text-align:right;margin-top:3px">(${r.passRate} + ${r.evalRate}) ÷ 2 = ${r.score}</div>` : ''}
           </td>
         </tr>`;
         }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">ยังไม่มีข้อมูลโซน BZM</td></tr>'}
