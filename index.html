@@ -2181,6 +2181,9 @@
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-topbar-title" id="mobile-title">OPT Training</div>
+  <button class="mobile-theme-btn" onclick="goBackToHub()" aria-label="กลับหน้าหลัก" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
+    <span>🏠</span>
+  </button>
   <button class="mobile-theme-btn" onclick="toggleTheme()" aria-label="สลับโหมดมืด/สว่าง" title="สลับโหมดมืด/สว่าง">
     <span id="mobile-theme-icon">🌙</span>
   </button>
@@ -2318,6 +2321,9 @@
       <button class="btn-theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark/light mode">
         <span id="theme-toggle-icon">🌙</span>
         <span id="theme-toggle-label">Dark Mode</span>
+      </button>
+      <button class="btn-theme-toggle" id="back-hub-btn" onclick="goBackToHub()" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
+        <span>🏠</span><span>กลับหน้าหลัก</span>
       </button>
       <button class="btn-logout" onclick="logout()">↩ ออกจากระบบ</button>
     </div>
@@ -4727,6 +4733,11 @@ function initTheme() {
     if (mq.addEventListener) mq.addEventListener('change', handler);
     else if (mq.addListener) mq.addListener(handler); // older Safari
   }
+}
+
+function goBackToHub() {
+  // กลับเมนูหลัก Hub โดยไม่ออกจากระบบ (คง fab_session ไว้ → ไม่ต้อง login ใหม่)
+  try { window.location.href = '/fab-operations-hub/'; } catch (_) { window.location.href = '/fab-operations-hub/'; }
 }
 
 function logout() {
