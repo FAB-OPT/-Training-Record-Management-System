@@ -303,17 +303,16 @@
   .sidebar-footer button { margin-bottom: 0 !important; }
   .sf-row { display: flex; gap: 8px; }
   .sf-row > button { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 12.5px; }
-  /* ปุ่มกลับหน้าหลัก — เขียวเด่น (nav action) */
+  /* ปุ่มกลับหน้าหลัก — เขียวอ่อนปกติ · เข้มตอนกด */
   .btn-hub-nav {
-    width: 100%; padding: 11px; border: none; border-radius: 8px; cursor: pointer;
-    font-family: 'Sarabun', sans-serif; font-size: 13.5px; font-weight: 700; color: #fff;
-    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-    box-shadow: 0 3px 10px -2px rgba(22,163,74,.4);
+    width: 100%; padding: 11px; border-radius: 8px; cursor: pointer;
+    font-family: 'Sarabun', sans-serif; font-size: 13.5px; font-weight: 700;
+    color: #15803d; background: rgba(22,163,74,0.10); border: 1px solid rgba(22,163,74,0.32);
     display: flex; align-items: center; justify-content: center; gap: 8px;
     transition: all 0.18s;
   }
-  .btn-hub-nav:hover { background: linear-gradient(135deg, #15803d 0%, #14532d 100%); transform: translateY(-1px); box-shadow: 0 5px 14px -2px rgba(22,163,74,.5); }
-  .btn-hub-nav:active { transform: translateY(0); }
+  .btn-hub-nav:hover { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .btn-hub-nav:active { background: #15803d; color: #fff; border-color: #15803d; transform: translateY(1px); }
   .btn-logout {
     width: 100%; padding: 10px; background: var(--red-light); border: 1px solid rgba(220,38,38,0.32);
     color: var(--red); border-radius: 8px; cursor: pointer; font-family: 'Sarabun', sans-serif;
