@@ -13324,6 +13324,14 @@ function trySsoAutoLogin() {
     showApp();
     return true;
   }
+  // ไม่อยู่ใน list ของ Training Record → เชื่อ session ที่ Hub ยืนยันแล้ว เข้าเป็นแอดมินด้วยข้อมูลจาก Hub
+  // (ทุกคนที่ login ผ่าน Hub เข้าได้โดยไม่ต้องใส่ PIN ซ้ำ)
+  if (code || s.name || s.nick) {
+    const role = (s.role === 'admin' || s.role === 'coo' || s.role === 'vp') ? s.role : 'admin';
+    currentUser = { type: 'admin', code: code || 'hub', name: s.name || s.nick || 'ผู้ใช้ Hub', nick: s.nick || s.name || '', role, pagePerms: null };
+    showApp();
+    return true;
+  }
   return false;
 }
 
