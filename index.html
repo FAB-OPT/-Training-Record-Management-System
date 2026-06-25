@@ -8392,7 +8392,7 @@ function openQuiz(trainingId) {
     notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
     return;
   }
-  const picked = shuffleArray(allQ).slice(0, Math.min(5, allQ.length));
+  const picked = shuffleArray(allQ).slice(0, Math.min(QUIZ_PICK, allQ.length));
   const SRC = ['A','B','C','D'];
   const questions = picked.map(q => {
     const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
@@ -11055,6 +11055,7 @@ function getQuizCount(moduleId) {
   return { base, pool, custom, total: all.length, active: active.length };
 }
 
+const QUIZ_PICK = 5; // ผู้เรียนทำข้อสอบสุ่มครั้งละ 5 ข้อจากคลังที่เปิดใช้งาน
 let _quizSearch = '';
 function setQuizSearch(v) {
   _quizSearch = (v||'').toLowerCase();
@@ -11074,11 +11075,14 @@ function _renderQuizRowsFor(group) {
   return mods.map(mid => {
     const m = MODULES[mid];
     const c = getQuizCount(mid);
-    const enough = c.active >= 5;
+    const enough = c.active >= QUIZ_PICK;
+    const shown = Math.min(QUIZ_PICK, c.active);
+    const shownColor = c.active === 0 ? 'var(--danger,#DC2626)' : enough ? 'var(--green)' : '#D97706';
     return `<tr style="cursor:pointer" onclick="openQuizListModal('${mid}')">
       <td style="font-weight:700;color:var(--text)">${m.name}</td>
       <td style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:999px;font-size:12px;color:var(--text2)"><span style="font-weight:800;color:var(--text);font-size:13px">${m.subtopics.length}</span>หัวข้อ</span></td>
-      <td style="text-align:center"><span style="font-weight:800;color:${enough?'var(--green)':'#D97706'};font-size:14px">${c.active}</span><span style="color:var(--text3);font-size:12.5px"> / ${c.total}</span>${enough?'':' ⚠'}</td>
+      <td style="text-align:center"><span style="font-weight:800;color:${enough?'var(--green)':'#D97706'};font-size:14px">${c.active}</span><span style="color:var(--text3);font-size:12.5px"> / ${c.total}</span></td>
+      <td style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;background:${shownColor}14;border:1px solid ${shownColor}55;padding:3px 11px;border-radius:999px"><span style="font-weight:900;color:${shownColor};font-size:14px">${shown}</span><span style="font-size:11.5px;color:${shownColor}">ข้อ/ครั้ง</span></span>${enough?'':` <span title="คำถามเปิดใช้งานน้อยกว่า ${QUIZ_PICK} ข้อ ผู้เรียนจะเห็นเท่าที่มี" style="cursor:help">⚠️</span>`}</td>
       <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openQuizListModal('${mid}')">จัดการ →</button></td>
     </tr>`;
   }).join('');
@@ -11087,36 +11091,59 @@ function renderAdminQuiz() {
   const modules = Object.keys(MODULES);
   let totalQ = 0, activeQ = 0;
   modules.forEach(mid => { const c = getQuizCount(mid); totalQ += c.total; activeQ += c.active; });
-  const svcCount = modules.filter(m => MODULES[m].group === 'Service').length;
-  const cookCount = modules.filter(m => MODULES[m].group === 'Cook').length;
-  const sectionTable = (id, color, label, count) => `
+  const svcMods = modules.filter(m => MODULES[m].group === 'Service');
+  const cookMods = modules.filter(m => MODULES[m].group === 'Cook');
+  const sumActive = arr => arr.reduce((s, mid) => s + getQuizCount(mid).active, 0);
+  const sumTotal  = arr => arr.reduce((s, mid) => s + getQuizCount(mid).total, 0);
+  const lowMods = modules.filter(mid => getQuizCount(mid).active < QUIZ_PICK).length;
+
+  const stat = (val, label, color, sub) => `
+    <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px">
+      <div style="font-size:24px;font-weight:900;color:${color};line-height:1">${val}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-top:5px">${label}</div>
+      ${sub ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${sub}</div>` : ''}
+    </div>`;
+
+  const sectionTable = (id, color, label, mods) => `
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
-      <div style="padding:12px 16px;background:${color}15;border-bottom:2px solid ${color};border-left:5px solid ${color};display:flex;align-items:center;gap:10px">
+      <div style="padding:12px 16px;background:${color}15;border-bottom:2px solid ${color};border-left:5px solid ${color};display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:16px;font-weight:800;color:${color}">${label}</span>
-        <span style="font-size:12px;font-weight:700;background:${color};color:white;padding:2px 10px;border-radius:999px">${count} Module</span>
+        <span style="font-size:12px;font-weight:700;background:${color};color:white;padding:2px 10px;border-radius:999px">${mods.length} Module</span>
+        <span style="margin-left:auto;font-size:12px;font-weight:700;color:${color}">${sumActive(mods)}/${sumTotal(mods)} ข้อเปิดใช้งาน</span>
       </div>
       <table>
         <thead><tr>
           <th>Module</th>
-          <th style="text-align:center;width:110px">หัวข้อย่อย</th>
-          <th style="text-align:center;width:130px" title="คำถามที่เปิดใช้งาน / ทั้งหมด">คำถาม</th>
-          <th style="text-align:right;width:130px"></th>
+          <th style="text-align:center;width:100px">หัวข้อย่อย</th>
+          <th style="text-align:center;width:120px" title="คำถามที่เปิดใช้งาน / ทั้งหมดในคลัง">คลังคำถาม</th>
+          <th style="text-align:center;width:140px" title="จำนวนข้อที่ผู้เรียนเห็นต่อการทำ 1 ครั้ง (สุ่มจากคลัง)">ผู้เรียนเห็น</th>
+          <th style="text-align:right;width:120px"></th>
         </tr></thead>
         <tbody id="qz-tbody-${id}">${_renderQuizRowsFor(id === 'svc' ? 'Service' : 'Cook')}</tbody>
       </table>
     </div>`;
+
   return `
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
-      <div class="page-hero-sub">${modules.length} Module · ${activeQ}/${totalQ} ข้อเปิดใช้งาน</div>
+      <div class="page-hero-sub">${modules.length} Module · คลังคำถามทั้งหมด ${totalQ} ข้อ</div>
     </div>
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    ${stat(modules.length, 'Module ทั้งหมด', 'var(--text)')}
+    ${stat(activeQ, 'ข้อเปิดใช้งาน', 'var(--green)', `จาก ${totalQ} ข้อในคลัง`)}
+    ${stat(QUIZ_PICK + ' ข้อ', 'ผู้เรียนเห็นต่อครั้ง', 'var(--accent)', 'สุ่มจากข้อที่เปิดใช้งาน')}
+    ${stat(lowMods, 'Module เปิดน้อยกว่า ' + QUIZ_PICK, lowMods ? '#D97706' : 'var(--green)', lowMods ? 'ผู้เรียนเห็นไม่ครบ' : 'ครบทุก Module')}
+  </div>
+  <div style="margin-bottom:14px;padding:11px 15px;background:var(--accent-light);border:1px solid var(--accent)33;border-radius:11px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบ <b>ครั้งละ ${QUIZ_PICK} ข้อ</b> โดยสุ่มจากคลังคำถามที่เปิดใช้งานของแต่ละ Module
   </div>
   <div style="margin-bottom:14px">
     <input class="search-input" placeholder="🔍 ค้นหา Module..." oninput="setQuizSearch(this.value)" style="width:100%;max-width:400px">
   </div>
-  ${sectionTable('svc', '#16A34A', '🍽 กลุ่มบริการ', svcCount)}
-  ${sectionTable('cook', '#DC2626', '👨‍🍳 กลุ่มครัว', cookCount)}`;
+  ${sectionTable('svc', '#16A34A', '🍽 กลุ่มบริการ', svcMods)}
+  ${sectionTable('cook', '#DC2626', '👨‍🍳 กลุ่มครัว', cookMods)}`;
 }
 
 function getAllQuestionsForModule(mid, includeDeleted) {
