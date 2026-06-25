@@ -11141,7 +11141,7 @@ function toggleQuizActive(uid, mid) {
   const idx = arr.indexOf(uid);
   if (idx >= 0) arr.splice(idx, 1); else arr.push(uid);
   saveQuizMeta();
-  openQuizListModal(mid);
+  openQuizListModal(mid, true);
 }
 
 function deleteQuizQuestion(uid, source, mid, refresh) {
@@ -11171,7 +11171,10 @@ function saveQuizMeta() {
   } catch(_) {}
 }
 
-function openQuizListModal(mid) {
+let _quizListScroll = 0;
+function openQuizListModal(mid, restore) {
+  // เปิดใหม่จากการ์ด = เริ่มบนสุด · รีเฟรช (ลบ/แก้/เปิด-ปิด) = คงตำแหน่ง scroll เดิม
+  if (!restore) _quizListScroll = 0;
   const all = getAllQuestionsForModule(mid);
   const m = MODULES[mid];
   const activeCount = all.filter(q => isQuizActive(q.uid)).length;
@@ -11191,7 +11194,7 @@ function openQuizListModal(mid) {
             ${srcBadge[q.source]||''}
             <button class="btn btn-sm btn-outline" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
             <button class="btn btn-sm ${active?'btn-outline':'btn-green'}" onclick="toggleQuizActive('${q.uid}','${mid}')" title="${active?'ปิดใช้งาน':'เปิดใช้งาน'}">${active?'⏸ ปิด':'▶ เปิด'}</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openQuizListModal('${mid}'))">ลบ</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openQuizListModal('${mid}',true))">ลบ</button>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px">
@@ -11199,6 +11202,12 @@ function openQuizListModal(mid) {
         </div>
       </div>`;}).join('')}
   `, null, 'ปิด');
+  // คืนตำแหน่ง scroll + คอยจำตำแหน่งล่าสุด (กันเด้งกลับข้อ 1 ตอนลบ/แก้/เปิด-ปิด)
+  const _qlBody = document.querySelector('#modal-overlay .modal-body');
+  if (_qlBody) {
+    _qlBody.scrollTop = _quizListScroll;
+    _qlBody.addEventListener('scroll', () => { _quizListScroll = _qlBody.scrollTop; }, { passive: true });
+  }
 }
 
 function openAddQuizChooser(mid) {
@@ -11238,7 +11247,7 @@ function openAddQuizModal(mid) {
     gsSave('customQuiz', newQ.id, newQ);
     closeModal();
     notify('เพิ่มคำถามสำเร็จ');
-    openQuizListModal(mid);
+    openQuizListModal(mid, true);
   }, 'บันทึก');
 }
 
@@ -11280,7 +11289,7 @@ function openEditQuizModal(uid, source, mid) {
     }
     closeModal();
     notify('บันทึกการแก้ไขแล้ว');
-    openQuizListModal(mid);
+    openQuizListModal(mid, true);
   }, 'บันทึก');
 }
 
@@ -11370,7 +11379,7 @@ function openAiQuizModal(mid) {
         }
         closeModal();
         notify(`บันทึก ${records.length} ข้อสำเร็จ${rejected.length?` (จำ ${rejected.length} ข้อที่ไม่เลือกไว้ AI จะไม่คิดซ้ำ)`:''}`);
-        openQuizListModal(mid);
+        openQuizListModal(mid, true);
       } catch(e) { notify('Error: ' + e.message, 'error'); console.error(e); }
       return;
     }
