@@ -11352,10 +11352,10 @@ function openAiQuizModal(mid) {
         ${m.subtopics.map((s,i)=>`
           <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface2);border-radius:8px">
             <span style="font-size:13.5px;color:var(--text);flex:1;line-height:1.4">${s}</span>
-            <input type="number" class="form-input aq-num-input" id="aq-sub-${i}" value="5" min="0" max="20" oninput="_updateAqTotal()">
+            <input type="number" class="form-input aq-num-input" id="aq-sub-${i}" value="5" min="0" oninput="_updateAqTotal()">
           </div>`).join('')}
       </div>
-      <div style="font-size:11px;color:var(--text4);margin-top:8px;text-align:right">ใส่ 0 เพื่อข้ามหัวข้อ · รวมไม่เกิน 30 ข้อ</div>
+      <div style="font-size:11px;color:var(--text4);margin-top:8px;text-align:right">ใส่ 0 เพื่อข้ามหัวข้อ · สร้างได้ไม่จำกัดจำนวน (ถ้าใส่เยอะ AI อาจใช้เวลานานขึ้น)</div>
     </div>
     <div class="form-full">
       <label class="form-label">โฟกัสเพิ่มเติม</label>
@@ -11411,7 +11411,6 @@ function openAiQuizModal(mid) {
       return;
     }
     if (n === 0) { notify('กรุณาใส่จำนวนข้ออย่างน้อย 1 ข้อ', 'error'); return; }
-    if (n > 30) { notify('รวมห้ามเกิน 30 ข้อ', 'error'); return; }
     resBox.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">⏳ กำลังเรียก Claude API...</div>';
     try {
       const generated = await generateQuizWithAi(mid, n, focus, perSub);
