@@ -4108,6 +4108,14 @@ try {
     DB.courseHistory = _c.courseHistory || [];
   }
 } catch(_) {}
+// cache เคสแยก (เก็บใน Sheets อย่างเดียว โหลดช้า) → โชว์จาก cache ทันที แล้วค่อยอัปเดต
+try {
+  const _cc = JSON.parse(localStorage.getItem('opt_cases_cache') || 'null');
+  if (Array.isArray(_cc)) DB.cases = _cc;
+} catch(_) {}
+function _cacheCases() {
+  try { localStorage.setItem('opt_cases_cache', JSON.stringify(DB.cases || [])); } catch(_) {}
+}
 
 // ==================== GOOGLE SHEETS (mirror / backup) ====================
 const GS_URL = 'https://script.google.com/macros/s/AKfycbzv_7Ez3hKNVpyLoxDMHr3EgmF83jIUulNETfOoEOyHr5OFxrHgFh1fTJ3wzgyXr36S/exec';
@@ -4374,6 +4382,10 @@ async function _loadAuxFromSheets() {
         if (!Array.isArray(c.messages)) c.messages = [];
         return c;
       });
+      _cacheCases();   // เก็บ cache เคส → ครั้งหน้าโชว์ทันที
+      // ถ้ากำลังเปิดหน้าเคสอยู่ → re-render ให้เห็นข้อมูลล่าสุด + อัปเดต badge
+      try { if (currentUser && currentPage === 'admin-cases') showPage('admin-cases'); } catch(_) {}
+      try { refreshCaseBadge(); } catch(_) {}
     }
     if (Array.isArray(data.adminUsers)) {
       // id is the PIN code — coerce to string (Sheets auto-numeric like '601183' → 601183)
@@ -13265,7 +13277,7 @@ function showBlockModal(dup) {
         </div>
       </div>
       <div style="font-size:12.5px;color:var(--text2);background:var(--accent-light);border:1px solid rgba(240,112,26,.25);border-radius:8px;padding:10px 14px;width:100%;text-align:center;margin-top:4px">
-        💼 กรุณาติดต่อ <b style="color:var(--accent)">Team Management</b> เพื่อดำเนินการ
+        💼 กรุณาติดต่อที่เมนู <b style="color:var(--accent)">📨 ติดต่อ Admin</b> เพื่อดำเนินการ
       </div>
       <div style="margin-top:8px;text-align:center;width:100%">
         <button class="btn btn-accent" style="width:160px;display:inline-flex;justify-content:center;padding:11px 0" onclick="closeModal()">รับทราบ</button>
@@ -13301,7 +13313,7 @@ function showLockModal(emp) {
         </div>
       </div>
       <div style="font-size:12.5px;color:var(--text2);background:var(--accent-light);border:1px solid rgba(240,112,26,.25);border-radius:8px;padding:10px 14px;width:100%;text-align:center;margin-top:4px">
-        💼 หากต้องการแก้ไข กรุณาติดต่อ <b style="color:var(--accent)">Team Management</b>
+        💼 หากต้องการแก้ไข กรุณาติดต่อที่เมนู <b style="color:var(--accent)">📨 ติดต่อ Admin</b>
       </div>
       <div style="margin-top:8px;text-align:center;width:100%">
         <button class="btn btn-accent" style="width:160px;display:inline-flex;justify-content:center;padding:11px 0" onclick="closeModal()">รับทราบ</button>
