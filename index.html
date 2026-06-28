@@ -13297,10 +13297,12 @@ function showLockModal(emp) {
     : `<span style="color:var(--text3);font-style:italic;font-weight:500">ไม่ระบุ</span>`;
   const br = emp.branchId ? `${emp.branchId}${BRANCH_MASTER[emp.branchId]?.name ? ' ' + BRANCH_MASTER[emp.branchId].name.replace(emp.branchId+' ','') : ''}` : '';
   ov.innerHTML = `<div class="modal welcome-modal" style="max-width:400px;overflow:hidden;padding:0">
-    <div style="background:linear-gradient(135deg,#F59E0B,#D97706);padding:26px 24px 22px;text-align:center;color:#fff">
-      <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px">🔒</div>
-      <div style="font-size:19px;font-weight:800;">ไม่สามารถแก้ไขได้</div>
-      <div style="font-size:12.5px;opacity:.92;margin-top:5px;line-height:1.5">พนักงานคนนี้ถูกปิดการใช้งานแล้ว<br>สาขาไม่สามารถแก้ไขข้อมูลได้</div>
+    <div style="position:relative;background:linear-gradient(135deg,#FB923C 0%,#EA580C 100%);padding:30px 24px 24px;text-align:center;color:#fff;overflow:hidden">
+      <div style="position:absolute;top:-40px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.10)"></div>
+      <div style="position:absolute;bottom:-50px;left:-20px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.08)"></div>
+      <div style="position:relative;width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.95);box-shadow:0 6px 18px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px">🔒</div>
+      <div style="position:relative;font-size:20px;font-weight:900;letter-spacing:-.3px">ไม่สามารถแก้ไขได้</div>
+      <div style="position:relative;font-size:12.5px;opacity:.95;margin-top:6px;line-height:1.5">พนักงานคนนี้ถูกปิดการใช้งานแล้ว · สาขาแก้ไขข้อมูลไม่ได้</div>
     </div>
     <div style="padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
