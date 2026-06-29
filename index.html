@@ -441,17 +441,6 @@
   .stat-value-blue, .stat-value-green, .stat-value-yellow, .stat-value-purple, .stat-value-red { color: var(--text); }
   .stat-label { font-size: 12.5px; color: var(--text2); margin-top: 4px; font-weight: 500; }
 
-  /* Role count cards (จัดการผู้ใช้งาน) — colored frame keyed by --rc */
-  .role-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .role-stat { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
-  .role-stat::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rc); }
-  .role-stat::after { content: ''; position: absolute; right: -28px; top: -28px; width: 88px; height: 88px; border-radius: 50%; background: var(--rc); opacity: .08; pointer-events: none; }
-  .role-stat:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--rc) 45%, var(--border)); box-shadow: 0 8px 20px color-mix(in srgb, var(--rc) 22%, transparent); }
-  .role-stat-icon { flex: 0 0 auto; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 19px; border-radius: 11px; background: color-mix(in srgb, var(--rc) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--rc) 28%, transparent); }
-  .role-stat-body { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
-  .role-stat-value { font-size: 26px; font-weight: 800; color: var(--rc); letter-spacing: -.5px; font-family: 'IBM Plex Sans Thai', sans-serif; }
-  .role-stat-label { font-size: 11.5px; font-weight: 700; color: var(--text2); margin-top: 3px; text-transform: uppercase; letter-spacing: .5px; }
-
   /* ==================== TABLE ==================== */
   .table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
   table { width: 100%; border-collapse: collapse; }
@@ -12286,10 +12275,6 @@ function renderAdminUsers() {
     return (a.name||'').localeCompare(b.name||'', 'th');
   });
 
-  // Stats per role
-  const byRole = { admin:0, bzm:0, vp:0, coo:0 };
-  rows.forEach(r => { if (byRole[r.role] != null) byRole[r.role]++; });
-
   return `
   <div class="page-hero">
     <div class="page-hero-body">
@@ -12297,22 +12282,6 @@ function renderAdminUsers() {
       <div class="page-hero-sub">เพิ่ม / แก้ไข / ลบ รหัส Team Management — รหัสที่เพิ่มที่นี่ใช้ login ได้ทันที</div>
     </div>
     <button class="btn btn-navy" onclick="openAddAdminUser()">+ เพิ่มผู้ใช้</button>
-  </div>
-
-  <div class="role-stat-grid">
-    ${[
-      { key:'admin', label:'Admin', color:'#DC2626', icon:'🛡️' },
-      { key:'coo',   label:'COO',   color:'#7C3AED', icon:'💼' },
-      { key:'vp',    label:'VP',    color:'#8B5CF6', icon:'⭐' },
-      { key:'bzm',   label:'BZM',   color:'#3B82F6', icon:'🧭' },
-    ].map(c => `
-      <div class="role-stat" style="--rc:${c.color}">
-        <span class="role-stat-icon">${c.icon}</span>
-        <div class="role-stat-body">
-          <div class="role-stat-value">${byRole[c.key]}</div>
-          <div class="role-stat-label">${c.label}</div>
-        </div>
-      </div>`).join('')}
   </div>
 
   <div class="card" style="margin-bottom:14px;padding:10px 12px">
