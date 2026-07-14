@@ -11425,11 +11425,11 @@ function renderAdminQuiz() {
     ${stat(QUIZ_PICK + ' ข้อ', 'ค่าเริ่มต้น/ครั้ง', 'var(--accent)', 'ปรับแยกราย Module ได้')}
     ${stat(lowMods, 'Module ข้อไม่พอ', lowMods ? '#D97706' : 'var(--green)', lowMods ? 'เปิดใช้ < ที่ตั้งไว้' : 'ครบทุก Module')}
   </div>
-  <div style="margin-bottom:14px;padding:11px 15px;background:var(--accent-light);border:1px solid var(--accent)33;border-radius:11px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
-    <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบตาม<b>จำนวนที่ตั้งไว้ของแต่ละ Module</b> (ค่าเริ่มต้น ${QUIZ_PICK} ข้อ) โดยสุ่มจากคลังที่เปิดใช้งาน — ปรับได้ที่ช่อง <b>"ต้องทำ/ครั้ง"</b>
-  </div>
-  <div style="margin-bottom:14px">
-    <input class="search-input" placeholder="🔍 ค้นหา Module..." oninput="setQuizSearch(this.value)" style="width:100%;max-width:400px">
+  <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
+    <input class="search-input" placeholder="🔍 ค้นหา Module..." oninput="setQuizSearch(this.value)" style="flex:0 1 320px;min-width:200px">
+    <div style="flex:1;min-width:260px;padding:11px 15px;background:var(--accent-light);border:1px solid var(--accent)33;border-radius:11px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบตาม<b>จำนวนที่ตั้งไว้ของแต่ละ Module</b> (ค่าเริ่มต้น ${QUIZ_PICK} ข้อ) โดยสุ่มจากคลังที่เปิดใช้งาน — ปรับได้ที่ช่อง <b>"ต้องทำ/ครั้ง"</b>
+    </div>
   </div>
   ${sectionTable('svc', '#16A34A', '🍽 กลุ่มบริการ', svcMods)}
   ${sectionTable('cook', '#DC2626', '👨‍🍳 กลุ่มครัว', cookMods)}`;
