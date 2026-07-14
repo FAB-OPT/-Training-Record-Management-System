@@ -11643,22 +11643,25 @@ function openImportQuizModal(targetMid) {
       <span id="imp-count" style="font-size:12px;color:var(--text2);font-weight:600"></span>
     </div>
     <div id="imp-list" style="max-height:46vh;overflow:auto"></div>
-  `, () => {
+  `, async () => {
     const srcMid = document.getElementById('imp-src').value;
     const checked = Array.from(document.querySelectorAll('.imp-chk:checked')).map(c => c.value);
     if (!checked.length) { notify('ยังไม่ได้เลือกข้อสอบ', 'error'); return; }
     const all = getAllQuestionsForModule(srcMid, false);
-    let n = 0;
+    const newQs = [];
     checked.forEach(uid => {
       const q = all.find(x => x.uid === uid);
       if (!q) return;
-      const newQ = { id: genId('CQ'), moduleId: targetMid, q: q.q, opts: { ...q.opts }, ans: q.ans, createdAt: new Date().toISOString() };
-      DB.customQuiz.push(newQ);
-      gsSave('customQuiz', newQ.id, newQ);
-      n++;
+      newQs.push({ id: genId('CQ'), moduleId: targetMid, q: q.q, opts: { ...q.opts }, ans: q.ans, createdAt: new Date().toISOString() });
     });
+    if (!newQs.length) { notify('ไม่พบข้อสอบที่เลือก', 'error'); return; }
+    DB.customQuiz.push(...newQs);
+    // บันทึกแบบ batch แล้ว "รอให้เสร็จ" ก่อนปิด — กัน auto-sync (ทุก 30 วิ) ดึง cloud มาทับ DB.customQuiz
+    // ก่อนข้อที่นำเข้าจะบันทึกเสร็จ → ข้อที่นำเข้าเลยหาย (เดิมยิงทีละข้อ async หลายข้อ บาง req หลุด)
+    try { await sbSaveMany('customQuiz', newQs); } catch (e) { console.warn('import SB save failed', e); }
+    gsPost({ action: 'save_many', collection: 'customQuiz', records: newQs });
     closeModal();
-    notify(`นำเข้า ${n} ข้อ → ${tgt.name} สำเร็จ`);
+    notify(`นำเข้า ${newQs.length} ข้อ → ${tgt.name} สำเร็จ`);
     if (currentPage === 'admin-quiz') showPage('admin-quiz');
     openQuizListModal(targetMid, true);
   }, 'นำเข้าที่เลือก');
