@@ -11375,6 +11375,13 @@ function openDupCheckAll() {
   showModal('🔍 ตรวจข้อสอบซ้ำ/คล้าย — ทุก Module', body, null, 'ปิด');
 }
 
+// รีเฟรชหน้าจัดการข้อสอบ — ดึงข้อมูลล่าสุดจาก Cloud แล้วเรนเดอร์ใหม่
+async function refreshAdminQuiz(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ กำลังรีเฟรช...'; }
+  try { if (typeof gsLoad === 'function') await gsLoad(); } catch (e) { console.warn('refreshAdminQuiz: gsLoad failed', e); }
+  showPage('admin-quiz');   // เรนเดอร์ใหม่ (ปุ่มถูกสร้างใหม่ เลยไม่ต้องรีเซ็ตข้อความเอง)
+  notify('รีเฟรชข้อมูลข้อสอบแล้ว');
+}
 function renderAdminQuiz() {
   const modules = Object.keys(MODULES);
   let totalQ = 0, activeQ = 0;
@@ -11416,6 +11423,7 @@ function renderAdminQuiz() {
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
     </div>
+    <button class="btn btn-outline" onclick="refreshAdminQuiz(this)" title="ดึงข้อมูลล่าสุดจาก Cloud แล้วแสดงใหม่">⟳ รีเฟรช</button>
     <button class="btn btn-navy" onclick="openDupCheckAll()">🔍 ตรวจข้อสอบซ้ำ</button>
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
