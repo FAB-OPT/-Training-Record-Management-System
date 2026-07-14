@@ -163,7 +163,16 @@ function generateAiQuiz(req) {
 
     var arr;
     try { arr = JSON.parse(jsonStr); }
-    catch (e) { return { error: 'AI ตอบ JSON ไม่ถูกต้อง: ' + e.message }; }
+    catch (e1) {
+      // AI มักตอบ JSON เพี้ยนเล็กน้อย — ลองซ่อมแล้ว parse ใหม่
+      var fixed = jsonStr
+        .replace(/```(?:json)?/gi, '')                 // เผลอใส่ code fence
+        .replace(/,\s*([}\]])/g, '$1')                 // trailing comma หน้า } หรือ ]  ← สาเหตุที่พบบ่อย
+        .replace(/\}\s*\{/g, '},{')                    // ลืมคอมมาระหว่าง object
+        .replace(/\]\s*\[/g, '],[');
+      try { arr = JSON.parse(fixed); }
+      catch (e2) { return { error: 'AI ตอบ JSON ไม่ถูกต้อง: ' + e2.message }; }
+    }
 
     const valid = arr.filter(function(q){
       return q && q.q && q.opts && q.opts.A && q.opts.B && q.opts.C && q.opts.D
