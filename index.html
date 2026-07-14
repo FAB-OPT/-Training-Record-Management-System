@@ -11547,7 +11547,7 @@ function openAddQuizChooser(mid) {
   const m = MODULES[mid];
   showModal(`+ เพิ่มคำถาม · ${m.name}`, `
     <p style="margin-bottom:18px;color:var(--text2);font-size:13.5px">เลือกวิธีเพิ่มคำถาม</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
       <button onclick="closeModal();openAddQuizModal('${mid}')" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:24px 18px;cursor:pointer;text-align:left;font-family:'Sarabun',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
         <div style="font-size:32px;margin-bottom:8px">✍️</div>
         <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">เพิ่มเอง</div>
@@ -11558,8 +11558,76 @@ function openAddQuizChooser(mid) {
         <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">AI คิดให้</div>
         <div style="font-size:12px;color:var(--text2)">Claude สร้างคำถามจากหัวข้อ</div>
       </button>
+      <button onclick="closeModal();openImportQuizModal('${mid}')" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:24px 18px;cursor:pointer;text-align:left;font-family:'Sarabun',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <div style="font-size:32px;margin-bottom:8px">📥</div>
+        <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">นำเข้าจากที่อื่น</div>
+        <div style="font-size:12px;color:var(--text2)">ดึงข้อสอบจาก Module อื่น (เช่น บริการ → ครัว)</div>
+      </button>
     </div>
   `, null, 'ปิด');
+}
+
+// ══════════ นำเข้าข้อสอบจาก Module อื่น (เช่น บริการ → ครัว) แบบเลือกได้ ══════════
+function openImportQuizModal(targetMid) {
+  const tgt = MODULES[targetMid];
+  // แหล่งนำเข้า = ทุก Module ยกเว้นตัวเอง · เรียงกลุ่มบริการก่อน (ให้เลือกง่าย)
+  const order = { Service: 0, Cook: 1 };
+  const srcMods = Object.keys(MODULES).filter(m => m !== targetMid)
+    .sort((a, b) => (order[MODULES[a].group] - order[MODULES[b].group]) || MODULES[a].name.localeCompare(MODULES[b].name, 'th'));
+  if (!srcMods.length) { notify('ไม่มี Module อื่นให้นำเข้า', 'error'); return; }
+  const optHtml = srcMods.map(m => `<option value="${m}">${MODULES[m].group === 'Service' ? '🍽 บริการ' : '👨‍🍳 ครัว'} · ${MODULES[m].name}</option>`).join('');
+  showModal(`📥 นำเข้าข้อสอบ → ${tgt.name}`, `
+    <div style="margin-bottom:12px">
+      <label class="form-label">เลือก Module ต้นทาง</label>
+      <select class="form-select" id="imp-src" onchange="_renderImportList()">${optHtml}</select>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="imp-all" onchange="_toggleImportAll(this.checked)"> เลือกทั้งหมด</label>
+      <span id="imp-count" style="font-size:12px;color:var(--text2);font-weight:600"></span>
+    </div>
+    <div id="imp-list" style="max-height:46vh;overflow:auto"></div>
+  `, () => {
+    const srcMid = document.getElementById('imp-src').value;
+    const checked = Array.from(document.querySelectorAll('.imp-chk:checked')).map(c => c.value);
+    if (!checked.length) { notify('ยังไม่ได้เลือกข้อสอบ', 'error'); return; }
+    const all = getAllQuestionsForModule(srcMid, false);
+    let n = 0;
+    checked.forEach(uid => {
+      const q = all.find(x => x.uid === uid);
+      if (!q) return;
+      const newQ = { id: genId('CQ'), moduleId: targetMid, q: q.q, opts: { ...q.opts }, ans: q.ans, createdAt: new Date().toISOString() };
+      DB.customQuiz.push(newQ);
+      gsSave('customQuiz', newQ.id, newQ);
+      n++;
+    });
+    closeModal();
+    notify(`นำเข้า ${n} ข้อ → ${tgt.name} สำเร็จ`);
+    if (currentPage === 'admin-quiz') showPage('admin-quiz');
+    openQuizListModal(targetMid, true);
+  }, 'นำเข้าที่เลือก');
+  _renderImportList();
+}
+function _renderImportList() {
+  const sel = document.getElementById('imp-src'); if (!sel) return;
+  const list = document.getElementById('imp-list');
+  const all = getAllQuestionsForModule(sel.value, false);
+  if (!all.length) { list.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">Module นี้ยังไม่มีข้อสอบ</p>'; }
+  else list.innerHTML = all.map((q, i) => `
+    <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:var(--surface)">
+      <input type="checkbox" class="imp-chk" value="${q.uid}" onchange="_updImportCount()" style="margin-top:3px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${i + 1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:3px">เฉลย: ${q.ans}. ${q.opts[q.ans] || ''}</div>
+      </div>
+    </label>`).join('');
+  const allChk = document.getElementById('imp-all'); if (allChk) allChk.checked = false;
+  _updImportCount();
+}
+function _toggleImportAll(on) { document.querySelectorAll('.imp-chk').forEach(c => c.checked = on); _updImportCount(); }
+function _updImportCount() {
+  const total = document.querySelectorAll('.imp-chk').length;
+  const selN = document.querySelectorAll('.imp-chk:checked').length;
+  const el = document.getElementById('imp-count'); if (el) el.textContent = `เลือก ${selN}/${total} ข้อ`;
 }
 
 function openAddQuizModal(mid) {
