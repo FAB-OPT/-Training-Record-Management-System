@@ -11260,14 +11260,72 @@ function _simBadge(r) {
 }
 function _dupQuestionCard(q, mid) {
   const label = { base:'เริ่มต้น', pool:'กลุ่ม', custom:'เพิ่มเอง' }[q.source] || '';
-  return `<div style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;background:var(--surface)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.45">${(q.q||'').replace(/^\d+[\.\s]+/, '')}</div>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <span style="font-size:11px;color:var(--text3);font-weight:600">${label}</span>
-      <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openDupCheckModal('${mid}'))">🗑 ลบข้อนี้</button>
+  return `<div class="dup-card" data-uid="${q.uid}" style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;background:var(--surface);display:flex;gap:10px;align-items:flex-start;transition:border-color .12s,background .12s">
+    <input type="checkbox" class="dup-chk" data-uid="${q.uid}" data-source="${q.source}" onchange="_syncDupChk(this)" title="เลือกเพื่อลบพร้อมกัน" style="width:18px;height:18px;margin-top:2px;flex-shrink:0;cursor:pointer;accent-color:var(--accent)">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.45">${(q.q||'').replace(/^\d+[\.\s]+/, '')}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3);font-weight:600">${label}</span>
+        <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openDupCheckModal('${mid}'))">🗑 ลบข้อนี้</button>
+      </div>
     </div>
   </div>`;
+}
+// เลือกการ์ดซ้ำ/คล้าย → ไฮไลต์ + sync ทุกการ์ดที่เป็นข้อเดียวกัน (uid เดียวกันอาจโผล่หลายคู่)
+function _syncDupChk(cb) {
+  document.querySelectorAll('#modal-overlay .dup-chk[data-uid="' + cb.dataset.uid + '"]').forEach(o => {
+    o.checked = cb.checked;
+    const card = o.closest('.dup-card');
+    if (card) { card.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)'; card.style.background = cb.checked ? 'var(--accent-light)' : 'var(--surface)'; }
+  });
+  _updateDupBulkBar();
+}
+function _updateDupBulkBar() {
+  const n = new Set([...document.querySelectorAll('#modal-overlay .dup-chk:checked')].map(cb => cb.dataset.uid)).size;
+  const cnt = document.getElementById('dup-bulk-count'); if (cnt) cnt.textContent = n;
+  const bar = document.getElementById('dup-bulk-bar'); if (bar) bar.style.display = n ? 'flex' : 'none';
+}
+function _selectedDupUids() {
+  const map = new Map();
+  document.querySelectorAll('#modal-overlay .dup-chk:checked').forEach(cb => map.set(cb.dataset.uid, cb.dataset.source));
+  return [...map.entries()].map(([uid, source]) => ({ uid, source }));
+}
+// ติ๊ก "ข้อซ้ำเป๊ะ" อัตโนมัติ — เก็บข้อแรกของแต่ละกลุ่มโจทย์เหมือนกัน เลือกที่เหลือ (ตัวซ้ำ)
+function autoSelectExactDups(mid) {
+  const seen = new Set(), toSelect = new Set();
+  getAllQuestionsForModule(mid).forEach(q => {
+    const norm = _normQuizText(q.q);
+    if (!norm) return;
+    if (seen.has(norm)) toSelect.add(q.uid); else seen.add(norm);
+  });
+  document.querySelectorAll('#modal-overlay .dup-chk').forEach(cb => {
+    cb.checked = toSelect.has(cb.dataset.uid);
+    const card = cb.closest('.dup-card');
+    if (card) { card.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)'; card.style.background = cb.checked ? 'var(--accent-light)' : 'var(--surface)'; }
+  });
+  _updateDupBulkBar();
+  const n = toSelect.size;
+  notify(n ? `ติ๊กข้อซ้ำเป๊ะ ${n} ข้อ (เก็บไว้ 1 ข้อต่อกลุ่ม)` : 'ไม่พบข้อซ้ำเป๊ะให้ติ๊กอัตโนมัติ');
+}
+function bulkDeleteDupQuestions(mid) {
+  const sel = _selectedDupUids();
+  if (!sel.length) { notify('ยังไม่ได้เลือกข้อ', 'error'); return; }
+  showConfirm(`ลบ ${sel.length} คำถามที่เลือกออกจากคลัง?`, () => {
+    if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+    DB.quizMeta.deleted = DB.quizMeta.deleted || [];
+    sel.forEach(({ uid, source }) => {
+      if (source === 'custom') {
+        DB.customQuiz = DB.customQuiz.filter(q => q.id !== uid);
+        gsDel('customQuiz', uid);
+      } else if (!DB.quizMeta.deleted.includes(uid)) {
+        DB.quizMeta.deleted.push(uid);
+      }
+    });
+    saveQuizMeta();
+    notify(`ลบ ${sel.length} คำถามแล้ว`);
+    openDupCheckModal(mid);
+  }, { title: 'ลบคำถามที่เลือก', icon: '🗑' });
 }
 function openDupCheckModal(mid) {
   const m = MODULES[mid];
@@ -11276,7 +11334,14 @@ function openDupCheckModal(mid) {
   const highN  = pairs.filter(p => !p.exact && p.sim >= 0.85).length;
   const simN   = pairs.length - exactN - highN;
   const summary = pairs.length
-    ? `<div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.6">พบ <b style="color:var(--accent)">${pairs.length}</b> คู่ที่อาจซ้ำ/คล้ายกัน${exactN?` · <b style="color:#B91C1C">ซ้ำเป๊ะ ${exactN}</b>`:''}${highN?` · <b style="color:#C2410C">คล้ายมาก ${highN}</b>`:''}${simN?` · คล้ายกัน ${simN}`:''}<br>ลบหรือแก้ข้อที่ไม่ต้องการ (ลบข้อใดข้อหนึ่งในแต่ละคู่)</div>`
+    ? `<div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.6">พบ <b style="color:var(--accent)">${pairs.length}</b> คู่ที่อาจซ้ำ/คล้ายกัน${exactN?` · <b style="color:#B91C1C">ซ้ำเป๊ะ ${exactN}</b>`:''}${highN?` · <b style="color:#C2410C">คล้ายมาก ${highN}</b>`:''}${simN?` · คล้ายกัน ${simN}`:''}<br>ติ๊กเลือกหลายข้อแล้วกด "ลบที่เลือก" — หรือลบ/แก้ทีละข้อ</div>
+       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+         <button class="btn btn-sm btn-outline" onclick="autoSelectExactDups('${mid}')" title="ติ๊กตัวซ้ำอัตโนมัติ (เก็บ 1 ข้อต่อกลุ่ม)">✓ ติ๊กข้อซ้ำเป๊ะอัตโนมัติ</button>
+       </div>
+       <div id="dup-bulk-bar" style="display:none;position:sticky;top:0;z-index:6;align-items:center;gap:10px;padding:10px 14px;margin-bottom:12px;background:var(--accent);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.16)">
+         <span style="color:#fff;font-weight:700;font-size:13px">เลือกแล้ว <b id="dup-bulk-count">0</b> ข้อ</span>
+         <button class="btn btn-sm" style="margin-left:auto;background:#fff;color:#B91C1C;font-weight:800;border:0" onclick="bulkDeleteDupQuestions('${mid}')">🗑 ลบที่เลือก</button>
+       </div>`
     : '';
   const list = pairs.length === 0
     ? `<div style="text-align:center;padding:28px 20px"><div style="font-size:42px;margin-bottom:10px">✅</div><div style="font-weight:800;font-size:15.5px;color:var(--text)">ไม่พบคำถามซ้ำหรือคล้ายกัน</div><div style="font-size:12.5px;color:var(--text3);margin-top:5px">ที่ระดับนี้ คลังของ ${m.name} สะอาดดี — ลองปรับเป็น "หลวม" เพื่อตรวจละเอียดขึ้น</div></div>`
