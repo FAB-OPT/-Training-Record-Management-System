@@ -11183,39 +11183,80 @@ function _jaccard(a, b) {
   a.forEach(x => { if (b.has(x)) inter++; });
   return inter / (a.size + b.size - inter);
 }
-// หาคู่คำถามที่ซ้ำ/คล้ายภายใน Module → [{a,b,sim}] เรียงจากคล้ายมากสุด
-function findSimilarQuestions(mid, threshold) {
-  threshold = threshold || 0.72;
-  const qs = getAllQuestionsForModule(mid).map(q => {
-    const norm = _normQuizText(q.q);
-    return { q, norm, tri: _trigramSet(norm) };
+// ระดับความเข้มการตรวจ (ปรับได้ในป็อปอัพ) — ยิ่งต่ำยิ่งจับเยอะ
+let _dupThreshold = 0.72;
+const DUP_LEVELS = [['หลวม', 0.60], ['ปกติ', 0.72], ['เข้ม', 0.82]];
+
+// เตรียมข้อมูลคำถาม 1 ข้อ (norm + trigram ของโจทย์ + trigram ของแต่ละตัวเลือก)
+function _prepQ(q) {
+  const norm = _normQuizText(q.q);
+  const optTri = ['A','B','C','D']
+    .map(k => _normQuizText(q.opts && q.opts[k] != null ? q.opts[k] : ''))
+    .filter(Boolean)
+    .map(_trigramSet);
+  return { q, norm, tri: _trigramSet(norm), optTri };
+}
+// ความคล้ายของชุดตัวเลือก (ไม่สนลำดับ A/B/C/D) — เฉลี่ย best-match ต่อ 1 ตัวเลือก
+function _optsSimPrep(aTri, bTri) {
+  if (!aTri.length || !bTri.length) return 0;
+  let sum = 0;
+  aTri.forEach(ta => {
+    let best = 0;
+    bTri.forEach(tb => { const s = _jaccard(ta, tb); if (s > best) best = s; });
+    sum += best;
   });
+  return sum / aTri.length;
+}
+// ความคล้ายรวม: โจทย์เป็นหลัก + ตัวเลือกช่วยเสริม · โจทย์ตรงเป๊ะ = ซ้ำ (1.0)
+// ตัวเลือกเหมือนกันเกือบหมด + โจทย์คล้ายบ้าง → ดันขึ้นเพราะเป็นสัญญาณข้อซ้ำที่ชัด
+function _simPrep(a, b) {
+  const exact = !!a.norm && a.norm === b.norm;
+  const stemSim = exact ? 1 : _jaccard(a.tri, b.tri);
+  const optsSim = _optsSimPrep(a.optTri, b.optTri);
+  let sim = exact ? 1 : Math.max(stemSim, 0.6 * stemSim + 0.4 * optsSim);
+  if (!exact && optsSim >= 0.9 && stemSim >= 0.45) sim = Math.max(sim, 0.8);
+  return { sim, stemSim, optsSim, exact };
+}
+function _questionSim(qa, qb) { return _simPrep(_prepQ(qa), _prepQ(qb)); }
+
+// หาคู่คำถามที่ซ้ำ/คล้ายภายใน Module → [{a,b,sim,stemSim,optsSim,exact}] เรียงคล้ายมากสุดก่อน
+function findSimilarQuestions(mid, threshold) {
+  threshold = (threshold == null) ? _dupThreshold : threshold;
+  const qs = getAllQuestionsForModule(mid).map(_prepQ);
   const pairs = [];
   for (let i = 0; i < qs.length; i++) {
     for (let j = i + 1; j < qs.length; j++) {
-      const sim = (qs[i].norm && qs[i].norm === qs[j].norm) ? 1 : _jaccard(qs[i].tri, qs[j].tri);
-      if (sim >= threshold) pairs.push({ a: qs[i].q, b: qs[j].q, sim });
+      const r = _simPrep(qs[i], qs[j]);
+      if (r.sim >= threshold) pairs.push({ a: qs[i].q, b: qs[j].q, ...r });
     }
   }
   return pairs.sort((x, y) => y.sim - x.sim);
 }
-// หาคำถามในคลังที่คล้ายกับข้อความที่กำหนดมากที่สุด (ใช้ตอนสร้างด้วย AI)
-function findExistingSimilar(mid, text, threshold) {
-  threshold = threshold || 0.72;
-  const norm = _normQuizText(text);
-  const tri = _trigramSet(norm);
+// หาคำถามในคลังที่คล้ายกับข้อที่กำหนดมากที่สุด (รับได้ทั้ง object {q,opts} หรือข้อความ)
+function findExistingSimilar(mid, qArg, threshold) {
+  threshold = (threshold == null) ? _dupThreshold : threshold;
+  const cand = _prepQ(typeof qArg === 'string' ? { q: qArg, opts: {} } : qArg);
   let best = null;
   getAllQuestionsForModule(mid).forEach(q => {
-    const qn = _normQuizText(q.q);
-    const sim = (norm && norm === qn) ? 1 : _jaccard(tri, _trigramSet(qn));
-    if (sim >= threshold && (!best || sim > best.sim)) best = { q, sim };
+    const r = _simPrep(cand, _prepQ(q));
+    if (r.sim >= threshold && (!best || r.sim > best.sim)) best = { q, ...r };
   });
   return best;
 }
-function _simBadge(sim) {
-  return sim >= 0.999
-    ? '<span style="font-size:11px;font-weight:800;background:#FEE2E2;color:#B91C1C;padding:2px 9px;border-radius:999px">ซ้ำเป๊ะ</span>'
-    : `<span style="font-size:11px;font-weight:800;background:#FEF3C7;color:#B45309;padding:2px 9px;border-radius:999px">คล้าย ${Math.round(sim*100)}%</span>`;
+function setDupLevel(mid, t) { _dupThreshold = t; openDupCheckModal(mid); }
+function _dupLevelBar(mid) {
+  return `<div style="display:flex;align-items:center;gap:9px;margin-bottom:13px;flex-wrap:wrap">
+    <span style="font-size:12px;color:var(--text3);font-weight:700">ความเข้มการตรวจ</span>
+    <div style="display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      ${DUP_LEVELS.map(([label,t])=>{const on=Math.abs(_dupThreshold-t)<0.001;return `<button onclick="setDupLevel('${mid}',${t})" style="border:0;border-right:1px solid var(--border);padding:6px 14px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:${on?'var(--accent)':'var(--surface)'};color:${on?'#fff':'var(--text2)'}">${label}</button>`;}).join('')}
+    </div>
+    <span style="font-size:11px;color:var(--text4)">หลวม = จับเยอะ · เข้ม = เฉพาะที่คล้ายมาก</span>
+  </div>`;
+}
+function _simBadge(r) {
+  if (r.exact) return '<span style="font-size:11px;font-weight:800;background:#FEE2E2;color:#B91C1C;padding:2px 9px;border-radius:999px">ซ้ำกันเป๊ะ</span>';
+  if (r.sim >= 0.85) return `<span style="font-size:11px;font-weight:800;background:#FFEDD5;color:#C2410C;padding:2px 9px;border-radius:999px">คล้ายมาก ${Math.round(r.sim*100)}%</span>`;
+  return `<span style="font-size:11px;font-weight:800;background:#FEF3C7;color:#B45309;padding:2px 9px;border-radius:999px">คล้ายกัน ${Math.round(r.sim*100)}%</span>`;
 }
 function _dupQuestionCard(q, mid) {
   const label = { base:'เริ่มต้น', pool:'กลุ่ม', custom:'เพิ่มเอง' }[q.source] || '';
@@ -11230,15 +11271,21 @@ function _dupQuestionCard(q, mid) {
 }
 function openDupCheckModal(mid) {
   const m = MODULES[mid];
-  const pairs = findSimilarQuestions(mid, 0.72);
-  const body = pairs.length === 0
-    ? `<div style="text-align:center;padding:32px 20px"><div style="font-size:42px;margin-bottom:10px">✅</div><div style="font-weight:800;font-size:15.5px;color:var(--text)">ไม่พบคำถามซ้ำหรือคล้ายกัน</div><div style="font-size:12.5px;color:var(--text3);margin-top:5px">คลังของ ${m.name} สะอาดดี</div></div>`
-    : `<div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.6">พบ <b style="color:var(--accent)">${pairs.length}</b> คู่ที่อาจซ้ำหรือคล้ายกัน — ตรวจแล้ว <b>ลบ</b> หรือ <b>แก้</b> ข้อที่ไม่ต้องการ (ลบข้อใดข้อหนึ่งในแต่ละคู่)</div>` +
-      pairs.map((p,i)=>`
+  const pairs = findSimilarQuestions(mid);
+  const exactN = pairs.filter(p => p.exact).length;
+  const highN  = pairs.filter(p => !p.exact && p.sim >= 0.85).length;
+  const simN   = pairs.length - exactN - highN;
+  const summary = pairs.length
+    ? `<div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.6">พบ <b style="color:var(--accent)">${pairs.length}</b> คู่ที่อาจซ้ำ/คล้ายกัน${exactN?` · <b style="color:#B91C1C">ซ้ำเป๊ะ ${exactN}</b>`:''}${highN?` · <b style="color:#C2410C">คล้ายมาก ${highN}</b>`:''}${simN?` · คล้ายกัน ${simN}`:''}<br>ลบหรือแก้ข้อที่ไม่ต้องการ (ลบข้อใดข้อหนึ่งในแต่ละคู่)</div>`
+    : '';
+  const list = pairs.length === 0
+    ? `<div style="text-align:center;padding:28px 20px"><div style="font-size:42px;margin-bottom:10px">✅</div><div style="font-weight:800;font-size:15.5px;color:var(--text)">ไม่พบคำถามซ้ำหรือคล้ายกัน</div><div style="font-size:12.5px;color:var(--text3);margin-top:5px">ที่ระดับนี้ คลังของ ${m.name} สะอาดดี — ลองปรับเป็น "หลวม" เพื่อตรวจละเอียดขึ้น</div></div>`
+    : pairs.map((p,i)=>`
         <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--surface2)">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
             <span style="font-size:12px;font-weight:800;color:var(--text2)">คู่ที่ ${i+1}</span>
-            ${_simBadge(p.sim)}
+            ${_simBadge(p)}
+            <span style="margin-left:auto;font-size:11px;color:var(--text3);font-weight:600">โจทย์ ${Math.round(p.stemSim*100)}% · ตัวเลือก ${Math.round(p.optsSim*100)}%</span>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${_dupQuestionCard(p.a, mid)}
@@ -11246,11 +11293,11 @@ function openDupCheckModal(mid) {
             ${_dupQuestionCard(p.b, mid)}
           </div>
         </div>`).join('');
-  showModal(`🔍 ตรวจซ้ำ/คล้าย · ${m.name}`, body, null, 'ปิด');
+  showModal(`🔍 ตรวจซ้ำ/คล้าย · ${m.name}`, _dupLevelBar(mid) + summary + list, null, 'ปิด');
 }
 function openDupCheckAll() {
   const rows = Object.keys(MODULES)
-    .map(mid => ({ mid, n: findSimilarQuestions(mid, 0.72).length }))
+    .map(mid => ({ mid, n: findSimilarQuestions(mid).length }))
     .filter(r => r.n > 0);
   const body = rows.length === 0
     ? `<div style="text-align:center;padding:32px 20px"><div style="font-size:42px;margin-bottom:10px">✅</div><div style="font-weight:800;font-size:15.5px;color:var(--text)">ทุก Module สะอาด</div><div style="font-size:12.5px;color:var(--text3);margin-top:5px">ไม่พบคำถามซ้ำหรือคล้ายกันในทุก Module</div></div>`
@@ -11597,7 +11644,7 @@ function openAiQuizModal(mid) {
       if (!generated.length) throw new Error('ไม่ได้คำถามจาก AI');
       resBox.dataset.questions = JSON.stringify(generated);
       // ตรวจว่าข้อไหน "คล้ายของเดิม" ในคลัง → ติดป้ายเตือน + ไม่ติ๊กเลือกให้อัตโนมัติ
-      const dupInfo = generated.map(q => findExistingSimilar(mid, q.q, 0.72));
+      const dupInfo = generated.map(q => findExistingSimilar(mid, q, 0.72));
       const dupCount = dupInfo.filter(Boolean).length;
       const initialSel = generated.length - dupCount;
       resBox.innerHTML = `
