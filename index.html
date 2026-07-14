@@ -11492,8 +11492,57 @@ function _doDeleteQuizQuestion(uid, source, mid, refresh) {
   if (refresh) refresh();
 }
 
+// ══════════ ลบข้อสอบหลายข้อ (ติ๊กเลือก) / ลบทั้งหมด ══════════
+function _qzToggleAll(mid, on) { document.querySelectorAll('.qz-chk').forEach(c => c.checked = on); _updQzSel(mid); }
+function _updQzSel(mid) {
+  const total = document.querySelectorAll('.qz-chk').length;
+  const sel = document.querySelectorAll('.qz-chk:checked').length;
+  const btn = document.getElementById('qz-delsel');
+  if (btn) { btn.disabled = sel === 0; btn.textContent = `🗑 ลบที่เลือก (${sel})`; }
+  const selall = document.getElementById('qz-selall');
+  if (selall) selall.checked = total > 0 && sel === total;
+}
+// ลบหลายข้อทีเดียว — custom ลบจริง · เริ่มต้น/กลุ่ม ทำเครื่องหมาย deleted (บันทึก quizMeta ครั้งเดียว)
+function _bulkDeleteQuiz(mid, items) {
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  DB.quizMeta.deleted = DB.quizMeta.deleted || [];
+  let metaChanged = false;
+  items.forEach(function(it) {
+    if (it.source === 'custom') {
+      DB.customQuiz = DB.customQuiz.filter(q => q.id !== it.uid);
+      gsDel('customQuiz', it.uid);
+    } else if (!DB.quizMeta.deleted.includes(it.uid)) {
+      DB.quizMeta.deleted.push(it.uid); metaChanged = true;
+    }
+  });
+  if (metaChanged) saveQuizMeta();
+}
+function _qzDeleteSelected(mid) {
+  const items = Array.from(document.querySelectorAll('.qz-chk:checked')).map(c => ({ uid: c.value, source: c.getAttribute('data-src') }));
+  if (!items.length) { notify('ยังไม่ได้เลือกข้อสอบ', 'error'); return; }
+  showConfirm(`ลบข้อสอบที่เลือก <b>${items.length}</b> ข้อ?`, () => {
+    _bulkDeleteQuiz(mid, items);
+    notify(`ลบ ${items.length} ข้อแล้ว`);
+    openQuizListModal(mid, true);
+  }, { title: 'ลบข้อสอบที่เลือก', icon: '🗑' });
+}
+function _qzDeleteAll(mid) {
+  const all = getAllQuestionsForModule(mid, false).map(q => ({ uid: q.uid, source: q.source }));
+  if (!all.length) { notify('ไม่มีข้อสอบให้ลบ', 'error'); return; }
+  showConfirm(`ลบข้อสอบ<b>ทั้งหมด ${all.length}</b> ข้อใน Module นี้? — กู้คืนไม่ได้`, () => {
+    _bulkDeleteQuiz(mid, all);
+    notify(`ลบทั้งหมด ${all.length} ข้อแล้ว`);
+    openQuizListModal(mid, true);
+  }, { title: 'ลบข้อสอบทั้งหมด', icon: '🗑' });
+}
+
+let _quizMetaMainCleaned = false;
 function saveQuizMeta() {
-  gsSave('quizMeta', 'main', DB.quizMeta);
+  // ⚠️ ต้องใช้ id 'singleton' ให้ตรงกับที่อื่น (เดิมใช้ 'main' → กลายเป็นคนละแถวใน Sheets
+  //    ทำให้ readSheetSingleton อ่านแถวแรก (singleton) ที่ไม่มี quizPick ล่าสุด = ค่าที่ตั้งหาย)
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  // ลบแถวเก่า id 'main' ที่ค้างใน Sheets ทิ้ง (ทำครั้งเดียว) กันมันมาเป็นแถวแรกแล้วบังของจริง
+  if (!_quizMetaMainCleaned) { _quizMetaMainCleaned = true; try { gsDel('quizMeta', 'main'); } catch(_) {} }
   try {
     const c = JSON.parse(localStorage.getItem('opt_db_cache') || '{}');
     c.quizMeta = DB.quizMeta;
@@ -11517,12 +11566,20 @@ function openQuizListModal(mid, restore) {
         <button class="btn btn-sm btn-accent" onclick="openAddQuizChooser('${mid}')">+ เพิ่มคำถาม</button>
       </div>
     </div>
+    ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
+      <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
+      <button class="btn btn-sm btn-outline" onclick="_qzDeleteAll('${mid}')" style="margin-left:auto;color:#DC2626;border-color:#DC2626">🗑 ลบทั้งหมด</button>
+    </div>`:''}
     ${all.length===0?'<p class="text-muted" style="text-align:center;padding:20px">ยังไม่มีคำถาม</p>':all.map((q,i)=>{
       const active = isQuizActive(q.uid);
       return `
       <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface);opacity:${active?1:0.55}">
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;align-items:flex-start">
-          <div style="font-size:13.5px;font-weight:700;color:var(--text);flex:1">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
+          <div style="display:flex;gap:8px;flex:1;align-items:flex-start;min-width:0">
+            <input type="checkbox" class="qz-chk" value="${q.uid}" data-src="${q.source}" onchange="_updQzSel('${mid}')" style="margin-top:3px;flex-shrink:0">
+            <div style="font-size:13.5px;font-weight:700;color:var(--text)">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
+          </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
             ${srcBadge[q.source]||''}
             <button class="btn btn-sm btn-outline" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
