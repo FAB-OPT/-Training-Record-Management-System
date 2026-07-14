@@ -4331,7 +4331,7 @@ async function gsLoadFromSheets() {
   if (data.quizMeta) {
     const m = parseJSON(data.quizMeta, null);
     if (m) {
-      DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [], testMode: !!m.testMode };
+      DB.quizMeta = { deleted: m.deleted || [], disabled: m.disabled || [], testMode: !!m.testMode, quizPick: m.quizPick || {}, aiRejected: m.aiRejected || {} };
       _applyTestModeFromServer(!!m.testMode);
     }
   }
@@ -4395,6 +4395,15 @@ async function _loadAuxFromSheets() {
     if (Array.isArray(data.adminUsers)) {
       // id is the PIN code — coerce to string (Sheets auto-numeric like '601183' → 601183)
       DB.adminUsers = data.adminUsers.map(u => ({ ...u, id: String(u.id || '').trim() }));
+    }
+    // quizMeta extras — Supabase (primary) เก็บแค่ deleted/disabled/testMode จึงต้อง merge
+    // ฟิลด์เสริม (quizPick = จำนวนข้อต่อ Module, aiRejected) กลับจาก Sheets ที่ round-trip JSON เต็ม
+    if (data.quizMeta) {
+      const qm = parseJSON(data.quizMeta, null);
+      if (qm && DB.quizMeta) {
+        if (qm.quizPick && typeof qm.quizPick === 'object') DB.quizMeta.quizPick = qm.quizPick;
+        if (qm.aiRejected && typeof qm.aiRejected === 'object') DB.quizMeta.aiRejected = qm.aiRejected;
+      }
     }
   } catch (e) { console.warn('Aux load (chatLogs/cases/adminUsers) failed:', e); }
 }
@@ -8436,7 +8445,7 @@ function openQuiz(trainingId) {
     notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
     return;
   }
-  const picked = shuffleArray(allQ).slice(0, Math.min(QUIZ_PICK, allQ.length));
+  const picked = shuffleArray(allQ).slice(0, Math.min(getQuizPick(t.moduleId), allQ.length));
   const SRC = ['A','B','C','D'];
   const questions = picked.map(q => {
     const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
@@ -11115,22 +11124,145 @@ function _renderQuizRowsFor(group) {
     const m = MODULES[mid];
     return mid.toLowerCase().includes(q) || (m.name||'').toLowerCase().includes(q);
   });
-  if (!mods.length) return '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบ Module ที่ตรงกับการค้นหา</td></tr>';
+  if (!mods.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบ Module ที่ตรงกับการค้นหา</td></tr>';
   return mods.map(mid => {
     const m = MODULES[mid];
     const c = getQuizCount(mid);
-    const enough = c.active >= QUIZ_PICK;
-    const shown = Math.min(QUIZ_PICK, c.active);
-    const shownColor = c.active === 0 ? 'var(--danger,#DC2626)' : enough ? 'var(--green)' : '#D97706';
+    const pick = getQuizPick(mid);
+    const enough = c.active >= pick;
+    const warnColor = c.active === 0 ? '#DC2626' : '#D97706';
     return `<tr style="cursor:pointer" onclick="openQuizListModal('${mid}')">
       <td style="font-weight:700;color:var(--text)">${m.name}</td>
       <td style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:999px;font-size:12px;color:var(--text2)"><span style="font-weight:800;color:var(--text);font-size:13px">${m.subtopics.length}</span>หัวข้อ</span></td>
-      <td style="text-align:center"><span style="font-weight:800;color:${enough?'var(--green)':'#D97706'};font-size:14px">${c.active}</span><span style="color:var(--text3);font-size:12.5px"> / ${c.total}</span></td>
-      <td style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;background:${shownColor}14;border:1px solid ${shownColor}55;padding:3px 11px;border-radius:999px"><span style="font-weight:900;color:${shownColor};font-size:14px">${shown}</span><span style="font-size:11.5px;color:${shownColor}">ข้อ/ครั้ง</span></span>${enough?'':` <span title="คำถามเปิดใช้งานน้อยกว่า ${QUIZ_PICK} ข้อ ผู้เรียนจะเห็นเท่าที่มี" style="cursor:help">⚠️</span>`}</td>
+      <td style="text-align:center"><span style="font-weight:800;color:${enough?'var(--green)':warnColor};font-size:14px">${c.active}</span><span style="color:var(--text3);font-size:12.5px"> / ${c.total}</span></td>
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <input type="number" min="1" max="100" value="${pick}" onchange="setModuleQuizPick('${mid}', this.value)" title="จำนวนข้อที่ผู้เรียนต้องทำต่อครั้ง" style="width:62px;text-align:center;padding:6px 4px;font-weight:800;font-size:14px;color:var(--accent);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit">
+        ${enough?'':` <span title="คำถามเปิดใช้งาน (${c.active}) น้อยกว่าจำนวนที่ตั้ง (${pick}) — ผู้เรียนจะเห็นเท่าที่มี" style="cursor:help">⚠️</span>`}
+      </td>
       <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openQuizListModal('${mid}')">จัดการ →</button></td>
     </tr>`;
   }).join('');
 }
+// ══════════ จำนวนข้อที่ผู้เรียนต้องทำต่อครั้ง (ตั้งแยกราย Module) ══════════
+// เก็บใน DB.quizMeta.quizPick = { [moduleId]: number } · ไม่ได้ตั้ง = ใช้ค่าเริ่มต้น QUIZ_PICK
+function getQuizPick(mid) {
+  const v = DB.quizMeta && DB.quizMeta.quizPick ? DB.quizMeta.quizPick[mid] : null;
+  return (typeof v === 'number' && v > 0) ? v : QUIZ_PICK;
+}
+function setModuleQuizPick(mid, val) {
+  const n = Math.max(1, Math.min(100, parseInt(val, 10) || QUIZ_PICK));
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  if (!DB.quizMeta.quizPick) DB.quizMeta.quizPick = {};
+  DB.quizMeta.quizPick[mid] = n;
+  saveQuizMeta();
+  const svc = document.getElementById('qz-tbody-svc'); if (svc) svc.innerHTML = _renderQuizRowsFor('Service');
+  const cook = document.getElementById('qz-tbody-cook'); if (cook) cook.innerHTML = _renderQuizRowsFor('Cook');
+  notify(`ตั้งให้ "${MODULES[mid] ? MODULES[mid].name : mid}" ทำ ${n} ข้อ/ครั้ง`);
+}
+
+// ══════════ ตรวจคำถามซ้ำ / คล้ายกัน (ทำงานในเครื่อง รองรับภาษาไทย) ══════════
+// ใช้ character trigram + Jaccard — ไม่พึ่ง AI, ฟรี, เร็ว, ใช้ได้ทั้งไทย/อังกฤษ
+function _normQuizText(s) {
+  return String(s == null ? '' : s)
+    .replace(/^\s*\d+[.\)]?[\d.\s]*/, '')          // ตัดเลขข้อนำหน้า เช่น "1.2 "
+    .toLowerCase()
+    .replace(/[\s​]+/g, '')                    // ตัดช่องว่าง/zero-width
+    .replace(/[.,!?;:'"“”‘’\-–—()\[\]/\\]/g, '');   // ตัดเครื่องหมายวรรคตอน
+}
+function _trigramSet(s) {
+  const set = new Set();
+  if (!s) return set;
+  if (s.length < 3) { set.add(s); return set; }
+  for (let i = 0; i <= s.length - 3; i++) set.add(s.slice(i, i + 3));
+  return set;
+}
+function _jaccard(a, b) {
+  if (!a.size && !b.size) return 1;
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  a.forEach(x => { if (b.has(x)) inter++; });
+  return inter / (a.size + b.size - inter);
+}
+// หาคู่คำถามที่ซ้ำ/คล้ายภายใน Module → [{a,b,sim}] เรียงจากคล้ายมากสุด
+function findSimilarQuestions(mid, threshold) {
+  threshold = threshold || 0.72;
+  const qs = getAllQuestionsForModule(mid).map(q => {
+    const norm = _normQuizText(q.q);
+    return { q, norm, tri: _trigramSet(norm) };
+  });
+  const pairs = [];
+  for (let i = 0; i < qs.length; i++) {
+    for (let j = i + 1; j < qs.length; j++) {
+      const sim = (qs[i].norm && qs[i].norm === qs[j].norm) ? 1 : _jaccard(qs[i].tri, qs[j].tri);
+      if (sim >= threshold) pairs.push({ a: qs[i].q, b: qs[j].q, sim });
+    }
+  }
+  return pairs.sort((x, y) => y.sim - x.sim);
+}
+// หาคำถามในคลังที่คล้ายกับข้อความที่กำหนดมากที่สุด (ใช้ตอนสร้างด้วย AI)
+function findExistingSimilar(mid, text, threshold) {
+  threshold = threshold || 0.72;
+  const norm = _normQuizText(text);
+  const tri = _trigramSet(norm);
+  let best = null;
+  getAllQuestionsForModule(mid).forEach(q => {
+    const qn = _normQuizText(q.q);
+    const sim = (norm && norm === qn) ? 1 : _jaccard(tri, _trigramSet(qn));
+    if (sim >= threshold && (!best || sim > best.sim)) best = { q, sim };
+  });
+  return best;
+}
+function _simBadge(sim) {
+  return sim >= 0.999
+    ? '<span style="font-size:11px;font-weight:800;background:#FEE2E2;color:#B91C1C;padding:2px 9px;border-radius:999px">ซ้ำเป๊ะ</span>'
+    : `<span style="font-size:11px;font-weight:800;background:#FEF3C7;color:#B45309;padding:2px 9px;border-radius:999px">คล้าย ${Math.round(sim*100)}%</span>`;
+}
+function _dupQuestionCard(q, mid) {
+  const label = { base:'เริ่มต้น', pool:'กลุ่ม', custom:'เพิ่มเอง' }[q.source] || '';
+  return `<div style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;background:var(--surface)">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.45">${(q.q||'').replace(/^\d+[\.\s]+/, '')}</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text3);font-weight:600">${label}</span>
+      <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteQuizQuestion('${q.uid}','${q.source}','${mid}',()=>openDupCheckModal('${mid}'))">🗑 ลบข้อนี้</button>
+    </div>
+  </div>`;
+}
+function openDupCheckModal(mid) {
+  const m = MODULES[mid];
+  const pairs = findSimilarQuestions(mid, 0.72);
+  const body = pairs.length === 0
+    ? `<div style="text-align:center;padding:32px 20px"><div style="font-size:42px;margin-bottom:10px">✅</div><div style="font-weight:800;font-size:15.5px;color:var(--text)">ไม่พบคำถามซ้ำหรือคล้ายกัน</div><div style="font-size:12.5px;color:var(--text3);margin-top:5px">คลังของ ${m.name} สะอาดดี</div></div>`
+    : `<div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.6">พบ <b style="color:var(--accent)">${pairs.length}</b> คู่ที่อาจซ้ำหรือคล้ายกัน — ตรวจแล้ว <b>ลบ</b> หรือ <b>แก้</b> ข้อที่ไม่ต้องการ (ลบข้อใดข้อหนึ่งในแต่ละคู่)</div>` +
+      pairs.map((p,i)=>`
+        <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--surface2)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:12px;font-weight:800;color:var(--text2)">คู่ที่ ${i+1}</span>
+            ${_simBadge(p.sim)}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${_dupQuestionCard(p.a, mid)}
+            <div style="text-align:center;font-size:11px;color:var(--text3);font-weight:800">⇅ เทียบกับ</div>
+            ${_dupQuestionCard(p.b, mid)}
+          </div>
+        </div>`).join('');
+  showModal(`🔍 ตรวจซ้ำ/คล้าย · ${m.name}`, body, null, 'ปิด');
+}
+function openDupCheckAll() {
+  const rows = Object.keys(MODULES)
+    .map(mid => ({ mid, n: findSimilarQuestions(mid, 0.72).length }))
+    .filter(r => r.n > 0);
+  const body = rows.length === 0
+    ? `<div style="text-align:center;padding:32px 20px"><div style="font-size:42px;margin-bottom:10px">✅</div><div style="font-weight:800;font-size:15.5px;color:var(--text)">ทุก Module สะอาด</div><div style="font-size:12.5px;color:var(--text3);margin-top:5px">ไม่พบคำถามซ้ำหรือคล้ายกันในทุก Module</div></div>`
+    : `<div style="font-size:12.5px;color:var(--text2);margin-bottom:14px">พบคำถามที่อาจซ้ำ/คล้ายกันใน <b style="color:var(--accent)">${rows.length}</b> Module — กด "ตรวจ" เพื่อดูและจัดการ</div>` +
+      rows.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface)">
+        <span style="flex:1;font-weight:700;color:var(--text);font-size:13.5px">${MODULES[r.mid].name}</span>
+        <span style="font-size:11px;font-weight:800;background:#FEF3C7;color:#B45309;padding:2px 9px;border-radius:999px">${r.n} คู่</span>
+        <button class="btn btn-sm btn-accent" onclick="openDupCheckModal('${r.mid}')">ตรวจ →</button>
+      </div>`).join('');
+  showModal('🔍 ตรวจข้อสอบซ้ำ/คล้าย — ทุก Module', body, null, 'ปิด');
+}
+
 function renderAdminQuiz() {
   const modules = Object.keys(MODULES);
   let totalQ = 0, activeQ = 0;
@@ -11139,7 +11271,7 @@ function renderAdminQuiz() {
   const cookMods = modules.filter(m => MODULES[m].group === 'Cook');
   const sumActive = arr => arr.reduce((s, mid) => s + getQuizCount(mid).active, 0);
   const sumTotal  = arr => arr.reduce((s, mid) => s + getQuizCount(mid).total, 0);
-  const lowMods = modules.filter(mid => getQuizCount(mid).active < QUIZ_PICK).length;
+  const lowMods = modules.filter(mid => getQuizCount(mid).active < getQuizPick(mid)).length;
 
   const stat = (val, label, color, sub) => `
     <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px">
@@ -11160,7 +11292,7 @@ function renderAdminQuiz() {
           <th>Module</th>
           <th style="text-align:center;width:100px">หัวข้อย่อย</th>
           <th style="text-align:center;width:120px" title="คำถามที่เปิดใช้งาน / ทั้งหมดในคลัง">คลังคำถาม</th>
-          <th style="text-align:center;width:140px" title="จำนวนข้อที่ผู้เรียนเห็นต่อการทำ 1 ครั้ง (สุ่มจากคลัง)">ผู้เรียนเห็น</th>
+          <th style="text-align:center;width:130px" title="จำนวนข้อที่ผู้เรียนต้องทำต่อ 1 ครั้ง (สุ่มจากคลัง) — ตั้งได้แต่ละ Module">ต้องทำ/ครั้ง</th>
           <th style="text-align:right;width:120px"></th>
         </tr></thead>
         <tbody id="qz-tbody-${id}">${_renderQuizRowsFor(id === 'svc' ? 'Service' : 'Cook')}</tbody>
@@ -11173,15 +11305,16 @@ function renderAdminQuiz() {
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
       <div class="page-hero-sub">${modules.length} Module · คลังคำถามทั้งหมด ${totalQ} ข้อ</div>
     </div>
+    <button class="btn btn-navy" onclick="openDupCheckAll()">🔍 ตรวจข้อสอบซ้ำ</button>
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
     ${stat(modules.length, 'Module ทั้งหมด', 'var(--text)')}
     ${stat(activeQ, 'ข้อเปิดใช้งาน', 'var(--green)', `จาก ${totalQ} ข้อในคลัง`)}
-    ${stat(QUIZ_PICK + ' ข้อ', 'ผู้เรียนเห็นต่อครั้ง', 'var(--accent)', 'สุ่มจากข้อที่เปิดใช้งาน')}
-    ${stat(lowMods, 'Module เปิดน้อยกว่า ' + QUIZ_PICK, lowMods ? '#D97706' : 'var(--green)', lowMods ? 'ผู้เรียนเห็นไม่ครบ' : 'ครบทุก Module')}
+    ${stat(QUIZ_PICK + ' ข้อ', 'ค่าเริ่มต้น/ครั้ง', 'var(--accent)', 'ปรับแยกราย Module ได้')}
+    ${stat(lowMods, 'Module ข้อไม่พอ', lowMods ? '#D97706' : 'var(--green)', lowMods ? 'เปิดใช้ < ที่ตั้งไว้' : 'ครบทุก Module')}
   </div>
   <div style="margin-bottom:14px;padding:11px 15px;background:var(--accent-light);border:1px solid var(--accent)33;border-radius:11px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
-    <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบ <b>ครั้งละ ${QUIZ_PICK} ข้อ</b> โดยสุ่มจากคลังคำถามที่เปิดใช้งานของแต่ละ Module
+    <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบตาม<b>จำนวนที่ตั้งไว้ของแต่ละ Module</b> (ค่าเริ่มต้น ${QUIZ_PICK} ข้อ) โดยสุ่มจากคลังที่เปิดใช้งาน — ปรับได้ที่ช่อง <b>"ต้องทำ/ครั้ง"</b>
   </div>
   <div style="margin-bottom:14px">
     <input class="search-input" placeholder="🔍 ค้นหา Module..." oninput="setQuizSearch(this.value)" style="width:100%;max-width:400px">
@@ -11251,9 +11384,12 @@ function openQuizListModal(mid, restore) {
   const activeCount = all.filter(q => isQuizActive(q.uid)).length;
   const srcBadge = { base: '<span class="badge badge-gray">เริ่มต้น</span>', pool: '<span class="badge badge-blue">กลุ่ม</span>', custom: '<span class="badge badge-green">เพิ่มเอง</span>' };
   showModal(`จัดการคำถาม · ${m.name}`, `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px">
-      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ปิดข้อสอบหรือลบได้ทุกข้อ</div>
-      <button class="btn btn-sm btn-accent" onclick="openAddQuizChooser('${mid}')">+ เพิ่มคำถาม</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px;flex-wrap:wrap">
+      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
+        <button class="btn btn-sm btn-accent" onclick="openAddQuizChooser('${mid}')">+ เพิ่มคำถาม</button>
+      </div>
     </div>
     ${all.length===0?'<p class="text-muted" style="text-align:center;padding:20px">ยังไม่มีคำถาม</p>':all.map((q,i)=>{
       const active = isQuizActive(q.uid);
@@ -11460,6 +11596,10 @@ function openAiQuizModal(mid) {
       const generated = await generateQuizWithAi(mid, n, focus, perSub);
       if (!generated.length) throw new Error('ไม่ได้คำถามจาก AI');
       resBox.dataset.questions = JSON.stringify(generated);
+      // ตรวจว่าข้อไหน "คล้ายของเดิม" ในคลัง → ติดป้ายเตือน + ไม่ติ๊กเลือกให้อัตโนมัติ
+      const dupInfo = generated.map(q => findExistingSimilar(mid, q.q, 0.72));
+      const dupCount = dupInfo.filter(Boolean).length;
+      const initialSel = generated.length - dupCount;
       resBox.innerHTML = `
         <style>
           .aq-summary { display:flex; align-items:center; gap:10px; padding:12px 14px; background:#DCFCE7; border:1px solid #86EFAC; border-radius:10px; margin-bottom:14px }
@@ -11487,24 +11627,25 @@ function openAiQuizModal(mid) {
         </style>
         <div class="aq-summary">
           <div class="aq-summary-icon">✓</div>
-          <div class="aq-summary-text">สร้างได้ <b>${generated.length}</b> ข้อ — เลือกที่ต้องการบันทึก แล้วกด <b>"บันทึกที่เลือก"</b></div>
+          <div class="aq-summary-text">สร้างได้ <b>${generated.length}</b> ข้อ — เลือกที่ต้องการบันทึก แล้วกด <b>"บันทึกที่เลือก"</b>${dupCount?`<br><span style="color:#B45309">⚠️ ${dupCount} ข้อคล้ายของเดิมในคลัง — ไม่ติ๊กให้อัตโนมัติ</span>`:''}</div>
         </div>
         <div class="aq-toolbar">
-          <div class="aq-counter" style="margin-left:0">เลือกแล้ว <b id="aq-selected-count">${generated.length}</b> / ${generated.length}</div>
+          <div class="aq-counter" style="margin-left:0">เลือกแล้ว <b id="aq-selected-count">${initialSel}</b> / ${generated.length}</div>
           <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="_rejectAllAiQuestions('${mid}')">❌ ไม่เลือกข้อสอบ</button>
         </div>
-        ${generated.map((q,i)=>`
-          <label class="aq-card checked" for="ai-q-${i}">
-            <input type="checkbox" id="ai-q-${i}" checked onchange="this.closest('.aq-card').classList.toggle('checked',this.checked);_updateAqCounter()">
+        ${generated.map((q,i)=>{ const dup = dupInfo[i]; const on = !dup; return `
+          <label class="aq-card ${on?'checked':''}" for="ai-q-${i}">
+            <input type="checkbox" id="ai-q-${i}" ${on?'checked':''} onchange="this.closest('.aq-card').classList.toggle('checked',this.checked);_updateAqCounter()">
             <div class="aq-card-head">
               <div class="aq-check">✓</div>
               <div class="aq-num">ข้อ ${i+1}</div>
-              <div class="aq-q">${q.q}</div>
+              <div class="aq-q">${q.q}${dup?` <span style="display:inline-block;font-size:11px;font-weight:800;color:#B45309;background:#FEF3C7;border:1px solid #FCD34D;padding:1px 8px;border-radius:999px;vertical-align:middle">⚠️ คล้ายของเดิม ${Math.round(dup.sim*100)}%</span>`:''}</div>
             </div>
             <div class="aq-opts">
               ${['A','B','C','D'].map(k=>`<div class="aq-opt ${q.ans===k?'correct':''}"><span class="aq-opt-key">${k}.</span><span>${q.opts[k]}</span>${q.ans===k?'<span class="aq-opt-check">✓</span>':''}</div>`).join('')}
             </div>
-          </label>`).join('')}
+            ${dup?`<div style="margin-top:8px;font-size:11.5px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:7px;padding:6px 9px;line-height:1.5">มีคำถามคล้ายกันในคลังแล้ว: "${(dup.q.q||'').replace(/"/g,'&quot;').replace(/^\d+[\.\s]+/,'').slice(0,90)}${(dup.q.q||'').length>90?'…':''}"</div>`:''}
+          </label>`;}).join('')}
         <script>function _updateAqCounter(){const sel=document.querySelectorAll('[id^=ai-q-]:checked').length;const el=document.getElementById('aq-selected-count');if(el)el.textContent=sel;}<\/script>
       `;
       const footerBtn = document.querySelector('.modal-footer .btn:last-child');
