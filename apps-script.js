@@ -112,9 +112,13 @@ function generateAiQuiz(req) {
       '\nตอบกลับเป็น JSON array เท่านั้น (ไม่มี markdown, ไม่มี text อื่น) ตามรูปแบบนี้:\n' +
       '[{"q":"คำถาม...","opts":{"A":"...","B":"...","C":"...","D":"..."},"ans":"A"}, ...]';
 
+    // Scale output budget to the number of questions — Thai questions + 4 options
+    // run ~300-350 tokens each; a flat 4096 truncates anything past ~10 questions
+    // (mid-JSON = no closing "]" = "AI ไม่ได้ตอบเป็น JSON"). Cap well under model max.
+    var maxTok = Math.max(4096, Math.min(16000, n * 350 + 1000));
     const payload = JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
+      max_tokens: maxTok,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -142,15 +146,33 @@ function generateAiQuiz(req) {
     const text = (data.content && data.content[0] && data.content[0].text) || '';
     if (!text) return { error: 'Claude ไม่ได้ตอบกลับ' };
 
-    const m = text.match(/\[[\s\S]*\]/);
-    if (!m) return { error: 'AI ไม่ได้ตอบเป็น JSON' };
+    // Extract the JSON array — tolerate truncation (stop_reason === 'max_tokens').
+    // If the closing "]" is missing, salvage by cutting at the last complete object
+    // and closing the array, so a partial answer still yields usable questions.
+    var start = text.indexOf('[');
+    if (start < 0) return { error: 'AI ไม่ได้ตอบเป็น JSON — ' + text.slice(0, 160) };
+    var jsonStr = text.slice(start);
+    var end = jsonStr.lastIndexOf(']');
+    if (end >= 0) {
+      jsonStr = jsonStr.slice(0, end + 1);
+    } else {
+      var lastObj = jsonStr.lastIndexOf('}');
+      if (lastObj < 0) return { error: 'AI ตอบไม่ครบ (ถูกตัดกลางคัน) — ลองลดจำนวนข้อลง' };
+      jsonStr = jsonStr.slice(0, lastObj + 1) + ']';
+    }
 
-    const arr = JSON.parse(m[0]);
+    var arr;
+    try { arr = JSON.parse(jsonStr); }
+    catch (e) { return { error: 'AI ตอบ JSON ไม่ถูกต้อง: ' + e.message }; }
+
     const valid = arr.filter(function(q){
       return q && q.q && q.opts && q.opts.A && q.opts.B && q.opts.C && q.opts.D
         && ['A','B','C','D'].indexOf(q.ans) >= 0;
     });
-    return { questions: valid };
+    if (!valid.length) return { error: 'AI ไม่ได้ตอบเป็น JSON ที่ใช้ได้' };
+    // Signal partial result so the UI can hint "ได้ไม่ครบ · กดสร้างเพิ่มได้"
+    var truncated = (data.stop_reason === 'max_tokens') || (valid.length < n);
+    return { questions: valid, truncated: truncated, requested: n };
   } catch (err) {
     return { error: 'Server error: ' + err.message };
   }
