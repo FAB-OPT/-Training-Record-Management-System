@@ -11136,7 +11136,7 @@ function _renderQuizRowsFor(group) {
       <td style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:999px;font-size:12px;color:var(--text2)"><span style="font-weight:800;color:var(--text);font-size:13px">${m.subtopics.length}</span>หัวข้อ</span></td>
       <td style="text-align:center"><span style="font-weight:800;color:${enough?'var(--green)':warnColor};font-size:14px">${c.active}</span><span style="color:var(--text3);font-size:12.5px"> / ${c.total}</span></td>
       <td style="text-align:center" onclick="event.stopPropagation()">
-        <input type="number" min="1" max="100" value="${pick}" onchange="setModuleQuizPick('${mid}', this.value)" title="จำนวนข้อที่ผู้เรียนต้องทำต่อครั้ง" style="width:62px;text-align:center;padding:6px 4px;font-weight:800;font-size:14px;color:var(--accent);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit">
+        <input type="text" inputmode="numeric" value="${pick}" onchange="setModuleQuizPick('${mid}', this.value)" title="จำนวนข้อที่ผู้เรียนต้องทำต่อครั้ง" style="width:62px;text-align:center;padding:6px 4px;font-weight:800;font-size:14px;color:var(--accent);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit">
         ${enough?'':` <span title="คำถามเปิดใช้งาน (${c.active}) น้อยกว่าจำนวนที่ตั้ง (${pick}) — ผู้เรียนจะเห็นเท่าที่มี" style="cursor:help">⚠️</span>`}
       </td>
       <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openQuizListModal('${mid}')">จัดการ →</button></td>
@@ -11415,7 +11415,6 @@ function renderAdminQuiz() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
-      <div class="page-hero-sub">${modules.length} Module · คลังคำถามทั้งหมด ${totalQ} ข้อ</div>
     </div>
     <button class="btn btn-navy" onclick="openDupCheckAll()">🔍 ตรวจข้อสอบซ้ำ</button>
   </div>
@@ -11426,7 +11425,6 @@ function renderAdminQuiz() {
     ${stat(lowMods, 'Module ข้อไม่พอ', lowMods ? '#D97706' : 'var(--green)', lowMods ? 'เปิดใช้ < ที่ตั้งไว้' : 'ครบทุก Module')}
   </div>
   <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
-    <input class="search-input" placeholder="🔍 ค้นหา Module..." oninput="setQuizSearch(this.value)" style="flex:0 1 320px;min-width:200px">
     <div style="flex:1;min-width:260px;padding:11px 15px;background:var(--accent-light);border:1px solid var(--accent)33;border-radius:11px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
       <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบตาม<b>จำนวนที่ตั้งไว้ของแต่ละ Module</b> (ค่าเริ่มต้น ${QUIZ_PICK} ข้อ) โดยสุ่มจากคลังที่เปิดใช้งาน — ปรับได้ที่ช่อง <b>"ต้องทำ/ครั้ง"</b>
     </div>
