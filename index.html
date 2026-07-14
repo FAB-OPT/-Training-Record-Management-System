@@ -274,7 +274,9 @@
   .branch-label { font-size: 15.5px; color: #1e293b; margin-top: 0; line-height: 1.35; font-weight: 800; letter-spacing: -0.2px; text-align: center; }
   body.admin-user .branch-label { font-size: 15.5px; letter-spacing: -0.2px; }
   .nav { padding: 14px 12px; flex: 1; overflow-y: auto; }
-  .nav-section-label { font-size: 10.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; padding: 12px 12px 8px; }
+  .nav-section-label { font-size: 10.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; padding: 14px 11px 6px; }
+  .nav-divider { height: 1px; background: var(--border); margin: 8px 4px; }
+  .sf-ico { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .nav-item {
     display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 8px;
     color: var(--text2); cursor: pointer; font-size: 13.5px; font-weight: 500; transition: all 0.18s; margin-bottom: 2px;
@@ -2348,9 +2350,11 @@
         </button>
       </div>
       <button class="btn-hub-nav" id="back-hub-btn" onclick="goBackToHub()" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
-        <span>กลับหน้าหลัก</span>
+        <svg class="sf-ico" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>กลับหน้าหลัก</span>
       </button>
-      <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
+      <button class="btn-logout" onclick="logout()">
+        <svg class="sf-ico" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span>ออกจากระบบ</span>
+      </button>
     </div>
   </nav>
   <div class="main" id="main-content"></div>
@@ -5549,11 +5553,34 @@ function _sidebarLabelFor(page) {
   const k = isBzmRole() ? 'bzm' : (isExecRole() ? 'exec' : 'admin');
   return _SIDEBAR_LABELS[page]?.[k] || _SIDEBAR_LABELS[page]?.admin || page;
 }
+// หมวดของแต่ละเมนู (จัดกลุ่มในแท็บซ้าย — สไตล์เดียวกับระบบฐานข้อมูลผู้สัมผัสฯ)
+const NAV_SECTION = {
+  'admin-dashboard':      'เมนูหลัก',
+  'admin-manage':         'เมนูหลัก',
+  'admin-trainings':      'เมนูหลัก',
+  'admin-course-history': 'เมนูหลัก',
+  'admin-quiz':           'ติดตาม & ประเมิน',
+  'exec-leaderboard':     'ติดตาม & ประเมิน',
+  'exec-alerts':          'ติดตาม & ประเมิน',
+  'admin-cases':          'ติดตาม & ประเมิน',
+  'admin-chat-logs':      'ติดตาม & ประเมิน',
+  'admin-users':          'การจัดการข้อมูล',
+  'admin-reports':        'การจัดการข้อมูล',
+};
 function buildAdminNav() {
   const items = getActiveNavItems();
-  document.getElementById('sidebar-nav').innerHTML = items.map(it => {
-    return `<div class="nav-item" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">${it.icon}</span> ${_sidebarLabelFor(it.page)}</div>`;
-  }).join('');
+  let html = '';
+  let lastSection = null;
+  items.forEach(it => {
+    const sec = NAV_SECTION[it.page] || '';
+    if (sec && sec !== lastSection) {
+      if (lastSection !== null) html += '<div class="nav-divider"></div>';
+      html += `<div class="nav-section-label">${sec}</div>`;
+      lastSection = sec;
+    }
+    html += `<div class="nav-item" id="nav-${it.page}" onclick="showPage('${it.page}')"><span class="nav-icon">${it.icon}</span> ${_sidebarLabelFor(it.page)}</div>`;
+  });
+  document.getElementById('sidebar-nav').innerHTML = html;
   buildBottomNav(items);
 }
 
