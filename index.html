@@ -521,6 +521,14 @@
   .btn-accent:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,26,0.32); }
   .btn-outline { background: var(--white); border: 1px solid var(--border2); color: var(--text); }
   .btn-outline:hover { border-color: var(--text); background: var(--surface2); }
+  /* ปุ่มรีเฟรช — accent อ่อน + ไอคอนหมุนตอน hover/โหลด */
+  .btn-refresh { background: var(--accent-light); border: 1.5px solid var(--accent); color: var(--accent-hover); font-weight: 700; }
+  .btn-refresh .refresh-ic { display: inline-block; font-size: 16px; line-height: 1; transition: transform 0.45s ease; }
+  .btn-refresh:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,26,0.32); }
+  .btn-refresh:hover .refresh-ic { transform: rotate(-180deg); }
+  .btn-refresh:active { transform: translateY(0); box-shadow: none; }
+  .btn-refresh.spinning { pointer-events: none; opacity: 0.8; }
+  .btn-refresh.spinning .refresh-ic { animation: spin 0.7s linear infinite; }
   .btn-green { background: var(--green); color: white; }
   .btn-green:hover { background: #1F7A33; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(40,167,69,0.3); }
   .btn-danger { background: var(--surface); border: 1px solid rgba(248,113,113,0.4); color: var(--red); }
@@ -11377,9 +11385,9 @@ function openDupCheckAll() {
 
 // รีเฟรชหน้าจัดการข้อสอบ — ดึงข้อมูลล่าสุดจาก Cloud แล้วเรนเดอร์ใหม่
 async function refreshAdminQuiz(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '⟳ กำลังรีเฟรช...'; }
+  if (btn) btn.classList.add('spinning');   // ไอคอนหมุน (ไม่ทับ text เดิม)
   try { if (typeof gsLoad === 'function') await gsLoad(); } catch (e) { console.warn('refreshAdminQuiz: gsLoad failed', e); }
-  showPage('admin-quiz');   // เรนเดอร์ใหม่ (ปุ่มถูกสร้างใหม่ เลยไม่ต้องรีเซ็ตข้อความเอง)
+  showPage('admin-quiz');   // เรนเดอร์ใหม่ (ปุ่มถูกสร้างใหม่ · spinning หายเอง)
   notify('รีเฟรชข้อมูลข้อสอบแล้ว');
 }
 function renderAdminQuiz() {
@@ -11423,7 +11431,7 @@ function renderAdminQuiz() {
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
     </div>
-    <button class="btn btn-outline" onclick="refreshAdminQuiz(this)" title="ดึงข้อมูลล่าสุดจาก Cloud แล้วแสดงใหม่">⟳ รีเฟรช</button>
+    <button class="btn btn-refresh" onclick="refreshAdminQuiz(this)" title="ดึงข้อมูลล่าสุดจาก Cloud แล้วแสดงใหม่"><span class="refresh-ic">⟳</span> รีเฟรช</button>
     <button class="btn btn-navy" onclick="openDupCheckAll()">🔍 ตรวจข้อสอบซ้ำ</button>
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
