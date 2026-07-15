@@ -4265,7 +4265,14 @@ function _applyServerData(d) {
   DB.quizResults  = d.quizResults || [];
   DB.customQuiz   = d.customQuiz || [];
   DB.courseHistory= d.courseHistory || [];
+  // Supabase quiz_meta เก็บแค่ deleted/disabled/testMode (ไม่มี quizPick/aiRejected)
+  // → คงค่าเดิมในหน่วยความจำไว้ ไม่งั้น auto-sync ทุก 30 วิ จะลบ "จำนวนข้อต่อครั้ง" ที่เพิ่งตั้งทิ้ง
+  //   (Sheets round-trip ใน _loadAuxFromSheets จะมา sync ทับให้อีกที ถ้ามีค่าใหม่กว่า)
+  var _prevPick = (DB.quizMeta && DB.quizMeta.quizPick) || null;
+  var _prevAiRej = (DB.quizMeta && DB.quizMeta.aiRejected) || null;
   DB.quizMeta     = d.quizMeta || { deleted: [], disabled: [] };
+  if (_prevPick && !DB.quizMeta.quizPick) DB.quizMeta.quizPick = _prevPick;
+  if (_prevAiRej && !DB.quizMeta.aiRejected) DB.quizMeta.aiRejected = _prevAiRej;
   // Broadcast test-mode state from backend → all users see the same banner
   if (DB.quizMeta && typeof DB.quizMeta.testMode === 'boolean') {
     _applyTestModeFromServer(DB.quizMeta.testMode);
