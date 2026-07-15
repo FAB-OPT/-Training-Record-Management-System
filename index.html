@@ -7849,6 +7849,76 @@ function openAddCourseHistory() {
   });
 }
 
+// ══════════ เพิ่มประวัติหลายคน — ดึงรายชื่อพนักงานของสาขา แล้วติ๊กเลือกผู้ผ่านการอบรม ══════════
+function openBulkCourseHistory() {
+  const branches = Object.keys(BRANCH_MASTER).sort((a,b)=>((BRANCH_MASTER[a]&&BRANCH_MASTER[a].name)||a).localeCompare((BRANCH_MASTER[b]&&BRANCH_MASTER[b].name)||b,'th'));
+  const brOpts = branches.map(b=>`<option value="${b}">${(BRANCH_MASTER[b]&&BRANCH_MASTER[b].name)||b}</option>`).join('');
+  // ถ้าเป็นสาขา (ไม่ใช่ admin) ล็อกสาขาตัวเอง
+  const myBid = getBranchId();
+  const lockBranch = myBid && myBid !== 'ALL';
+  showModal('➕ เพิ่มรายชื่อผู้ผ่านการอบรม', `
+    <div class="form-row">
+      <div><label class="form-label">สาขา <span class="req">*</span></label>
+        <select class="form-select" id="bch-branch" onchange="_bchRenderRoster()"${lockBranch?' disabled':''}>
+          <option value="">— เลือกสาขา —</option>${brOpts}
+        </select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="bch-course" placeholder="เช่น Admin Operations Level 2"></div>
+      <div><label class="form-label">รุ่นที่</label><input class="form-input" id="bch-batch" placeholder="เช่น 2"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่อบรม <span class="req">*</span></label><input class="form-input" type="date" id="bch-date"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="bch-selall" onchange="_bchToggleAll(this.checked)"> เลือกทั้งหมด</label>
+      <span id="bch-count" style="font-size:12px;color:var(--text2);font-weight:600">เลือก 0 คน</span>
+    </div>
+    <div id="bch-roster" style="max-height:38vh;overflow:auto"><p class="text-muted" style="text-align:center;padding:16px">เลือกสาขาเพื่อดึงรายชื่อพนักงาน</p></div>
+  `, async () => {
+    const bid = document.getElementById('bch-branch').value;
+    const courseName = document.getElementById('bch-course').value.trim();
+    const batchNo = document.getElementById('bch-batch').value.trim();
+    const courseDate = document.getElementById('bch-date').value;
+    if (!bid || !courseName || !courseDate) { notify('กรุณาเลือกสาขา + กรอกหลักสูตร + วันที่','error'); return; }
+    const checked = Array.from(document.querySelectorAll('.bch-chk:checked')).map(c=>c.value);
+    if (!checked.length) { notify('ยังไม่ได้เลือกพนักงาน','error'); return; }
+    const recs = checked.map(empId => {
+      const e = getEmployee(empId);
+      return { id: genId('CH'), branchId: bid, empId, empCode: (e&&e.empCode)||'', empName: (e&&e.name)||'', position: (e&&e.position)||'', courseName, batchNo, courseDate, createdAt: new Date().toISOString() };
+    });
+    DB.courseHistory.push(...recs);
+    // batch save + await (กัน auto-sync ดึง cloud มาทับก่อนบันทึกเสร็จ)
+    try { await sbSaveMany('courseHistory', recs); } catch (e) { console.warn('bulk CH save failed', e); }
+    gsPost({ action:'save_many', collection:'courseHistory', records: recs });
+    closeModal(); showPage(currentPage);
+    notify(`เพิ่ม ${recs.length} รายชื่อ · ${courseName}${batchNo?' รุ่น '+batchNo:''} สำเร็จ`);
+  }, 'บันทึกที่เลือก');
+  if (lockBranch) { const sel = document.getElementById('bch-branch'); if (sel) { sel.value = myBid; _bchRenderRoster(); } }
+}
+function _bchRenderRoster() {
+  const sel = document.getElementById('bch-branch'); if (!sel) return;
+  const bid = sel.value;
+  const box = document.getElementById('bch-roster');
+  if (!bid) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">เลือกสาขาเพื่อดึงรายชื่อพนักงาน</p>'; _bchUpdCount(); return; }
+  const emps = (getBranchEmployees(bid)||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  if (!emps.length) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">สาขานี้ไม่มีพนักงาน</p>'; _bchUpdCount(); return; }
+  box.innerHTML = emps.map(e=>`
+    <label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px;cursor:pointer;background:var(--surface)">
+      <input type="checkbox" class="bch-chk" value="${e.id}" onchange="_bchUpdCount()" style="flex-shrink:0">
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text)">${e.name}</div><div style="font-size:11.5px;color:var(--text3)">${e.empCode?e.empCode+' · ':''}${e.position||'-'}</div></div>
+    </label>`).join('');
+  const sa = document.getElementById('bch-selall'); if (sa) sa.checked = false;
+  _bchUpdCount();
+}
+function _bchToggleAll(on) { document.querySelectorAll('.bch-chk').forEach(c => c.checked = on); _bchUpdCount(); }
+function _bchUpdCount() {
+  const total = document.querySelectorAll('.bch-chk').length;
+  const n = document.querySelectorAll('.bch-chk:checked').length;
+  const el = document.getElementById('bch-count'); if (el) el.textContent = `เลือก ${n} คน`;
+  const sa = document.getElementById('bch-selall'); if (sa) sa.checked = total > 0 && n === total;
+}
+
 function openEditCourseHistory(id) {
   const c = DB.courseHistory.find(x=>x.id===id); if (!c) return;
   showModal('แก้ไขประวัติการอบรมหลักสูตร', _courseHistoryFormHtml(c.branchId, c), () => {
@@ -7938,7 +8008,7 @@ function renderAdminCourseHistory() {
       <div class="page-hero-title">${isAdminRole() ? 'ประวัติการอบรมหลักสูตรทั้งระบบ' : 'ประวัติการอบรมหลักสูตร'}</div>
       <div class="page-hero-sub">จัดกลุ่มตามพนักงาน — คลิกเพื่อดูหลักสูตรที่อบรม</div>
     </div>
-    ${isAdminRole() ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบรายการซ้ำ</button><button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button></div>' : ''}
+    ${isAdminRole() ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-navy" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อผู้ผ่านการอบรม</button><button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบรายการซ้ำ</button><button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button></div>' : ''}
   </div>
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
