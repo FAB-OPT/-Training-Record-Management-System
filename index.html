@@ -10353,14 +10353,14 @@ function renderAdminManage() {
     const branchCount = Object.keys(BRANCH_MASTER).length;
     const empCount = Object.values(DB.employees).flat().filter(_isEmpEnabled).length;
     const bzmCount = getAllBzms().length;
-    const TAB_LABELS = { branches: '🏢 สาขา', bzm: '🗺 ผู้จัดการเขต', employees: '👥 พนักงาน' };
+    const TAB_LABELS = { employees: '👥 พนักงาน', branches: '🏢 สาขา', bzm: '👔 ผู้จัดการเขต' };
     // segmented control — panel ทั้งสองส่ง label มาเอง จึง override ให้ชื่อแท็บตรงกันทุกที่
     const tabBtn = (tab, _label, count) => {
       const active = _adminManageTab === tab;
       return `<button onclick="setAdminManageTab('${tab}')" style="border:none;background:${active?'var(--surface)':'transparent'};color:${active?'var(--accent)':'var(--text2)'};box-shadow:${active?'0 1px 3px rgba(0,0,0,.12)':'none'};padding:8px 15px;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:${active?'800':'600'};cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap">${TAB_LABELS[tab]||_label}<span style="font-size:11px;background:${active?'var(--accent)':'var(--surface3)'};color:${active?'#fff':'var(--text3)'};padding:1px 8px;border-radius:999px;font-weight:800">${count}</span></button>`;
     };
     const tabBar = `<div class="card" style="margin-bottom:16px">${MANAGE_SEG_OPEN}
-      ${tabBtn('branches','สาขา',branchCount)}${tabBtn('bzm','BZM',bzmCount)}${tabBtn('employees','พนักงาน',empCount)}
+      ${tabBtn('employees','พนักงาน',empCount)}${tabBtn('branches','สาขา',branchCount)}${tabBtn('bzm','BZM',bzmCount)}
     </div></div>`;
 
     const tab = _adminManageTab;
@@ -10620,8 +10620,8 @@ function _renderAdminBzmPanel(tabBtn, branchCount, empCount, bzmCount) {
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('employees', 'พนักงาน', empCount)}
+        ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('bzm', 'BZM', bzmCount)}
       </div>
       <input class="search-input" id="bzm-search" placeholder="🔍 ค้นหา BZM หรือสาขา..." oninput="setBzmSearch(this.value)" style="flex:1;min-width:200px;margin-left:auto">
@@ -10657,9 +10657,9 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       ${MANAGE_SEG_OPEN}
+        ${tabBtn('employees', 'พนักงาน', empCount)}
         ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
-        ${tabBtn('employees', 'พนักงาน', empCount)}
       </div>
       <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:240px">
         <option value="">— ทุกผู้จัดการเขต —</option>
@@ -10713,9 +10713,9 @@ function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       ${MANAGE_SEG_OPEN}
+        ${tabBtn('employees', 'พนักงาน', empCount)}
         ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
-        ${tabBtn('employees', 'พนักงาน', empCount)}
       </div>
       <select class="form-select" id="admin-emp-branch-filter" onchange="filterAdminEmployees()" style="width:220px">
         <option value="">— ทุกสาขา —</option>
