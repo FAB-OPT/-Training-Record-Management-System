@@ -7920,6 +7920,7 @@ function _covRun() {
       <div style="flex:1;min-width:92px;padding:10px;background:var(--green-light);border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--green)">${r.passed.length}</div><div style="font-size:11px;color:var(--text3)">ผ่านแล้ว (${r.pct}%)</div></div>
       <div style="flex:1;min-width:92px;padding:10px;background:#FEF2F2;border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:#DC2626">${r.notPassed.length}</div><div style="font-size:11px;color:var(--text3)">ยังไม่ผ่าน</div></div>
     </div>
+    ${r.notPassed.length ? `<button class="btn btn-navy" style="width:100%;margin:10px 0 4px;justify-content:center" onclick="openTrainingSessionForm()">📋 จัดอบรมให้ ${r.notPassed.length} คนที่ยังไม่ผ่าน →</button>` : ''}
     <div style="max-height:32vh;overflow:auto">
       ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626')}
       ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
@@ -8019,6 +8020,151 @@ function _printCourseCoverage(r) {
   const win = window.open('', '_blank');
   if (!win) { notify('เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่', 'error'); return; }
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ชนรายชื่อ ' + r.course + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.close();
+}
+
+// ══════════ จัดอบรม: เอารายชื่อ "ยังไม่ผ่าน" จากการชนรายชื่อ → กรอกฟอร์ม → ออกใบรายชื่อผู้เข้าอบรม PDF ══════════
+let _tsPeople = [];
+function openTrainingSessionForm() {
+  const r = _covCompute();
+  if (!r.course) { notify('เลือกหลักสูตรก่อน', 'error'); return; }
+  if (!r.notPassed.length) { notify('ไม่มีคนที่ยังไม่ผ่าน', 'error'); return; }
+  _tsPeople = r.notPassed.slice();   // snapshot ก่อนปิด modal ชนรายชื่อ
+  const course = r.course;
+  closeModal();
+  setTimeout(() => _openTsModal(course), 60);
+}
+function _openTsModal(course) {
+  const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  showModal('📋 จัดอบรม · ใบรายชื่อผู้เข้าอบรม', `
+    <div class="form-row">
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="ts-course" value="${course.replace(/"/g,'&quot;')}"></div>
+      <div><label class="form-label">รุ่นที่</label><input class="form-input" id="ts-batch" placeholder="เช่น 3"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่อบรม <span class="req">*</span></label><input class="form-input" type="date" id="ts-date"></div>
+      <div><label class="form-label">เวลา</label><input class="form-input" id="ts-time" placeholder="เช่น 09:00 - 16:00"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">สถานที่</label><input class="form-input" id="ts-place" placeholder="เช่น ห้องประชุม สนง.ใหญ่"></div>
+      <div><label class="form-label">วิทยากร</label><input class="form-input" id="ts-trainer" placeholder="ชื่อผู้สอน"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="ts-selall" checked onchange="_tsToggleAll(this.checked)"> เลือกทั้งหมด</label>
+      <span id="ts-count" style="font-size:12px;color:var(--text2);font-weight:600"></span>
+    </div>
+    <div style="max-height:32vh;overflow:auto">
+      ${_tsPeople.map(e=>`
+        <label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:8px 12px;margin-bottom:7px;cursor:pointer;background:var(--surface)">
+          <input type="checkbox" class="ts-chk" value="${e.id}" checked onchange="_tsUpd()" style="flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name}</div>
+            <div style="font-size:11.5px;color:var(--text3)">${e.empCode?e.empCode+' · ':''}${e.position||'-'} · ${brName(e.branchId)}</div>
+          </div>
+        </label>`).join('')}
+    </div>
+  `, () => {
+    const courseV = document.getElementById('ts-course').value.trim();
+    const date = document.getElementById('ts-date').value;
+    if (!courseV || !date) { notify('กรอกหลักสูตร + วันที่อบรม', 'error'); return; }
+    const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c=>c.value));
+    const list = _tsPeople.filter(e => ids.has(e.id));
+    if (!list.length) { notify('ยังไม่ได้เลือกผู้เข้าอบรม', 'error'); return; }
+    const info = {
+      course: courseV,
+      batch: document.getElementById('ts-batch').value.trim(),
+      date: date,
+      time: document.getElementById('ts-time').value.trim(),
+      place: document.getElementById('ts-place').value.trim(),
+      trainer: document.getElementById('ts-trainer').value.trim(),
+    };
+    closeModal();
+    _printTrainingSession(info, list);
+  }, 'ออกใบรายชื่อ PDF');
+  _tsUpd();
+}
+function _tsToggleAll(on) { document.querySelectorAll('.ts-chk').forEach(c => c.checked = on); _tsUpd(); }
+function _tsUpd() {
+  const total = document.querySelectorAll('.ts-chk').length;
+  const n = document.querySelectorAll('.ts-chk:checked').length;
+  const el = document.getElementById('ts-count'); if (el) el.textContent = `เลือก ${n}/${total} คน`;
+  const sa = document.getElementById('ts-selall'); if (sa) sa.checked = total > 0 && n === total;
+}
+function _printTrainingSession(info, list) {
+  const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  list = list.slice().sort((a,b) => brName(a.branchId).localeCompare(brName(b.branchId),'th') || (a.name||'').localeCompare(b.name||'','th'));
+  const dLabel = fmtDate(info.date);
+  const meta = (l, v) => `<div style="display:flex;gap:6px;font-size:12.5px;margin-bottom:3px"><b style="min-width:72px;color:#374151">${l}</b><span>${v||'—'}</span></div>`;
+  const trs = list.map((e, i) => `<tr>
+      <td style="text-align:center;color:#6B7280">${i + 1}</td>
+      <td>${e.empCode || '—'}</td>
+      <td><b>${e.name}</b></td>
+      <td>${e.position || '—'}</td>
+      <td>${brName(e.branchId)}</td>
+      <td class="sig"></td>
+    </tr>`).join('');
+  const style = `<style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+    @page { size: A4 portrait; margin: 12mm; }
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #root{max-width:900px;margin:0 auto;background:white;border-radius:10px;padding:22px 24px}
+    h1{font-size:19px;font-weight:800;margin:0 0 2px;text-align:center}
+    .head-sub{text-align:center;color:#6B7280;font-size:12.5px;margin-bottom:16px}
+    .metabox{border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:2px 20px}
+    .kpi{display:inline-block;background:#FEF3E7;border:1px solid #FBE0CC;color:#9A4A0E;font-weight:800;padding:5px 12px;border-radius:999px;font-size:12.5px;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#F3F4F6;color:#374151;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;border:1px solid #E5E7EB}
+    td{padding:9px 10px;border:1px solid #E5E7EB;font-size:12.5px;color:#1F2937}
+    td.sig{width:150px}
+    .signrow{display:flex;gap:40px;justify-content:flex-end;margin-top:34px}
+    .signbox{text-align:center;font-size:12px;color:#374151}
+    .signline{border-bottom:1px dotted #9CA3AF;width:190px;height:34px;margin-bottom:6px}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
+    .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif}
+    .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
+    *{box-sizing:border-box}
+    @media print{
+      .no-print{display:none!important}
+      body{background:white;padding:0}
+      #root{max-width:none;border-radius:0;padding:0}
+      thead{display:table-header-group}
+      tr{page-break-inside:avoid;break-inside:avoid}
+      th,td{font-size:10px!important;padding:6px!important}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    }
+  </style>`;
+  const html = `<div id="root">
+    <h1>ใบรายชื่อผู้เข้าอบรม</h1>
+    <div class="head-sub">Santa Fe Steak · ระบบบันทึกการสอนงาน</div>
+    <div class="metabox">
+      ${meta('หลักสูตร', info.course)}
+      ${meta('รุ่นที่', info.batch)}
+      ${meta('วันที่อบรม', dLabel)}
+      ${meta('เวลา', info.time)}
+      ${meta('สถานที่', info.place)}
+      ${meta('วิทยากร', info.trainer)}
+    </div>
+    <div class="kpi">ผู้เข้าอบรม ${list.length} คน</div>
+    <table>
+      <thead><tr>
+        <th style="width:34px;text-align:center">#</th><th style="width:90px">รหัสพนักงาน</th>
+        <th>ชื่อ - นามสกุล</th><th style="width:130px">ตำแหน่ง</th><th style="width:150px">สาขา</th>
+        <th style="width:150px;text-align:center">ลายเซ็น</th>
+      </tr></thead>
+      <tbody>${trs}</tbody>
+    </table>
+    <div class="signrow">
+      <div class="signbox"><div class="signline"></div>วิทยากร / ผู้สอน</div>
+      <div class="signbox"><div class="signline"></div>ผู้จัดการอบรม</div>
+    </div>
+  </div>`;
+  const toolbar = `<div class="toolbar no-print">
+    <button class="tbtn" onclick="window.close()">✕ ปิด</button>
+    <button class="tbtn primary" onclick="window.print()">📥 บันทึก PDF / พิมพ์</button>
+  </div>`;
+  const win = window.open('', '_blank');
+  if (!win) { notify('เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่', 'error'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบรายชื่อผู้เข้าอบรม ' + info.course + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
   win.document.close();
 }
 
