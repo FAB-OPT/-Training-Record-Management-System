@@ -4244,6 +4244,12 @@ async function sbDelOne(coll, id) {
   const table = _SB_TABLE[coll]; if (!table) return;
   return sb.from(table).delete().eq('id', id);
 }
+// ลบทุกแถวของ collection (ใช้กับ "ลบทั้งหมด" — เร็วกว่ายิงลบทีละแถวหลักร้อยครั้ง)
+async function sbDelAll(coll) {
+  const sb = _initSb(); if (!sb) return;
+  const table = _SB_TABLE[coll]; if (!table) return;
+  return sb.from(table).delete().neq('id', '__never_matches__');
+}
 async function sbSaveMany(coll, records) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table || !records || !records.length) return;
@@ -10253,6 +10259,8 @@ function renderAdminSystemExtras() {
   </div>`;
 }
 
+// กล่องครอบแท็บแบบ segmented control (ใช้ร่วมกันทั้ง 3 แท็บ ให้หน้าตาตรงกัน)
+const MANAGE_SEG_OPEN = '<div style="display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:4px;gap:2px;flex-wrap:wrap">';
 let _adminManageTab = 'branches';
 function setAdminManageTab(tab) {
   _adminManageTab = tab;
@@ -10346,12 +10354,12 @@ function renderAdminManage() {
     const empCount = Object.values(DB.employees).flat().filter(_isEmpEnabled).length;
     const bzmCount = getAllBzms().length;
     const TAB_LABELS = { branches: '🏢 สาขา', bzm: '🗺 ผู้จัดการเขต', employees: '👥 พนักงาน' };
-    // panel ทั้งสองส่ง label มาเอง — override ให้ชื่อแท็บตรงกันทุกที่
+    // segmented control — panel ทั้งสองส่ง label มาเอง จึง override ให้ชื่อแท็บตรงกันทุกที่
     const tabBtn = (tab, _label, count) => {
       const active = _adminManageTab === tab;
-      return `<button onclick="setAdminManageTab('${tab}')" style="border:none;background:${active?'var(--accent)':'var(--surface2)'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${TAB_LABELS[tab]||_label}<span style="font-size:11px;opacity:.9;background:${active?'rgba(255,255,255,.24)':'var(--surface3)'};padding:1px 8px;border-radius:999px;font-weight:800">${count}</span></button>`;
+      return `<button onclick="setAdminManageTab('${tab}')" style="border:none;background:${active?'var(--surface)':'transparent'};color:${active?'var(--accent)':'var(--text2)'};box-shadow:${active?'0 1px 3px rgba(0,0,0,.12)':'none'};padding:8px 15px;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:${active?'800':'600'};cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap">${TAB_LABELS[tab]||_label}<span style="font-size:11px;background:${active?'var(--accent)':'var(--surface3)'};color:${active?'#fff':'var(--text3)'};padding:1px 8px;border-radius:999px;font-weight:800">${count}</span></button>`;
     };
-    const tabBar = `<div class="card" style="margin-bottom:16px"><div style="display:flex;flex-wrap:wrap;gap:8px">
+    const tabBar = `<div class="card" style="margin-bottom:16px">${MANAGE_SEG_OPEN}
       ${tabBtn('branches','สาขา',branchCount)}${tabBtn('bzm','BZM',bzmCount)}${tabBtn('employees','พนักงาน',empCount)}
     </div></div>`;
 
@@ -10359,6 +10367,8 @@ function renderAdminManage() {
     let heroTitle, heroSub, heroBtn = '', body;
     if (tab === 'employees') {
       heroTitle = 'จัดการพนักงาน'; heroSub = 'ค้นหา / กรอง พนักงานทั้งระบบ';
+      heroBtn = `<button class="btn btn-navy" onclick="openExcelImport()" title="นำเข้าพนักงานจากไฟล์ Excel (รองรับฟอร์ม KTR)">📥 นำเข้าพนักงาน</button>
+        <button class="btn btn-outline" onclick="clearAllEmployees()" style="color:#DC2626;border-color:#DC2626" title="ลบรายชื่อพนักงานทั้งหมดในระบบ (กู้คืนไม่ได้)">🗑 ลบทั้งหมด</button>`;
       body = _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount);
     } else if (tab === 'bzm') {
       heroTitle = 'ผู้จัดการเขต (BZM)';
@@ -10646,7 +10656,7 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
   return `
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${MANAGE_SEG_OPEN}
         ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
         ${tabBtn('employees', 'พนักงาน', empCount)}
@@ -10702,10 +10712,10 @@ function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
   return `
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${MANAGE_SEG_OPEN}
         ${tabBtn('branches', 'สาขา', branchCount)}
-        ${tabBtn('employees', 'พนักงาน', empCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
+        ${tabBtn('employees', 'พนักงาน', empCount)}
       </div>
       <select class="form-select" id="admin-emp-branch-filter" onchange="filterAdminEmployees()" style="width:220px">
         <option value="">— ทุกสาขา —</option>
@@ -13794,6 +13804,33 @@ function adminDeleteEmpGlobal(empId, bid) {
     gsDel('employees', empId);
     showPage('admin-employees'); notify('ลบพนักงานสำเร็จ');
   }, { title:'ลบพนักงาน', icon:'👤' });
+}
+
+// ลบรายชื่อพนักงานทั้งหมดในระบบ — ยืนยัน 2 ชั้น (ต้องพิมพ์ยืนยัน) เพราะกู้คืนไม่ได้
+function clearAllEmployees() {
+  const all = Object.values(DB.employees).flat();
+  if (!all.length) { notify('ไม่มีพนักงานให้ลบ', 'error'); return; }
+  showModal('🗑 ลบรายชื่อพนักงานทั้งหมด', `
+    <div style="padding:4px 0">
+      <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-weight:800;color:#DC2626;margin-bottom:6px">⚠️ การกระทำนี้กู้คืนไม่ได้</div>
+        <div style="font-size:13px;color:#7F1D1D;line-height:1.6">
+          จะลบพนักงาน <b>${all.length}</b> คน จากทุกสาขาออกจากระบบถาวร<br>
+          ประวัติการสอน / ผลสอบ / ประวัติหลักสูตร ที่อ้างถึงพนักงานเหล่านี้จะหาคนไม่เจอ
+        </div>
+      </div>
+      <label class="form-label">พิมพ์ <b style="color:#DC2626">ลบทั้งหมด</b> เพื่อยืนยัน</label>
+      <input class="form-input" id="delemp-confirm" placeholder="ลบทั้งหมด" autocomplete="off">
+    </div>
+  `, async () => {
+    const txt = (document.getElementById('delemp-confirm').value || '').trim();
+    if (txt !== 'ลบทั้งหมด') { notify('พิมพ์ข้อความยืนยันให้ถูกต้อง', 'error'); return; }
+    try { await sbDelAll('employees'); } catch (e) { console.warn('clearAllEmployees SB', e); notify('ลบบน Cloud ไม่สำเร็จ: ' + e.message, 'error'); return; }
+    DB.employees = {};
+    closeModal();
+    showPage('admin-manage');
+    notify(`ลบพนักงานทั้งหมด ${all.length} คนแล้ว`);
+  }, 'ลบทั้งหมดถาวร');
 }
 
 // ==================== EXCEL IMPORT ====================
