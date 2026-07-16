@@ -10400,11 +10400,15 @@ function _renderManageBzmList() {
     const safe = z.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     let zEmps = 0;
     z.branches.forEach(bid => { zEmps += (DB.employees[bid]||[]).filter(_isEmpEnabled).length; });
-    return `<tr style="cursor:pointer" onclick="selectBzm('${safe}')">
+    return `<tr style="cursor:pointer" onclick="selectBzm('${safe}')" title="คลิกเพื่อดูสาขาในโซน">
       <td data-label="ชื่อ BZM" style="font-weight:800;color:var(--text);font-size:14px">${z._unassigned ? '⚠ ' : ''}${z.name}</td>
       <td data-label="สาขา" style="text-align:center;font-weight:700">${z.branches.length}</td>
       <td data-label="พนักงาน" style="text-align:center;font-weight:700">${zEmps}</td>
-      <td data-label="actions" style="text-align:right;color:var(--accent);font-weight:700;font-size:13px">เลือก ›</td>
+      <td data-label="actions" style="text-align:right;white-space:nowrap">
+        ${z._unassigned ? '<span style="color:var(--text3);font-size:12px">— ยังไม่มีผู้จัดการเขต —</span>' : `
+        <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="event.stopPropagation();openRenameBzmModal('${safe}')">แก้ไข</button>
+        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openAssignBranchesModal('${safe}')" title="ย้ายสาขาเข้า/ออกจากโซนนี้">🔀 โยกย้ายสาขา</button>`}
+      </td>
     </tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบ BZM ที่ตรงกับการค้นหา</td></tr>';
   return `
@@ -10420,7 +10424,7 @@ function _renderManageBzmList() {
         <th>ชื่อ BZM</th>
         <th style="text-align:center;width:110px">สาขา</th>
         <th style="text-align:center;width:130px">พนักงาน</th>
-        <th style="text-align:right;width:100px"></th>
+        <th style="text-align:right;width:220px">จัดการ</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -10754,9 +10758,8 @@ function renderBranchRows(entries) {
       <td data-label="พนักงานครัว" style="text-align:center;font-weight:700;color:var(--red)">${cook}</td>
       <td data-label="พนักงานบริการ" style="text-align:center;font-weight:700;color:var(--green)">${service}</td>
       <td data-label="actions" style="text-align:right;white-space:nowrap">
-        <button class="btn btn-sm btn-outline" onclick="adminViewBranch('${id}')">👥 พนักงาน</button>
-        <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditBranch('${id}')" title="แก้ไขสาขา">✏️</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="openDeleteBranch('${id}')" title="ลบสาขา">🗑</button>
+        <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openEditBranch('${id}')">แก้ไข</button>
+        <button class="btn btn-sm btn-danger" onclick="openDeleteBranch('${id}')">ลบ</button>
       </td>
     </tr>`;
   }).join('');
