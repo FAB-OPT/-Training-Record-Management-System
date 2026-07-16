@@ -10256,6 +10256,8 @@ function renderAdminSystemExtras() {
 let _adminManageTab = 'branches';
 function setAdminManageTab(tab) {
   _adminManageTab = tab;
+  _manageSearch = '';
+  _selectedBzm = null;   // สลับแท็บ → เริ่มใหม่ (แท็บ BZM กลับไปหน้าเลือกโซน)
   document.getElementById('main-content').innerHTML = renderAdminManage();
 }
 
@@ -10325,24 +10327,60 @@ function renderAdminManage() {
       const myZone = getAllBzms().find(z => z.name.includes(currentUser.name));
       if (myZone) _selectedBzm = myZone.name;
     }
-    const heroTitle = isBzmRole() ? 'สาขาในโซน' : (isExecRole() ? 'เรียกดูสาขา' : 'จัดการสาขา &amp; พนักงาน');
-    const heroSub = _selectedBzm
-      ? (isBzmRole() ? `รวม ${(getAllBzms().find(z=>z.name===_selectedBzm)?.branches.length)||0} สาขา` : `กำลังดูโซน: ${_selectedBzm}`)
-      : 'เลือกโซน BZM เพื่อจัดการสาขา';
-    const showAddBzm = !_selectedBzm && isAdminRole();
-    const showAddBranch = _selectedBzm && isAdminRole();
+    // BZM / ผู้บริหาร: ใช้มุมมองโซนเดิม (ไม่มีแท็บ — เห็นเฉพาะสาขาในโซนตัวเอง)
+    if (!isAdminRole()) {
+      const heroTitle = isBzmRole() ? 'สาขาในโซน' : 'เรียกดูสาขา';
+      const heroSub = _selectedBzm
+        ? (isBzmRole() ? `รวม ${(getAllBzms().find(z=>z.name===_selectedBzm)?.branches.length)||0} สาขา` : `กำลังดูโซน: ${_selectedBzm}`)
+        : 'เลือกโซน BZM เพื่อดูสาขา';
+      return `
+      <div class="page-hero"><div class="page-hero-body">
+        <div class="page-hero-title">${heroTitle}</div>
+        <div class="page-hero-sub">${heroSub}</div>
+      </div></div>
+      ${_selectedBzm ? _renderManageBzmDetail() : _renderManageBzmList()}`;
+    }
+
+    // Admin: แยกเป็น 3 แท็บ — สาขา | ผู้จัดการเขต (BZM) | พนักงาน
+    const branchCount = Object.keys(BRANCH_MASTER).length;
+    const empCount = Object.values(DB.employees).flat().filter(_isEmpEnabled).length;
+    const bzmCount = getAllBzms().length;
+    const TAB_LABELS = { branches: '🏢 สาขา', bzm: '🗺 ผู้จัดการเขต', employees: '👥 พนักงาน' };
+    // panel ทั้งสองส่ง label มาเอง — override ให้ชื่อแท็บตรงกันทุกที่
+    const tabBtn = (tab, _label, count) => {
+      const active = _adminManageTab === tab;
+      return `<button onclick="setAdminManageTab('${tab}')" style="border:none;background:${active?'var(--accent)':'var(--surface2)'};color:${active?'#fff':'var(--text2)'};padding:8px 16px;border-radius:999px;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px">${TAB_LABELS[tab]||_label}<span style="font-size:11px;opacity:.9;background:${active?'rgba(255,255,255,.24)':'var(--surface3)'};padding:1px 8px;border-radius:999px;font-weight:800">${count}</span></button>`;
+    };
+    const tabBar = `<div class="card" style="margin-bottom:16px"><div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${tabBtn('branches','สาขา',branchCount)}${tabBtn('bzm','BZM',bzmCount)}${tabBtn('employees','พนักงาน',empCount)}
+    </div></div>`;
+
+    const tab = _adminManageTab;
+    let heroTitle, heroSub, heroBtn = '', body;
+    if (tab === 'employees') {
+      heroTitle = 'จัดการพนักงาน'; heroSub = 'ค้นหา / กรอง พนักงานทั้งระบบ';
+      body = _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount);
+    } else if (tab === 'bzm') {
+      heroTitle = 'ผู้จัดการเขต (BZM)';
+      heroSub = _selectedBzm ? `กำลังดูโซน: ${_selectedBzm}` : 'เลือกโซนเพื่อจัดการสาขาในโซน';
+      heroBtn = _selectedBzm
+        ? `<button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>`
+        : `<button class="btn btn-navy" onclick="openAddBzmModal()">+ เพิ่ม BZM</button>`;
+      body = tabBar + (_selectedBzm ? _renderManageBzmDetail() : _renderManageBzmList());
+    } else {
+      heroTitle = 'จัดการสาขา'; heroSub = 'ดู / แก้ไข / เพิ่มสาขา ทั้งระบบ';
+      heroBtn = `<button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>`;
+      body = _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount);
+    }
     return `
     <div class="page-hero">
       <div class="page-hero-body">
         <div class="page-hero-title">${heroTitle}</div>
         <div class="page-hero-sub">${heroSub}</div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${showAddBzm   ? `<button class="btn btn-outline" onclick="openAddBzmModal()">+ เพิ่ม BZM</button>` : ''}
-        ${showAddBranch? `<button class="btn btn-navy" onclick="openAddBranch()">+ เพิ่มสาขา</button>` : ''}
-      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${heroBtn}</div>
     </div>
-    ${_selectedBzm ? _renderManageBzmDetail() : _renderManageBzmList()}`;
+    ${body}`;
   })()}`;
 }
 
