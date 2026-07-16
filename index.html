@@ -10640,27 +10640,12 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
   const mgrs = [...new Set(Object.values(BRANCH_MASTER).map(b=>b.manager))].sort();
   const mgrOptions = mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
   return `
-  <style>
-    .br-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px }
-    .br-card { background:var(--surface); border:2px solid var(--border); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:12px; transition:all .15s; box-shadow:0 2px 6px rgba(0,0,0,.04) }
-    .br-card:hover { border-color:var(--accent); box-shadow:0 6px 16px rgba(240,112,26,.10) }
-    .br-card-head { display:flex; align-items:flex-start; gap:10px; padding-bottom:10px; border-bottom:2px solid var(--border) }
-    .br-card-id { font-size:18px; font-weight:800; color:var(--primary); line-height:1; font-family:'Sarabun',sans-serif }
-    .br-card-name { font-size:14px; font-weight:700; color:var(--text); line-height:1.3; margin-top:3px }
-    .br-card-mgr { font-size:11.5px; color:var(--text3); margin-top:4px }
-    .br-card-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px }
-    .br-stat { text-align:center; padding:8px 4px; background:var(--surface2); border-radius:8px }
-    .br-stat-num { font-size:16px; font-weight:800; line-height:1; font-family:'Prompt','Kanit',sans-serif }
-    .br-stat-lbl { font-size:9.5px; color:var(--text3); font-weight:600; margin-top:3px; line-height:1.2 }
-    .br-card-actions { display:flex; gap:5px; margin-top:auto }
-    .br-card-actions .btn { flex:1 }
-  </style>
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         ${tabBtn('branches', 'สาขา', branchCount)}
-        ${tabBtn('employees', 'พนักงาน', empCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
+        ${tabBtn('employees', 'พนักงาน', empCount)}
       </div>
       <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:240px">
         <option value="">— ทุกผู้จัดการเขต —</option>
@@ -10669,7 +10654,23 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
       <input class="search-input" id="branch-search" placeholder="ค้นหารหัส / ชื่อสาขา..." oninput="filterBranches()" style="flex:1;min-width:180px;margin-left:auto">
     </div>
   </div>
-  <div class="br-grid" id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</div>`;
+  <div class="card">
+    <div class="table-wrap">
+      <table class="cards-on-mobile branch-table">
+        <thead><tr>
+          ${_sortHeader('id','รหัส',_branchSort,'setBranchSort')}
+          ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
+          ${_sortHeader('manager','ผู้จัดการเขต',_branchSort,'setBranchSort')}
+          ${_sortHeader('employees','ทั้งหมด',_branchSort,'setBranchSort','center')}
+          ${_sortHeader('mgr_team','ผจก.สาขา',_branchSort,'setBranchSort','center')}
+          ${_sortHeader('cook','ครัว',_branchSort,'setBranchSort','center')}
+          ${_sortHeader('service','บริการ',_branchSort,'setBranchSort','center')}
+          <th style="text-align:right">จัดการ</th>
+        </tr></thead>
+        <tbody id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</tbody>
+      </table>
+    </div>
+  </div>`;
 }
 
 let _adminEmpSort = { key: 'name', dir: 'asc' };
@@ -10736,7 +10737,7 @@ function renderAdminBranches() { _adminManageTab = 'branches'; return renderAdmi
 function renderAdminEmployees() { _adminManageTab = 'employees'; return renderAdminManage(); }
 
 function renderBranchRows(entries) {
-  if(!entries.length) return '<div style="grid-column:1/-1;text-align:center;color:var(--text3);padding:40px">ไม่พบสาขา</div>';
+  if(!entries.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบสาขา</td></tr>';
   return entries.map(([id,b])=>{
     const emps = getBranchEmployees(id).filter(e => e.status === 'active');
     const totalEmp = emps.length;
@@ -10744,26 +10745,20 @@ function renderBranchRows(entries) {
     const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
     const service = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
     const shortName = b.name.replace(id+' ','');
-    return `<div class="br-card">
-      <div class="br-card-head">
-        <div style="flex:1;min-width:0">
-          <div class="br-card-id">${id}</div>
-          <div class="br-card-name" style="cursor:pointer" onclick="adminViewBranch('${id}')">${shortName}</div>
-          <div class="br-card-mgr">BZM: ${b.manager}</div>
-        </div>
-      </div>
-      <div class="br-card-stats">
-        <div class="br-stat"><div class="br-stat-num" style="color:var(--text)">${totalEmp}</div><div class="br-stat-lbl">ทั้งหมด</div></div>
-        <div class="br-stat"><div class="br-stat-num" style="color:var(--blue)">${mgrTeam}</div><div class="br-stat-lbl">ผจก.สาขา</div></div>
-        <div class="br-stat"><div class="br-stat-num" style="color:var(--red)">${cook}</div><div class="br-stat-lbl">ครัว</div></div>
-        <div class="br-stat"><div class="br-stat-num" style="color:var(--green)">${service}</div><div class="br-stat-lbl">บริการ</div></div>
-      </div>
-      <div class="br-card-actions">
-        <button class="btn btn-sm btn-outline" onclick="adminViewBranch('${id}')">ดู</button>
-        <button class="btn btn-sm btn-outline" onclick="openEditBranch('${id}')">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" onclick="openDeleteBranch('${id}')">ลบ</button>
-      </div>
-    </div>`;
+    return `<tr>
+      <td data-label="รหัส" style="font-weight:800;color:var(--primary)">${id}</td>
+      <td data-label="ชื่อ" style="cursor:pointer" onclick="adminViewBranch('${id}')" title="คลิกเพื่อดูพนักงาน"><strong style="font-weight:700">${shortName}</strong></td>
+      <td data-label="ผู้จัดการ" style="color:var(--text2);font-size:12.5px">${b.manager||'—'}</td>
+      <td data-label="พนักงานทั้งหมด" style="text-align:center;font-weight:800">${totalEmp}</td>
+      <td data-label="ทีมผู้จัดการสาขา" style="text-align:center;font-weight:700;color:var(--blue)">${mgrTeam}</td>
+      <td data-label="พนักงานครัว" style="text-align:center;font-weight:700;color:var(--red)">${cook}</td>
+      <td data-label="พนักงานบริการ" style="text-align:center;font-weight:700;color:var(--green)">${service}</td>
+      <td data-label="actions" style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="adminViewBranch('${id}')">👥 พนักงาน</button>
+        <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditBranch('${id}')" title="แก้ไขสาขา">✏️</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="openDeleteBranch('${id}')" title="ลบสาขา">🗑</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
