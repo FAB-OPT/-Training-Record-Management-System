@@ -7849,6 +7849,168 @@ function openAddCourseHistory() {
   });
 }
 
+// ══════════ ชนรายชื่อ: เอารายชื่อ (ตำแหน่ง/สาขา) มาเช็คว่าผ่านหลักสูตรนี้กี่คน · ใครยังไม่ผ่าน ══════════
+// เทียบด้วย empId ก่อน ถ้าไม่มีก็ใช้รหัสพนักงาน / ชื่อ (กันข้อมูลที่นำเข้าจาก Excel ไม่มี empId)
+function _covPassed(course) {
+  const ids = new Set(), codes = new Set(), names = new Set();
+  (DB.courseHistory || []).forEach(c => {
+    if ((c.courseName || '').trim() !== course) return;
+    if (c.empId) ids.add(String(c.empId));
+    if (c.empCode) codes.add(String(c.empCode).trim());
+    if (c.empName) names.add(String(c.empName).replace(/\s+/g, ''));
+  });
+  return { ids, codes, names };
+}
+function _covHasPassed(e, p) {
+  if (e.id && p.ids.has(String(e.id))) return true;
+  if (e.empCode && p.codes.has(String(e.empCode).trim())) return true;
+  if (e.name && p.names.has(String(e.name).replace(/\s+/g, ''))) return true;
+  return false;
+}
+function _covTargets() {
+  const posSel = (document.getElementById('cov-pos') || {}).value || '';
+  const bid = (document.getElementById('cov-branch') || {}).value || '';
+  let emps = (getBranchEmployees(bid || 'ALL') || []).filter(_isEmpEnabled);
+  if (posSel.indexOf('grp:') === 0) { const g = posSel.slice(4); emps = emps.filter(e => getPositionGroup(e.position) === g); }
+  else if (posSel.indexOf('pos:') === 0) { const p = posSel.slice(4); emps = emps.filter(e => (e.position || '') === p); }
+  return emps.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+}
+function _covCompute() {
+  const course = (document.getElementById('cov-course') || {}).value || '';
+  const emps = _covTargets();
+  const p = _covPassed(course);
+  const passed = emps.filter(e => _covHasPassed(e, p));
+  const notPassed = emps.filter(e => !_covHasPassed(e, p));
+  return { course, emps, passed, notPassed, pct: emps.length ? Math.round(passed.length / emps.length * 100) : 0 };
+}
+function _covScopeLabel() {
+  const posSel = (document.getElementById('cov-pos') || {}).value || '';
+  const bid = (document.getElementById('cov-branch') || {}).value || '';
+  const pos = posSel.indexOf('grp:') === 0 ? posSel.slice(4) + ' (ทั้งกลุ่ม)' : (posSel.indexOf('pos:') === 0 ? posSel.slice(4) : 'ทุกตำแหน่ง');
+  const br = bid ? ((BRANCH_MASTER[bid] && BRANCH_MASTER[bid].name) || bid) : 'ทุกสาขา';
+  return { pos, br };
+}
+function _covList(title, arr, color) {
+  if (!arr.length) return '';
+  return `<div style="margin-bottom:10px"><div style="font-size:12.5px;font-weight:800;color:${color};margin:8px 0 4px">${title} (${arr.length})</div>` +
+    arr.map(e => `<div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);font-size:12.5px">
+      <span style="color:var(--text3);min-width:72px">${e.empCode || '—'}</span>
+      <b style="flex:1;min-width:0">${e.name}</b>
+      <span style="color:var(--text3);font-size:11.5px">${e.position || '-'}</span>
+    </div>`).join('') + `</div>`;
+}
+function _covRun() {
+  const box = document.getElementById('cov-result'); if (!box) return;
+  const r = _covCompute();
+  if (!r.course) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p>'; return; }
+  box.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="flex:1;min-width:92px;padding:10px;background:var(--surface2);border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800">${r.emps.length}</div><div style="font-size:11px;color:var(--text3)">รายชื่อทั้งหมด</div></div>
+      <div style="flex:1;min-width:92px;padding:10px;background:var(--green-light);border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--green)">${r.passed.length}</div><div style="font-size:11px;color:var(--text3)">ผ่านแล้ว (${r.pct}%)</div></div>
+      <div style="flex:1;min-width:92px;padding:10px;background:#FEF2F2;border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:#DC2626">${r.notPassed.length}</div><div style="font-size:11px;color:var(--text3)">ยังไม่ผ่าน</div></div>
+    </div>
+    <div style="max-height:32vh;overflow:auto">
+      ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626')}
+      ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
+      ${r.emps.length ? '' : '<p class="text-muted" style="text-align:center;padding:14px">ไม่มีพนักงานตามเงื่อนไขที่เลือก</p>'}
+    </div>`;
+}
+function openCourseCoverage() {
+  const list = DB.courseHistory || [];
+  const courses = [...new Set(list.map(c => (c.courseName || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+  if (!courses.length) { notify('ยังไม่มีข้อมูลประวัติการอบรม', 'error'); return; }
+  const courseOpts = courses.map(c => `<option value="${c.replace(/"/g, '&quot;')}">${c}</option>`).join('');
+  const brOpts = Object.keys(BRANCH_MASTER).sort().map(b => `<option value="${b}">${(BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b}</option>`).join('');
+  const groups = Object.keys(POSITION_BY_GROUP || {});
+  const grpOpts = groups.map(g => `<option value="grp:${g}">${g} (ทั้งกลุ่ม)</option>`).join('');
+  const posOpts = groups.map(g => `<optgroup label="${g}">` + (POSITION_BY_GROUP[g] || []).map(p => `<option value="pos:${p}">${p}</option>`).join('') + `</optgroup>`).join('');
+  showModal('🔀 ชนรายชื่อ · ใครผ่าน / ยังไม่ผ่านหลักสูตร', `
+    <div class="form-row">
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label>
+        <select class="form-select" id="cov-course" onchange="_covRun()"><option value="">— เลือกหลักสูตร —</option>${courseOpts}</select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ตำแหน่ง</label>
+        <select class="form-select" id="cov-pos" onchange="_covRun()"><option value="">ทุกตำแหน่ง</option>${grpOpts}${posOpts}</select></div>
+      <div><label class="form-label">สาขา</label>
+        <select class="form-select" id="cov-branch" onchange="_covRun()"><option value="">ทุกสาขา</option>${brOpts}</select></div>
+    </div>
+    <div id="cov-result" style="margin-top:12px"><p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p></div>
+  `, () => {
+    const r = _covCompute();
+    if (!r.course) { notify('กรุณาเลือกหลักสูตร', 'error'); return; }
+    if (!r.emps.length) { notify('ไม่มีพนักงานตามเงื่อนไขที่เลือก', 'error'); return; }
+    _printCourseCoverage(r);
+  }, 'ส่งออก PDF');
+}
+function _printCourseCoverage(r) {
+  const now = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  const sc = _covScopeLabel();
+  const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const rowsHtml = (arr, badge, color) => arr.map((e, i) => `<tr>
+      <td style="text-align:center;color:#6B7280">${i + 1}</td>
+      <td>${e.empCode || '—'}</td>
+      <td><b>${e.name}</b></td>
+      <td>${e.position || '—'}</td>
+      <td>${brName(e.branchId)}</td>
+      <td style="text-align:center;color:${color};font-weight:800">${badge}</td>
+    </tr>`).join('');
+  const style = `<style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+    @page { size: A4 portrait; margin: 12mm; }
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #root{max-width:900px;margin:0 auto;background:white;border-radius:10px;padding:22px 24px}
+    h1{font-size:19px;font-weight:800;margin:0 0 6px}
+    h2{font-size:14px;font-weight:800;margin:18px 0 6px}
+    .sub{color:#6B7280;font-size:13px;margin-bottom:3px}
+    .kpis{display:flex;gap:10px;margin:14px 0}
+    .kpi{flex:1;text-align:center;padding:10px;border-radius:9px;border:1px solid #E5E7EB}
+    .kpi b{display:block;font-size:22px}
+    .kpi span{font-size:11px;color:#6B7280}
+    table{width:100%;border-collapse:collapse}
+    th{background:#F3F4F6;color:#374151;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;border-bottom:1px solid #E5E7EB}
+    td{padding:8px 10px;border-bottom:1px solid #F3F4F6;font-size:12.5px;color:#1F2937}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
+    .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif}
+    .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
+    *{box-sizing:border-box}
+    @media print{
+      .no-print{display:none!important}
+      body{background:white;padding:0}
+      #root{max-width:none;border-radius:0;padding:0}
+      thead{display:table-header-group}
+      tr{page-break-inside:avoid;break-inside:avoid}
+      th,td{font-size:10px!important;padding:5px 6px!important}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    }
+  </style>`;
+  const html = `<div id="root">
+    <h1>รายงานชนรายชื่อ — ผู้ผ่าน / ยังไม่ผ่านหลักสูตร</h1>
+    <div class="sub"><b>หลักสูตร:</b> ${r.course}</div>
+    <div class="sub"><b>ตำแหน่ง:</b> ${sc.pos} · <b>สาขา:</b> ${sc.br}</div>
+    <div class="sub">ออกรายงานเมื่อ ${now}</div>
+    <div class="kpis">
+      <div class="kpi"><b>${r.emps.length}</b><span>รายชื่อทั้งหมด</span></div>
+      <div class="kpi" style="background:#F0FDF4;border-color:#BBF7D0"><b style="color:#16A34A">${r.passed.length}</b><span>ผ่านแล้ว (${r.pct}%)</span></div>
+      <div class="kpi" style="background:#FEF2F2;border-color:#FECACA"><b style="color:#DC2626">${r.notPassed.length}</b><span>ยังไม่ผ่าน</span></div>
+    </div>
+    ${r.notPassed.length ? `<h2 style="color:#DC2626">❌ ยังไม่ผ่าน (${r.notPassed.length} คน)</h2>
+    <table><thead><tr><th style="width:34px;text-align:center">#</th><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th><th style="text-align:center">สถานะ</th></tr></thead>
+    <tbody>${rowsHtml(r.notPassed, 'ยังไม่ผ่าน', '#DC2626')}</tbody></table>` : ''}
+    ${r.passed.length ? `<h2 style="color:#16A34A">✅ ผ่านแล้ว (${r.passed.length} คน)</h2>
+    <table><thead><tr><th style="width:34px;text-align:center">#</th><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th><th style="text-align:center">สถานะ</th></tr></thead>
+    <tbody>${rowsHtml(r.passed, 'ผ่าน', '#16A34A')}</tbody></table>` : ''}
+  </div>`;
+  const toolbar = `<div class="toolbar no-print">
+    <button class="tbtn" onclick="window.close()">✕ ปิด</button>
+    <button class="tbtn primary" onclick="window.print()">📥 บันทึก PDF / พิมพ์</button>
+  </div>`;
+  const win = window.open('', '_blank');
+  if (!win) { notify('เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่', 'error'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ชนรายชื่อ ' + r.course + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.close();
+}
+
 // ══════════ ส่งออก PDF: รายชื่อผู้ผ่านหลักสูตร (เลือกหลักสูตร → ดูใครผ่านบ้าง → พิมพ์/บันทึก PDF) ══════════
 function _caeFilter(course, batch, branch) {
   return (DB.courseHistory || []).filter(c =>
@@ -8121,7 +8283,14 @@ function renderAdminCourseHistory() {
       <div class="page-hero-title">${isAdminRole() ? 'ประวัติการอบรมหลักสูตรทั้งระบบ' : 'ประวัติการอบรมหลักสูตร'}</div>
       <div class="page-hero-sub">จัดกลุ่มตามพนักงาน — คลิกเพื่อดูหลักสูตรที่อบรม</div>
     </div>
-    ${isAdminRole() ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-navy" onclick="openCourseAttendeesExport()" title="เลือกหลักสูตร → ดูรายชื่อผู้ผ่าน → ส่งออก PDF">📄 ส่งออก PDF ผู้ผ่านหลักสูตร</button><button class="btn btn-outline" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อ</button><button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบรายการซ้ำ</button><button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button></div>' : ''}
+    ${isAdminRole() ? `<div class="ch-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-navy" onclick="openCourseCoverage()" title="เลือกตำแหน่ง/สาขา → เช็คว่าผ่านหลักสูตรนี้กี่คน ใครยังไม่ผ่าน">🔀 ชนรายชื่อ</button>
+      <button class="btn btn-outline" onclick="openCourseAttendeesExport()" title="เลือกหลักสูตร → รายชื่อผู้ผ่าน → ส่งออก PDF">📄 ส่งออก PDF</button>
+      <span style="width:1px;height:24px;background:var(--border2);margin:0 2px"></span>
+      <button class="btn btn-outline" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อ</button>
+      <button class="btn btn-outline" onclick="openCourseHistoryImport()" title="นำเข้าประวัติจากไฟล์ Excel">📥 Excel</button>
+      <button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบซ้ำ</button>
+    </div>` : ''}
   </div>
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
