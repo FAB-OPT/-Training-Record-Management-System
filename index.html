@@ -7849,6 +7849,119 @@ function openAddCourseHistory() {
   });
 }
 
+// ══════════ ส่งออก PDF: รายชื่อผู้ผ่านหลักสูตร (เลือกหลักสูตร → ดูใครผ่านบ้าง → พิมพ์/บันทึก PDF) ══════════
+function _caeFilter(course, batch, branch) {
+  return (DB.courseHistory || []).filter(c =>
+    (c.courseName || '').trim() === course &&
+    (!batch || String(c.batchNo || '') === String(batch)) &&
+    (!branch || String(c.branchId || '') === String(branch))
+  );
+}
+function _caeRenderBatches() {
+  const course = document.getElementById('cae-course').value;
+  const bSel = document.getElementById('cae-batch'), brSel = document.getElementById('cae-branch'), prev = document.getElementById('cae-preview');
+  if (!course) {
+    bSel.innerHTML = '<option value="">ทุกรุ่น</option>'; brSel.innerHTML = '<option value="">ทุกสาขา</option>';
+    prev.textContent = 'เลือกหลักสูตรเพื่อดูจำนวนผู้ผ่าน'; return;
+  }
+  const rows = _caeFilter(course, '', '');
+  const batches = [...new Set(rows.map(c => String(c.batchNo || '').trim()).filter(Boolean))]
+    .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b));
+  const brs = [...new Set(rows.map(c => String(c.branchId || '').trim()).filter(Boolean))].sort();
+  bSel.innerHTML = '<option value="">ทุกรุ่น</option>' + batches.map(b => `<option value="${b}">รุ่นที่ ${b}</option>`).join('');
+  brSel.innerHTML = '<option value="">ทุกสาขา</option>' + brs.map(b => `<option value="${b}">${(BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b}</option>`).join('');
+  prev.innerHTML = `พบผู้ผ่านหลักสูตรนี้ <b style="color:var(--accent)">${rows.length}</b> รายการ · ${batches.length || '—'} รุ่น · ${brs.length} สาขา`;
+}
+function openCourseAttendeesExport() {
+  const list = DB.courseHistory || [];
+  if (!list.length) { notify('ยังไม่มีข้อมูลประวัติการอบรม', 'error'); return; }
+  const courses = [...new Set(list.map(c => (c.courseName || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+  const courseOpts = courses.map(c => `<option value="${c.replace(/"/g, '&quot;')}">${c}</option>`).join('');
+  showModal('📄 ส่งออก PDF · รายชื่อผู้ผ่านหลักสูตร', `
+    <div class="form-row">
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label>
+        <select class="form-select" id="cae-course" onchange="_caeRenderBatches()"><option value="">— เลือกหลักสูตร —</option>${courseOpts}</select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">รุ่นที่</label><select class="form-select" id="cae-batch"><option value="">ทุกรุ่น</option></select></div>
+      <div><label class="form-label">สาขา</label><select class="form-select" id="cae-branch"><option value="">ทุกสาขา</option></select></div>
+    </div>
+    <div id="cae-preview" style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:9px;font-size:13px;color:var(--text2)">เลือกหลักสูตรเพื่อดูจำนวนผู้ผ่าน</div>
+  `, () => {
+    const course = document.getElementById('cae-course').value;
+    if (!course) { notify('กรุณาเลือกหลักสูตร', 'error'); return; }
+    const batch = document.getElementById('cae-batch').value;
+    const branch = document.getElementById('cae-branch').value;
+    const rows = _caeFilter(course, batch, branch);
+    if (!rows.length) { notify('ไม่พบผู้ผ่านหลักสูตรตามเงื่อนไข', 'error'); return; }
+    closeModal();
+    _printCourseAttendees(course, batch, branch, rows);
+  }, 'ส่งออก PDF');
+}
+function _printCourseAttendees(course, batch, branch, rows) {
+  const now = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  rows = rows.slice().sort((a, b) => brName(a.branchId).localeCompare(brName(b.branchId), 'th') || (a.empName || '').localeCompare(b.empName || '', 'th'));
+  const scope = (batch ? 'รุ่นที่ ' + batch : 'ทุกรุ่น') + ' · ' + (branch ? brName(branch) : 'ทุกสาขา');
+  const fmtD = (d) => d ? new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+  const trs = rows.map((c, i) => {
+    const e = getEmployee(c.empId);
+    return `<tr>
+      <td style="text-align:center;color:#6B7280">${i + 1}</td>
+      <td>${(e && e.empCode) || c.empCode || '—'}</td>
+      <td><b>${(e && e.name) || c.empName || '—'}</b></td>
+      <td>${(e && e.position) || c.position || '—'}</td>
+      <td>${brName(c.branchId)}</td>
+      <td style="text-align:center">${c.batchNo || '—'}</td>
+      <td>${fmtD(c.courseDate)}</td>
+    </tr>`;
+  }).join('');
+  const style = `<style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+    @page { size: A4 portrait; margin: 12mm; }
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #root{max-width:900px;margin:0 auto;background:white;border-radius:10px;padding:22px 24px}
+    h1{font-size:19px;font-weight:800;margin:0 0 6px}
+    .sub{color:#6B7280;font-size:13px;margin-bottom:3px}
+    .kpi{display:inline-block;background:#FEF3E7;border:1px solid #FBE0CC;color:#9A4A0E;font-weight:800;padding:6px 14px;border-radius:999px;font-size:13px;margin:12px 0 14px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#F3F4F6;color:#374151;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.3px;border-bottom:1px solid #E5E7EB}
+    td{padding:8px 10px;border-bottom:1px solid #F3F4F6;font-size:12.5px;color:#1F2937}
+    tbody tr:last-child td{border-bottom:none}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
+    .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif}
+    .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
+    *{box-sizing:border-box}
+    @media print{
+      .no-print{display:none!important}
+      body{background:white;padding:0}
+      #root{max-width:none;border-radius:0;padding:0}
+      thead{display:table-header-group}
+      tr{page-break-inside:avoid;break-inside:avoid}
+      th,td{font-size:10px!important;padding:5px 6px!important}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    }
+  </style>`;
+  const html = `<div id="root">
+    <h1>รายชื่อผู้ผ่านการอบรมหลักสูตร</h1>
+    <div class="sub"><b>หลักสูตร:</b> ${course}</div>
+    <div class="sub">${scope} · ออกรายงานเมื่อ ${now}</div>
+    <div class="kpi">ผู้ผ่านการอบรม ${rows.length} คน</div>
+    <table>
+      <thead><tr><th style="width:36px;text-align:center">#</th><th>รหัสพนักงาน</th><th>ชื่อ - นามสกุล</th><th>ตำแหน่ง</th><th>สาขา</th><th style="text-align:center">รุ่นที่</th><th>วันที่อบรม</th></tr></thead>
+      <tbody>${trs}</tbody>
+    </table>
+  </div>`;
+  const toolbar = `<div class="toolbar no-print">
+    <button class="tbtn" onclick="window.close()">✕ ปิด</button>
+    <button class="tbtn primary" onclick="window.print()">📥 บันทึก PDF / พิมพ์</button>
+  </div>`;
+  const win = window.open('', '_blank');
+  if (!win) { notify('เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่', 'error'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ผู้ผ่านหลักสูตร ' + course + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.close();
+}
+
 // ══════════ เพิ่มประวัติหลายคน — ดึงรายชื่อพนักงานของสาขา แล้วติ๊กเลือกผู้ผ่านการอบรม ══════════
 function openBulkCourseHistory() {
   const branches = Object.keys(BRANCH_MASTER).sort((a,b)=>((BRANCH_MASTER[a]&&BRANCH_MASTER[a].name)||a).localeCompare((BRANCH_MASTER[b]&&BRANCH_MASTER[b].name)||b,'th'));
@@ -8008,7 +8121,7 @@ function renderAdminCourseHistory() {
       <div class="page-hero-title">${isAdminRole() ? 'ประวัติการอบรมหลักสูตรทั้งระบบ' : 'ประวัติการอบรมหลักสูตร'}</div>
       <div class="page-hero-sub">จัดกลุ่มตามพนักงาน — คลิกเพื่อดูหลักสูตรที่อบรม</div>
     </div>
-    ${isAdminRole() ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-navy" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อผู้ผ่านการอบรม</button><button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบรายการซ้ำ</button><button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button></div>' : ''}
+    ${isAdminRole() ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-navy" onclick="openCourseAttendeesExport()" title="เลือกหลักสูตร → ดูรายชื่อผู้ผ่าน → ส่งออก PDF">📄 ส่งออก PDF ผู้ผ่านหลักสูตร</button><button class="btn btn-outline" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อ</button><button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบรายการซ้ำ</button><button class="btn btn-outline" onclick="openCourseHistoryImport()">📥 อัปโหลด Excel</button></div>' : ''}
   </div>
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
