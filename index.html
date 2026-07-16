@@ -5752,9 +5752,14 @@ function getEmployee(id) {
   }
   return null;
 }
-function fmtDate(dt) { if(!dt) return '—'; return new Date(dt).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}); }
-function fmtDateTime(dt) { if(!dt) return '—'; const d = new Date(dt); return d.toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
-function fmtDateTimeLong(dt) { if(!dt) return '—'; const d = new Date(dt); return d.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}) + ' ' + d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
+// ⚡ แคช Intl formatter ไว้ใช้ซ้ำ — toLocaleDateString() สร้าง formatter ใหม่ทุกครั้ง
+// ตารางพนักงาน 996 แถวเรียก fmtDate ทุกแถว = ช้าหลายร้อย ms · แคชแล้วเร็วขึ้นหลายสิบเท่า
+const _FMT_D  = new Intl.DateTimeFormat('th-TH', { year:'numeric', month:'short', day:'numeric' });
+const _FMT_DL = new Intl.DateTimeFormat('th-TH', { year:'numeric', month:'long',  day:'numeric' });
+const _FMT_T  = new Intl.DateTimeFormat('th-TH', { hour:'2-digit', minute:'2-digit' });
+function fmtDate(dt) { if(!dt) return '—'; const d = new Date(dt); return isNaN(d) ? '—' : _FMT_D.format(d); }
+function fmtDateTime(dt) { if(!dt) return '—'; const d = new Date(dt); return isNaN(d) ? '—' : (_FMT_D.format(d) + ' ' + _FMT_T.format(d)); }
+function fmtDateTimeLong(dt) { if(!dt) return '—'; const d = new Date(dt); return isNaN(d) ? '—' : (_FMT_DL.format(d) + ' ' + _FMT_T.format(d)); }
 function calcTenure(startDate) {
   if(!startDate) return '—';
   const start = new Date(startDate);
@@ -10709,6 +10714,11 @@ function _sortAdminEmps(emps) {
 function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
   const allEmps = Object.values(DB.employees).flat();
   const branchOptions = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} — ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  // ค่าเริ่มต้น = เฉพาะที่เปิดใช้งาน (ตรงกับ default ของ dropdown สถานะ) · วาดแค่หน้าปัจจุบัน
+  const _admEmpInitList = _sortAdminEmps(allEmps.filter(_isEmpEnabled));
+  const _pages = Math.max(1, Math.ceil(_admEmpInitList.length / ADM_EMP_PAGE_SIZE));
+  if (_admEmpPage > _pages) _admEmpPage = _pages;
+  const _admEmpInitRows = _admEmpInitList.slice((_admEmpPage-1)*ADM_EMP_PAGE_SIZE, _admEmpPage*ADM_EMP_PAGE_SIZE);
   return `
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -10741,9 +10751,10 @@ function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
           ${_sortHeader('tenure','อายุงาน',_adminEmpSort,'setAdminEmpSort')}
           <th style="text-align:right">จัดการ</th>
         </tr></thead>
-        <tbody id="admin-emp-tbody">${renderAdminEmpRows(_sortAdminEmps(allEmps.filter(_isEmpEnabled)))}</tbody>
+        <tbody id="admin-emp-tbody">${renderAdminEmpRows(_admEmpInitRows)}</tbody>
       </table>
     </div>
+    <div id="admin-emp-pager">${_admEmpPager(_admEmpInitList.length)}</div>
   </div>`;
 }
 
@@ -13689,17 +13700,49 @@ function renderAdminEmpRows(emps) {
   </tr>`;}).join('');
 }
 
-function filterAdminEmployees() {
-  const q = (document.getElementById('admin-emp-search')?.value||'').toLowerCase();
-  const bid = document.getElementById('admin-emp-branch-filter')?.value||'';
-  const status = document.getElementById('admin-emp-status-filter')?.value||'';
+// ⚡ แบ่งหน้า — เดิมวาดพนักงานทุกคน (996 แถว ≈ 7,000 DOM nodes) ทุกครั้งที่ render/สลับแท็บ
+let _admEmpPage = 1;
+const ADM_EMP_PAGE_SIZE = 100;
+// อ่านค่าฟิลเตอร์จากหน้าจอ (ถ้ายังไม่มี element = ค่าเริ่มต้น: เฉพาะที่เปิดใช้งาน)
+function _admEmpFiltered() {
+  const qEl = document.getElementById('admin-emp-search');
+  const bEl = document.getElementById('admin-emp-branch-filter');
+  const sEl = document.getElementById('admin-emp-status-filter');
+  const q = (qEl?.value || '').toLowerCase();
+  const bid = bEl?.value || '';
+  const status = sEl ? sEl.value : 'active';
   let emps = Object.values(DB.employees).flat();
-  if(q) emps = emps.filter(e=>e.name.toLowerCase().includes(q)||e.position.toLowerCase().includes(q));
+  if(q) emps = emps.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.position||'').toLowerCase().includes(q));
   if(bid) emps = emps.filter(e=>e.branchId===bid);
   if(status) emps = emps.filter(e=>e.status===status);
-  const tbody = document.getElementById('admin-emp-tbody');
-  if(tbody) tbody.innerHTML = renderAdminEmpRows(_sortAdminEmps(emps));
+  return _sortAdminEmps(emps);
 }
+function _admEmpPager(total) {
+  const pages = Math.max(1, Math.ceil(total / ADM_EMP_PAGE_SIZE));
+  if (_admEmpPage > pages) _admEmpPage = pages;
+  if (pages <= 1) return `<div style="padding:10px 4px;font-size:12.5px;color:var(--text3)">ทั้งหมด ${total} คน</div>`;
+  const from = (_admEmpPage-1)*ADM_EMP_PAGE_SIZE + 1;
+  const to = Math.min(total, _admEmpPage*ADM_EMP_PAGE_SIZE);
+  const btn = (p, label, disabled) => `<button class="btn btn-sm btn-outline" ${disabled?'disabled':''} onclick="setAdmEmpPage(${p})" style="min-width:36px">${label}</button>`;
+  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 4px">
+    <span style="font-size:12.5px;color:var(--text3);margin-right:auto">แสดง ${from}–${to} จาก ${total} คน</span>
+    ${btn(1,'«',_admEmpPage===1)}${btn(_admEmpPage-1,'‹',_admEmpPage===1)}
+    <span style="font-size:12.5px;font-weight:700;padding:0 6px">${_admEmpPage} / ${pages}</span>
+    ${btn(_admEmpPage+1,'›',_admEmpPage===pages)}${btn(pages,'»',_admEmpPage===pages)}
+  </div>`;
+}
+function _admEmpRefresh() {
+  const list = _admEmpFiltered();
+  const pages = Math.max(1, Math.ceil(list.length / ADM_EMP_PAGE_SIZE));
+  if (_admEmpPage > pages) _admEmpPage = pages;
+  const start = (_admEmpPage-1)*ADM_EMP_PAGE_SIZE;
+  const tbody = document.getElementById('admin-emp-tbody');
+  if (tbody) tbody.innerHTML = renderAdminEmpRows(list.slice(start, start+ADM_EMP_PAGE_SIZE));
+  const pg = document.getElementById('admin-emp-pager');
+  if (pg) pg.innerHTML = _admEmpPager(list.length);
+}
+function setAdmEmpPage(p) { _admEmpPage = Math.max(1, p); _admEmpRefresh(); }
+function filterAdminEmployees() { _admEmpPage = 1; _admEmpRefresh(); }
 
 function adminAddEmpGlobal() {
   const branchOpts = Object.keys(BRANCH_MASTER).map(id=>`<option value="${id}">${id} — ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
