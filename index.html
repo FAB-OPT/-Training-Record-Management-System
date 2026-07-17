@@ -7930,28 +7930,70 @@ function _covHasPassed(e, p) {
   if (e.name && p.names.has(String(e.name).replace(/\s+/g, ''))) return true;
   return false;
 }
+/* อ่านค่าที่เลือกจาก <select multiple> → array (ไม่เลือกอะไร = ไม่กรอง) */
+function _covMulti(id) {
+  const el = document.getElementById(id);
+  if (!el) return [];
+  return Array.from(el.selectedOptions || []).map(o => o.value).filter(Boolean);
+}
+/* ช่วงอายุงาน — เก็บเป็นเดือน [ต่ำสุด, สูงสุด) */
+const COV_TENURE = [
+  { v: '0-3',   label: 'น้อยกว่า 3 เดือน',  min: 0,  max: 3 },
+  { v: '3-6',   label: '3 – 6 เดือน',       min: 3,  max: 6 },
+  { v: '6-12',  label: '6 – 12 เดือน',      min: 6,  max: 12 },
+  { v: '12-24', label: '1 – 2 ปี',          min: 12, max: 24 },
+  { v: '24-60', label: '2 – 5 ปี',          min: 24, max: 60 },
+  { v: '60+',   label: '5 ปีขึ้นไป',        min: 60, max: Infinity },
+];
+function _tenureMonths(startDate) {
+  if (!startDate) return null;
+  const s = new Date(startDate);
+  if (isNaN(s)) return null;
+  const now = new Date();
+  let m = (now.getFullYear() - s.getFullYear()) * 12 + (now.getMonth() - s.getMonth());
+  if (now.getDate() < s.getDate()) m--;
+  return m < 0 ? null : m;
+}
 function _covTargets() {
-  const posSel = (document.getElementById('cov-pos') || {}).value || '';
-  const bid = (document.getElementById('cov-branch') || {}).value || '';
-  let emps = (getBranchEmployees(bid || 'ALL') || []).filter(_isEmpEnabled);
-  if (posSel.indexOf('grp:') === 0) { const g = posSel.slice(4); emps = emps.filter(e => getPositionGroup(e.position) === g); }
-  else if (posSel.indexOf('pos:') === 0) { const p = posSel.slice(4); emps = emps.filter(e => (e.position || '') === p); }
+  const poss = _covMulti('cov-pos'), bids = _covMulti('cov-branch'), tens = _covMulti('cov-tenure');
+  // สาขา: เลือกได้หลายสาขา · ไม่เลือก = ทุกสาขาที่เข้าถึงได้
+  let emps = [];
+  if (bids.length) bids.forEach(b => { emps = emps.concat(getBranchEmployees(b) || []); });
+  else emps = getBranchEmployees('ALL') || [];
+  emps = emps.filter(_isEmpEnabled);
+  // ตำแหน่ง: เลือกหลายอันได้ = เข้าเงื่อนไขข้อใดข้อหนึ่ง
+  if (poss.length) emps = emps.filter(e => poss.some(p =>
+    p.indexOf('grp:') === 0 ? getPositionGroup(e.position) === p.slice(4) : (e.position || '') === p.slice(4)));
+  // อายุงาน: เลือกหลายช่วงได้ = อยู่ในช่วงใดช่วงหนึ่ง
+  if (tens.length) emps = emps.filter(e => {
+    const m = _tenureMonths(e.startDate);
+    if (m === null) return false;
+    return tens.some(v => { const t = COV_TENURE.find(x => x.v === v); return t && m >= t.min && m < t.max; });
+  });
   return emps.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
 }
 function _covCompute() {
-  const course = (document.getElementById('cov-course') || {}).value || '';
+  const courses = _covMulti('cov-course');
   const emps = _covTargets();
-  const p = _covPassed(course);
-  const passed = emps.filter(e => _covHasPassed(e, p));
-  const notPassed = emps.filter(e => !_covHasPassed(e, p));
-  return { course, emps, passed, notPassed, pct: emps.length ? Math.round(passed.length / emps.length * 100) : 0 };
+  // เลือกหลายหลักสูตร = ต้องผ่าน "ครบทุกหลักสูตร" ถึงนับว่าผ่าน (ไม่ครบ = ยังต้องอบรม)
+  const sets = courses.map(c => _covPassed(c));
+  const ok = e => sets.length > 0 && sets.every(p => _covHasPassed(e, p));
+  const passed = emps.filter(ok), notPassed = emps.filter(e => !ok(e));
+  return { courses, course: courses.join(' + '), emps, passed, notPassed,
+           pct: emps.length ? Math.round(passed.length / emps.length * 100) : 0 };
 }
 function _covScopeLabel() {
-  const posSel = (document.getElementById('cov-pos') || {}).value || '';
-  const bid = (document.getElementById('cov-branch') || {}).value || '';
-  const pos = posSel.indexOf('grp:') === 0 ? posSel.slice(4) + ' (ทั้งกลุ่ม)' : (posSel.indexOf('pos:') === 0 ? posSel.slice(4) : 'ทุกตำแหน่ง');
-  const br = bid ? ((BRANCH_MASTER[bid] && BRANCH_MASTER[bid].name) || bid) : 'ทุกสาขา';
-  return { pos, br };
+  const poss = _covMulti('cov-pos'), bids = _covMulti('cov-branch'), tens = _covMulti('cov-tenure');
+  const pos = poss.length
+    ? poss.map(p => p.indexOf('grp:') === 0 ? p.slice(4) + ' (ทั้งกลุ่ม)' : p.slice(4)).join(', ')
+    : 'ทุกตำแหน่ง';
+  const br = bids.length
+    ? bids.map(b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b).join(', ')
+    : 'ทุกสาขา';
+  const ten = tens.length
+    ? tens.map(v => { const t = COV_TENURE.find(x => x.v === v); return t ? t.label : v; }).join(', ')
+    : 'ทุกอายุงาน';
+  return { pos, br, ten };
 }
 function _covList(title, arr, color) {
   if (!arr.length) return '';
@@ -7965,7 +8007,7 @@ function _covList(title, arr, color) {
 function _covRun() {
   const box = document.getElementById('cov-result'); if (!box) return;
   const r = _covCompute();
-  if (!r.course) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p>'; return; }
+  if (!r.courses.length) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p>'; return; }
   box.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <div style="flex:1;min-width:92px;padding:10px;background:var(--surface2);border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800">${r.emps.length}</div><div style="font-size:11px;color:var(--text3)">รายชื่อทั้งหมด</div></div>
@@ -7988,21 +8030,30 @@ function openCourseCoverage() {
   const groups = Object.keys(POSITION_BY_GROUP || {});
   const grpOpts = groups.map(g => `<option value="grp:${g}">${g} (ทั้งกลุ่ม)</option>`).join('');
   const posOpts = groups.map(g => `<optgroup label="${g}">` + (POSITION_BY_GROUP[g] || []).map(p => `<option value="pos:${p}">${p}</option>`).join('') + `</optgroup>`).join('');
+  const tenOpts = COV_TENURE.map(t => `<option value="${t.v}">${t.label}</option>`).join('');
+  const ms = 'class="form-select" multiple size="5" style="height:auto;padding:6px"';
   showModal('🔀 ชนรายชื่อ · ใครผ่าน / ยังไม่ผ่านหลักสูตร', `
-    <div class="form-row">
-      <div><label class="form-label">หลักสูตร <span class="req">*</span></label>
-        <select class="form-select" id="cov-course" onchange="_covRun()"><option value="">— เลือกหลักสูตร —</option>${courseOpts}</select></div>
+    <div style="background:var(--accent-light);border:1px solid var(--accent)33;border-radius:9px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--accent-hover);font-weight:600">
+      💡 ทุกช่องเลือกได้<b>หลายอัน</b> — กด <b>Ctrl</b> (Mac: <b>⌘</b>) ค้างแล้วคลิก · ไม่เลือก = เอาทั้งหมด
     </div>
     <div class="form-row">
-      <div><label class="form-label">ตำแหน่ง</label>
-        <select class="form-select" id="cov-pos" onchange="_covRun()"><option value="">ทุกตำแหน่ง</option>${grpOpts}${posOpts}</select></div>
-      <div><label class="form-label">สาขา</label>
-        <select class="form-select" id="cov-branch" onchange="_covRun()"><option value="">ทุกสาขา</option>${brOpts}</select></div>
+      <div><label class="form-label">หลักสูตร <span class="req">*</span> <span style="font-weight:500;color:var(--text3);font-size:11px">— เลือกหลายอัน = ต้องผ่านครบทุกอัน</span></label>
+        <select ${ms} id="cov-course" onchange="_covRun()">${courseOpts}</select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ตำแหน่ง <span style="font-weight:500;color:var(--text3);font-size:11px">— ว่าง = ทุกตำแหน่ง</span></label>
+        <select ${ms} id="cov-pos" onchange="_covRun()">${grpOpts}${posOpts}</select></div>
+      <div><label class="form-label">อายุงาน <span style="font-weight:500;color:var(--text3);font-size:11px">— ว่าง = ทุกอายุงาน</span></label>
+        <select ${ms} id="cov-tenure" onchange="_covRun()">${tenOpts}</select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">สาขา <span style="font-weight:500;color:var(--text3);font-size:11px">— ว่าง = ทุกสาขา</span></label>
+        <select ${ms} id="cov-branch" onchange="_covRun()">${brOpts}</select></div>
     </div>
     <div id="cov-result" style="margin-top:12px"><p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p></div>
   `, () => {
     const r = _covCompute();
-    if (!r.course) { notify('กรุณาเลือกหลักสูตร', 'error'); return; }
+    if (!r.courses.length) { notify('กรุณาเลือกหลักสูตร', 'error'); return; }
     if (!r.emps.length) { notify('ไม่มีพนักงานตามเงื่อนไขที่เลือก', 'error'); return; }
     _printCourseCoverage(r);
   }, 'ส่งออก PDF');
@@ -8051,7 +8102,8 @@ function _printCourseCoverage(r) {
   const html = `<div id="root">
     <h1>รายงานชนรายชื่อ — ผู้ผ่าน / ยังไม่ผ่านหลักสูตร</h1>
     <div class="sub"><b>หลักสูตร:</b> ${r.course}</div>
-    <div class="sub"><b>ตำแหน่ง:</b> ${sc.pos} · <b>สาขา:</b> ${sc.br}</div>
+    <div class="sub"><b>ตำแหน่ง:</b> ${sc.pos} · <b>อายุงาน:</b> ${sc.ten}</div>
+    <div class="sub"><b>สาขา:</b> ${sc.br}</div>
     <div class="sub">ออกรายงานเมื่อ ${now}</div>
     <div class="kpis">
       <div class="kpi"><b>${r.emps.length}</b><span>รายชื่อทั้งหมด</span></div>
