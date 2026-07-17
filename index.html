@@ -2511,13 +2511,14 @@ function getPagePerm(page) {
     const lv = hub.userLevels[String(currentUser.id || currentUser.code || '')];
     if (lv) return lv;
   }
-  // 2) สิทธิ์รายคนเดิมที่ตั้งใน จัดการผู้ใช้งาน (Supabase) — ยังใช้ได้ ไม่ถูก HUB ทับ
+  // 2) HUB ตามตำแหน่ง — ต้องชนะ pagePerms เก่า เพราะ UI ตั้งรายคนในระบบนี้ถูกยกไป HUB แล้ว
+  //    ถ้าให้ค่าเก่าชนะ คนที่เคยถูกตั้งไว้จะติดค่านั้นถาวรโดยไม่มีที่ให้แก้
+  if (hub && hub.roleLevels && hub.roleLevels[currentUser.role]) return hub.roleLevels[currentUser.role];
+  // 3) ค่าเก่าที่เคยตั้งไว้ก่อนย้ายมา HUB — ใช้ต่อเฉพาะตอน HUB ยังไม่เคยตั้ง
   const perms = currentUser.pagePerms;
   if (perms && typeof perms === 'object' && !Array.isArray(perms)) {
     return perms[page] || 'none';
   }
-  // 3) HUB ตามตำแหน่ง
-  if (hub && hub.roleLevels && hub.roleLevels[currentUser.role]) return hub.roleLevels[currentUser.role];
   // 4) ไม่มีอะไรตั้งไว้ → ค่าเดิมในโค้ด (อยู่ในเมนู = full)
   const nav = isBzmRole() ? BZM_NAV_ITEMS
     : (isExecRole() ? EXEC_NAV_ITEMS : ADMIN_NAV_ITEMS);
@@ -13805,24 +13806,6 @@ function _openAdminUserForm(existing) {
     `<option value="${k}"${k===role?' selected':''}>${v.label} — ${v.desc}</option>`
   ).join('');
   // Permission row per page: 3-segment toggle (ไม่เห็น / ดู / เต็ม)
-  const pageCheckboxes = ALL_ADMIN_PAGES.map(p => {
-    const cur = currentPerms[p.page] || 'none';
-    const seg = (val, label, color) => {
-      const active = cur === val;
-      return `<button type="button" data-page="${p.page}" data-val="${val}" onclick="_auSetPerm('${p.page}','${val}')" style="flex:1;padding:5px 6px;border:none;background:${active?color:'transparent'};color:${active?'white':'var(--text2)'};font-weight:${active?'800':'600'};font-size:10.5px;border-radius:5px;cursor:pointer;font-family:inherit;transition:all .12s">${label}</button>`;
-    };
-    return `
-    <div class="au-perm" data-page-row="${p.page}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
-      <span style="font-size:14px">${p.icon}</span>
-      <span style="flex:1;font-size:12px">${p.label}</span>
-      <div style="display:flex;gap:3px;background:var(--surface);padding:3px;border-radius:7px;border:1px solid var(--border)">
-        ${seg('none', 'ซ่อน', '#6B7280')}
-        ${seg('view', 'ดู', '#3B82F6')}
-        ${seg('full', 'เต็ม', '#16A34A')}
-      </div>
-    </div>`;
-  }).join('');
-
   const titleText = isOverride
     ? `✏️ แก้ไข & ตั้งสิทธิ์ ${pin} (override รหัสระบบ)`
     : (isEdit ? `✏️ แก้ไขผู้ใช้ ${pin}` : '+ เพิ่มผู้ใช้งานใหม่');
@@ -13842,7 +13825,7 @@ function _openAdminUserForm(existing) {
       </div>
       <div>
         <label class="form-label">ตำแหน่ง (default) <span class="req">*</span></label>
-        <select class="form-select" id="au-role" onchange="_auRoleChanged(this.value)">${roleOpts}</select>
+        <select class="form-select" id="au-role">${roleOpts}</select>
       </div>
     </div>
     <div style="margin-top:14px">
@@ -13854,28 +13837,17 @@ function _openAdminUserForm(existing) {
       <input class="form-input" id="au-nick" placeholder="เช่น พี่ชาย" maxlength="40" value="${nick.replace(/"/g,'&quot;')}">
     </div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
-      <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span>🔓 สิทธิ์การเข้าถึงเมนู <span class="req">*</span></span>
-        <span style="display:flex;gap:4px">
-          <button type="button" onclick="_auTogglePerms('full')" style="padding:4px 9px;background:#DCFCE7;border:1px solid #86EFAC;border-radius:6px;font-size:11px;cursor:pointer;color:#166534;font-family:inherit;font-weight:700">ทั้งหมด เต็ม</button>
-          <button type="button" onclick="_auTogglePerms('view')" style="padding:4px 9px;background:#DBEAFE;border:1px solid #93C5FD;border-radius:6px;font-size:11px;cursor:pointer;color:#1E40AF;font-family:inherit;font-weight:700">ทั้งหมด ดู</button>
-          <button type="button" onclick="_auTogglePerms('none')" style="padding:4px 9px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;color:var(--text2);font-family:inherit">ล้าง</button>
-        </span>
-      </label>
-      <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.55">
-        <strong style="color:#6B7280">ซ่อน</strong> = ไม่เห็นเมนู · <strong style="color:#3B82F6">ดู</strong> = อ่านอย่างเดียว · <strong style="color:#16A34A">เต็ม</strong> = แก้ไข/ลบได้
-        <br>${hasOverride?'<span style="color:var(--accent);font-weight:700">กำลังใช้สิทธิ์เฉพาะ (custom)</span>':'<span>กำลังใช้สิทธิ์ default ของ <strong>' + (ADMIN_USER_ROLES[role]?.label||role) + '</strong> — เปลี่ยน role แล้วกดบันทึก จะใช้ค่า default ของ role ใหม่</span>'}
+      <div style="font-size:12px;color:var(--text2);line-height:1.75;background:var(--bg2,#f8fafc);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        🔓 <b>สิทธิ์การเข้าถึงเมนู ย้ายไปตั้งที่ HUB แล้ว</b><br>
+        เปิด HUB → ⚙️ เครื่องมือผู้ดูแลระบบ → <b>สิทธิ์ปุ่มแต่ละระบบ</b> → เลือก <b>🎓 Training Record</b><br>
+        ตั้งตามตำแหน่งได้ (ซ่อน/ดู/เต็ม) และตั้งเฉพาะบุคคลได้ที่ปุ่ม <b>ยกเว้นรายคน</b>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px" id="au-perms-grid">${pageCheckboxes}</div>
     </div>
   `, () => {
     const newPin = document.getElementById('au-pin').value.trim();
     const newName = document.getElementById('au-name').value.trim();
     const newNick = document.getElementById('au-nick').value.trim();
     const newRole = document.getElementById('au-role').value;
-    const permsMap = _auReadPerms();
-    const visiblePages = Object.entries(permsMap).filter(([,v]) => v && v !== 'none');
-    const newAllowed = permsMap; // store the full map (with view/full info, drops 'none')
     if (!/^\d{6}$/.test(newPin)) { notify('รหัส PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
     // Uniqueness check — only when PIN changed (or new user).
     // Override mode INTENTIONALLY uses a default-system PIN so skip the ADMIN_CODES check there.
@@ -13887,15 +13859,13 @@ function _openAdminUserForm(existing) {
       if (BRANCH_MASTER[newPin]) { notify('รหัสนี้ตรงกับรหัสสาขา', 'error'); return; }
     }
     if (!newName) { notify('กรุณากรอกชื่อ', 'error'); return; }
-    if (visiblePages.length === 0) { notify('กรุณาเลือกอย่างน้อย 1 เมนู (ดู หรือ เต็ม)', 'error'); return; }
-    // Strip 'none' entries from saved map (cleaner storage)
-    const cleanedPerms = {};
-    Object.entries(newAllowed).forEach(([k,v]) => { if (v && v !== 'none') cleanedPerms[k] = v; });
     const now = new Date().toISOString();
     const rec = {
       id: newPin,
       name: newName, nick: newNick || '-', role: newRole,
-      allowedPages: cleanedPerms, // {pageId: 'view'|'full'} map; stored as JSON string in Sheets
+      // สิทธิ์ย้ายไปตั้งที่ HUB แล้ว — ต้องเป็น null เท่านั้น
+      // ({} ว่างจะถูกอ่านเป็น "ซ่อนทุกหน้า" เพราะ getPagePerm คืน perms[page]||'none')
+      allowedPages: null,
       updatedAt: now,
       createdAt: existing?.createdAt || now,
       createdBy: existing?.createdBy || (currentUser?.name || 'Admin'),
@@ -13916,7 +13886,7 @@ function _openAdminUserForm(existing) {
       currentUser.name = newName;
       currentUser.nick = newNick || '-';
       currentUser.role = newRole;
-      currentUser.pagePerms = cleanedPerms;
+      currentUser.pagePerms = null;   // สิทธิ์มาจาก HUB แล้ว — ล้าง override เดิมทิ้ง
       // Rebuild nav to reflect new permissions
       if (typeof buildAdminNav === 'function') buildAdminNav();
     }
@@ -13929,48 +13899,7 @@ function _openAdminUserForm(existing) {
 }
 
 // Helpers for the per-page permission grid (3-segment toggle: none/view/full)
-function _auSetPerm(page, val) {
-  // Re-render the row's segment by toggling the active class on buttons
-  const row = document.querySelector(`[data-page-row="${page}"]`);
-  if (!row) return;
-  const colors = { none:'#6B7280', view:'#3B82F6', full:'#16A34A' };
-  row.querySelectorAll('button[data-page]').forEach(b => {
-    const active = b.dataset.val === val;
-    b.style.background = active ? colors[val] : 'transparent';
-    b.style.color = active ? 'white' : 'var(--text2)';
-    b.style.fontWeight = active ? '800' : '600';
-  });
-  // Store current value via data attr on the row
-  row.dataset.curPerm = val;
-}
-function _auTogglePerms(val) {
-  // val: 'none' | 'view' | 'full' — applies to all rows
-  document.querySelectorAll('[data-page-row]').forEach(row => {
-    _auSetPerm(row.dataset.pageRow, val);
-  });
-}
-function _auRoleChanged(role) {
-  const def = role === 'bzm' ? BZM_NAV_ITEMS
-    : (role === 'vp' || role === 'coo' ? EXEC_NAV_ITEMS : ADMIN_NAV_ITEMS);
-  const set = new Set(def.map(i => i.page));
-  document.querySelectorAll('[data-page-row]').forEach(row => {
-    _auSetPerm(row.dataset.pageRow, set.has(row.dataset.pageRow) ? 'full' : 'none');
-  });
-}
 // Read currently-selected perms from the form
-function _auReadPerms() {
-  const out = {};
-  document.querySelectorAll('[data-page-row]').forEach(row => {
-    const page = row.dataset.pageRow;
-    // Find the active button (active = colored bg)
-    const activeBtn = row.querySelector('button[data-page][style*="white"]');
-    let val = 'none';
-    if (activeBtn) val = activeBtn.dataset.val;
-    if (row.dataset.curPerm) val = row.dataset.curPerm;
-    out[page] = val;
-  });
-  return out;
-}
 function confirmDeleteAdminUser(pin) {
   if (!isAdminRole()) { notify('เฉพาะ Admin', 'error'); return; }
   if (currentUser?.code === pin) { notify('ลบบัญชีของตัวเองไม่ได้', 'error'); return; }
