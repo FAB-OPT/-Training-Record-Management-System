@@ -513,7 +513,16 @@
   }
 
   /* ==================== BUTTONS ==================== */
-  .btn { padding: 10px 18px; border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; letter-spacing: -0.1px; }
+  /* ใส่ฟอนต์ emoji ต่อท้าย — Sarabun ไม่มี emoji เบราว์เซอร์เลย fallback ทีละตัว ไอคอนออกมาคนละสไตล์ */
+  .btn { padding: 10px 18px; border-radius: 10px; font-family: 'Sarabun', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; letter-spacing: -0.1px; }
+  /* ปุ่มแอ็กชันในหัวหน้า — จัดเป็นกลุ่มแบบ segmented (โทนเดียวกับแท็บ) */
+  .chact { border: none; background: transparent; color: var(--text2); padding: 7px 13px; border-radius: 9px; font-family: 'Sarabun', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .chact:hover { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.10); }
+  .chact-primary { background: var(--accent); color: #fff; font-weight: 800; }
+  .chact-primary:hover { background: var(--accent-hover); color: #fff; }
+  .chact-danger { color: #DC2626; }
+  .chact-danger:hover { background: #FEF2F2; color: #B91C1C; }
+  .chact-group { display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 2px; flex-wrap: wrap; }
   .btn-sm { padding: 7px 13px; font-size: 12.5px; border-radius: 8px; }
   .btn-navy { background: var(--accent); color: white; }
   .btn-navy:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,26,0.32); }
@@ -8470,14 +8479,17 @@ function renderAdminCourseHistory() {
       <div class="page-hero-title">${isAdminRole() ? 'ประวัติการอบรมหลักสูตรทั้งระบบ' : 'ประวัติการอบรมหลักสูตร'}</div>
       <div class="page-hero-sub">จัดกลุ่มตามพนักงาน — คลิกเพื่อดูหลักสูตรที่อบรม</div>
     </div>
-    ${isAdminRole() ? `<div class="ch-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn btn-navy" onclick="openCourseCoverage()" title="เลือกตำแหน่ง/สาขา → เช็คว่าผ่านหลักสูตรนี้กี่คน ใครยังไม่ผ่าน">🔀 ชนรายชื่อ</button>
-      <button class="btn btn-outline" onclick="openCourseAttendeesExport()" title="เลือกหลักสูตร → รายชื่อผู้ผ่าน → ส่งออก PDF">📄 ส่งออก PDF</button>
-      <span style="width:1px;height:24px;background:var(--border2);margin:0 2px"></span>
-      <button class="btn btn-outline" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อ</button>
-      <button class="btn btn-outline" onclick="openCourseHistoryImport()" title="นำเข้าประวัติจากไฟล์ Excel">📥 Excel</button>
-      <button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบซ้ำ</button>
-      <button class="btn btn-outline" onclick="clearAllCourseHistory()" style="color:#DC2626;border-color:#DC2626" title="ลบประวัติการอบรมหลักสูตรทั้งหมด (กู้คืนไม่ได้)">🗑 ลบทั้งหมด</button>
+    ${isAdminRole() ? `<div class="ch-actions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="chact-group">
+        <button class="chact chact-primary" onclick="openCourseCoverage()" title="เลือกตำแหน่ง/สาขา → เช็คว่าผ่านหลักสูตรนี้กี่คน ใครยังไม่ผ่าน">🔀 ชนรายชื่อ</button>
+        <button class="chact" onclick="openCourseAttendeesExport()" title="เลือกหลักสูตร → รายชื่อผู้ผ่าน → ส่งออก PDF">📄 ส่งออก PDF</button>
+      </div>
+      <div class="chact-group">
+        <button class="chact" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อ</button>
+        <button class="chact" onclick="openCourseHistoryImport()" title="นำเข้าประวัติจากไฟล์ Excel">📥 นำเข้า Excel</button>
+        <button class="chact" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบซ้ำ</button>
+        <button class="chact chact-danger" onclick="clearAllCourseHistory()" title="ลบประวัติการอบรมหลักสูตรทั้งหมด (กู้คืนไม่ได้)">🗑 ลบทั้งหมด</button>
+      </div>
     </div>` : ''}
   </div>
   <div class="card">
