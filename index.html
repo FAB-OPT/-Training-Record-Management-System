@@ -8380,6 +8380,36 @@ function _doDeleteCourseHistory(id) {
   showPage(currentPage); notify('ลบรายการสำเร็จ');
 }
 
+// ลบประวัติการอบรมหลักสูตรทั้งหมด — ยืนยัน 2 ชั้น (ต้องพิมพ์ยืนยัน) เพราะกู้คืนไม่ได้
+function clearAllCourseHistory() {
+  const all = DB.courseHistory || [];
+  if (!all.length) { notify('ไม่มีประวัติการอบรมให้ลบ', 'error'); return; }
+  const nCourses = new Set(all.map(c => (c.courseName||'').trim()).filter(Boolean)).size;
+  const nPeople = new Set(all.map(_chGroupKey)).size;
+  showModal('🗑 ลบประวัติการอบรมทั้งหมด', `
+    <div style="padding:4px 0">
+      <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-weight:800;color:#DC2626;margin-bottom:6px">⚠️ การกระทำนี้กู้คืนไม่ได้</div>
+        <div style="font-size:13px;color:#7F1D1D;line-height:1.6">
+          จะลบประวัติการอบรม <b>${all.length}</b> รายการ<br>
+          (<b>${nPeople}</b> คน · <b>${nCourses}</b> หลักสูตร) ออกจากระบบถาวร<br>
+          รายชื่อพนักงานไม่ถูกลบ — ลบเฉพาะ "ประวัติว่าใครผ่านหลักสูตรอะไร"
+        </div>
+      </div>
+      <label class="form-label">พิมพ์ <b style="color:#DC2626">ลบทั้งหมด</b> เพื่อยืนยัน</label>
+      <input class="form-input" id="delch-confirm" placeholder="ลบทั้งหมด" autocomplete="off">
+    </div>
+  `, async () => {
+    const txt = (document.getElementById('delch-confirm').value || '').trim();
+    if (txt !== 'ลบทั้งหมด') { notify('พิมพ์ข้อความยืนยันให้ถูกต้อง', 'error'); return; }
+    try { await sbDelAll('courseHistory'); } catch (e) { console.warn('clearAllCourseHistory SB', e); notify('ลบบน Cloud ไม่สำเร็จ: ' + e.message, 'error'); return; }
+    DB.courseHistory = [];
+    closeModal();
+    showPage(currentPage);
+    notify(`ลบประวัติการอบรมทั้งหมด ${all.length} รายการแล้ว`);
+  }, 'ลบทั้งหมดถาวร');
+}
+
 let _adminChSort = { key: 'courseDate', dir: 'desc' };
 function setAdminChSort(key) {
   _toggleSort(_adminChSort, key);
@@ -8447,6 +8477,7 @@ function renderAdminCourseHistory() {
       <button class="btn btn-outline" onclick="openBulkCourseHistory()" title="ดึงรายชื่อพนักงานของสาขา แล้วเลือกหลายคนที่ผ่านการอบรม">➕ เพิ่มรายชื่อ</button>
       <button class="btn btn-outline" onclick="openCourseHistoryImport()" title="นำเข้าประวัติจากไฟล์ Excel">📥 Excel</button>
       <button class="btn btn-outline" onclick="cleanupDuplicateCourseHistory()" title="ลบ records ที่ empId+course+batch+date ซ้ำกัน">🧹 ลบซ้ำ</button>
+      <button class="btn btn-outline" onclick="clearAllCourseHistory()" style="color:#DC2626;border-color:#DC2626" title="ลบประวัติการอบรมหลักสูตรทั้งหมด (กู้คืนไม่ได้)">🗑 ลบทั้งหมด</button>
     </div>` : ''}
   </div>
   <div class="card">
