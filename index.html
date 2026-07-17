@@ -4438,8 +4438,47 @@ async function _loadAuxFromSheets() {
   } catch (e) { console.warn('Aux load (chatLogs/cases/adminUsers) failed:', e); }
 }
 
+/* ── สาขา: ดึงจาก HUB (ศูนย์กลาง) มาเป็นฐานของ BRANCH_MASTER ──
+   เดิม BRANCH_MASTER hardcode ในไฟล์ → ต้องแก้หลายที่และไม่ตรงกับระบบอื่น
+   ตอนนี้ HUB (⚙️ → จัดการสาขา) เป็นแหล่งจริง · branch_overrides ของ Training ยังทับได้เหมือนเดิม
+   HUB เก็บ {branches:{code→ชื่อ}, bzmMap:{code→นิค}, statusMap:{code→'closed'}} + users[]
+   Training ใช้ {code: {name:'CODE ชื่อ', manager:'ชื่อเต็ม (นิค)', closed}} */
+const HUB_CONFIG_URL = 'https://script.google.com/macros/s/AKfycbyjGvhSuDrnnOkWdwoq4CsR5jM3__lp58ZWe_BjcrxDIoOtnlFaiEdKUXX10EANUFCRXA/exec';
+function _stripThaiTitle(s) {
+  return String(s || '').replace(/^(นางสาว|นาย|นาง|น\.?ส\.?|ว่าที่\s*ร\.?\s*ต\.?|ดร\.?)\s*/, '').trim();
+}
+async function loadBranchesFromHub() {
+  try {
+    const res = await fetch(HUB_CONFIG_URL + '?action=config&_=' + Date.now()).then(r => r.json());
+    const b = res && res.ok && res.branches;
+    if (!b || !b.branches || typeof b.branches !== 'object') { console.warn('[branches] HUB ไม่มีข้อมูลสาขา — ใช้ค่าในไฟล์'); return false; }
+    const byNick = {};
+    (Array.isArray(res.users) ? res.users : []).forEach(u => { if (u && u.nick) byNick[u.nick] = u; });
+    const bzmMap = b.bzmMap || {}, stMap = b.statusMap || {};
+    const next = {};
+    Object.keys(b.branches).forEach(code => {
+      if (String(code).indexOf('40') === 0) return;   // เจ๊แดงไม่อยู่ในระบบนี้
+      const nick = bzmMap[code] || '';
+      const clean = _stripThaiTitle(byNick[nick] && byNick[nick].name);   // "นาย ณธวรรท ..." → "ณธวรรท ..."
+      next[code] = {
+        name: code + ' ' + (b.branches[code] || ''),
+        manager: clean ? (clean + (nick ? ' (' + nick + ')' : '')) : nick,
+        closed: stMap[code] === 'closed'
+      };
+    });
+    if (!Object.keys(next).length) return false;
+    // BRANCH_MASTER เป็น const → แก้ในตัวเดิม (reassign ไม่ได้)
+    Object.keys(BRANCH_MASTER).forEach(k => { delete BRANCH_MASTER[k]; });
+    Object.assign(BRANCH_MASTER, next);
+    const nClosed = Object.keys(next).filter(c => next[c].closed).length;
+    console.log('[branches] จาก HUB ' + Object.keys(next).length + ' สาขา (ปิด ' + nClosed + ')');
+    return true;
+  } catch (e) { console.warn('[branches] โหลดจาก HUB ไม่ได้ — ใช้ค่าในไฟล์', e); return false; }
+}
+
 // Main load: Supabase first, auto-migrate from Sheets on first run if SB empty
 async function gsLoad() {
+  await loadBranchesFromHub();   // ฐานสาขาจาก HUB ก่อน — branch_overrides จะทับทีหลังใน _applyServerData
   try {
     const sb = _initSb();
     if (sb) {
@@ -5734,16 +5773,20 @@ function getBranchTrainings(bid) {
 // - branch user → their single branch
 // - BZM         → branches where they are the manager (matched via BRANCH_MASTER[bid].manager)
 // - admin/vp/coo → all branches
+/* สาขาที่ยังเปิด — สาขาปิดยังอยู่ใน BRANCH_MASTER (ค้นชื่อจากรหัสได้ = ประวัติ/รายงานย้อนหลังไม่พัง)
+   แต่ไม่ควรโผล่ในงานประจำ (เลือกสาขา/รายงาน/นับสถิติ) */
+function openBranchIds() { return Object.keys(BRANCH_MASTER).filter(bid => !BRANCH_MASTER[bid].closed); }
 function getAccessibleBranches() {
   if (!currentUser) return [];
   if (currentUser.type === 'branch') return [currentUser.branchId];
+  const open = openBranchIds();
   if (currentUser.role === 'bzm' && currentUser.name) {
-    return Object.keys(BRANCH_MASTER).filter(bid => {
+    return open.filter(bid => {
       const mgr = BRANCH_MASTER[bid]?.manager || '';
       return mgr.includes(currentUser.name);
     });
   }
-  return Object.keys(BRANCH_MASTER);
+  return open;
 }
 function isAdminRole()    { return currentUser?.type === 'admin' && (!currentUser.role || currentUser.role === 'admin'); }
 function isBzmRole()      { return currentUser?.type === 'admin' && currentUser.role === 'bzm'; }
