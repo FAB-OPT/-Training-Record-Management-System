@@ -523,6 +523,21 @@
   .chact-danger { color: #DC2626; }
   .chact-danger:hover { background: #FEF2F2; color: #B91C1C; }
   .chact-group { display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 2px; flex-wrap: wrap; }
+  /* ── ดรอปดาวเลือกได้หลายอัน — หน้าตาเหมือน .form-select เดิม แต่กางแล้วเป็น checkbox ── */
+  .msel { position: relative; }
+  .msel-btn { width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .msel-btn .msel-cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msel-btn .msel-car { color: var(--text3); flex-shrink: 0; font-size: 11px; }
+  .msel-btn.msel-empty .msel-cap { color: var(--text3); }
+  .msel-panel { display: none; position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.16); max-height: 240px; overflow: auto; padding: 6px; }
+  .msel.open .msel-panel { display: block; }
+  .msel-head { position: sticky; top: -6px; background: var(--surface); padding: 6px 8px; margin: -6px -6px 4px;
+    border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; }
+  .msel-opt { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text); }
+  .msel-opt:hover { background: var(--surface2); }
+  .msel-grp { font-size: 11px; font-weight: 800; color: var(--text3); padding: 6px 8px 2px; text-transform: uppercase; letter-spacing: .3px; }
   .btn-sm { padding: 7px 13px; font-size: 12.5px; border-radius: 8px; }
   .btn-navy { background: var(--accent); color: white; }
   .btn-navy:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,26,0.32); }
@@ -7930,12 +7945,62 @@ function _covHasPassed(e, p) {
   if (e.name && p.names.has(String(e.name).replace(/\s+/g, ''))) return true;
   return false;
 }
-/* อ่านค่าที่เลือกจาก <select multiple> → array (ไม่เลือกอะไร = ไม่กรอง) */
-function _covMulti(id) {
-  const el = document.getElementById(id);
-  if (!el) return [];
-  return Array.from(el.selectedOptions || []).map(o => o.value).filter(Boolean);
+/* ══ ดรอปดาวเลือกหลายอัน — หน้าตาเหมือน select เดิม กางแล้วเป็น checkbox ══
+   items: [{v, label, group?}] · onChange: ชื่อฟังก์ชันที่จะเรียกเมื่อเปลี่ยน */
+function _mselHTML(id, items, opts) {
+  opts = opts || {};
+  let body = '', lastGrp = null;
+  items.forEach(it => {
+    if (it.group && it.group !== lastGrp) { body += `<div class="msel-grp">${it.group}</div>`; lastGrp = it.group; }
+    const ck = opts.allChecked ? ' checked' : '';
+    body += `<label class="msel-opt"><input type="checkbox" class="msel-chk" value="${String(it.v).replace(/"/g,'&quot;')}"${ck} onchange="_mselSync('${id}')"> <span>${it.label}</span></label>`;
+  });
+  return `<div class="msel" id="${id}-wrap" data-onchange="${opts.onChange || ''}" data-none="${opts.noneText || '— เลือก —'}">
+    <button type="button" class="form-select msel-btn" id="${id}-btn" onclick="_mselToggle('${id}')"><span class="msel-cap"></span><span class="msel-car">▼</span></button>
+    <div class="msel-panel" id="${id}-panel">
+      <div class="msel-head"><label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAll('${id}', this.checked)"> เลือกทั้งหมด</label></div>
+      ${body}
+    </div>
+  </div>`;
 }
+function _mselToggle(id) {
+  const w = document.getElementById(id + '-wrap'); if (!w) return;
+  const open = w.classList.contains('open');
+  document.querySelectorAll('.msel.open').forEach(x => x.classList.remove('open'));   // ปิดตัวอื่นก่อน
+  if (!open) w.classList.add('open');
+}
+function _mselValues(id) {
+  return Array.from(document.querySelectorAll('#' + id + '-panel .msel-chk:checked')).map(c => c.value);
+}
+function _mselAll(id, on) {
+  document.querySelectorAll('#' + id + '-panel .msel-chk').forEach(c => { c.checked = on; });
+  _mselSync(id);
+}
+function _mselSync(id) {
+  const w = document.getElementById(id + '-wrap'); if (!w) return;
+  const all = document.querySelectorAll('#' + id + '-panel .msel-chk');
+  const sel = Array.from(all).filter(c => c.checked);
+  const btn = document.getElementById(id + '-btn');
+  const cap = btn && btn.querySelector('.msel-cap');
+  if (cap) {
+    if (!sel.length) cap.textContent = w.dataset.none || '— เลือก —';
+    else if (sel.length === all.length) cap.textContent = 'ทั้งหมด (' + all.length + ')';
+    else if (sel.length === 1) cap.textContent = (sel[0].parentElement.textContent || '').trim();
+    else cap.textContent = 'เลือก ' + sel.length + ' รายการ';
+  }
+  if (btn) btn.classList.toggle('msel-empty', !sel.length);
+  const allBox = w.querySelector('.msel-all');
+  if (allBox) allBox.checked = all.length > 0 && sel.length === all.length;
+  const fn = w.dataset.onchange;
+  if (fn && typeof window[fn] === 'function') window[fn]();
+}
+// คลิกนอกดรอปดาว = ปิด
+document.addEventListener('click', function (e) {
+  if (!e.target.closest || !e.target.closest('.msel')) document.querySelectorAll('.msel.open').forEach(x => x.classList.remove('open'));
+});
+
+/* อ่านค่าที่เลือก → array */
+function _covMulti(id) { return _mselValues(id); }
 /* ช่วงอายุงาน — เก็บเป็นเดือน [ต่ำสุด, สูงสุด) */
 const COV_TENURE = [
   { v: '0-3',   label: 'น้อยกว่า 3 เดือน',  min: 0,  max: 3 },
@@ -8007,7 +8072,8 @@ function _covList(title, arr, color) {
 function _covRun() {
   const box = document.getElementById('cov-result'); if (!box) return;
   const r = _covCompute();
-  if (!r.courses.length) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p>'; return; }
+  const miss = (typeof _covMissingFields === 'function') ? _covMissingFields() : [];
+  if (miss.length) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">ยังไม่ได้เลือก: <b>' + miss.join('</b> · <b>') + '</b></p>'; return; }
   box.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <div style="flex:1;min-width:92px;padding:10px;background:var(--surface2);border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800">${r.emps.length}</div><div style="font-size:11px;color:var(--text3)">รายชื่อทั้งหมด</div></div>
@@ -8025,38 +8091,48 @@ function openCourseCoverage() {
   const list = DB.courseHistory || [];
   const courses = [...new Set(list.map(c => (c.courseName || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
   if (!courses.length) { notify('ยังไม่มีข้อมูลประวัติการอบรม', 'error'); return; }
-  const courseOpts = courses.map(c => `<option value="${c.replace(/"/g, '&quot;')}">${c}</option>`).join('');
-  const brOpts = Object.keys(BRANCH_MASTER).sort().map(b => `<option value="${b}">${(BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b}</option>`).join('');
   const groups = Object.keys(POSITION_BY_GROUP || {});
-  const grpOpts = groups.map(g => `<option value="grp:${g}">${g} (ทั้งกลุ่ม)</option>`).join('');
-  const posOpts = groups.map(g => `<optgroup label="${g}">` + (POSITION_BY_GROUP[g] || []).map(p => `<option value="pos:${p}">${p}</option>`).join('') + `</optgroup>`).join('');
-  const tenOpts = COV_TENURE.map(t => `<option value="${t.v}">${t.label}</option>`).join('');
-  const ms = 'class="form-select" multiple size="5" style="height:auto;padding:6px"';
+  // items ของแต่ละดรอปดาว
+  const itCourse = courses.map(c => ({ v: c, label: c }));
+  const itPos = [];
+  groups.forEach(g => {
+    itPos.push({ v: 'grp:' + g, label: g + ' (ทั้งกลุ่ม)', group: g });
+    (POSITION_BY_GROUP[g] || []).forEach(pp => itPos.push({ v: 'pos:' + pp, label: pp, group: g }));
+  });
+  const itTen = COV_TENURE.map(t => ({ v: t.v, label: t.label }));
+  const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   showModal('🔀 ชนรายชื่อ · ใครผ่าน / ยังไม่ผ่านหลักสูตร', `
     <div style="background:var(--accent-light);border:1px solid var(--accent)33;border-radius:9px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--accent-hover);font-weight:600">
-      💡 ทุกช่องเลือกได้<b>หลายอัน</b> — กด <b>Ctrl</b> (Mac: <b>⌘</b>) ค้างแล้วคลิก · ไม่เลือก = เอาทั้งหมด
+      💡 ทุกช่องกดแล้ว<b>ติ๊กเลือกได้หลายอัน</b> · ต้องเลือกให้ครบทุกช่อง (มี "เลือกทั้งหมด" ให้กดทีเดียว)
     </div>
     <div class="form-row">
       <div><label class="form-label">หลักสูตร <span class="req">*</span> <span style="font-weight:500;color:var(--text3);font-size:11px">— เลือกหลายอัน = ต้องผ่านครบทุกอัน</span></label>
-        <select ${ms} id="cov-course" onchange="_covRun()">${courseOpts}</select></div>
+        ${_mselHTML('cov-course', itCourse, { onChange: '_covRun', noneText: '— เลือกหลักสูตร —' })}</div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">ตำแหน่ง <span style="font-weight:500;color:var(--text3);font-size:11px">— ว่าง = ทุกตำแหน่ง</span></label>
-        <select ${ms} id="cov-pos" onchange="_covRun()">${grpOpts}${posOpts}</select></div>
-      <div><label class="form-label">อายุงาน <span style="font-weight:500;color:var(--text3);font-size:11px">— ว่าง = ทุกอายุงาน</span></label>
-        <select ${ms} id="cov-tenure" onchange="_covRun()">${tenOpts}</select></div>
+      <div><label class="form-label">ตำแหน่ง <span class="req">*</span></label>
+        ${_mselHTML('cov-pos', itPos, { onChange: '_covRun', noneText: '— เลือกตำแหน่ง —', allChecked: true })}</div>
+      <div><label class="form-label">อายุงาน <span class="req">*</span></label>
+        ${_mselHTML('cov-tenure', itTen, { onChange: '_covRun', noneText: '— เลือกอายุงาน —', allChecked: true })}</div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">สาขา <span style="font-weight:500;color:var(--text3);font-size:11px">— ว่าง = ทุกสาขา</span></label>
-        <select ${ms} id="cov-branch" onchange="_covRun()">${brOpts}</select></div>
+      <div><label class="form-label">สาขา <span class="req">*</span></label>
+        ${_mselHTML('cov-branch', itBr, { onChange: '_covRun', noneText: '— เลือกสาขา —', allChecked: true })}</div>
     </div>
-    <div id="cov-result" style="margin-top:12px"><p class="text-muted" style="text-align:center;padding:16px">เลือกหลักสูตรเพื่อชนรายชื่อ</p></div>
+    <div id="cov-result" style="margin-top:12px"></div>
   `, () => {
+    const miss = _covMissingFields();
+    if (miss.length) { notify('ยังไม่ได้เลือก: ' + miss.join(' · '), 'error'); return; }
     const r = _covCompute();
-    if (!r.courses.length) { notify('กรุณาเลือกหลักสูตร', 'error'); return; }
     if (!r.emps.length) { notify('ไม่มีพนักงานตามเงื่อนไขที่เลือก', 'error'); return; }
     _printCourseCoverage(r);
   }, 'ส่งออก PDF');
+  ['cov-course', 'cov-pos', 'cov-tenure', 'cov-branch'].forEach(_mselSync);   // ตั้ง label เริ่มต้น + รันครั้งแรก
+}
+/* ช่องไหนยังไม่ได้เลือก — ต้องเลือกครบทุกช่อง */
+function _covMissingFields() {
+  const need = [['cov-course', 'หลักสูตร'], ['cov-pos', 'ตำแหน่ง'], ['cov-tenure', 'อายุงาน'], ['cov-branch', 'สาขา']];
+  return need.filter(([id]) => !_mselValues(id).length).map(([, n]) => n);
 }
 function _printCourseCoverage(r) {
   const now = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
