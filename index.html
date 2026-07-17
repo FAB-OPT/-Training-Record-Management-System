@@ -11973,6 +11973,148 @@ function openDupCheckModal(mid) {
         </div>`).join('');
   showModal(`🔍 ตรวจซ้ำ/คล้าย · ${m.name}`, _dupLevelBar(mid) + summary + list, null, 'ปิด');
 }
+// ══════════ ส่งออกข้อสอบ — Excel (แก้ไข/สำรอง) หรือ PDF (พิมพ์เป็นชุดข้อสอบ) ══════════
+function _qxCollect() {
+  const scope = (document.getElementById('qx-scope') || {}).value || 'all';
+  const onlyActive = (document.getElementById('qx-active') || {}).checked;
+  let mids = Object.keys(MODULES);
+  if (scope === 'svc') mids = mids.filter(m => MODULES[m].group === 'Service');
+  else if (scope === 'cook') mids = mids.filter(m => MODULES[m].group === 'Cook');
+  else if (scope.indexOf('mod:') === 0) mids = [scope.slice(4)];
+  const out = [];
+  mids.forEach(mid => {
+    getAllQuestionsForModule(mid, false).forEach(q => {
+      if (onlyActive && !isQuizActive(q.uid)) return;
+      out.push({ mid: mid, module: MODULES[mid] ? MODULES[mid].name : mid, group: MODULES[mid] ? MODULES[mid].group : '', q: q });
+    });
+  });
+  return out;
+}
+function _qxUpdCount() {
+  const rows = _qxCollect();
+  const el = document.getElementById('qx-count');
+  if (el) el.innerHTML = `จะส่งออก <b style="color:var(--accent)">${rows.length}</b> ข้อ`;
+}
+function openQuizExport() {
+  const order = { Service: 0, Cook: 1 };
+  const mods = Object.keys(MODULES).sort((a, b) => (order[MODULES[a].group] - order[MODULES[b].group]) || MODULES[a].name.localeCompare(MODULES[b].name, 'th'));
+  const modOpts = mods.map(m => `<option value="mod:${m}">${MODULES[m].group === 'Service' ? '🍽' : '👨‍🍳'} ${MODULES[m].name}</option>`).join('');
+  showModal('📤 ส่งออกข้อสอบ', `
+    <div class="form-row">
+      <div><label class="form-label">ขอบเขต</label>
+        <select class="form-select" id="qx-scope" onchange="_qxUpdCount()">
+          <option value="all">ทุก Module</option>
+          <option value="svc">🍽 เฉพาะกลุ่มบริการ</option>
+          <option value="cook">👨‍🍳 เฉพาะกลุ่มครัว</option>
+          ${modOpts}
+        </select></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:12px 0 6px;font-size:13px;font-weight:600">
+      <input type="checkbox" id="qx-active" checked onchange="_qxUpdCount()"> เฉพาะข้อที่เปิดใช้งาน
+    </label>
+    <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:12px;font-size:13px;font-weight:600">
+      <input type="checkbox" id="qx-ans" checked> แสดงเฉลย
+    </label>
+    <div id="qx-count" style="padding:10px 14px;background:var(--surface2);border-radius:9px;font-size:13px;color:var(--text2);margin-bottom:14px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <button onclick="_qxExcel()" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:20px 16px;cursor:pointer;text-align:left;font-family:'Sarabun','Segoe UI Emoji',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='#16A34A';this.style.background='var(--green-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <div style="font-size:28px;margin-bottom:6px">📊</div>
+        <div style="font-weight:700;font-size:14.5px;color:var(--text)">Excel</div>
+        <div style="font-size:11.5px;color:var(--text2)">แก้ไข / สำรองข้อมูล</div>
+      </button>
+      <button onclick="_qxPdf()" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:20px 16px;cursor:pointer;text-align:left;font-family:'Sarabun','Segoe UI Emoji',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <div style="font-size:28px;margin-bottom:6px">📄</div>
+        <div style="font-weight:700;font-size:14.5px;color:var(--text)">PDF</div>
+        <div style="font-size:11.5px;color:var(--text2)">พิมพ์เป็นชุดข้อสอบ</div>
+      </button>
+    </div>
+  `, null, 'ปิด');
+  _qxUpdCount();
+}
+function _qxExcel() {
+  const rows = _qxCollect();
+  if (!rows.length) { notify('ไม่มีข้อสอบตามเงื่อนไข', 'error'); return; }
+  const showAns = (document.getElementById('qx-ans') || {}).checked;
+  const head = ['กลุ่ม', 'Module', 'คำถาม', 'ตัวเลือก A', 'ตัวเลือก B', 'ตัวเลือก C', 'ตัวเลือก D'];
+  if (showAns) head.push('เฉลย');
+  head.push('ที่มา', 'สถานะ');
+  const aoa = [head];
+  rows.forEach(r => {
+    const q = r.q;
+    const line = [
+      r.group === 'Service' ? 'บริการ' : (r.group === 'Cook' ? 'ครัว' : r.group),
+      r.module,
+      String(q.q || '').replace(/^\d+[\.\s]+/, ''),
+      (q.opts && q.opts.A) || '', (q.opts && q.opts.B) || '', (q.opts && q.opts.C) || '', (q.opts && q.opts.D) || ''
+    ];
+    if (showAns) line.push(q.ans || '');
+    line.push({ base: 'เริ่มต้น', pool: 'กลุ่ม', custom: 'เพิ่มเอง' }[q.source] || q.source);
+    line.push(isQuizActive(q.uid) ? 'เปิดใช้งาน' : 'ปิดใช้งาน');
+    aoa.push(line);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 8 }, { wch: 26 }, { wch: 60 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 24 }].concat(showAns ? [{ wch: 6 }] : []).concat([{ wch: 10 }, { wch: 10 }]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ข้อสอบ');
+  XLSX.writeFile(wb, 'ข้อสอบ_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  closeModal();
+  notify(`ส่งออก Excel ${rows.length} ข้อสำเร็จ`);
+}
+function _qxPdf() {
+  const rows = _qxCollect();
+  if (!rows.length) { notify('ไม่มีข้อสอบตามเงื่อนไข', 'error'); return; }
+  const showAns = (document.getElementById('qx-ans') || {}).checked;
+  const now = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  // จัดกลุ่มตาม Module เพื่อให้อ่านเป็นชุด
+  const byMod = {};
+  rows.forEach(r => { (byMod[r.module] = byMod[r.module] || []).push(r.q); });
+  let n = 0;
+  const body = Object.keys(byMod).map(m => `
+    <h2>${m} <span style="font-weight:600;color:#6B7280;font-size:12px">(${byMod[m].length} ข้อ)</span></h2>
+    ${byMod[m].map(q => {
+      n++;
+      return `<div class="qitem">
+        <div class="qtext">${n}. ${String(q.q || '').replace(/^\d+[\.\s]+/, '')}</div>
+        <div class="qopts">
+          ${['A','B','C','D'].map(k => `<div class="qopt${showAns && q.ans === k ? ' correct' : ''}"><b>${k}.</b> ${(q.opts && q.opts[k]) || ''}${showAns && q.ans === k ? ' ✓' : ''}</div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}`).join('');
+  const style = `<style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+    @page { size: A4 portrait; margin: 14mm; }
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#0F1419;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #root{max-width:900px;margin:0 auto;background:white;border-radius:10px;padding:24px 26px}
+    h1{font-size:19px;font-weight:800;margin:0 0 4px;text-align:center}
+    .sub{text-align:center;color:#6B7280;font-size:12.5px;margin-bottom:18px}
+    h2{font-size:14px;font-weight:800;margin:18px 0 8px;padding:6px 10px;background:#F3F4F6;border-left:4px solid #F0701A;border-radius:4px}
+    .qitem{margin-bottom:12px;page-break-inside:avoid;break-inside:avoid}
+    .qtext{font-size:13px;font-weight:700;margin-bottom:5px}
+    .qopts{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;padding-left:14px}
+    .qopt{font-size:12px;color:#374151;padding:2px 0}
+    .qopt.correct{color:#16A34A;font-weight:700}
+    .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
+    .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif}
+    .tbtn.primary{background:#F0701A;color:white;border-color:#F0701A}
+    *{box-sizing:border-box}
+    @media print{ .no-print{display:none!important} body{background:white;padding:0} #root{max-width:none;border-radius:0;padding:0} h2{page-break-after:avoid} }
+  </style>`;
+  const html = `<div id="root">
+    <h1>ชุดข้อสอบ${showAns ? ' (มีเฉลย)' : ''}</h1>
+    <div class="sub">Santa Fe Steak · รวม ${rows.length} ข้อ · ออกเมื่อ ${now}</div>
+    ${body}
+  </div>`;
+  const toolbar = `<div class="toolbar no-print">
+    <button class="tbtn" onclick="window.close()">✕ ปิด</button>
+    <button class="tbtn primary" onclick="window.print()">📥 บันทึก PDF / พิมพ์</button>
+  </div>`;
+  const win = window.open('', '_blank');
+  if (!win) { notify('เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่', 'error'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ชุดข้อสอบ</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.close();
+  closeModal();
+}
+
 function openDupCheckAll() {
   const rows = Object.keys(MODULES)
     .map(mid => ({ mid, n: findSimilarQuestions(mid).length }))
@@ -12037,6 +12179,7 @@ function renderAdminQuiz() {
       <div class="page-hero-title">จัดการคำถามข้อสอบ</div>
     </div>
     <button class="btn btn-refresh" onclick="refreshAdminQuiz(this)" title="ดึงข้อมูลล่าสุดจาก Cloud แล้วแสดงใหม่"><span class="refresh-ic">⟳</span> รีเฟรช</button>
+    <button class="btn btn-outline" onclick="openQuizExport()" title="ส่งออกข้อสอบเป็น Excel หรือ PDF">📤 ส่งออกข้อสอบ</button>
     <button class="btn btn-navy" onclick="openDupCheckAll()">🔍 ตรวจข้อสอบซ้ำ</button>
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
