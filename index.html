@@ -2505,12 +2505,20 @@ function _effectiveAdminCodes() {
 function getPagePerm(page) {
   if (!currentUser) return 'none';
   if (currentUser.type === 'branch') return 'full';
-  // Per-user override via จัดการผู้ใช้งาน
+  const hub = TR_PERMS && TR_PERMS[page];
+  // 1) HUB ยกเว้นรายคน — ชนะทุกอย่าง
+  if (hub && hub.userLevels) {
+    const lv = hub.userLevels[String(currentUser.id || currentUser.code || '')];
+    if (lv) return lv;
+  }
+  // 2) สิทธิ์รายคนเดิมที่ตั้งใน จัดการผู้ใช้งาน (Supabase) — ยังใช้ได้ ไม่ถูก HUB ทับ
   const perms = currentUser.pagePerms;
   if (perms && typeof perms === 'object' && !Array.isArray(perms)) {
     return perms[page] || 'none';
   }
-  // No override → role default. Visible = full.
+  // 3) HUB ตามตำแหน่ง
+  if (hub && hub.roleLevels && hub.roleLevels[currentUser.role]) return hub.roleLevels[currentUser.role];
+  // 4) ไม่มีอะไรตั้งไว้ → ค่าเดิมในโค้ด (อยู่ในเมนู = full)
   const nav = isBzmRole() ? BZM_NAV_ITEMS
     : (isExecRole() ? EXEC_NAV_ITEMS : ADMIN_NAV_ITEMS);
   return nav.some(it => it.page === page) ? 'full' : 'none';
@@ -4491,9 +4499,27 @@ async function loadBranchesFromHub() {
   } catch (e) { console.warn('[branches] โหลดจาก HUB ไม่ได้ — ใช้ค่าในไฟล์', e); return false; }
 }
 
+/* ── สิทธิ์หน้าจากศูนย์กลาง (HUB ⚙️ → สิทธิ์ปุ่มแต่ละระบบ → Training) ──
+   HUB ส่งมาเป็น { pageId: { roleLevels:{role:'none'|'view'|'full'}, userLevels:{code:level} } }
+   ลำดับใน getPagePerm: HUB รายคน > สิทธิ์รายคนเดิมใน Supabase > HUB ตามตำแหน่ง > ค่าเดิมในโค้ด
+   ตั้งใจให้ "รายคน" ชนะ "ตำแหน่ง" เหมือนเดิม — ของที่ตั้งไว้ใน จัดการผู้ใช้งาน จึงไม่หาย */
+let TR_PERMS = null;
+async function loadTrPermsFromHub() {
+  try {
+    const res = await fetch(HUB_CONFIG_URL + '?action=config&_=' + Date.now()).then(r => r.json());
+    if (res && res.ok && res.perms && res.perms.training) {
+      TR_PERMS = res.perms.training;
+      console.log('[perms] โหลดสิทธิ์หน้าจาก HUB แล้ว');
+    } else {
+      console.log('[perms] HUB ยังไม่ตั้งสิทธิ์ Training — ใช้ค่าเดิม');
+    }
+  } catch (e) { console.warn('[perms] โหลดจาก HUB ไม่ได้ — ใช้ค่าเดิม', e); }
+}
+
 // Main load: Supabase first, auto-migrate from Sheets on first run if SB empty
 async function gsLoad() {
   await loadBranchesFromHub();   // ฐานสาขาจาก HUB ก่อน — branch_overrides จะทับทีหลังใน _applyServerData
+  await loadTrPermsFromHub();    // สิทธิ์หน้าจาก HUB — ต้องมาก่อนเรนเดอร์เมนู
   try {
     const sb = _initSb();
     if (sb) {
