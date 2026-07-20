@@ -2538,7 +2538,6 @@ const ALL_ADMIN_PAGES = [
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือนสำคัญ' },
   { page: 'admin-cases',           icon: '📨',  label: 'จัดการเคส' },
   { page: 'admin-chat-logs',       icon: '💬',  label: 'ประวัติแชตบอท' },
-  { page: 'admin-users',           icon: '🔐',  label: 'จัดการผู้ใช้งาน' },
   { page: 'admin-reports',         icon: '📊',  label: 'ออกรายงาน' },
 ];
 
@@ -5602,7 +5601,6 @@ const ADMIN_NAV_ITEMS = [
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับ' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'admin-chat-logs',       icon: '💬',  label: 'แชตบอท' },
-  { page: 'admin-users',           icon: '🔐',  label: 'ผู้ใช้' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
 // BZM (district manager): same view as admin but scoped to their zone — no quiz mgmt.
@@ -12616,6 +12614,11 @@ function openAddQuizChooser(mid) {
         <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">นำเข้าจากที่อื่น</div>
         <div style="font-size:12px;color:var(--text2)">ดึงข้อสอบจาก Module อื่น (เช่น บริการ → ครัว)</div>
       </button>
+      <button onclick="closeModal();openImportQuizFileModal('${mid}')" style="border:1.5px solid var(--border);background:var(--surface);border-radius:14px;padding:24px 18px;cursor:pointer;text-align:left;font-family:'Sarabun',sans-serif;transition:all .18s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px">นำเข้าไฟล์</div>
+        <div style="font-size:12px;color:var(--text2)">อัปโหลด Excel/CSV หลายข้อพร้อมกัน (มี Template)</div>
+      </button>
     </div>
   `, null, 'ปิด');
 }
@@ -12684,6 +12687,139 @@ function _updImportCount() {
   const total = document.querySelectorAll('.imp-chk').length;
   const selN = document.querySelectorAll('.imp-chk:checked').length;
   const el = document.getElementById('imp-count'); if (el) el.textContent = `เลือก ${selN}/${total} ข้อ`;
+}
+
+// ══════════ นำเข้าข้อสอบจากไฟล์ Excel/CSV (หลายข้อพร้อมกัน) ══════════
+let _quizImportData = [];
+// อ่านค่าเฉลย: รับ A–D, a–d, 1–4, หรือ ก/ข/ค/ง → คืน 'A'|'B'|'C'|'D' หรือ '' ถ้าไม่ถูกต้อง
+function _quizNormAns(v) {
+  const s = String(v == null ? '' : v).trim().toUpperCase();
+  if (['A','B','C','D'].indexOf(s) >= 0) return s;
+  const byNum = { '1':'A', '2':'B', '3':'C', '4':'D' };
+  if (byNum[s]) return byNum[s];
+  const byThai = { 'ก':'A', 'ข':'B', 'ค':'C', 'ง':'D' };
+  if (byThai[s]) return byThai[s];
+  return '';
+}
+// หยิบค่าจากแถวโดยลองหลายชื่อคอลัมน์ (ไทย/อังกฤษ)
+function _quizPick(row, keys) {
+  for (const k of keys) {
+    if (row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+  }
+  return '';
+}
+
+function downloadQuizTemplate() {
+  if (typeof XLSX === 'undefined') { notify('กรุณารอสักครู่ กำลังโหลด SheetJS...', 'error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['คำถาม', 'A', 'B', 'C', 'D', 'เฉลย'],
+    ['ก่อนเริ่มงานต้องทำสิ่งใดเป็นอันดับแรก', 'ล้างมือให้สะอาด', 'เปิดแอร์', 'นั่งพัก', 'เล่นโทรศัพท์', 'A'],
+    ['อุณหภูมิตู้แช่เย็นที่เหมาะสมคือเท่าใด', '10°C', '4°C', '15°C', '20°C', 'B'],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Quiz');
+  XLSX.writeFile(wb, 'quiz_template.xlsx');
+}
+
+function openImportQuizFileModal(mid) {
+  const m = MODULES[mid];
+  _quizImportData = [];
+  showModal(`📄 นำเข้าไฟล์ → ${m.name}`, `
+    <div class="info-box" style="margin-bottom:16px">
+      <strong>คอลัมน์ที่ต้องมี</strong><br>
+      <code>คำถาม | A | B | C | D | เฉลย</code>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">
+        ช่อง <strong>เฉลย</strong> ใส่ได้ทั้ง A–D, 1–4 หรือ ก–ง · แถวที่กรอกไม่ครบจะถูกข้าม
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="form-label">เลือกไฟล์ Excel (.xlsx, .xls, .csv)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="file" id="quiz-file" accept=".xlsx,.xls,.csv" class="form-input" onchange="previewQuizFile(this)">
+        <button class="btn btn-outline btn-sm" onclick="downloadQuizTemplate()" style="white-space:nowrap">↓ Template</button>
+      </div>
+    </div>
+    <div id="quiz-file-preview" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title">พรีวิว (<span id="quiz-preview-count">0</span> แถว)</div>
+        <div id="quiz-error-count" style="font-size:12px;color:var(--red)"></div>
+      </div>
+      <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+        <table><thead><tr>
+          <th>#</th><th>คำถาม</th><th>A</th><th>B</th><th>C</th><th>D</th><th>เฉลย</th><th>✓</th>
+        </tr></thead>
+        <tbody id="quiz-file-tbody"></tbody></table>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:6px;font-size:12px" id="quiz-file-summary"></div>
+    </div>
+  `, () => { doImportQuizFile(mid); }, 'นำเข้าข้อสอบ');
+}
+
+function previewQuizFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const dataRows = XLSX.utils.sheet_to_json(ws, { raw: false });
+      if (!dataRows.length) { notify('ไฟล์ไม่มีข้อมูล', 'error'); return; }
+
+      _quizImportData = dataRows.map(row => {
+        const q = _quizPick(row, ['คำถาม', 'question', 'Question', 'q', 'Q']);
+        const A = _quizPick(row, ['A', 'a', 'ตัวเลือก A', 'ตัวเลือกA']);
+        const B = _quizPick(row, ['B', 'b', 'ตัวเลือก B', 'ตัวเลือกB']);
+        const C = _quizPick(row, ['C', 'c', 'ตัวเลือก C', 'ตัวเลือกC']);
+        const D = _quizPick(row, ['D', 'd', 'ตัวเลือก D', 'ตัวเลือกD']);
+        const ans = _quizNormAns(_quizPick(row, ['เฉลย', 'คำตอบ', 'answer', 'Answer', 'ans', 'ค.ตอบ']));
+        const valid = !!(q && A && B && C && D && ans);
+        return { q, opts: { A, B, C, D }, ans, valid };
+      });
+
+      let ok = 0, errors = 0;
+      const rowsHtml = _quizImportData.map((r, i) => {
+        if (r.valid) ok++; else errors++;
+        const cell = (v) => `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v || '<span style="color:var(--red)">—</span>'}</td>`;
+        return `<tr style="background:${r.valid ? '' : 'rgba(192,57,43,0.04)'}">
+          <td style="color:var(--text3);font-size:12px">${i + 1}</td>
+          <td style="font-size:12.5px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.q || '<span style="color:var(--red)">—</span>'}</td>
+          ${cell(r.opts.A)}${cell(r.opts.B)}${cell(r.opts.C)}${cell(r.opts.D)}
+          <td style="text-align:center"><span class="badge ${r.ans ? 'badge-green' : 'badge-red'}" style="font-size:11px">${r.ans || '?'}</span></td>
+          <td style="text-align:center">${r.valid ? '<span style="color:var(--green);font-weight:700">✓</span>' : '<span style="color:var(--red);font-weight:700">✗</span>'}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('quiz-file-tbody').innerHTML = rowsHtml;
+      document.getElementById('quiz-preview-count').textContent = _quizImportData.length;
+      document.getElementById('quiz-error-count').textContent = errors > 0 ? '⚠ ' + errors + ' แถวไม่ครบ' : '';
+      document.getElementById('quiz-file-summary').innerHTML =
+        '<strong>สรุป:</strong> ทั้งหมด ' + _quizImportData.length + ' แถว · ' +
+        '<span style="color:var(--green)">นำเข้าได้ ' + ok + ' ข้อ</span>' +
+        (errors > 0 ? ' · <span style="color:var(--red)">ข้าม ' + errors + ' แถว</span>' : '');
+      document.getElementById('quiz-file-preview').style.display = 'block';
+    } catch (err) {
+      console.error(err);
+      notify('อ่านไฟล์ไม่สำเร็จ: ' + err.message, 'error');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function doImportQuizFile(mid) {
+  const valid = _quizImportData.filter(r => r.valid);
+  if (!valid.length) { notify('ไม่มีแถวที่กรอกครบ — ตรวจไฟล์อีกครั้ง', 'error'); return; }
+  const newQs = valid.map(r => ({
+    id: genId('CQ'), moduleId: mid, q: r.q, opts: { ...r.opts }, ans: r.ans, createdAt: new Date().toISOString()
+  }));
+  DB.customQuiz.push(...newQs);
+  // บันทึกแบบ batch แล้วรอให้เสร็จก่อนปิด — กัน auto-sync ดึง cloud มาทับก่อนบันทึกเสร็จ (แบบเดียวกับนำเข้าจาก Module อื่น)
+  try { await sbSaveMany('customQuiz', newQs); } catch (e) { console.warn('quiz file import SB save failed', e); }
+  gsPost({ action: 'save_many', collection: 'customQuiz', records: newQs });
+  _quizImportData = [];
+  closeModal();
+  notify(`นำเข้า ${newQs.length} ข้อ → ${MODULES[mid].name} สำเร็จ`);
+  if (currentPage === 'admin-quiz') showPage('admin-quiz');
+  openQuizListModal(mid, true);
 }
 
 function openAddQuizModal(mid) {
