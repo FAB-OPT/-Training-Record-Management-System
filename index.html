@@ -2533,6 +2533,7 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการสาขา & พนักงาน' },
   { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
+  { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับโซน BZM' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือนสำคัญ' },
@@ -5597,6 +5598,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการ' },
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
+  { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับ' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
@@ -5663,6 +5665,7 @@ const _SIDEBAR_LABELS = {
   'admin-manage':         { admin: 'จัดการสาขา & พนักงาน',           bzm: 'สาขาในโซน',                  exec: 'เรียกดูสาขา' },
   'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
+  'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
@@ -5681,6 +5684,7 @@ const NAV_SECTION = {
   'admin-manage':         'เมนูหลัก',
   'admin-trainings':      'เมนูหลัก',
   'admin-course-history': 'เมนูหลัก',
+  'admin-training-plan':  'เมนูหลัก',
   'admin-quiz':           'ติดตาม & ประเมิน',
   'exec-leaderboard':     'ติดตาม & ประเมิน',
   'exec-alerts':          'ติดตาม & ประเมิน',
@@ -5724,6 +5728,7 @@ function showPage(page) {
     'course-history': renderCourseHistory,
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
+    'admin-training-plan': renderTrainingPlan,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
@@ -8278,6 +8283,102 @@ function _printCourseCoverage(r) {
   win.document.close();
 }
 
+/* ══════════ หน้า "จัดอบรม" — รวมทางเข้าการจัดรุ่นอบรมไว้ที่เดียว ══════════
+   2 ทาง: ชนรายชื่อ (หาคนที่ยังไม่ผ่าน) · เลือกเอง (หยิบจากทะเบียนพนักงาน)
+   ทั้งสองทางไปจบที่ฟอร์มเดียวกัน → พรีวิว/ติ๊กรายชื่อ → ออกใบรายชื่อ PDF */
+function renderTrainingPlan() {
+  const card = (icon, title, desc, onclick, accent) => `
+    <button onclick="${onclick}" style="flex:1;min-width:230px;border:1.5px solid var(--border);background:var(--surface);border-radius:16px;padding:22px 20px;cursor:pointer;text-align:left;font-family:'Sarabun','Segoe UI Emoji',sans-serif;transition:all .18s"
+      onmouseenter="this.style.borderColor='${accent}';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(15,23,42,.08)'"
+      onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
+      <div style="font-size:30px;margin-bottom:8px">${icon}</div>
+      <div style="font-weight:800;font-size:15.5px;color:var(--text);margin-bottom:5px">${title}</div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.55">${desc}</div>
+    </button>`;
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">จัดอบรม</div>
+      <div class="page-hero-sub">หารายชื่อ → พรีวิวและติ๊กคนที่จะเข้าอบรม → ออกใบรายชื่อผู้เข้าอบรม (PDF)</div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      ${card('🔀','ชนรายชื่อ','เลือกตำแหน่ง · อายุงาน · สาขา แล้วเช็คว่าใคร<strong>ยังไม่ผ่าน</strong>หลักสูตรนั้น<br>เหมาะกับการหาคนที่ต้องอบรมเพิ่ม','openCourseCoverage()','var(--accent)')}
+      ${card('👥','เลือกรายชื่อเอง','หยิบพนักงานจากทะเบียนตามสาขา/ตำแหน่ง<br>เหมาะกับกรณีรู้อยู่แล้วว่าจะจัดให้ใคร','openTrainingPickPeople()','#7C3AED')}
+    </div>
+    <div style="margin-top:16px;padding:11px 14px;background:var(--surface2);border-radius:9px;font-size:12.5px;color:var(--text2);line-height:1.6">
+      💡 ทั้งสองทางจะพาไปที่ฟอร์มเดียวกัน — กรอกหลักสูตร/รุ่น/วันเวลา/สถานที่/วิทยากร แล้วติ๊กเลือกรายชื่อก่อนออกใบ
+    </div>
+  </div>`;
+}
+
+/* เลือกรายชื่อเอง: สาขา + ตำแหน่ง → พรีวิวรายชื่อ → ติ๊ก → ไปฟอร์มจัดอบรม */
+function openTrainingPickPeople() {
+  const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
+  const itPos = _covItemsPos();
+  showModal('👥 เลือกรายชื่อผู้เข้าอบรม', `
+    <div class="form-row">
+      <div><label class="form-label">สาขา <span class="req">*</span></label>
+        ${_mselHTML('tp-branch', itBr, { onChange: '_tpRun', noneText: '— เลือกสาขา —' })}</div>
+      <div><label class="form-label">ตำแหน่ง <span class="req">*</span></label>
+        ${_mselHTML('tp-pos', itPos, { onChange: '_tpRun', noneText: '— เลือกตำแหน่ง —' })}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="tp-selall" onchange="_tpToggleAll(this.checked)"> เลือกทั้งหมด</label>
+      <span id="tp-count" style="font-size:12px;color:var(--text2);font-weight:600">เลือก 0/0 คน</span>
+    </div>
+    <div id="tp-list" style="max-height:40vh;overflow:auto"></div>
+  `, () => {
+    const picked = Array.from(document.querySelectorAll('.tp-chk:checked')).map(c => c.value);
+    if (!picked.length) { notify('ยังไม่ได้เลือกรายชื่อ', 'error'); return; }
+    const all = _tpTargets();
+    _tsPeople = all.filter(e => picked.indexOf(e.id) >= 0);
+    closeModal();
+    setTimeout(() => _openTsModal(''), 60);
+  }, 'ถัดไป · กรอกรายละเอียดอบรม');
+  _tpRun();
+}
+/* พนักงานตามสาขา+ตำแหน่งที่เลือก (เฉพาะคนที่ยัง active) */
+function _tpTargets() {
+  const bids = _covMulti('tp-branch');
+  const pos = _covMulti('tp-pos');
+  if (!bids.length || !pos.length) return [];
+  let emps = [];
+  bids.forEach(b => { emps = emps.concat(getBranchEmployees(b) || []); });
+  const seen = {};
+  return emps.filter(_isEmpEnabled)
+    .filter(e => _covMatchPos(e, pos))
+    .filter(e => { if (seen[e.id]) return false; seen[e.id] = true; return true; })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+}
+function _tpRun() {
+  const list = document.getElementById('tp-list');
+  if (!list) return;
+  const emps = _tpTargets();
+  if (!emps.length) {
+    list.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">เลือกสาขาและตำแหน่งเพื่อดูรายชื่อ</p>';
+    _tpUpd(); return;
+  }
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  list.innerHTML = emps.map(e => `
+    <label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:8px 12px;margin-bottom:7px;cursor:pointer;background:var(--surface)">
+      <input type="checkbox" class="tp-chk" value="${e.id}" onchange="_tpUpd()" style="flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}</div>
+        <div style="font-size:11.5px;color:var(--text3)">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div>
+      </div>
+    </label>`).join('');
+  _tpUpd();
+}
+function _tpToggleAll(on) { document.querySelectorAll('.tp-chk').forEach(c => c.checked = on); _tpUpd(); }
+function _tpUpd() {
+  const total = document.querySelectorAll('.tp-chk').length;
+  const nSel = document.querySelectorAll('.tp-chk:checked').length;
+  const el = document.getElementById('tp-count'); if (el) el.textContent = `เลือก ${nSel}/${total} คน`;
+  const sa = document.getElementById('tp-selall'); if (sa) sa.checked = total > 0 && nSel === total;
+}
+
 // ══════════ จัดอบรม: เอารายชื่อ "ยังไม่ผ่าน" จากการชนรายชื่อ → กรอกฟอร์ม → ออกใบรายชื่อผู้เข้าอบรม PDF ══════════
 let _tsPeople = [];
 function openTrainingSessionForm() {
@@ -8293,7 +8394,7 @@ function _openTsModal(course) {
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   showModal('📋 จัดอบรม · ใบรายชื่อผู้เข้าอบรม', `
     <div class="form-row">
-      <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="ts-course" value="${course.replace(/"/g,'&quot;')}"></div>
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="ts-course" placeholder="ชื่อหลักสูตร" value="${String(course || '').replace(/"/g,'&quot;')}"></div>
       <div><label class="form-label">รุ่นที่</label><input class="form-input" id="ts-batch" placeholder="เช่น 3"></div>
     </div>
     <div class="form-row">
@@ -8727,7 +8828,6 @@ function renderAdminCourseHistory() {
     </div>
     ${isAdminRole() ? `<div class="ch-actions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <div class="chact-group">
-        <button class="chact chact-primary" onclick="openCourseCoverage()" title="เลือกตำแหน่ง/สาขา → เช็คว่าผ่านหลักสูตรนี้กี่คน ใครยังไม่ผ่าน">🔀 ชนรายชื่อ</button>
         <button class="chact" onclick="openCourseAttendeesExport()" title="เลือกหลักสูตร → รายชื่อผู้ผ่าน → ส่งออก PDF">📄 ส่งออก PDF</button>
       </div>
       <div class="chact-group">
