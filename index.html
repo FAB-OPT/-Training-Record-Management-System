@@ -44,39 +44,6 @@
     --shadow-lg: 0 16px 40px rgba(0,0,0,0.14);
     --ring: 0 0 0 3px rgba(0,0,0,0.12);
   }
-  body.dark-mode {
-    --bg: #0F0F12;
-    --white: #18181D;
-    --surface: #18181D;
-    --surface2: #1F1F25;
-    --surface3: #2A2A32;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.18);
-    --primary: #FFFFFF;
-    --primary-hover: #FFFFFF;
-    --primary-light: #2A2A32;
-    --accent-light: rgba(255,107,26,0.16);
-    --green-light: rgba(52,211,153,0.18);
-    --yellow-light: rgba(251,191,36,0.18);
-    --red-light: rgba(248,113,113,0.18);
-    --purple-light: rgba(192,132,252,0.18);
-    --blue-light: rgba(96,165,250,0.18);
-    --green: #34D399;
-    --yellow: #FBBF24;
-    --red: #F87171;
-    --purple: #C084FC;
-    --blue: #60A5FA;
-    --text: rgba(255,255,255,0.96);
-    --text2: rgba(255,255,255,0.66);
-    --text3: rgba(255,255,255,0.46);
-    --text4: rgba(255,255,255,0.28);
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-    --shadow: 0 6px 18px rgba(0,0,0,0.4);
-    --shadow-lg: 0 18px 44px rgba(0,0,0,0.55);
-    --ring: 0 0 0 4px rgba(255,107,26,0.30);
-  }
-  body.dark-mode #login-screen { background: #08080A; }
-  body.dark-mode .login-card { box-shadow: 0 24px 80px rgba(0,0,0,0.55); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
   /* Use Sarabun (tabular-nums) for codes — system 'monospace' looks ugly on Windows/Android */
@@ -135,16 +102,10 @@
     margin: 0 auto -12px;
     background: transparent;
   }
-  /* Light mode: multiply makes the PNG's white bg vanish into the white card */
+  /* multiply makes the PNG's white bg vanish into the white card */
   .login-app-icon img {
     width: 100%; height: 100%; object-fit: contain;
     mix-blend-mode: multiply;
-  }
-  /* Dark mode: invert+hue-rotate turns white→black while keeping Fab's colors true,
-     then screen blends the black bg into the dark card */
-  body.dark-mode .login-app-icon img {
-    filter: invert(1) hue-rotate(180deg);
-    mix-blend-mode: screen;
   }
   .login-title {
     text-align: center; font-size: 21px; font-weight: 800; color: var(--text);
@@ -199,7 +160,7 @@
   .login-logo-text { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.3; }
   .login-logo-text span { display: block; font-size: 12px; color: var(--text2); font-weight: 400; margin-top: 2px; }
   .mobile-version-label { display: none; }
-  /* TABS — segmented control style, adapts to dark mode */
+  /* TABS — segmented control style */
   .login-tabs {
     display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
     background: var(--surface2); border: 1px solid var(--border); padding: 4px; border-radius: 14px;
@@ -300,11 +261,8 @@
     box-shadow: 0 4px 14px rgba(59,130,246,0.36);
     border-color: transparent;
   }
-  body.dark-mode .nav-item.nav-contact { background: rgba(96,165,250,0.12); color: #93C5FD; border-color: rgba(96,165,250,0.25); }
   .sidebar-footer { padding: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
   .sidebar-footer button { margin-bottom: 0 !important; }
-  .sf-row { display: flex; gap: 8px; }
-  .sf-row > button { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 12.5px; }
   /* ปุ่มกลับหน้าหลัก / ออกจากระบบ — การ์ดขาว ขอบสี (สไตล์เดียวกับระบบฐานข้อมูลผู้สัมผัสฯ) */
   .btn-hub-nav {
     width: 100%; padding: 11px; border-radius: 11px; cursor: pointer;
@@ -322,13 +280,6 @@
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn-logout:hover { background: #fef2f2; border-color: #fca5a5; }
-  .btn-theme-toggle {
-    width: 100%; padding: 10px; background: var(--accent-light); border: 1px solid rgba(255,107,26,0.28);
-    color: var(--accent); border-radius: 8px; cursor: pointer; font-family: 'Sarabun', sans-serif;
-    font-size: 13px; font-weight: 600; transition: all 0.18s; margin-bottom: 8px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-  }
-  .btn-theme-toggle:hover { background: var(--accent); color: #FFFFFF; border-color: var(--accent); }
   /* Test-mode toggle — visible only for admin (display set via JS) */
   .btn-test-toggle {
     width: 100%; padding: 10px; background: #FEF3C7; border: 1px solid #FCD34D;
@@ -387,14 +338,13 @@
   /* ==================== STATS ==================== */
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; display: flex; align-items: center; gap: 14px; transition: all 0.2s; }
-  /* Dashboard 4-tile stats — adapt to light/dark via CSS vars */
+  /* Dashboard 4-tile stats */
   .dash-stat-tile {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 18px; padding: 22px 24px; cursor: pointer;
     transition: all .25s; position: relative; overflow: hidden;
   }
   .dash-stat-tile:hover { border-color: var(--tile-accent, var(--accent)); transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); }
-  body.dark-mode .dash-stat-tile:hover { box-shadow: 0 12px 28px rgba(0,0,0,0.45); }
   .dash-stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
   .dash-stat-label { font-size: 12.5px; font-weight: 600; color: var(--text2); letter-spacing: -0.1px; }
   .dash-stat-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -968,7 +918,6 @@
     background: linear-gradient(180deg, #FFFAF5 0%, var(--surface2) 100%);
     scroll-behavior: smooth;
   }
-  body.dark-mode .cb-body { background: linear-gradient(180deg, var(--surface2) 0%, var(--bg) 100%); }
   .cb-body::-webkit-scrollbar { width: 6px; }
   .cb-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
 
@@ -1005,7 +954,6 @@
   .cb-msg.bot.err {
     background: #FEF2F2; color: #991B1B; border-color: #FECACA;
   }
-  body.dark-mode .cb-msg.bot.err { background: #2A0F0F; color: #FCA5A5; border-color: #5C1F1F; }
 
   /* Bot row with avatar */
   .cb-row-bot {
@@ -1148,7 +1096,7 @@
   }
   .hamburger:active { background: var(--surface3); }
   .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; }
-  .mobile-theme-btn {
+  .mobile-icon-btn {
     background: transparent; border: none;
     color: var(--text); cursor: pointer; padding: 0;
     width: 38px; height: 38px;
@@ -1156,7 +1104,7 @@
     font-size: 22px; transition: transform 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
-  .mobile-theme-btn:active { transform: scale(0.85); }
+  .mobile-icon-btn:active { transform: scale(0.85); }
   .mobile-topbar-title {
     color: var(--text);
     font-size: 15px;
@@ -2238,11 +2186,8 @@
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-topbar-title" id="mobile-title">OPT Training</div>
-  <button class="mobile-theme-btn" onclick="goBackToHub()" aria-label="กลับหน้าหลัก" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
+  <button class="mobile-icon-btn" onclick="goBackToHub()" aria-label="กลับหน้าหลัก" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
     <span>🏠</span>
-  </button>
-  <button class="mobile-theme-btn" onclick="toggleTheme()" aria-label="สลับโหมดมืด/สว่าง" title="สลับโหมดมืด/สว่าง">
-    <span id="mobile-theme-icon">🌙</span>
   </button>
   <button id="topbar-logout-btn" onclick="logout()">ออกจากระบบ</button>
 </div>
@@ -2371,16 +2316,10 @@
     </div>
     <div class="nav" id="sidebar-nav"></div>
     <div class="sidebar-footer">
-      <div class="sf-row">
-        <button class="btn-test-toggle" id="test-mode-btn" onclick="toggleTestMode()" style="display:none" title="โหมดทดสอบ — Admin เท่านั้น">
-          <span id="test-mode-icon">🧪</span>
-          <span id="test-mode-label">โหมดทดสอบ</span>
-        </button>
-        <button class="btn-theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark/light mode">
-          <span id="theme-toggle-icon">🌙</span>
-          <span id="theme-toggle-label">Dark Mode</span>
-        </button>
-      </div>
+      <button class="btn-test-toggle" id="test-mode-btn" onclick="toggleTestMode()" style="display:none" title="โหมดทดสอบ — Admin เท่านั้น">
+        <span id="test-mode-icon">🧪</span>
+        <span id="test-mode-label">โหมดทดสอบ</span>
+      </button>
       <button class="btn-hub-nav" id="back-hub-btn" onclick="goBackToHub()" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
         <svg class="sf-ico" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>กลับหน้าหลัก</span>
       </button>
@@ -4822,15 +4761,6 @@ function stopAutoSync() {
   if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
 }
 
-function _systemPrefersDark() {
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-function toggleTheme() {
-  const isDark = document.body.classList.toggle('dark-mode');
-  try { localStorage.setItem('opt_theme', isDark ? 'dark' : 'light'); } catch(_) {}
-  applyThemeToggleUI(isDark);
-}
-
 // ==================== TEST MODE (admin-only toggle, system-wide) ====================
 // State lives in DB.quizMeta.testMode (server-persisted), so when admin turns
 // it on every other user (branches/BZM/VP/COO) sees the banner too on their
@@ -4878,37 +4808,6 @@ function initTestModeButton() {
   // when initial gsLoad ran). Just update the button label.
   applyTestModeUI(isTestMode());
 }
-function applyThemeToggleUI(isDark) {
-  const icon = document.getElementById('theme-toggle-icon');
-  const label = document.getElementById('theme-toggle-label');
-  if (icon) icon.textContent = isDark ? '☀' : '🌙';
-  if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-  const mIcon = document.getElementById('mobile-theme-icon');
-  if (mIcon) mIcon.textContent = isDark ? '☀' : '🌙';
-}
-function initTheme() {
-  let saved = null;
-  try { saved = localStorage.getItem('opt_theme'); } catch(_) {}
-  // No manual choice yet → follow the device's OS preference
-  const isDark = saved ? (saved === 'dark') : _systemPrefersDark();
-  document.body.classList.toggle('dark-mode', isDark);
-  applyThemeToggleUI(isDark);
-
-  // If user hasn't picked manually, keep following OS changes live
-  if (!saved && window.matchMedia) {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e) => {
-      // Re-check storage in case user toggled in another tab
-      let s = null; try { s = localStorage.getItem('opt_theme'); } catch(_) {}
-      if (s) return; // user has manual preference now — stop auto
-      document.body.classList.toggle('dark-mode', e.matches);
-      applyThemeToggleUI(e.matches);
-    };
-    if (mq.addEventListener) mq.addEventListener('change', handler);
-    else if (mq.addListener) mq.addListener(handler); // older Safari
-  }
-}
-
 function goBackToHub() {
   // กลับเมนูหลัก Hub โดยไม่ออกจากระบบ (คง fab_session ไว้ → ไม่ต้อง login ใหม่)
   try { window.location.href = '/fab-operations-hub/'; } catch (_) { window.location.href = '/fab-operations-hub/'; }
@@ -15015,7 +14914,6 @@ function trySsoAutoLogin() {
 }
 
 function initApp() {
-  initTheme();
   initPinBoxes();
   // SSO: ลองทันที (สาขา + แอดมิน built-in) ก่อนแสดงหน้า login — กันกระพริบ
   try { trySsoAutoLogin(); } catch (_) {}
