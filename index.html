@@ -1096,15 +1096,6 @@
   }
   .hamburger:active { background: var(--surface3); }
   .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; }
-  .mobile-icon-btn {
-    background: transparent; border: none;
-    color: var(--text); cursor: pointer; padding: 0;
-    width: 38px; height: 38px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; transition: transform 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .mobile-icon-btn:active { transform: scale(0.85); }
   .mobile-topbar-title {
     color: var(--text);
     font-size: 15px;
@@ -1921,9 +1912,11 @@
     }
     #emp-search::placeholder, #ch-search::placeholder { font-size: 12px; }
 
-    /* Topbar logout button (replaces old report button) — red text, no bg */
-    #topbar-logout-btn { background: transparent; border: none; color: var(--red); font-family: 'Sarabun',sans-serif; font-size: 13.5px; font-weight: 700; padding: 7px 12px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; -webkit-tap-highlight-color: transparent; }
-    #topbar-logout-btn:active { opacity: .6; }
+    /* Topbar text buttons — ปุ่มตัวอักษรล้วน ไม่มีพื้นหลัง (หน้าหลัก = เขียว, ออกจากระบบ = แดง) */
+    #topbar-hub-btn, #topbar-logout-btn { background: transparent; border: none; font-family: 'Sarabun',sans-serif; font-size: 13.5px; font-weight: 700; padding: 7px 10px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; -webkit-tap-highlight-color: transparent; }
+    #topbar-hub-btn { color: var(--green); }
+    #topbar-logout-btn { color: var(--red); }
+    #topbar-hub-btn:active, #topbar-logout-btn:active { opacity: .6; }
     /* Hide hamburger for both branch + admin (both use bottom-nav now) */
     body.branch-user .hamburger,
     body.admin-user .hamburger { display: none; }
@@ -2186,9 +2179,7 @@
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-topbar-title" id="mobile-title">OPT Training</div>
-  <button class="mobile-icon-btn" onclick="goBackToHub()" aria-label="กลับหน้าหลัก" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
-    <span>🏠</span>
-  </button>
+  <button id="topbar-hub-btn" onclick="goBackToHub()" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">หน้าหลัก</button>
   <button id="topbar-logout-btn" onclick="logout()">ออกจากระบบ</button>
 </div>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
