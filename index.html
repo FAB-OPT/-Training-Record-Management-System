@@ -8679,13 +8679,12 @@ function _tsUpd() {
 }
 /* ทะเบียนรายชื่อผู้เข้าอบรม — รูปแบบฟอร์มบริษัท (A4 แนวตั้ง)
    หัวกระดาษ: โลโก้ซ้าย + ชื่อบริษัท/ชื่อเอกสารกลาง + ช่องกรอกแบบขีดเส้นใต้
-   ตาราง 5 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน */
+   ตาราง 6 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน · ลายเซ็น */
 function _printTrainingSession(info, list) {
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   list = list.slice().sort((a,b) => brName(a.branchId).localeCompare(brName(b.branchId),'th') || (a.name||'').localeCompare(b.name||'','th'));
   const logoUrl = (() => { try { return new URL('logo.jpg', location.href).href; } catch(_) { return ''; } })();
   const dFrom = fmtDate(info.date);
-  const dTo   = fmtDate(info.dateEnd || info.date);
   const fld = (v, w) => `<span class="fld" style="min-width:${w}">${v || ''}</span>`;
   const trs = list.map((e, i) => `<tr>
       <td class="c seq">${i + 1}</td>
@@ -8693,6 +8692,7 @@ function _printTrainingSession(info, list) {
       <td>${e.name || ''}</td>
       <td class="c">${e.position || ''}</td>
       <td class="c">${brName(e.branchId)}</td>
+      <td class="sig"></td>
     </tr>`).join('');
   const style = `<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
@@ -8714,6 +8714,7 @@ function _printTrainingSession(info, list) {
     td{border:1px solid #374151;padding:7px 9px;font-size:12.5px}
     td.c{text-align:center}
     td.seq{font-weight:700;color:#1D4ED8}
+    td.sig{height:34px}
     .signrow{display:flex;gap:56px;justify-content:flex-end;margin-top:26px}
     .signbox{text-align:center;font-size:12px;color:#374151}
     .signline{border-bottom:1px dotted #9CA3AF;width:200px;height:32px;margin-bottom:5px}
@@ -8738,18 +8739,19 @@ function _printTrainingSession(info, list) {
         <div class="co">บริษัท เอฟเอบี ฟู้ดโฮลดิ้ง จำกัด</div>
         <div class="doc">ทะเบียนรายชื่อผู้เข้าอบรม</div>
         <div class="fline"><span><b>หลักสูตร :</b> ${fld(info.course, '260px')}</span><span><b>รุ่นที่ :</b> ${fld(info.batch, '70px')}</span></div>
-        <div class="fline"><span><b>ระหว่างวันที่ :</b> ${fld(dFrom, '130px')}</span><span><b>ถึงวันที่ :</b> ${fld(dTo, '130px')}</span></div>
-        <div class="fline"><span><b>ตั้งแต่เวลา :</b> ${fld(info.time, '150px')} น.</span>${info.place ? `<span><b>สถานที่ :</b> ${fld(info.place, '180px')}</span>` : ''}${info.trainer ? `<span><b>วิทยากร :</b> ${fld(info.trainer, '140px')}</span>` : ''}</div>
+        <div class="fline"><span><b>วันที่ :</b> ${fld(dFrom, '160px')}</span><span><b>เวลา :</b> ${fld(info.time, '150px')} น.</span></div>
+        <div class="fline"><span><b>สถานที่ :</b> ${fld(info.place, '180px')}</span><span><b>วิทยากร :</b> ${fld(info.trainer, '150px')}</span></div>
       </div>
       <div class="head-right"></div>
     </div>
     <table>
       <thead><tr>
-        <th style="width:46px">ลำดับ</th>
-        <th style="width:88px">รหัสพนักงาน</th>
-        <th style="width:190px">ชื่อ - นามสกุล</th>
-        <th style="width:150px">ตำแหน่ง</th>
+        <th style="width:42px">ลำดับ</th>
+        <th style="width:78px">รหัสพนักงาน</th>
+        <th style="width:165px">ชื่อ - นามสกุล</th>
+        <th style="width:135px">ตำแหน่ง</th>
         <th>สาขา/หน่วยงาน</th>
+        <th style="width:130px">ลายเซ็น</th>
       </tr></thead>
       <tbody>${trs}</tbody>
     </table>
