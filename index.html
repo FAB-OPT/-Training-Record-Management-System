@@ -4186,6 +4186,7 @@ const _SB_TABLE = {
   courseHistory: 'course_history',
   quizMeta:      'quiz_meta',
   branchOverrides: 'branch_overrides',
+  trainingDrafts: 'training_drafts',
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
@@ -8293,11 +8294,12 @@ function renderTrainingPlan() {
       <div style="font-weight:800;font-size:15.5px;color:var(--text);margin-bottom:5px">${title}</div>
       <div style="font-size:12.5px;color:var(--text2);line-height:1.55">${desc}</div>
     </button>`;
+  setTimeout(_tpRenderDrafts, 0);
   return `
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดอบรม</div>
-      <div class="page-hero-sub">หารายชื่อ → พรีวิวและติ๊กคนที่จะเข้าอบรม → ออกใบรายชื่อผู้เข้าอบรม (PDF)</div>
+      <div class="page-hero-sub">หารายชื่อ → พรีวิวและติ๊กคนที่จะเข้าอบรม → บันทึกแบบร่าง หรือออกใบรายชื่อผู้เข้าอบรม (PDF)</div>
     </div>
   </div>
   <div class="card">
@@ -8306,9 +8308,108 @@ function renderTrainingPlan() {
       ${card('👥','เลือกรายชื่อเอง','หยิบพนักงานจากทะเบียนตามสาขา/ตำแหน่ง<br>เหมาะกับกรณีรู้อยู่แล้วว่าจะจัดให้ใคร','openTrainingPickPeople()','#7C3AED')}
     </div>
     <div style="margin-top:16px;padding:11px 14px;background:var(--surface2);border-radius:9px;font-size:12.5px;color:var(--text2);line-height:1.6">
-      💡 ทั้งสองทางจะพาไปที่ฟอร์มเดียวกัน — กรอกหลักสูตร/รุ่น/วันเวลา/สถานที่/วิทยากร แล้วติ๊กเลือกรายชื่อก่อนออกใบ
+      💡 ทั้งสองทางจะพาไปที่ฟอร์มเดียวกัน — กรอกหลักสูตร/รุ่น/วันเวลา/สถานที่/วิทยากร แล้วติ๊กเลือกรายชื่อ · กด <strong>บันทึกแบบร่าง</strong> เก็บไว้ทำต่อทีหลังได้ (แอดมินทุกคนเห็นร่างเดียวกัน)
     </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div>
+        <div style="font-weight:800;font-size:15px;color:var(--text)">📝 แบบร่างที่บันทึกไว้</div>
+        <div style="font-size:12.5px;color:var(--text3);margin-top:2px">รายชื่อที่เตรียมไว้แล้วยังไม่ได้ออกใบ — เปิดขึ้นมาแก้ต่อหรือออก PDF ได้ทุกเมื่อ</div>
+      </div>
+      <button class="btn btn-sm btn-refresh" onclick="_tpRenderDrafts()"><span class="refresh-ic">↻</span> รีเฟรช</button>
+    </div>
+    <div id="tp-drafts"><p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p></div>
   </div>`;
+}
+
+/* ══════════ แบบร่างใบรายชื่อ — เก็บบน Supabase ตาราง training_drafts (แอดมินทุกคนเห็นร่วมกัน) ══════════ */
+let _tsDraftId = null;   // ร่างที่กำลังเปิดแก้อยู่ (null = ยังไม่เคยบันทึก)
+let _tpDrafts = [];
+async function _tpFetchDrafts() {
+  const sb = _initSb();
+  if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+  const res = await sb.from('training_drafts').select('*');
+  if (res.error) throw res.error;
+  return (res.data || []).map(r => _fromSb('trainingDrafts', r))
+    .sort((a, b) => String(b.savedAt || '').localeCompare(String(a.savedAt || '')));
+}
+async function _tpUpsertDraft(rec) {
+  const sb = _initSb();
+  if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+  const res = await sb.from('training_drafts').upsert(_toSb('trainingDrafts', rec));
+  if (res.error) throw res.error;
+}
+async function _tpRenderDrafts() {
+  const box = document.getElementById('tp-drafts');
+  if (!box) return;
+  box.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p>';
+  try {
+    _tpDrafts = await _tpFetchDrafts();
+  } catch (e) {
+    // ตารางยังไม่ถูกสร้างบน Supabase → บอกวิธีแก้แทนที่จะขึ้น error ดิบ
+    const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache/i);
+    box.innerHTML = `<div style="padding:14px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);font-size:12.5px;color:var(--text2);line-height:1.7">
+      ${missing ? '⚠️ ยังไม่ได้สร้างตาราง <b>training_drafts</b> บน Supabase — บันทึกแบบร่างจะยังใช้ไม่ได้<br><span style="color:var(--text3)">ให้ผู้ดูแลระบบรัน SQL สร้างตารางก่อน (ดูไฟล์ supabase-training-drafts.sql ใน repo)</span>'
+        : '⚠️ โหลดแบบร่างไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}
+    </div>`;
+    return;
+  }
+  if (!_tpDrafts.length) {
+    box.innerHTML = '<p class="text-muted" style="text-align:center;padding:22px;font-size:13px">📭 ยังไม่มีแบบร่าง — เริ่มจาก “ชนรายชื่อ” หรือ “เลือกรายชื่อเอง” แล้วกดบันทึกแบบร่าง</p>';
+    return;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+  box.innerHTML = _tpDrafts.map(d => {
+    const n = (d.people || []).length;
+    const when = d.savedAt ? new Date(d.savedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+    return `<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;background:var(--surface)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:14px;font-weight:800;color:var(--text)">${esc(d.course) || '(ยังไม่ระบุหลักสูตร)'}${d.batch ? ' · รุ่นที่ ' + esc(d.batch) : ''}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">
+            ${d.trainDate ? '📅 ' + fmtDate(d.trainDate) : '<span style="color:#B45309">📅 ยังไม่ระบุวันที่</span>'}
+            ${d.trainTime ? ' · ' + esc(d.trainTime) : ''} · 👥 ${n} คน
+          </div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:3px">แก้ล่าสุด ${when}${d.createdBy ? ' โดย ' + esc(d.createdBy) : ''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-accent" onclick="_tpOpenDraft('${d.id}')">เปิดทำต่อ</button>
+          <button class="btn btn-sm btn-outline" onclick="_tpPrintDraft('${d.id}')">ออก PDF</button>
+          <button class="btn btn-sm btn-danger" onclick="_tpDeleteDraft('${d.id}')">ลบ</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function _tpOpenDraft(id) {
+  const d = _tpDrafts.find(x => x.id === id);
+  if (!d) return;
+  _tsPeople = (d.people || []).slice();
+  _tsDraftId = d.id;
+  _openTsModal(d.course || '', d);
+}
+function _tpPrintDraft(id) {
+  const d = _tpDrafts.find(x => x.id === id);
+  if (!d) return;
+  if (!d.course || !d.trainDate) { notify('ร่างนี้ยังไม่ได้กรอกหลักสูตร/วันที่ — กด “เปิดทำต่อ” ก่อน', 'error'); return; }
+  if (!(d.people || []).length) { notify('ร่างนี้ยังไม่มีรายชื่อ', 'error'); return; }
+  _printTrainingSession({ course: d.course, batch: d.batch, date: d.trainDate, time: d.trainTime, place: d.place, trainer: d.trainer }, d.people);
+}
+function _tpDeleteDraft(id) {
+  const d = _tpDrafts.find(x => x.id === id);
+  showConfirm(`ลบแบบร่าง <b>${(d && d.course) || 'นี้'}</b> ออกจากระบบ?`, async () => {
+    try {
+      const sb = _initSb();
+      if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+      const res = await sb.from('training_drafts').delete().eq('id', id);
+      if (res.error) throw res.error;
+      if (_tsDraftId === id) _tsDraftId = null;
+      notify('ลบแบบร่างแล้ว');
+      _tpRenderDrafts();
+    } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
+  });
 }
 
 /* เลือกรายชื่อเอง: สาขา + ตำแหน่ง → พรีวิวรายชื่อ → ติ๊ก → ไปฟอร์มจัดอบรม */
@@ -8332,6 +8433,7 @@ function openTrainingPickPeople() {
     if (!picked.length) { notify('ยังไม่ได้เลือกรายชื่อ', 'error'); return; }
     const all = _tpTargets();
     _tsPeople = all.filter(e => picked.indexOf(e.id) >= 0);
+    _tsDraftId = null;   // เริ่มร่างใหม่
     closeModal();
     setTimeout(() => _openTsModal(''), 60);
   }, 'ถัดไป · กรอกรายละเอียดอบรม');
@@ -8384,24 +8486,28 @@ function openTrainingSessionForm() {
   if (!r.course) { notify('เลือกหลักสูตรก่อน', 'error'); return; }
   if (!r.notPassed.length) { notify('ไม่มีคนที่ยังไม่ผ่าน', 'error'); return; }
   _tsPeople = r.notPassed.slice();   // snapshot ก่อนปิด modal ชนรายชื่อ
+  _tsDraftId = null;                 // เริ่มร่างใหม่ (ไม่ทับร่างที่เปิดค้างไว้ก่อนหน้า)
   const course = r.course;
   closeModal();
   setTimeout(() => _openTsModal(course), 60);
 }
-function _openTsModal(course) {
+function _openTsModal(course, draft) {
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const d = draft || {};
+  const v = s => String(s == null ? '' : s).replace(/"/g,'&quot;');
   showModal('📋 จัดอบรม · ใบรายชื่อผู้เข้าอบรม', `
+    ${_tsDraftId ? '<div style="margin-bottom:12px;padding:8px 12px;background:var(--accent-light);border:1px solid rgba(255,107,26,.3);border-radius:8px;font-size:12.5px;color:var(--accent-hover);font-weight:700">📝 กำลังแก้ไขแบบร่างที่บันทึกไว้ — กด “บันทึกแบบร่าง” เพื่ออัปเดต</div>' : ''}
     <div class="form-row">
-      <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="ts-course" placeholder="ชื่อหลักสูตร" value="${String(course || '').replace(/"/g,'&quot;')}"></div>
-      <div><label class="form-label">รุ่นที่</label><input class="form-input" id="ts-batch" placeholder="เช่น 3"></div>
+      <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="ts-course" placeholder="ชื่อหลักสูตร" value="${v(course)}"></div>
+      <div><label class="form-label">รุ่นที่</label><input class="form-input" id="ts-batch" placeholder="เช่น 3" value="${v(d.batch)}"></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">วันที่อบรม <span class="req">*</span></label><input class="form-input" type="date" id="ts-date"></div>
-      <div><label class="form-label">เวลา</label><input class="form-input" id="ts-time" placeholder="เช่น 09:00 - 16:00"></div>
+      <div><label class="form-label">วันที่อบรม <span class="req">*</span></label><input class="form-input" type="date" id="ts-date" value="${v(d.trainDate)}"></div>
+      <div><label class="form-label">เวลา</label><input class="form-input" id="ts-time" placeholder="เช่น 09:00 - 16:00" value="${v(d.trainTime)}"></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">สถานที่</label><input class="form-input" id="ts-place" placeholder="เช่น ห้องประชุม สนง.ใหญ่"></div>
-      <div><label class="form-label">วิทยากร</label><input class="form-input" id="ts-trainer" placeholder="ชื่อผู้สอน"></div>
+      <div><label class="form-label">สถานที่</label><input class="form-input" id="ts-place" placeholder="เช่น ห้องประชุม สนง.ใหญ่" value="${v(d.place)}"></div>
+      <div><label class="form-label">วิทยากร</label><input class="form-input" id="ts-trainer" placeholder="ชื่อผู้สอน" value="${v(d.trainer)}"></div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
       <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="ts-selall" checked onchange="_tsToggleAll(this.checked)"> เลือกทั้งหมด</label>
@@ -8435,7 +8541,43 @@ function _openTsModal(course) {
     closeModal();
     _printTrainingSession(info, list);
   }, 'ออกใบรายชื่อ PDF');
+  // ปุ่ม "บันทึกแบบร่าง" — แทรกเพิ่มในแถบล่างของ modal (showModal รองรับแค่ 2 ปุ่ม)
+  const footer = document.querySelector('#modal-overlay .modal-footer');
+  if (footer) footer.insertAdjacentHTML('afterbegin',
+    '<button class="btn btn-outline" id="ts-save-draft" onclick="_tsSaveDraft()" style="margin-right:auto">💾 บันทึกแบบร่าง</button>');
   _tsUpd();
+}
+/* เก็บสิ่งที่กรอกไว้เป็นแบบร่าง — ไม่บังคับกรอกครบ ขอแค่มีรายชื่อที่ติ๊กไว้ */
+async function _tsSaveDraft() {
+  const g = id => (document.getElementById(id) || {}).value || '';
+  const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
+  const people = _tsPeople.filter(e => ids.has(e.id))
+    .map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' }));
+  if (!people.length) { notify('ยังไม่ได้เลือกรายชื่อ — ติ๊กอย่างน้อย 1 คนก่อนบันทึกร่าง', 'error'); return; }
+  const btn = document.getElementById('ts-save-draft');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
+  const rec = {
+    id: _tsDraftId || ('draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+    course: g('ts-course').trim(),
+    batch: g('ts-batch').trim(),
+    trainDate: g('ts-date'),
+    trainTime: g('ts-time').trim(),
+    place: g('ts-place').trim(),
+    trainer: g('ts-trainer').trim(),
+    people: people,
+    createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+    savedAt: new Date().toISOString(),
+  };
+  try {
+    await _tpUpsertDraft(rec);
+    _tsDraftId = rec.id;
+    notify('บันทึกแบบร่างแล้ว — ดูได้ที่หน้าจัดอบรม');
+    closeModal();
+    if (currentPage === 'admin-training-plan') _tpRenderDrafts();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 บันทึกแบบร่าง'; }
+    notify('บันทึกร่างไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error');
+  }
 }
 function _tsToggleAll(on) { document.querySelectorAll('.ts-chk').forEach(c => c.checked = on); _tsUpd(); }
 function _tsUpd() {
