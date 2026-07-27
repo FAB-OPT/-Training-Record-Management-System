@@ -8202,7 +8202,10 @@ function _covRun() {
   const box = document.getElementById('cov-result'); if (!box) return;
   const r = _covCompute();
   const miss = (typeof _covMissingFields === 'function') ? _covMissingFields() : [];
-  if (miss.length) { box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">ยังไม่ได้เลือก: <b>' + miss.join('</b> · <b>') + '</b></p>'; return; }
+  if (miss.length) {
+    box.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">ยังไม่ได้เลือก: <b>' + miss.join('</b> · <b>') + '</b></p>';
+    _covSyncPlanBtn(0); return;
+  }
   box.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <div style="flex:1;min-width:92px;padding:10px;background:var(--surface2);border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800">${r.emps.length}</div><div style="font-size:11px;color:var(--text3)">รายชื่อทั้งหมด</div></div>
@@ -8213,8 +8216,22 @@ function _covRun() {
       ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626')}
       ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
       ${r.emps.length ? '' : '<p class="text-muted" style="text-align:center;padding:14px">ไม่มีพนักงานตามเงื่อนไขที่เลือก</p>'}
-    </div>
-    ${r.notPassed.length ? `<button class="btn btn-navy" style="width:100%;margin-top:12px;justify-content:center" onclick="openTrainingSessionForm()">📋 จัดอบรมให้ ${r.notPassed.length} คนที่ยังไม่ผ่าน →</button>` : ''}`;
+    </div>`;
+  _covSyncPlanBtn(r.notPassed.length);
+}
+/* ปุ่ม "จัดอบรมให้ N คน" อยู่แถวเดียวกับ ยกเลิก / ส่งออก PDF ที่ท้าย modal
+   — showModal รองรับแค่ 2 ปุ่ม เลยแทรกเพิ่มเองแล้วอัปเดตตัวเลขทุกครั้งที่กรองใหม่ */
+function _covSyncPlanBtn(n) {
+  const footer = document.querySelector('#modal-overlay .modal-footer');
+  if (!footer) return;
+  let b = document.getElementById('cov-plan-btn');
+  if (!n) { if (b) b.remove(); return; }
+  if (!b) {
+    footer.insertAdjacentHTML('afterbegin',
+      '<button class="btn btn-navy" id="cov-plan-btn" style="margin-right:auto" onclick="openTrainingSessionForm()"></button>');
+    b = document.getElementById('cov-plan-btn');
+  }
+  b.textContent = `📋 จัดอบรมให้ ${n} คนที่ยังไม่ผ่าน →`;
 }
 function openCourseCoverage() {
   const list = DB.courseHistory || [];
@@ -8657,7 +8674,7 @@ function _tsUpd() {
   const el = document.getElementById('ts-count'); if (el) el.textContent = `เลือก ${n}/${total} คน`;
   const sa = document.getElementById('ts-selall'); if (sa) sa.checked = total > 0 && n === total;
 }
-/* ทะเบียนรายชื่อผู้เข้าอบรม — รูปแบบฟอร์มบริษัท (แนวนอน A4)
+/* ทะเบียนรายชื่อผู้เข้าอบรม — รูปแบบฟอร์มบริษัท (A4 แนวตั้ง)
    หัวกระดาษ: โลโก้ซ้าย + ชื่อบริษัท/ชื่อเอกสารกลาง + ช่องกรอกแบบขีดเส้นใต้
    ตาราง 5 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน */
 function _printTrainingSession(info, list) {
@@ -8676,9 +8693,9 @@ function _printTrainingSession(info, list) {
     </tr>`).join('');
   const style = `<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
-    @page { size: A4 landscape; margin: 10mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     body{font-family:'Sarabun',sans-serif;padding:18px;color:#111827;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    #root{max-width:1180px;margin:0 auto;background:white;border-radius:10px;padding:20px 26px 26px}
+    #root{max-width:860px;margin:0 auto;background:white;border-radius:10px;padding:20px 24px 26px}
     .head{display:flex;align-items:flex-start;gap:18px;margin-bottom:12px}
     .head-logo{width:96px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-top:4px}
     .head-logo img{max-width:100%;max-height:66px;object-fit:contain}
@@ -8725,11 +8742,11 @@ function _printTrainingSession(info, list) {
     </div>
     <table>
       <thead><tr>
-        <th style="width:60px">ลำดับ</th>
-        <th style="width:110px">รหัสพนักงาน</th>
+        <th style="width:48px">ลำดับ</th>
+        <th style="width:92px">รหัสพนักงาน</th>
         <th>ชื่อ - นามสกุล</th>
-        <th style="width:240px">ตำแหน่ง</th>
-        <th style="width:250px">สาขา/หน่วยงาน</th>
+        <th style="width:165px">ตำแหน่ง</th>
+        <th style="width:165px">สาขา/หน่วยงาน</th>
       </tr></thead>
       <tbody>${trs}</tbody>
     </table>
