@@ -489,6 +489,9 @@
   .msel-opt:hover { background: var(--surface2); }
   .msel-grp { font-size: 11px; font-weight: 800; color: var(--text3); padding: 6px 8px 2px; text-transform: uppercase; letter-spacing: .3px; }
   .btn-sm { padding: 7px 13px; font-size: 12.5px; border-radius: 8px; }
+  /* ปุ่มขั้นตอนถัดไป (เช่น "จัดอบรมให้ N คน") — น้ำเงินเข้ม ให้ต่างจากปุ่มส้มหลักชัด ๆ */
+  .btn-plan { background: #1E293B; color: #fff; font-weight: 700; }
+  .btn-plan:hover { background: #0F172A; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15,23,42,0.28); }
   .btn-navy { background: var(--accent); color: white; }
   .btn-navy:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,26,0.32); }
   .btn-accent { background: var(--accent); color: white; }
@@ -8228,7 +8231,7 @@ function _covSyncPlanBtn(n) {
   if (!n) { if (b) b.remove(); return; }
   if (!b) {
     footer.insertAdjacentHTML('afterbegin',
-      '<button class="btn btn-navy" id="cov-plan-btn" style="margin-right:auto" onclick="openTrainingSessionForm()"></button>');
+      '<button class="btn btn-plan" id="cov-plan-btn" style="margin-right:auto" onclick="openTrainingSessionForm()"></button>');
     b = document.getElementById('cov-plan-btn');
   }
   b.textContent = `📋 จัดอบรมให้ ${n} คนที่ยังไม่ผ่าน →`;
@@ -8700,8 +8703,8 @@ function _printTrainingSession(info, list) {
     .head-logo{width:96px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-top:4px}
     .head-logo img{max-width:100%;max-height:66px;object-fit:contain}
     .head-mid{flex:1;text-align:center}
-    .co{font-size:19px;font-weight:800;letter-spacing:-.2px;margin-bottom:1px}
-    .doc{font-size:14.5px;font-weight:600;margin-bottom:8px}
+    .co{font-size:19px;font-weight:800;letter-spacing:-.2px;margin-bottom:8px}
+    .doc{font-size:14.5px;font-weight:600;margin-bottom:14px}
     .fline{font-size:13px;margin-bottom:4px;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px}
     .fline b{font-weight:600}
     .fld{display:inline-block;border-bottom:1px solid #4B5563;padding:0 10px 1px;text-align:center;font-weight:600}
@@ -8742,11 +8745,11 @@ function _printTrainingSession(info, list) {
     </div>
     <table>
       <thead><tr>
-        <th style="width:48px">ลำดับ</th>
-        <th style="width:92px">รหัสพนักงาน</th>
-        <th>ชื่อ - นามสกุล</th>
-        <th style="width:165px">ตำแหน่ง</th>
-        <th style="width:165px">สาขา/หน่วยงาน</th>
+        <th style="width:46px">ลำดับ</th>
+        <th style="width:88px">รหัสพนักงาน</th>
+        <th style="width:190px">ชื่อ - นามสกุล</th>
+        <th style="width:150px">ตำแหน่ง</th>
+        <th>สาขา/หน่วยงาน</th>
       </tr></thead>
       <tbody>${trs}</tbody>
     </table>
