@@ -6426,6 +6426,14 @@ function renderDashPosPage(bid) {
     const startA = acc * 2*Math.PI - Math.PI/2;
     acc += frac;
     const endA = acc * 2*Math.PI - Math.PI/2;
+    const safePos = s.pos.replace(/'/g, "\\'");
+    const handler = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
+    const tip = '<title>'+s.pos+': '+s.d.trained+' ครั้ง</title>';
+    // ตำแหน่งเดียวกินเต็มวง (100%) → arc จุดเริ่ม = จุดจบ SVG จะวาดไม่ออก ต้องวาดเป็นวงแหวนแทน
+    if (frac >= 0.9999) {
+      const mid = (R + r) / 2;
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="'+mid+'" fill="none" stroke="'+s.color+'" stroke-width="'+(R - r)+'"'+handler+'>'+tip+'</circle>';
+    }
     const large = frac > 0.5 ? 1 : 0;
     const x1 = cx + R*Math.cos(startA), y1 = cy + R*Math.sin(startA);
     const x2 = cx + R*Math.cos(endA),   y2 = cy + R*Math.sin(endA);
@@ -6435,9 +6443,7 @@ function renderDashPosPage(bid) {
       +' A'+R+','+R+' 0 '+large+' 1 '+x2.toFixed(2)+','+y2.toFixed(2)
       +' L'+x3.toFixed(2)+','+y3.toFixed(2)
       +' A'+r+','+r+' 0 '+large+' 0 '+x4.toFixed(2)+','+y4.toFixed(2)+' Z';
-    const safePos = s.pos.replace(/'/g, "\\'");
-    const handler = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
-    return '<path d="'+path+'" fill="'+s.color+'"'+handler+'><title>'+s.pos+': '+s.d.trained+' ครั้ง</title></path>';
+    return '<path d="'+path+'" fill="'+s.color+'"'+handler+'>'+tip+'</path>';
   }).join('');
 
   // Build legend as table for clean alignment
@@ -9812,6 +9818,8 @@ function _buildBranchSummaryReport(bid, branchLabel, branchManager, emps, trains
       const start = acc * Math.PI * 2 - Math.PI/2;
       acc += frac;
       const end = acc * Math.PI * 2 - Math.PI/2;
+      // กลุ่มเดียวกินเต็มวง → arc จุดเริ่ม = จุดจบ วาดไม่ออก ต้องใช้วงแหวนแทน
+      if (frac >= 0.9999) return '<circle cx="'+cx+'" cy="'+cy+'" r="'+((R+r)/2)+'" fill="none" stroke="'+d.color+'" stroke-width="'+(R-r)+'"/>';
       const large = frac > 0.5 ? 1 : 0;
       const x1 = cx + R*Math.cos(start), y1 = cy + R*Math.sin(start);
       const x2 = cx + R*Math.cos(end),   y2 = cy + R*Math.sin(end);
@@ -10292,6 +10300,8 @@ function _buildTrainingsReport(bid, branchLabel, branchManager, trains, now, dat
       const start = acc * Math.PI * 2 - Math.PI/2;
       acc += frac;
       const end = acc * Math.PI * 2 - Math.PI/2;
+      // ช่วงคะแนนเดียวกินเต็มวง → arc จุดเริ่ม = จุดจบ วาดไม่ออก ต้องใช้วงแหวนแทน
+      if (frac >= 0.9999) return '<circle cx="'+cx+'" cy="'+cy+'" r="'+((R+r)/2)+'" fill="none" stroke="'+d.color+'" stroke-width="'+(R-r)+'"/>';
       const large = frac > 0.5 ? 1 : 0;
       const x1 = cx + R*Math.cos(start), y1 = cy + R*Math.sin(start);
       const x2 = cx + R*Math.cos(end),   y2 = cy + R*Math.sin(end);
