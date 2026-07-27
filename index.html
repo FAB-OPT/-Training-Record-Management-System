@@ -8189,12 +8189,9 @@ function _covScopeLabel() {
   const pre = _covMulti('cov-prereq');
   return { br, conds, prereq: pre.length ? pre.join(' + ') : '' };
 }
-function _covList(title, arr, color, action) {
+function _covList(title, arr, color) {
   if (!arr.length) return '';
-  return `<div style="margin-bottom:10px"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;position:sticky;top:0;background:var(--white);z-index:2">
-      <div style="font-size:12.5px;font-weight:800;color:${color}">${title} (${arr.length})</div>
-      ${action || ''}
-    </div>` +
+  return `<div style="margin-bottom:10px"><div style="font-size:12.5px;font-weight:800;color:${color};padding:6px 0 4px;position:sticky;top:0;background:var(--white);z-index:2">${title} (${arr.length})</div>` +
     arr.map(e => `<div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);font-size:12.5px">
       <span style="color:var(--text3);min-width:72px">${e.empCode || '—'}</span>
       <b style="flex:1;min-width:0">${e.name}</b>
@@ -8213,11 +8210,11 @@ function _covRun() {
       <div style="flex:1;min-width:92px;padding:10px;background:#FEF2F2;border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:#DC2626">${r.notPassed.length}</div><div style="font-size:11px;color:var(--text3)">ยังไม่ผ่าน</div></div>
     </div>
     <div style="max-height:34vh;overflow:auto">
-      ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626',
-        `<button class="btn btn-sm btn-navy" style="flex-shrink:0;white-space:nowrap" onclick="openTrainingSessionForm()">📋 จัดอบรมให้ ${r.notPassed.length} คน →</button>`)}
+      ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626')}
       ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
       ${r.emps.length ? '' : '<p class="text-muted" style="text-align:center;padding:14px">ไม่มีพนักงานตามเงื่อนไขที่เลือก</p>'}
-    </div>`;
+    </div>
+    ${r.notPassed.length ? `<button class="btn btn-navy" style="width:100%;margin-top:12px;justify-content:center" onclick="openTrainingSessionForm()">📋 จัดอบรมให้ ${r.notPassed.length} คนที่ยังไม่ผ่าน →</button>` : ''}`;
 }
 function openCourseCoverage() {
   const list = DB.courseHistory || [];
@@ -8662,8 +8659,7 @@ function _tsUpd() {
 }
 /* ทะเบียนรายชื่อผู้เข้าอบรม — รูปแบบฟอร์มบริษัท (แนวนอน A4)
    หัวกระดาษ: โลโก้ซ้าย + ชื่อบริษัท/ชื่อเอกสารกลาง + ช่องกรอกแบบขีดเส้นใต้
-   ตาราง 6 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · เลขบัตรประชาชน · สาขา/หน่วยงาน
-   (เลขบัตรฯ ไม่มีในระบบ → เว้นว่างให้กรอกมือ) */
+   ตาราง 5 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน */
 function _printTrainingSession(info, list) {
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   list = list.slice().sort((a,b) => brName(a.branchId).localeCompare(brName(b.branchId),'th') || (a.name||'').localeCompare(b.name||'','th'));
@@ -8676,7 +8672,6 @@ function _printTrainingSession(info, list) {
       <td class="c">${e.empCode || ''}</td>
       <td>${e.name || ''}</td>
       <td class="c">${e.position || ''}</td>
-      <td class="c"></td>
       <td class="c">${brName(e.branchId)}</td>
     </tr>`).join('');
   const style = `<style>
@@ -8733,9 +8728,8 @@ function _printTrainingSession(info, list) {
         <th style="width:60px">ลำดับ</th>
         <th style="width:110px">รหัสพนักงาน</th>
         <th>ชื่อ - นามสกุล</th>
-        <th style="width:220px">ตำแหน่ง</th>
-        <th style="width:190px">เลขบัตรประจำตัวประชาชน</th>
-        <th style="width:190px">สาขา/หน่วยงาน</th>
+        <th style="width:240px">ตำแหน่ง</th>
+        <th style="width:250px">สาขา/หน่วยงาน</th>
       </tr></thead>
       <tbody>${trs}</tbody>
     </table>
