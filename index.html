@@ -1171,6 +1171,40 @@
   .bottom-nav-icon { font-size: 22px; line-height: 1; }
   .bottom-nav-label { font-size: 12px; font-weight: 700; line-height: 1.2; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 
+  /* ==================== ชีตเมนู "อื่นๆ" (Mobile) ====================
+     bottom-nav โชว์แค่เมนูหลัก ที่เหลือรวมไว้ในปุ่ม ⋯ อื่นๆ → กดแล้วเลื่อนขึ้นมา */
+  .bnav-more-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+    z-index: 210; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .bnav-more-overlay.open { opacity: 1; pointer-events: auto; }
+  .bnav-more-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--white);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+    z-index: 211;
+    padding: 10px 14px calc(18px + env(safe-area-inset-bottom));
+    max-height: 72vh; overflow-y: auto;
+    transform: translateY(110%);
+    transition: transform 0.26s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .bnav-more-sheet.open { transform: translateY(0); }
+  .bnav-more-handle { width: 42px; height: 4px; border-radius: 4px; background: var(--border2); margin: 2px auto 10px; }
+  .bnav-more-title { font-size: 12.5px; font-weight: 800; color: var(--text3); margin: 0 2px 10px; }
+  .bnav-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .bnav-more-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    padding: 14px 6px; border-radius: 14px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bnav-more-item:active { background: var(--accent-light); border-color: var(--accent); }
+  .bnav-more-item.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent-hover); }
+  .bnav-more-icon { font-size: 24px; line-height: 1; }
+  .bnav-more-label { font-size: 11.5px; font-weight: 700; line-height: 1.25; text-align: center; }
+
   /* ==================== MOBILE RESPONSIVE ==================== */
   @media (max-width: 768px) {
     /* Login page mobile — keep card style, just narrower */
@@ -1635,6 +1669,19 @@
       text-align: center;
     }
 
+    /* ===== เคส/ติดต่อ Admin: แถบค้นหา + ตัวกรอง =====
+       มือถือ: ช่องค้นหาอยู่บรรทัดของตัวเอง, ดรอปดาวลงบรรทัดถัดไปแบ่งครึ่ง — ไม่ล้นกรอบการ์ด */
+    .case-filter-bar { flex-wrap: wrap !important; gap: 8px !important; }
+    .case-filter-bar .search-input {
+      flex: 1 1 100% !important; width: 100% !important;
+      min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+    }
+    .case-filter-bar .form-select {
+      flex: 1 1 calc(50% - 4px) !important; width: auto !important;
+      min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+      text-overflow: ellipsis;
+    }
+
     /* ===== Admin: branch + admin-employees mobile cards ===== */
     /* Branch table card */
     table.cards-on-mobile.branch-table tr {
@@ -1829,6 +1876,11 @@
     .train-tabs-mobile ~ select.form-select { flex: 1 1 calc(50% - 5px) !important; max-width: none !important; min-width: 0 !important; font-size: 12px !important; padding: 7px 22px 7px 10px !important }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
+    /* Bottom nav: ทุกบทบาทเหลือไม่เกิน 5 แท็บ (ที่เหลืออยู่ในปุ่ม "อื่นๆ") — ไม่ต้องเลื่อนแนวนอน */
+    .mobile-bottom-nav-inner { width: 100% !important; padding: 4px 4px !important; gap: 0 !important }
+    .bottom-nav-item { flex: 1 1 0 !important; min-width: 0 !important; padding: 4px 0 !important; gap: 2px !important }
+    .bottom-nav-icon { font-size: 19px !important }
+    .bottom-nav-label { font-size: 10.5px !important; max-width: 100% !important; font-weight: 600 !important }
     /* Bottom nav: shrink so 5 buttons fit on phone width */
     body.branch-user .mobile-bottom-nav-inner { padding: 4px 4px !important; gap: 0 !important }
     body.branch-user .bottom-nav-item { padding: 4px 0 !important; min-width: 0 !important; gap: 2px !important; flex: 1 1 0 !important }
@@ -2198,6 +2250,14 @@
   <div class="mobile-bottom-nav-inner" id="mobile-bottom-nav-inner">
     <!-- Branch user nav (filled by buildBottomNav) -->
   </div>
+</div>
+
+<!-- เมนูที่เหลือจาก bottom nav — เปิดจากปุ่ม "อื่นๆ" -->
+<div class="bnav-more-overlay" id="bnav-more-overlay" onclick="closeBnavMore()"></div>
+<div class="bnav-more-sheet" id="bnav-more-sheet">
+  <div class="bnav-more-handle"></div>
+  <div class="bnav-more-title">เมนูอื่น ๆ</div>
+  <div class="bnav-more-grid" id="bnav-more-grid"></div>
 </div>
 
 <!-- TEST MODE BANNER (broadcast to all users when admin enables test mode) -->
@@ -5533,13 +5593,47 @@ function getActiveNavItems() {
   if (isExecRole()) return EXEC_NAV_ITEMS;
   return ADMIN_NAV_ITEMS;
 }
+// มือถือ: โชว์เฉพาะเมนูหลัก 4 อัน ที่เหลือยุบไว้ในปุ่ม "อื่นๆ" (กดแล้วเด้งชีตขึ้นมา)
+const BNAV_MAX_TABS = 4;
+let _bnavMoreItems = [];
 function buildBottomNav(items) {
   const inner = document.getElementById('mobile-bottom-nav-inner');
   if (!inner) return;
-  inner.innerHTML = items.map(it => `<div class="bottom-nav-item" id="bnav-${it.page}" onclick="showPage('${it.page}');updateBottomNav('${it.page}')">
+  // ถ้าเมนูรวมแล้วไม่เกิน 5 อัน ก็โชว์หมดเลย ไม่ต้องมีปุ่ม "อื่นๆ"
+  const needMore = items.length > BNAV_MAX_TABS + 1;
+  const tabs = needMore ? items.slice(0, BNAV_MAX_TABS) : items;
+  _bnavMoreItems = needMore ? items.slice(BNAV_MAX_TABS) : [];
+  inner.innerHTML = tabs.map(it => `<div class="bottom-nav-item" id="bnav-${it.page}" onclick="showPage('${it.page}');updateBottomNav('${it.page}')">
     <div class="bottom-nav-icon">${it.icon}</div>
     <div class="bottom-nav-label">${it.label}</div>
+  </div>`).join('')
+  + (needMore ? `<div class="bottom-nav-item" id="bnav-more" onclick="openBnavMore()">
+    <div class="bottom-nav-icon">⋯</div>
+    <div class="bottom-nav-label">อื่นๆ</div>
+  </div>` : '');
+  _renderBnavMoreSheet();
+}
+function _renderBnavMoreSheet() {
+  const grid = document.getElementById('bnav-more-grid');
+  if (!grid) return;
+  grid.innerHTML = _bnavMoreItems.map(it => `<div class="bnav-more-item" id="bnavmore-${it.page}" onclick="closeBnavMore();showPage('${it.page}');updateBottomNav('${it.page}')">
+    <div class="bnav-more-icon">${it.icon}</div>
+    <div class="bnav-more-label">${it.label}</div>
   </div>`).join('');
+}
+function openBnavMore() {
+  const sheet = document.getElementById('bnav-more-sheet');
+  if (!sheet || !_bnavMoreItems.length) return;
+  _renderBnavMoreSheet();
+  document.getElementById('bnav-more-overlay')?.classList.add('open');
+  sheet.classList.add('open');
+  // มาร์คเมนูที่กำลังเปิดอยู่ + ใส่ badge เคสในชีต
+  document.getElementById('bnavmore-' + (currentPage||''))?.classList.add('active');
+  try { refreshCaseBadge(); } catch(_) {}
+}
+function closeBnavMore() {
+  document.getElementById('bnav-more-sheet')?.classList.remove('open');
+  document.getElementById('bnav-more-overlay')?.classList.remove('open');
 }
 
 function buildBranchNav() {
@@ -5618,6 +5712,7 @@ function showPage(page) {
   if (page === 'manual') page = 'trainings';
   currentPage = page;
   closeSidebar();
+  closeBnavMore();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navEl = document.getElementById(`nav-${page}`);
   if (navEl) navEl.classList.add('active');
@@ -5680,7 +5775,11 @@ function updateBottomNav(page) {
     'cases':                 'bnav-cases',
   };
   document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
-  const targetId = navMap[page];
+  let targetId = navMap[page];
+  // เมนูที่ถูกยุบไว้ใน "อื่นๆ" → ให้ปุ่ม "อื่นๆ" ติดสถานะแทน
+  if (targetId && !document.getElementById(targetId) && _bnavMoreItems.some(it => 'bnav-' + it.page === targetId)) {
+    targetId = 'bnav-more';
+  }
   if (targetId) {
     const el = document.getElementById(targetId);
     if (el) {
@@ -7171,7 +7270,7 @@ function renderTrainings() {
           <td data-label="actions" style="white-space:nowrap">
             ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
-            <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">👁 ดู</button>
+            <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
             ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
           </td>
         </tr>`;}).join('')}
@@ -11945,7 +12044,7 @@ function renderAdminTrainings() {
           <td data-label="วิธีการประเมิน" style="font-size:12.5px;color:var(--text2)">${t.eval?.method||'—'}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="actions" style="white-space:nowrap;text-align:right">
-            <button class="btn btn-sm btn-view" onclick="viewTraining('${t.id}')">👁 ดู</button>
+            <button class="btn btn-sm btn-view" onclick="viewTraining('${t.id}')">ดู</button>
             ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
@@ -13241,10 +13340,15 @@ function refreshCaseBadge() {
     const el = document.getElementById(id);
     if (el) el.insertAdjacentHTML('beforeend', ' ' + html);
   });
-  // Bottom nav entries
-  ['bnav-cases', 'bnav-admin-cases'].forEach(id => {
-    const el = document.getElementById(id);
+  // Bottom nav entries — ถ้าเมนูเคสถูกยุบไว้ใน "อื่นๆ" ให้ badge ไปเกาะปุ่มอื่นๆ + ในชีตด้วย
+  const casesInMore = _bnavMoreItems.some(it => it.page === 'cases' || it.page === 'admin-cases');
+  ['bnav-cases', 'bnav-admin-cases', casesInMore ? 'bnav-more' : ''].forEach(id => {
+    const el = id && document.getElementById(id);
     if (el) el.querySelector('.bottom-nav-icon')?.insertAdjacentHTML('afterend', html.replace('nav-badge', 'nav-badge bn-badge'));
+  });
+  ['bnavmore-cases', 'bnavmore-admin-cases'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.querySelector('.bnav-more-icon')?.insertAdjacentHTML('afterend', html.replace('nav-badge', 'nav-badge bn-badge'));
   });
 }
 // On app load: if there's anything to see, show a one-shot toast
@@ -13405,7 +13509,7 @@ function renderBranchCases() {
   </div>
 
   <div class="card" style="margin-bottom:12px;padding:10px 12px">
-    <div style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center">
+    <div class="case-filter-bar" style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center">
       <input class="search-input" placeholder="🔍 ค้นหา…" oninput="setCaseFilter('search', this.value)" style="flex:1;min-width:0" value="${(f.search||'').replace(/"/g,'&quot;')}">
       <select class="form-select" onchange="setCaseFilter('status', this.value)" style="width:140px;flex-shrink:0">
         <option value=""${!f.status?' selected':''}>— สถานะ —</option>
@@ -13486,7 +13590,7 @@ function renderAdminCases() {
   </div>
 
   <div class="card" style="margin-bottom:12px;padding:10px 12px">
-    <div style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center">
+    <div class="case-filter-bar" style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center">
       <input class="search-input" placeholder="🔍 ค้นหา หัวข้อ / สาขา / ผู้แจ้ง…" oninput="setCaseFilter('search', this.value)" style="flex:1;min-width:0" value="${(f.search||'').replace(/"/g,'&quot;')}">
       <select class="form-select" onchange="setCaseFilter('status', this.value)" style="width:130px;flex-shrink:0">
         <option value=""${!f.status?' selected':''}>— สถานะ —</option>
