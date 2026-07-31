@@ -7311,7 +7311,9 @@ function renderTrainings() {
         const quizAttempts = _quizAttemptsFor(t.id);
         const quizPassed = _quizPassedFor(t.id);
         const quizLocked = !quizPassed && quizAttempts.length >= QUIZ_MAX_ATTEMPTS;
-        const canQuiz = isQuizRow && !t.eval && !quizPassed && !quizLocked;
+        // ลำดับใหม่: ต้องประเมินผลก่อน ข้อสอบถึงจะปลดล็อก
+        const canQuiz = isQuizRow && !!t.eval && !quizPassed && !quizLocked;
+        const quizWaitEval = isQuizRow && !t.eval && !quizPassed;   // สอนครบแล้วแต่ยังไม่ได้ประเมิน
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
         const quizCell = isQuizRow && quizAttempts.length
           ? `<span class="badge ${bestPct>=80?'badge-green':'badge-red'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
@@ -7325,7 +7327,9 @@ function renderTrainings() {
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="สถานะ" style="white-space:nowrap">${badge}</td>
           <td data-label="actions" style="white-space:nowrap">
-            ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="สอนครบทุกหัวข้อแล้ว">📝 ทำข้อสอบ</button>`:isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
+            ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="ประเมินผลแล้ว — ทำข้อสอบได้">📝 ทำข้อสอบ</button>`
+              :quizWaitEval?`<button class="btn btn-sm btn-outline" style="opacity:.65" onclick="notify('ต้องบันทึกผลการประเมินก่อน แล้วข้อสอบจะปลดล็อกให้เอง','error')" title="ต้องประเมินผลก่อน">🔒 ข้อสอบ</button>`
+              :isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
             ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
@@ -9517,7 +9521,49 @@ function openEvalModal(trainingId) {
     t.eval = {method:selectedEvalMethod,result:selectedEvalResult,evalDate:new Date().toISOString(),note:document.getElementById('eval-note').value};
     gsSave('trainings', t.id, t);
     closeModal(); showPage('trainings'); notify('บันทึกผลการประเมินสำเร็จ');
+    // ประเมินเสร็จแล้วข้อสอบจะปลดล็อก — เด้งถามให้ทำต่อทันที
+    setTimeout(() => promptQuizAfterEval(t.id), 400);
   }, 'บันทึกผล');
+}
+
+/* ประเมินเสร็จ → ถ้ารายการนี้มีข้อสอบรออยู่ ให้เด้งถามทำต่อทันที
+   กดยังไม่ทำได้ ปุ่มข้อสอบยังอยู่ในตารางให้กลับมาทำภายหลัง */
+function promptQuizAfterEval(trainingId) {
+  const t = DB.trainings.find(x => x.id === trainingId);
+  if (!t || !t.eval) return;
+  if (!isLatestCompletingTraining(t)) return;                 // ยังสอนไม่ครบ Module
+  if (_quizPassedFor(trainingId)) return;                     // สอบผ่านไปแล้ว
+  const attempts = _quizAttemptsFor(trainingId).length;
+  if (attempts >= QUIZ_MAX_ATTEMPTS) return;                  // ทำครบโควตาแล้ว
+  const modName = MODULES[t.moduleId]?.name || t.moduleId;
+  const names = (t.traineeIds || []).map(id => getEmployee(id)?.name).filter(Boolean);
+
+  let ov = document.getElementById('modal-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'modal-overlay'; ov.className = 'modal-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `<div class="modal welcome-modal" style="max-width:410px;overflow:hidden;padding:0">
+    <div style="position:relative;background:linear-gradient(135deg,#34D399 0%,#059669 100%);padding:28px 24px 22px;text-align:center;color:#fff;overflow:hidden">
+      <div style="position:absolute;top:-38px;right:-28px;width:126px;height:126px;border-radius:50%;background:rgba(255,255,255,.10)"></div>
+      <div style="position:relative;width:58px;height:58px;border-radius:18px;background:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:center;font-size:29px;margin:0 auto 12px">📝</div>
+      <div style="position:relative;font-size:19px;font-weight:900;letter-spacing:-.3px">ขั้นตอนต่อไป — ทำข้อสอบ</div>
+      <div style="position:relative;font-size:12.5px;opacity:.95;margin-top:5px;line-height:1.5">บันทึกผลการประเมินแล้ว ข้อสอบปลดล็อกให้ทำได้เลย</div>
+    </div>
+    <div style="padding:18px 22px 20px;display:flex;flex-direction:column;gap:13px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 15px">
+        <div style="font-size:10.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Module</div>
+        <div style="font-size:14.5px;font-weight:800;color:var(--text);line-height:1.35">${modName}</div>
+        ${names.length ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">👥 ${names.join(' · ')}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text2);background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.28);border-radius:10px;padding:10px 13px">
+        <span style="font-size:17px">⚠️</span>
+        <span>ทำได้ <b>${QUIZ_MAX_ATTEMPTS - attempts} ครั้ง</b> · ต้องได้ <b>${QUIZ_PASS_PCT}%</b> ขึ้นไปจึงจะผ่าน</span>
+      </div>
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-outline" style="flex:1;justify-content:center;padding:11px 0" onclick="closeModal()">ไว้ทีหลัง</button>
+        <button class="btn btn-green" style="flex:1.4;justify-content:center;padding:11px 0" onclick="closeModal();setTimeout(()=>openQuiz('${t.id}'),120)">ทำข้อสอบเลย →</button>
+      </div>
+    </div>
+  </div>`;
+  ov.classList.add('open');
 }
 
 function selectEvalMethod(el, method) {
@@ -9575,6 +9621,11 @@ function _quizPassedFor(trainingId) {
 function openQuiz(trainingId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
   if (!t) return;
+  // ต้องบันทึกผลการประเมินก่อน ข้อสอบถึงจะเปิดให้ทำ
+  if (!t.eval) {
+    notify('ต้องบันทึกผลการประเมินก่อน แล้วข้อสอบจะปลดล็อกให้เอง', 'error');
+    return;
+  }
   // Already passed → block (no need to retake)
   if (_quizPassedFor(trainingId)) {
     notify('ผ่านข้อสอบนี้แล้ว ไม่ต้องทำซ้ำ', 'success');
