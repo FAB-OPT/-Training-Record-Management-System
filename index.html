@@ -544,7 +544,7 @@
     display: none; position: fixed; inset: 0;
     background: rgba(20,12,4,0.55);
     backdrop-filter: blur(10px);
-    z-index: 200; align-items: center; justify-content: center;
+    z-index: 300; align-items: center; justify-content: center;   /* สูงกว่าแชตเต็มจอ (260) และแถบเมนูล่าง (200) เสมอ */
     padding: 20px;
   }
   .modal-overlay.open { display: flex; animation: modalOverlayIn 0.2s ease; }
@@ -1042,19 +1042,31 @@
     transform: translateY(-1px);
   }
 
-  /* Mobile: panel slides up, but does NOT fill the screen — keep top page visible */
+  /* Mobile: แชตเปิดเต็มจอ — พิมพ์และอ่านย้อนได้เต็มพื้นที่ ปิดด้วยปุ่ม ✕ มุมขวาบน */
   @media (max-width: 540px) {
     #chatbot-fab { right: 14px; bottom: 78px; width: 52px; height: 52px; }
     body.branch-user #chatbot-fab,
     body.admin-user #chatbot-fab { bottom: 76px; }
     .cb-fab-avatar { font-size: 26px; }
     #chatbot-panel {
-      right: 10px; left: 10px; bottom: 86px;
+      inset: 0;                      /* เต็มจอทั้ง 4 ด้าน */
       width: auto; max-width: none;
-      height: 62vh;        /* was filling whole screen — now ~60% of viewport */
-      max-height: 520px;
-      border-radius: 18px;
+      height: 100dvh;                /* dvh = ไม่โดนแถบเบราว์เซอร์กิน */
+      max-height: none;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      z-index: 260;                  /* ทับแถบเมนูล่าง (200) และ sheet อื่นๆ */
+      animation: cbInFull 0.22s cubic-bezier(.25,.46,.45,.94);
     }
+    @keyframes cbInFull { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    /* เว้นรอยบาก/ขอบจอ */
+    .cb-head { padding-top: calc(12px + env(safe-area-inset-top)) !important; }
+    .cb-input { padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important; }
+    /* ปุ่มปิดใหญ่ขึ้น กดง่ายด้วยนิ้วโป้ง */
+    .cb-head .cb-close { width: 38px; height: 38px; font-size: 17px; }
+    body.cb-open { overflow: hidden; }   /* กันหน้าเว็บด้านหลังเลื่อนตาม */
+
     .cb-head { padding: 12px 14px; }
     .cb-avatar { width: 38px; height: 38px; }
     .cb-name { font-size: 14px; }
@@ -5077,6 +5089,7 @@ function openChatbot() {
   if (!p) return;
   p.style.display = 'flex';
   if (f) f.style.display = 'none';
+  document.body.classList.add('cb-open');   // มือถือ: ล็อกไม่ให้หน้าหลังเลื่อน (CSS คุมเฉพาะจอเล็ก)
   // Always reload from storage — _loadChatHistory resets _chatHistory first,
   // so a different user opening the chat sees their own thread (not the previous user's)
   _loadChatHistory();
@@ -5139,6 +5152,7 @@ function closeChatbot() {
   const f = document.getElementById('chatbot-fab');
   if (p) p.style.display = 'none';
   if (f) f.style.display = 'flex';
+  document.body.classList.remove('cb-open');   // ปลดล็อกการเลื่อนหน้าหลัง
 }
 
 function _chatGreeting() {
