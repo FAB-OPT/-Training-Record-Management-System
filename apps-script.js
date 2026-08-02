@@ -50,6 +50,10 @@ function doPost(e) {
     deleteRow(ss, data.collection, data.id);
   } else if (data.action === 'save_many') {
     (data.records || []).forEach(r => saveRow(ss, data.collection, r.id, r));
+  } else if (data.action === 'delete_many') {
+    deleteRows(ss, data.collection, data.ids || []);
+  } else if (data.action === 'clear') {
+    clearSheet(ss, data.collection);
   }
 
   return respond({ status: 'ok' });
@@ -406,6 +410,36 @@ function saveRow(ss, name, id, record) {
   } else {
     sheet.appendRow(row);
   }
+}
+
+// ลบหลายแถวในรอบเดียว — เร็วกว่าเรียก deleteRow ทีละใบมาก
+// เพราะเขียนทับทั้งชีตครั้งเดียว ไม่ต้องขยับแถวทีละครั้ง
+function deleteRows(ss, name, ids) {
+  const sheet = ss.getSheetByName(name);
+  if (!sheet || !ids || !ids.length) return;
+  const vals = sheet.getDataRange().getValues();
+  if (vals.length < 2) return;
+  const idIdx = vals[0].indexOf('id');
+  if (idIdx < 0) return;
+  const kill = {};
+  ids.forEach(function (x) { kill[String(x)] = true; });
+  const keep = [vals[0]];
+  for (let i = 1; i < vals.length; i++) {
+    if (!kill[String(vals[i][idIdx])]) keep.push(vals[i]);
+  }
+  if (keep.length === vals.length) return;   // ไม่มีอะไรถูกลบ
+  sheet.clearContents();
+  sheet.getRange(1, 1, keep.length, vals[0].length).setValues(keep);
+}
+
+// ล้างทั้งชีต เหลือแต่หัวตาราง
+function clearSheet(ss, name) {
+  const sheet = ss.getSheetByName(name);
+  if (!sheet) return;
+  const vals = sheet.getDataRange().getValues();
+  if (vals.length < 2) return;
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, vals[0].length).setValues([vals[0]]);
 }
 
 function deleteRow(ss, name, id) {

@@ -4640,6 +4640,17 @@ function gsDel(collection, id) {
   sbDelOne(collection, id).catch(e => console.error('SB del error', collection, id, e));
   gsPost({action:'delete', collection, id});
 }
+// ลบหลายรายการในคำขอเดียว — ใช้กับประวัติแชตบอทที่มีเป็นพัน ๆ แถว
+// chatLogs เก็บใน Google Sheets อย่างเดียว จึงไม่ต้องลบฝั่ง Supabase
+function gsDelMany(collection, ids) {
+  if (isTestMode()) return;
+  if (!ids || !ids.length) return;
+  gsPost({ action: 'delete_many', collection, ids });
+}
+function gsClearCollection(collection) {
+  if (isTestMode()) return;
+  gsPost({ action: 'clear', collection });
+}
 function gsSaveMany(collection, records) {
   if (isTestMode() && collection !== 'quizMeta') return;
   sbSaveMany(collection, records).catch(e => console.error('SB save_many error', collection, e));
@@ -5421,6 +5432,50 @@ ${recent||'(ยังไม่มี)'}
 - BZM/VP/COO ย้ายไม่ได้ — ดูได้อย่างเดียว ต้องแจ้ง Admin (Kantapon)`;
 }
 
+/* ── พฤติกรรมการใช้งานล่าสุด — สรุปจากประวัติแชต 30 วันย้อนหลัง ──
+   ป้อนกลับเข้าไปในชุดความรู้ทุกครั้งที่ถาม น้องแฮปปี้จึงรู้ว่าช่วงนี้คนติดเรื่องอะไร
+   และเคยตอบพลาดตรงไหน โดยไม่ต้องแก้โค้ด — ยิ่งใช้ยิ่งรู้จักสาขา
+   สาขาจะเห็นเฉพาะพฤติกรรมของสาขาตัวเอง ไม่ข้ามสาขา */
+function _chatUsageInsight() {
+  const logs = DB.chatLogs || [];
+  if (!logs.length) return '';
+  const isBranch = currentUser?.type === 'branch';
+  const myBranch = isBranch ? String(getBranchId() || '') : null;
+  const since = Date.now() - 30 * 86400000;
+  const rel = logs.filter(l => {
+    if (new Date(l.ts || 0).getTime() < since) return false;
+    if (isBranch && String(l.branchId || '') !== myBranch) return false;
+    return true;
+  });
+  if (rel.length < 4) return '';                       // ข้อมูลน้อยเกินไป ยังสรุปอะไรไม่ได้
+
+  const asks = rel.filter(l => l.role === 'user' && String(l.content || '').trim().length > 3);
+  const norm = s => String(s).toLowerCase().replace(/[?？!.]/g, '').replace(/\s+/g, ' ').trim().slice(0, 50);
+  const freq = {};
+  asks.forEach(l => { const k = norm(l.content); if (k) freq[k] = (freq[k] || 0) + 1; });
+  const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).filter(([, n]) => n > 1).slice(0, 8);
+  const errCount = rel.filter(l => l.role === 'bot' && l.err).length;
+  const sessions = new Set(rel.map(l => l.sessionId || '_')).size;
+
+  const lines = [];
+  lines.push(`• ช่วง 30 วันที่ผ่านมา: ${sessions} บทสนทนา · ${asks.length} คำถาม${errCount ? ` · ตอบไม่สำเร็จ ${errCount} ครั้ง` : ''}`);
+  if (top.length) {
+    lines.push('• คำถามที่ถูกถามซ้ำบ่อย (ถามแล้วยังกลับมาถามอีก = คนยังไม่เข้าใจจุดนี้):');
+    top.forEach(([q, n]) => lines.push(`  - "${q}" (${n} ครั้ง)`));
+  }
+  if (!lines.length) return '';
+  return `
+═══════════════════════════════════════════════════════════
+📈 พฤติกรรมการใช้งานล่าสุด${isBranch ? ' (เฉพาะสาขานี้)' : ''}
+═══════════════════════════════════════════════════════════
+${lines.join('\n')}
+
+วิธีใช้ข้อมูลนี้:
+- ถ้าคำถามใหม่ตรงหรือใกล้เคียงกับข้อที่ถูกถามซ้ำบ่อย → ตอบให้ชัดและเป็นขั้นตอนกว่าปกติ เพราะแปลว่าคำอธิบายเดิมยังไม่พอ
+- ห้ามพูดถึงสถิติชุดนี้ตรง ๆ กับผู้ใช้ ใช้เป็นข้อมูลภายในเพื่อปรับวิธีตอบเท่านั้น
+`;
+}
+
 function _chatSystemPrompt() {
   return `คุณคือ "น้องแฮปปี้" — ผู้ช่วย AI ของระบบบันทึกการสอนงาน Santa Fe Steak
 
@@ -5439,22 +5494,33 @@ function _chatSystemPrompt() {
 8. ลงท้ายด้วย "ค่ะ" แค่ประโยคสุดท้าย ไม่ใส่ทุกประโยค
 
 ═══════════════════════════════════════════════════════════
+📐 กฎของระบบ ณ ตอนนี้ (ดึงสดจากโค้ดทุกครั้งที่ถาม — เชื่อตัวเลขชุดนี้เสมอ)
+═══════════════════════════════════════════════════════════
+• กำหนดประเมิน: ภายใน ${EVAL_DEADLINE_DAYS} วันนับจากวันที่สอน เลยแล้วยังประเมินได้แต่ถูกนับว่าเลยกำหนด
+• วิธีประเมินมี ${EVAL_METHODS.length} แบบ: ${EVAL_METHODS.join(' · ')}
+• ผลประเมินมี ${EVAL_RESULTS.length} ระดับ:
+${EVAL_RESULTS.map(r => `  - ${r.label}${isEvalPass(r.value) ? '  → ผ่าน' : '  → ไม่ผ่าน'}`).join('\n')}
+• เกณฑ์ผ่าน = ระดับ ${EVAL_RESULTS.filter(r => isEvalPass(r.value)).map(r => r.value).sort().join(' หรือ ')} เท่านั้น
+• ข้อสอบ: ทำได้ ${QUIZ_MAX_ATTEMPTS} ครั้ง ต้องได้ ${QUIZ_PASS_PCT}% ขึ้นไปจึงผ่าน
+
+═══════════════════════════════════════════════════════════
 🧠 ความรู้เรื่องระบบ (ห้ามสรุปนอกเหนือจากนี้)
 ═══════════════════════════════════════════════════════════
 **ข้อสอบ ≠ ประเมิน** เป็นคนละเรื่องกัน — อย่าสับสน
-• "ประเมิน" = trainer ให้คะแนน manual (กดปุ่มประเมิน → เลือกผล ผ่าน/ไม่ผ่าน)
+• "ประเมิน" = trainer ให้คะแนน manual (กดปุ่มประเมิน → เลือกวิธี + ผล 1-4)
 • "ทำข้อสอบ" = พนักงานทำข้อสอบ multiple choice ในระบบ (ตัวเลือก A/B/C/D)
-• ทั้งสองวิธีให้ผลเหมือนกัน (ผ่าน/ไม่ผ่าน) แต่เป็นช่องทางคนละแบบ
+• **ลำดับบังคับ: ต้องประเมินก่อน แล้วข้อสอบถึงปลดล็อก** — ทำสลับกันไม่ได้
 
 **ปุ่ม "ทำข้อสอบ" จะขึ้นเฉพาะเมื่อ:**
 1. การสอนนั้นทำให้พนักงาน "สอนครบทุกหัวข้อย่อยของ Module" (สะสมข้ามทุก session)
 2. เป็น session ล่าสุดที่ทำให้ครบ (session เก่าๆ ที่ contribute ก็ไม่มีปุ่ม)
-3. ยังไม่ได้ประเมิน + ยังไม่ผ่านข้อสอบ + ยังไม่ทำข้อสอบครบจำนวนครั้ง (ดู badge สะสม N/M)
-หากไม่ขึ้น = ยังสอนไม่ครบหัวข้อ หรือสอบครบครั้งแล้ว (lock)
+3. **บันทึกผลการประเมินของ session นั้นแล้ว** + ยังไม่ผ่านข้อสอบ + ยังไม่ทำข้อสอบครบจำนวนครั้ง
+หากขึ้นเป็น 🔒 = ยังสอนไม่ครบหัวข้อ / ยังไม่ได้ประเมิน / สอบครบครั้งแล้ว
+เมื่อกดบันทึกผลประเมินเสร็จ ระบบจะเด้ง popup ถามให้ทำข้อสอบต่อทันที (กด "ไว้ทีหลัง" ได้ ปุ่มยังอยู่ในตาราง)
 
 **Subtopic สะสม** = นับเฉพาะ session ที่ "ประเมินแล้ว" เท่านั้น (ก่อนประเมิน ไม่นับสะสม)
 
-**สถานะการสอน** มี 3 แบบ: รอประเมิน / ประเมินแล้ว (ผ่าน หรือ ไม่ผ่าน) / หมดเวลาประเมิน (เกิน 14 วัน)
+**สถานะการสอน** มี 3 แบบ: รอประเมิน / ประเมินแล้ว (ผ่าน หรือ ไม่ผ่าน) / หมดเวลาประเมิน (เกิน ${EVAL_DEADLINE_DAYS} วัน)
 
 **สถานะพนักงาน** มี 2 แบบ: active (เปิดใช้งาน) / resigned (ปิดใช้งาน — ลาออก/พักงาน/ย้าย)
 
@@ -5464,6 +5530,7 @@ function _chatSystemPrompt() {
 • VP/COO — ทั้งบริษัท · ดูอย่างเดียว · มี Leaderboard + Alert
 • Admin (Kantapon) — สิทธิ์เต็ม · เพิ่ม/แก้/ลบทุกอย่าง · ย้ายสาขาพนักงาน · ลบเคส
 
+${_chatUsageInsight()}
 ═══════════════════════════════════════════════════════════
 📚 แนวทางตอบคำถาม (mapping → section ใน context)
 ═══════════════════════════════════════════════════════════
@@ -5477,8 +5544,8 @@ function _chatSystemPrompt() {
 - "วิธีเพิ่มพนักงาน" → "รายชื่อพนักงาน → + เพิ่มพนักงาน → กรอกรหัส/ชื่อ/ตำแหน่ง/วันเริ่มงาน → บันทึก"
 - "วิธีบันทึกการสอน" → "บันทึกการสอน → + บันทึกการสอนงาน → เลือก Module/หัวข้อ/พนักงาน/ผู้สอน → บันทึก"
 - "วิธีประเมิน" → "บันทึกการสอน → หา session สถานะ 'รอประเมิน' → กดปุ่ม 'ประเมิน' → เลือกวิธี + ผล → บันทึก"
-- "วิธีทำข้อสอบ" → "บันทึกการสอน → หา session ที่มีปุ่ม 'ทำข้อสอบ' (เขียว) → กดเข้าไป → ตอบคำถาม A/B/C/D → ส่ง"
-- "ทำไมไม่มีปุ่มทำข้อสอบ" → ดูบรรทัด "ปุ่มทำข้อสอบจะขึ้นเฉพาะเมื่อ..." ด้านบน + แนะให้กด badge 'สะสม' บน Module เพื่อดูว่าครบหรือยัง
+- "วิธีทำข้อสอบ" → "ประเมินผล session นั้นให้เสร็จก่อน → ปุ่ม '📝 ทำข้อสอบ' (เขียว) จะปลดล็อก → กดเข้าไป → ตอบ A/B/C/D → ส่ง"
+- "ทำไมไม่มีปุ่มทำข้อสอบ" / "ทำไมข้อสอบล็อก" → เช็ค 2 อย่างตามลำดับ: (1) ประเมิน session นั้นหรือยัง — ยังไม่ประเมินข้อสอบจะไม่ปลดล็อก (2) สอนครบทุกหัวข้อหรือยัง — แนะให้กด badge 'สะสม' บน Module เพื่อดูว่าขาดหัวข้อไหน
 - "ทำไมไม่มีข้อสอบขึ้น" → เหมือนด้านบน (เป็นคำถามเดียวกัน)
 - "ลาออก/ปิดใช้งาน" → "รายชื่อพนักงาน → แก้ไข → สถานะ ปิดใช้งาน + เหตุผล"
 - "ย้ายสาขา" → "Admin เท่านั้น — Admin มีปุ่ม 🔁 ในตารางพนักงานของแต่ละสาขา"
@@ -14508,6 +14575,48 @@ function openChatLogSession(sid) {
   const mo = document.querySelector('#modal-overlay .modal'); if (mo) mo.style.maxWidth = '620px';
 }
 
+/* ล้างประวัติแชตบอท — เฉพาะ Admin
+   scope 'all'      = ลบทุกแถวในชีต chatLogs
+   scope 'filtered' = ลบเฉพาะที่ตรงกับตัวกรองที่เปิดอยู่บนหน้าจอ */
+function clearChatLogs(scope) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้น', 'error'); return; }
+  const all = DB.chatLogs || [];
+  if (!all.length) { notify('ยังไม่มีประวัติแชตให้ล้าง', 'error'); return; }
+  const target = scope === 'all' ? all : _filteredChatLogs();
+  if (!target.length) { notify('ไม่มีรายการที่ตรงกับตัวกรอง', 'error'); return; }
+  const sessions = new Set(target.map(l => l.sessionId || '_')).size;
+  const msg = scope === 'all'
+    ? `ล้างประวัติแชตบอท <b>ทั้งหมด ${all.length} ข้อความ</b> (${sessions} บทสนทนา)?<br><br>ข้อมูลจะถูกลบออกจากชีตถาวร <b>กู้คืนไม่ได้</b>`
+    : `ล้างเฉพาะที่กรองอยู่ <b>${target.length} ข้อความ</b> (${sessions} บทสนทนา)?<br><br>ข้อมูลจะถูกลบออกจากชีตถาวร <b>กู้คืนไม่ได้</b>`;
+  showConfirm(msg, () => {
+    const ids = target.map(l => l.id).filter(Boolean);
+    if (scope === 'all') gsClearCollection('chatLogs');
+    else gsDelMany('chatLogs', ids);
+    const kill = new Set(ids);
+    DB.chatLogs = all.filter(l => !kill.has(l.id));
+    document.getElementById('main-content').innerHTML = renderAdminChatLogs();
+    notify(`ล้างประวัติแชต ${ids.length} ข้อความแล้ว`);
+  }, { title: 'ล้างประวัติแชตบอท', icon: '🗑', confirmText: 'ล้างเลย' });
+}
+/* รายการที่ตรงกับตัวกรองปัจจุบัน — ใช้ร่วมกันระหว่างการแสดงผลกับปุ่มล้าง */
+function _filteredChatLogs() {
+  const f = _chatLogFilter;
+  const DAY = 86400000;
+  let out = (DB.chatLogs || []).slice();
+  if (f.days && f.days !== 'all') {
+    const cutoff = Date.now() - Number(f.days) * DAY;
+    out = out.filter(l => new Date(l.ts || 0).getTime() >= cutoff);
+  }
+  if (f.user) out = out.filter(l => (l.userKey || '') === f.user);
+  if (f.role) out = out.filter(l => (l.userRole || '') === f.role);
+  if (f.status === 'err') out = out.filter(l => l.err);
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    out = out.filter(l => (l.content || '').toLowerCase().includes(q) || (l.userName || '').toLowerCase().includes(q));
+  }
+  return out;
+}
+
 function renderAdminChatLogs() {
   if (!isAdminRole()) {
     return '<div style="padding:40px;text-align:center;color:var(--text3)">หน้านี้สำหรับ Admin เท่านั้น</div>';
@@ -14586,7 +14695,11 @@ function renderAdminChatLogs() {
       <div class="page-hero-title">💬 ประวัติแชตบอท</div>
       <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ${(DB.chatLogs||[]).length === 0 ? ' · <strong style="color:var(--accent)">ถ้าโชว์ 0 ทั้งหมด → ยังไม่ได้ deploy apps-script ตัวล่าสุด</strong>' : ''}</div>
     </div>
-    <button class="btn btn-outline" onclick="gsLoadFromSheets().then(() => { document.getElementById('main-content').innerHTML = renderAdminChatLogs(); notify('โหลดข้อมูลล่าสุดสำเร็จ'); })">🔄 รีเฟรชข้อมูล</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="gsLoadFromSheets().then(() => { document.getElementById('main-content').innerHTML = renderAdminChatLogs(); notify('โหลดข้อมูลล่าสุดสำเร็จ'); })">🔄 รีเฟรชข้อมูล</button>
+      ${totalMsgs && totalMsgs < logs.length ? `<button class="btn btn-outline" style="color:var(--red);border-color:rgba(239,68,68,.35)" onclick="clearChatLogs('filtered')">🗑 ล้างที่กรองอยู่ (${totalMsgs})</button>` : ''}
+      ${logs.length ? `<button class="btn btn-danger" onclick="clearChatLogs('all')">🗑 ล้างประวัติทั้งหมด</button>` : ''}
+    </div>
   </div>
 
   <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
