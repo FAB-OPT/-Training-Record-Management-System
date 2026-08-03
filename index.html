@@ -4210,6 +4210,57 @@ try {
   if (Array.isArray(_cc)) DB.cases = _cc;
 } catch(_) {}
 let _casesFromSb = false;   // true = โหลดเคสจาก Supabase สำเร็จแล้ว ไม่ต้องให้ Sheets มาทับ
+/* เคสที่เครื่องนี้เพิ่งแจ้ง/แก้ แต่ยังยืนยันไม่ได้ว่าขึ้นเซิร์ฟเวอร์แล้ว
+   ใช้กันเคสหายตอนซิงค์ โดยไม่ทำให้เคสที่แอดมินลบฟื้นกลับมา */
+const _pendingCaseIds = new Set();
+
+/* ── รีเฟรชเฉพาะเคส ──────────────────────────────────────────
+   ดึงแค่ตาราง cases จาก Supabase (เล็กมาก) ไม่ต้องโหลดข้อมูลทั้งก้อน 650KB
+   เรียกได้ถี่ ๆ ตอนเปิดหน้าเคสอยู่ เพื่อให้สาขาเห็นการเปลี่ยนแปลงของแอดมินเกือบทันที */
+async function refreshCasesOnly(rerender) {
+  try {
+    const sb = _initSb(); if (!sb) return false;
+    const res = await sb.from('cases').select('*');
+    if (res.error || !Array.isArray(res.data)) return false;
+    const fromSb = res.data.map(r => {
+      const c = _fromSb('cases', r);
+      if (typeof c.messages === 'string') { try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; } }
+      if (!Array.isArray(c.messages)) c.messages = [];
+      return c;
+    });
+    const serverIds = new Set(fromSb.map(c => c.id));
+    const pendingLocal = (DB.cases || []).filter(c => c && c.id && _pendingCaseIds.has(c.id) && !serverIds.has(c.id));
+    const before = (DB.cases || []).map(c => c.id + ':' + (c.updatedAt || '') + ':' + (c.status || '')).sort().join('|');
+    DB.cases = [...fromSb, ...pendingLocal];
+    _casesFromSb = true;
+    _cacheCases();
+    const after = DB.cases.map(c => c.id + ':' + (c.updatedAt || '') + ':' + (c.status || '')).sort().join('|');
+    const changed = before !== after;
+    if (changed) {
+      try { refreshCaseBadge(); } catch (_) {}
+      // เรนเดอร์ใหม่เฉพาะตอนเปิดหน้าเคสอยู่ และไม่ได้เปิดฟอร์มค้างไว้
+      if (rerender && currentUser && (currentPage === 'cases' || currentPage === 'admin-cases')
+          && !document.querySelector('#modal-overlay.open')) {
+        showPage(currentPage);
+      }
+    }
+    return changed;
+  } catch (e) { console.warn('[cases] refresh error', e); return false; }
+}
+
+/* เปิดหน้าเคสอยู่เมื่อไหร่ ให้คอยเช็คทุก 20 วินาที — ปิดหน้าแล้วหยุดเอง */
+let _casePollTimer = null;
+function startCasePolling() {
+  stopCasePolling();
+  _casePollTimer = setInterval(() => {
+    if (document.hidden) return;
+    if (currentPage !== 'cases' && currentPage !== 'admin-cases') { stopCasePolling(); return; }
+    refreshCasesOnly(true);
+  }, 20000);
+}
+function stopCasePolling() {
+  if (_casePollTimer) { clearInterval(_casePollTimer); _casePollTimer = null; }
+}
 /* ย้ายเคสเก่าจาก Sheets ขึ้น Supabase ครั้งเดียว — ทำเงียบ ๆ เบื้องหลัง
    หลังจากนี้เคสจะอ่าน/เขียนที่ Supabase เป็นหลัก เร็วขึ้นจาก 5-60 วินาที เหลือไม่ถึง 1 วินาที */
 const CASES_MIGRATED_KEY = 'opt_cases_migrated_v1';
@@ -4332,16 +4383,11 @@ async function sbLoadAll() {
       if (!Array.isArray(c.messages)) c.messages = [];
       return c;
     });
-    // รวมกับของที่มีอยู่ในเครื่อง แทนการเขียนทับ — ถ้าเคสที่เพิ่งแจ้งยังอัปขึ้นไม่สำเร็จ
-    // จะได้ไม่หายไปจากหน้าจอ (เคยเกิดตอนตารางขาดคอลัมน์ priority)
-    const byId = new Map();
-    (DB.cases || []).forEach(c => { if (c && c.id) byId.set(c.id, c); });
-    fromSb.forEach(c => {
-      const old = byId.get(c.id);
-      // ฝั่งไหนอัปเดตล่าสุดกว่าให้ชนะ
-      if (!old || String(c.updatedAt || '') >= String(old.updatedAt || '')) byId.set(c.id, c);
-    });
-    DB.cases = [...byId.values()];
+    // เซิร์ฟเวอร์เป็นตัวตัดสิน — เคสที่แอดมินลบต้องหายจากทุกเครื่อง
+    // ยกเว้นเคสที่เครื่องนี้เพิ่งแจ้งแล้วยังอัปขึ้นไม่สำเร็จ ให้คงไว้จนกว่าจะอัปได้
+    const serverIds = new Set(fromSb.map(c => c.id));
+    const pendingLocal = (DB.cases || []).filter(c => c && c.id && _pendingCaseIds.has(c.id) && !serverIds.has(c.id));
+    DB.cases = [...fromSb, ...pendingLocal];
     _cacheCases();
   }
   // Apply branch overrides (BZM rename, branch rename, etc.) onto BRANCH_MASTER in-memory
@@ -4790,13 +4836,20 @@ async function gsFetch(payload, opts) {
 // real data back, effectively "discarding" the test edit.
 function gsSave(collection, id, record) {
   if (isTestMode() && collection !== 'quizMeta') return;
-  sbSaveOne(collection, id, record).catch(e => {
-    console.error('SB save error', collection, id, e);
-    // เคสเป็นข้อมูลที่ผู้ใช้เพิ่งกรอกเอง ถ้าอัปไม่ขึ้นต้องบอกให้รู้ ไม่ใช่เงียบแล้วหายทีหลัง
-    if (collection === 'cases') {
-      notify('บันทึกขึ้นระบบไม่สำเร็จ — ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ' · แจ้งผู้ดูแลระบบ', 'error');
-    }
-  });
+  if (collection === 'cases') _pendingCaseIds.add(id);       // ยังไม่ยืนยันว่าขึ้นเซิร์ฟเวอร์
+  sbSaveOne(collection, id, record)
+    .then(res => {
+      if (collection !== 'cases') return;
+      if (res && res.error) throw res.error;
+      _pendingCaseIds.delete(id);                            // ขึ้นเรียบร้อย ปล่อยให้เซิร์ฟเวอร์คุมต่อ
+    })
+    .catch(e => {
+      console.error('SB save error', collection, id, e);
+      // เคสเป็นข้อมูลที่ผู้ใช้เพิ่งกรอกเอง ถ้าอัปไม่ขึ้นต้องบอกให้รู้ ไม่ใช่เงียบแล้วหายทีหลัง
+      if (collection === 'cases') {
+        notify('บันทึกขึ้นระบบไม่สำเร็จ — ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ' · แจ้งผู้ดูแลระบบ', 'error');
+      }
+    });
   gsPost({action:'save', collection, id, record});
 }
 function gsDel(collection, id) {
@@ -6039,6 +6092,9 @@ function showPage(page) {
   if (page === 'admin-branches') { _adminManageTab = 'branches'; page = 'admin-manage'; }
   if (page === 'manual') page = 'trainings';
   currentPage = page;
+  // เปิดหน้าเคส → ดึงเคสสด ๆ ทันที แล้วคอยเช็คทุก 20 วินาที · ออกจากหน้าแล้วหยุด
+  if (page === 'cases' || page === 'admin-cases') { setTimeout(() => refreshCasesOnly(true), 50); startCasePolling(); }
+  else stopCasePolling();
   closeSidebar();
   closeBnavMore();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
