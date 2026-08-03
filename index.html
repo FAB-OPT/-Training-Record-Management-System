@@ -4277,8 +4277,15 @@ function subscribeCasesRealtime() {
   try {
     const sb = _initSb(); if (!sb || !sb.channel) return;
     unsubscribeCasesRealtime();
+    /* สาขา: ขอให้เซิร์ฟเวอร์กรองให้ตั้งแต่ต้นทาง ส่งมาเฉพาะเคสของสาขาตัวเอง
+       ไม่งั้นทุกเครื่องจะรับทุกเคสในระบบแล้วมาทิ้งทีหลัง — 100 สาขาคือส่งเปล่า 99 ต่อ 1 ครั้ง
+       (ทดสอบแล้วว่าตัวกรองยังส่ง DELETE มาครบ ถึงตอนลบจะได้มาแค่ id ก็ตาม)
+       แอดมิน/BZM: ต้องเห็นทุกสาขาอยู่แล้ว จึงไม่กรอง */
+    const myBranch = currentUser && currentUser.type === 'branch' ? String(currentUser.branchId || '') : '';
+    const topic = { event: '*', schema: 'public', table: 'cases' };
+    if (myBranch) topic.filter = 'branch_id=eq.' + myBranch;
     _caseChannel = sb.channel('cases-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, payload => {
+      .on('postgres_changes', topic, payload => {
         const row = payload.new || payload.old; if (!row) return;
         const c = _fromSb('cases', row);
         if (typeof c.messages === 'string') { try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; } }
@@ -4297,7 +4304,7 @@ function subscribeCasesRealtime() {
         _afterCaseChange(payload.eventType === 'INSERT' ? 'insert' : 'update', c);
       })
       .subscribe(status => {
-        if (status === 'SUBSCRIBED') console.log('[cases] เชื่อมต่อเรียลไทม์แล้ว');
+        if (status === 'SUBSCRIBED') console.log('[cases] เชื่อมต่อเรียลไทม์แล้ว' + (myBranch ? ' (เฉพาะสาขา ' + myBranch + ')' : ' (ทุกสาขา)'));
         else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('[cases] เรียลไทม์ต่อไม่ได้ — ใช้การเช็คตามรอบแทน', status);
       });
   } catch (e) { console.warn('[cases] subscribe error', e); }
