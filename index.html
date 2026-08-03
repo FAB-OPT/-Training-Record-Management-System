@@ -4248,6 +4248,64 @@ async function refreshCasesOnly(rerender) {
   } catch (e) { console.warn('[cases] refresh error', e); return false; }
 }
 
+/* ══════════ เคสแบบเรียลไทม์ ══════════
+   ต่อ Supabase Realtime ไว้ตลอดเวลาที่ล็อกอินอยู่ ไม่ใช่เฉพาะตอนเปิดหน้าเคส
+   สาขาแจ้ง → แอดมินเด้งทันที · แอดมินอัปสถานะ/ลบ → สาขาอัปเดตให้เอง
+   ถ้าต่อไม่ได้ (เช่นยังไม่ได้เปิด Realtime ให้ตาราง) ยังมีการเช็คตามรอบเป็นตัวสำรอง */
+let _caseChannel = null;
+function _caseInScope(c) {
+  if (!c || !currentUser) return false;
+  if (currentUser.type === 'branch') return String(c.branchId || '') === String(currentUser.branchId || '');
+  try { return new Set(getAccessibleBranches()).has(String(c.branchId || '')); } catch (_) { return true; }
+}
+function _afterCaseChange(kind, c) {
+  _cacheCases();
+  try { refreshCaseBadge(); } catch (_) {}
+  // อยู่หน้าเคสอยู่ → อัปเดตหน้าให้เลย (เว้นตอนกำลังเปิดฟอร์มค้างไว้)
+  if (currentUser && (currentPage === 'cases' || currentPage === 'admin-cases')
+      && !document.querySelector('#modal-overlay.open')) {
+    showPage(currentPage);
+  }
+  // อยู่หน้าอื่น → เด้งบอกเฉพาะเรื่องที่เกี่ยวกับเราจริง ๆ
+  if (kind === 'insert' && currentUser?.type !== 'branch') {
+    notify('📨 เคสใหม่จาก ' + (c.branchName || c.branchId || 'สาขา') + ' — ' + (c.subject || ''));
+  } else if (kind === 'update' && currentUser?.type === 'branch') {
+    notify('📨 เคส "' + (c.subject || '') + '" มีการอัปเดตจาก Admin');
+  }
+}
+function subscribeCasesRealtime() {
+  try {
+    const sb = _initSb(); if (!sb || !sb.channel) return;
+    unsubscribeCasesRealtime();
+    _caseChannel = sb.channel('cases-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, payload => {
+        const row = payload.new || payload.old; if (!row) return;
+        const c = _fromSb('cases', row);
+        if (typeof c.messages === 'string') { try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; } }
+        if (!Array.isArray(c.messages)) c.messages = [];
+        if (!DB.cases) DB.cases = [];
+        const i = DB.cases.findIndex(x => x && x.id === c.id);
+        if (payload.eventType === 'DELETE') {
+          if (i >= 0) DB.cases.splice(i, 1);
+          _pendingCaseIds.delete(c.id);
+          _afterCaseChange('delete', c);
+          return;
+        }
+        if (i >= 0) DB.cases[i] = c; else DB.cases.push(c);
+        _pendingCaseIds.delete(c.id);
+        if (!_caseInScope(c)) { _cacheCases(); return; }        // ไม่ใช่สาขาเรา เก็บเงียบ ๆ ไม่ต้องเด้ง
+        _afterCaseChange(payload.eventType === 'INSERT' ? 'insert' : 'update', c);
+      })
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') console.log('[cases] เชื่อมต่อเรียลไทม์แล้ว');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('[cases] เรียลไทม์ต่อไม่ได้ — ใช้การเช็คตามรอบแทน', status);
+      });
+  } catch (e) { console.warn('[cases] subscribe error', e); }
+}
+function unsubscribeCasesRealtime() {
+  try { if (_caseChannel) { _initSb()?.removeChannel(_caseChannel); _caseChannel = null; } } catch (_) {}
+}
+
 /* เปิดหน้าเคสอยู่เมื่อไหร่ ให้คอยเช็คทุก 20 วินาที — ปิดหน้าแล้วหยุดเอง */
 let _casePollTimer = null;
 function startCasePolling() {
@@ -5100,6 +5158,7 @@ function startAutoSync() {
 }
 
 function stopAutoSync() {
+  unsubscribeCasesRealtime();
   if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
 }
 
@@ -5210,7 +5269,7 @@ function showApp() {
     var _bid = document.getElementById('sidebar-branch-id'); _bid.textContent = ''; _bid.style.display = 'none';
     var _mt=document.getElementById('mobile-title'); if(_mt)_mt.textContent=b.name;
     document.getElementById('sidebar-branch-label').textContent = bid + ' ' + b.name.replace(bid+' ','');
-    buildBranchNav(); showPage('dashboard'); startAutoSync();
+    buildBranchNav(); showPage('dashboard'); startAutoSync(); subscribeCasesRealtime();
   } else {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
@@ -5221,7 +5280,7 @@ function showApp() {
     // Admin now uses the bottom nav too (scrollable on mobile)
     const bnav = document.getElementById('mobile-bottom-nav');
     if (bnav) bnav.classList.remove('hidden-always');
-    buildAdminNav(); showPage('admin-dashboard'); startAutoSync();
+    buildAdminNav(); showPage('admin-dashboard'); startAutoSync(); subscribeCasesRealtime();
     const _roleGreet = ({ admin: 'Admin', bzm: 'BZM', vp: 'VP. Santa Fe', coo: 'COO' })[currentUser.role] || 'Team Management';
     const _greet = currentUser.name ? `${currentUser.name} (${_roleGreet})` : 'Team Management';
   }
