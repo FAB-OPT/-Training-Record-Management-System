@@ -4528,9 +4528,58 @@ const HUB_CONFIG_URL = 'https://script.google.com/macros/s/AKfycbyjGvhSuDrnnOkWd
 function _stripThaiTitle(s) {
   return String(s || '').replace(/^(นางสาว|นาย|นาง|น\.?ส\.?|ว่าที่\s*ร\.?\s*ต\.?|ดร\.?)\s*/, '').trim();
 }
+/* ══════════ config ของ HUB — ยิงรอบเดียวต่อการเปิดหน้า ══════════
+   เดิม loadBranchesFromHub กับ loadTrPermsFromHub ยิง URL เดียวกันคนละรอบ
+   แล้ว await เรียงกันก่อนเรนเดอร์ ทำให้ตอนเข้าใช้งานต้องรอ 2 เท่า
+   Apps Script ตัวนี้วัดได้ 2.6-30 วินาที (ไม่แน่นอน) จึงต้อง
+   1) ยิงรอบเดียวแล้วแชร์ผลให้ทุกคนที่เรียก
+   2) ถ้ามีแคชในเครื่อง ใช้ทันทีไม่ต้องรอเน็ต แล้วค่อยอัปเดตทีหลังเงียบ ๆ */
+const HUB_CFG_KEY = 'opt_hub_config_v1';
+let _hubCfgPromise = null;
+function _hubCfgFromCache() {
+  try { const raw = localStorage.getItem(HUB_CFG_KEY); return raw ? JSON.parse(raw) : null; } catch (_) { return null; }
+}
+function _hubCfgFetch(timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  return fetch(HUB_CONFIG_URL + '?action=config&_=' + Date.now(), { signal: ctrl.signal })
+    .then(r => r.json())
+    .then(res => {
+      if (res && res.ok) { try { localStorage.setItem(HUB_CFG_KEY, JSON.stringify(res)); } catch (_) {} }
+      return res;
+    })
+    .finally(() => clearTimeout(timer));
+}
+function getHubConfig() {
+  if (_hubCfgPromise) return _hubCfgPromise;
+  const cached = _hubCfgFromCache();
+  if (cached) {
+    // มีของเก่าอยู่ → เปิดใช้งานได้ทันที ไม่ต้องรอ Apps Script
+    _hubCfgPromise = Promise.resolve(cached);
+    _hubCfgFetch(45000)
+      .then(res => {
+        if (!res || !res.ok) return;
+        // ถ้าค่าใหม่ต่างจากเดิม ให้เอามาใช้แล้วเรนเดอร์หน้าปัจจุบันซ้ำ — สิทธิ์/สาขาจะได้ไม่ค้างของเก่า
+        if (JSON.stringify(res) === JSON.stringify(cached)) return;
+        _applyHubBranches(res);
+        _applyHubTrPerms(res);
+        try { if (currentUser && currentPage) showPage(currentPage); } catch (_) {}
+        console.log('[hub] อัปเดต config ใหม่จาก HUB แล้ว');
+      })
+      .catch(e => console.warn('[hub] อัปเดต config เบื้องหลังไม่สำเร็จ', e));
+  } else {
+    // เปิดครั้งแรกในเครื่องนี้ ยังไม่มีอะไรให้ใช้ ต้องรอจริง
+    _hubCfgPromise = _hubCfgFetch(45000).catch(e => { console.warn('[hub] โหลด config ไม่ได้', e); return null; });
+  }
+  return _hubCfgPromise;
+}
+
 async function loadBranchesFromHub() {
+  const res = await getHubConfig();
+  return _applyHubBranches(res);
+}
+function _applyHubBranches(res) {
   try {
-    const res = await fetch(HUB_CONFIG_URL + '?action=config&_=' + Date.now()).then(r => r.json());
     const b = res && res.ok && res.branches;
     if (!b || !b.branches || typeof b.branches !== 'object') { console.warn('[branches] HUB ไม่มีข้อมูลสาขา — ใช้ค่าในไฟล์'); return false; }
     const byNick = {};
@@ -4563,8 +4612,11 @@ async function loadBranchesFromHub() {
    ตั้งใจให้ "รายคน" ชนะ "ตำแหน่ง" เหมือนเดิม — ของที่ตั้งไว้ใน จัดการผู้ใช้งาน จึงไม่หาย */
 let TR_PERMS = null;
 async function loadTrPermsFromHub() {
+  const res = await getHubConfig();
+  return _applyHubTrPerms(res);
+}
+function _applyHubTrPerms(res) {
   try {
-    const res = await fetch(HUB_CONFIG_URL + '?action=config&_=' + Date.now()).then(r => r.json());
     if (res && res.ok && res.perms && res.perms.training) {
       TR_PERMS = res.perms.training;
       console.log('[perms] โหลดสิทธิ์หน้าจาก HUB แล้ว');
