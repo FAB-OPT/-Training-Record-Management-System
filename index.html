@@ -4209,6 +4209,24 @@ try {
   const _cc = JSON.parse(localStorage.getItem('opt_cases_cache') || 'null');
   if (Array.isArray(_cc)) DB.cases = _cc;
 } catch(_) {}
+let _casesFromSb = false;   // true = โหลดเคสจาก Supabase สำเร็จแล้ว ไม่ต้องให้ Sheets มาทับ
+/* ย้ายเคสเก่าจาก Sheets ขึ้น Supabase ครั้งเดียว — ทำเงียบ ๆ เบื้องหลัง
+   หลังจากนี้เคสจะอ่าน/เขียนที่ Supabase เป็นหลัก เร็วขึ้นจาก 5-60 วินาที เหลือไม่ถึง 1 วินาที */
+const CASES_MIGRATED_KEY = 'opt_cases_migrated_v1';
+async function _migrateCasesToSb() {
+  try {
+    if (localStorage.getItem(CASES_MIGRATED_KEY)) return;
+    if (_casesFromSb && (DB.cases || []).length) { localStorage.setItem(CASES_MIGRATED_KEY, '1'); return; }
+    const list = (DB.cases || []).filter(c => c && c.id);
+    if (!list.length) return;
+    const sb = _initSb(); if (!sb) return;
+    const rows = list.map(c => _toSb('cases', { ...c, messages: c.messages || [] }));
+    const res = await sb.from('cases').upsert(rows);
+    if (res.error) { console.warn('[cases] ย้ายขึ้น Supabase ไม่สำเร็จ', res.error); return; }
+    localStorage.setItem(CASES_MIGRATED_KEY, '1');
+    console.log('[cases] ย้ายเคสขึ้น Supabase แล้ว', list.length, 'รายการ');
+  } catch (e) { console.warn('[cases] migrate error', e); }
+}
 function _cacheCases() {
   try { localStorage.setItem('opt_cases_cache', JSON.stringify(DB.cases || [])); } catch(_) {}
 }
@@ -4239,6 +4257,7 @@ const _SB_TABLE = {
   branchOverrides: 'branch_overrides',
   courseCatalog: 'course_catalog',
   trainingDrafts: 'training_drafts',
+  cases:         'cases',
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
@@ -4272,7 +4291,8 @@ function _fromSb(coll, row) {
   const inv = {}; for (const k of Object.keys(map)) inv[map[k]] = k;
   const out = {};
   for (const k of Object.keys(row)) {
-    if (k === 'created_at' || k === 'updated_at') continue;
+    // ปกติข้าม timestamp ของ Supabase — ยกเว้นคอลเลกชันที่ใช้ค่านี้จริง (เช่น cases ใช้เรียงลำดับ)
+    if ((k === 'created_at' || k === 'updated_at') && !inv[k]) continue;
     let appKey;
     if (inv[k]) appKey = inv[k];
     else if (k.includes('_')) appKey = _snakeToCamel(k);
@@ -4284,7 +4304,7 @@ function _fromSb(coll, row) {
 
 async function sbLoadAll() {
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
-  const [emps, trs, qrs, cqs, chs, qms, bos, cat] = await Promise.all([
+  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse] = await Promise.all([
     sb.from('employees').select('*'),
     sb.from('trainings').select('*'),
     sb.from('quiz_results').select('*'),
@@ -4293,6 +4313,7 @@ async function sbLoadAll() {
     sb.from('quiz_meta').select('*').eq('id','singleton').maybeSingle(),
     sb.from('branch_overrides').select('*'),
     sb.from('course_catalog').select('*'),
+    sb.from('cases').select('*'),
   ]);
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
@@ -4300,6 +4321,18 @@ async function sbLoadAll() {
   // ทะเบียนหลักสูตร — ถ้ายังไม่ได้สร้างตาราง ให้ข้ามไปเงียบ ๆ ระบบอื่นต้องใช้งานได้ปกติ
   if (cat && !cat.error && Array.isArray(cat.data)) {
     DB.courseCatalog = cat.data.map(r => _fromSb('courseCatalog', r));
+  }
+  /* เคส — ย้ายมาอยู่ Supabase แล้ว (เดิมอยู่ Google Sheets อย่างเดียว จึงช้า 5-60 วินาที
+     และสาขาส่งเคสแล้วแอดมินไม่เห็นทันที) ถ้าตารางยังไม่มีหรือยังว่าง จะตกไปใช้ของเดิมจาก Sheets */
+  if (cse && !cse.error && Array.isArray(cse.data)) {
+    _casesFromSb = true;
+    DB.cases = cse.data.map(r => {
+      const c = _fromSb('cases', r);
+      if (typeof c.messages === 'string') { try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; } }
+      if (!Array.isArray(c.messages)) c.messages = [];
+      return c;
+    });
+    _cacheCases();
   }
   // Apply branch overrides (BZM rename, branch rename, etc.) onto BRANCH_MASTER in-memory
   if (bos && !bos.error && Array.isArray(bos.data)) {
@@ -4486,7 +4519,9 @@ async function _loadAuxFromSheets() {
         err: l.err === true || l.err === 'true',
       }));
     }
-    if (Array.isArray(data.cases)) {
+    // ถ้าโหลดเคสจาก Supabase ได้แล้ว อย่าให้ของจาก Sheets (ซึ่งช้ากว่าและอาจเก่ากว่า) มาทับ
+    // แต่ถ้า Supabase ยังไม่มีข้อมูล ให้ใช้ของ Sheets แล้วย้ายขึ้นให้ครั้งเดียว
+    if (Array.isArray(data.cases) && (!_casesFromSb || !(DB.cases || []).length)) {
       DB.cases = data.cases.map(c => {
         // CRITICAL: branchId must be string ('5001') not number (5001) or the
         // branch-user filter c.branchId === currentUser.branchId returns false
@@ -4502,6 +4537,7 @@ async function _loadAuxFromSheets() {
       // ถ้ากำลังเปิดหน้าเคสอยู่ → re-render ให้เห็นข้อมูลล่าสุด + อัปเดต badge
       try { if (currentUser && currentPage === 'admin-cases') showPage('admin-cases'); } catch(_) {}
       try { refreshCaseBadge(); } catch(_) {}
+      _migrateCasesToSb();   // ย้ายเคสเก่าจาก Sheets ขึ้น Supabase ครั้งเดียว
     }
     if (Array.isArray(data.adminUsers)) {
       // id is the PIN code — coerce to string (Sheets auto-numeric like '601183' → 601183)
@@ -7588,13 +7624,19 @@ function openAddTraining() {
     </div>
     <div class="form-row">
       <div><label class="form-label">วันที่และเวลาที่สอน <span class="req">*</span></label><input class="form-input" type="datetime-local" id="tr-date" value="${now}"></div>
-      <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label><input class="form-input" id="tr-trainer" placeholder="ชื่อผู้สอน"></div>
+      <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label>
+        <input class="form-input" id="tr-trainer" list="trainer-list" placeholder="พิมพ์เพื่อค้นหา หรือพิมพ์ชื่อใหม่" autocomplete="off">
+        <datalist id="trainer-list">
+          ${emps.map(e => `<option value="${String(e.name).replace(/"/g,'&quot;')}">${String(e.position||'').replace(/</g,'&lt;')}</option>`).join('')}
+        </datalist>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:4px">เลือกจากรายชื่อพนักงานในสาขา หรือพิมพ์เองได้ถ้าผู้สอนมาจากที่อื่น</div>
+      </div>
     </div>
     <div class="form-full">
-      <label class="form-label">พนักงานที่เข้ารับการสอน (1 คน) <span class="req">*</span></label>
+      <label class="form-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ต้องประเภทเดียวกัน) <span class="req">*</span></label>
       <div class="emp-multiselect" id="emp-multiselect" data-emps='${empsJson.replace(/'/g,"&#39;")}'>
         <div class="emp-select-box" id="emp-select-box" onclick="focusEmpSearch(event)">
-          <span id="emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length===0?'ไม่มีพนักงานในระบบ':'ค้นหาและเลือกพนักงาน 1 คน...'}</span>
+          <span id="emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length===0?'ไม่มีพนักงานในระบบ':'ค้นหาและเลือกพนักงาน (สูงสุด 2 คน)...'}</span>
           <input type="text" id="emp-search-input" style="display:none" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmpDropdown()" onkeydown="onEmpSearchKey(event)">
         </div>
         <div class="emp-dropdown-list" id="emp-dropdown-list">
@@ -7710,20 +7752,56 @@ function filterEmpDropdown() {
   }
 }
 
+const MAX_TRAINEES = 2;   // สอนพร้อมกันได้ไม่เกิน 2 คน และต้องเป็นประเภทเดียวกัน
+
 function toggleEmpSelection(empId) {
   const opt = document.getElementById('empopt-' + empId);
   if (!opt) return;
   const isSelected = _selectedEmps.some(e => e.id === empId);
-  // Single-select: clear all previous selections
-  document.querySelectorAll('.emp-opt.selected').forEach(o => o.classList.remove('selected'));
-  _selectedEmps = [];
-  if (!isSelected) {
-    _selectedEmps.push({ id: empId, name: opt.dataset.name, position: opt.dataset.pos });
-    opt.classList.add('selected');
+
+  if (isSelected) {                      // กดซ้ำ = เอาออก
+    _selectedEmps = _selectedEmps.filter(e => e.id !== empId);
+    opt.classList.remove('selected');
+    renderEmpTags(); updateModulesByTrainees(); closeEmpDropdown();
+    return;
   }
+
+  const pos = opt.dataset.pos || '';
+  const grp = getPositionGroup(pos);
+
+  // ต้องเป็นประเภทเดียวกัน — ครัว / บริการ / ทีมผู้จัดการสาขา
+  if (_selectedEmps.length) {
+    const grp0 = getPositionGroup(_selectedEmps[0].position);
+    if (grp !== grp0) {
+      notify(`เลือกพร้อมกันได้เฉพาะประเภทเดียวกัน — คนแรกเป็น "${grp0}" แต่คนนี้เป็น "${grp}"`, 'error');
+      return;
+    }
+  }
+  if (_selectedEmps.length >= MAX_TRAINEES) {
+    notify(`เลือกได้สูงสุด ${MAX_TRAINEES} คนต่อการสอน 1 ครั้ง — เอาคนเดิมออกก่อนถ้าต้องการเปลี่ยน`, 'error');
+    return;
+  }
+
+  _selectedEmps.push({ id: empId, name: opt.dataset.name, position: pos });
+  opt.classList.add('selected');
   renderEmpTags();
   updateModulesByTrainees();
-  closeEmpDropdown();
+  if (_selectedEmps.length >= MAX_TRAINEES) closeEmpDropdown();   // ครบแล้วค่อยปิด
+  _markIncompatibleEmpOptions();
+}
+
+/* ทำตัวเลือกที่คนละประเภทให้จางลง จะได้เห็นตั้งแต่ยังไม่กด ว่าเลือกคู่กันไม่ได้ */
+function _markIncompatibleEmpOptions() {
+  const base = _selectedEmps.length ? getPositionGroup(_selectedEmps[0].position) : null;
+  const full = _selectedEmps.length >= MAX_TRAINEES;
+  document.querySelectorAll('.emp-opt').forEach(o => {
+    const mine = _selectedEmps.some(e => e.id === o.dataset.id);
+    const bad = !mine && base && (getPositionGroup(o.dataset.pos || '') !== base || full);
+    o.style.opacity = bad ? '.38' : '';
+    o.title = bad
+      ? (full ? 'เลือกครบ ' + MAX_TRAINEES + ' คนแล้ว' : 'คนละประเภทกับคนที่เลือกไว้')
+      : '';
+  });
 }
 
 function removeEmpTag(empId) {
@@ -7732,6 +7810,7 @@ function removeEmpTag(empId) {
   if (opt) opt.classList.remove('selected');
   renderEmpTags();
   updateModulesByTrainees();
+  _markIncompatibleEmpOptions();
 }
 
 function renderEmpTags() {
