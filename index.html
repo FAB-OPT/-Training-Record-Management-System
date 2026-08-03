@@ -4326,12 +4326,22 @@ async function sbLoadAll() {
      และสาขาส่งเคสแล้วแอดมินไม่เห็นทันที) ถ้าตารางยังไม่มีหรือยังว่าง จะตกไปใช้ของเดิมจาก Sheets */
   if (cse && !cse.error && Array.isArray(cse.data)) {
     _casesFromSb = true;
-    DB.cases = cse.data.map(r => {
+    const fromSb = cse.data.map(r => {
       const c = _fromSb('cases', r);
       if (typeof c.messages === 'string') { try { c.messages = JSON.parse(c.messages); } catch (_) { c.messages = []; } }
       if (!Array.isArray(c.messages)) c.messages = [];
       return c;
     });
+    // รวมกับของที่มีอยู่ในเครื่อง แทนการเขียนทับ — ถ้าเคสที่เพิ่งแจ้งยังอัปขึ้นไม่สำเร็จ
+    // จะได้ไม่หายไปจากหน้าจอ (เคยเกิดตอนตารางขาดคอลัมน์ priority)
+    const byId = new Map();
+    (DB.cases || []).forEach(c => { if (c && c.id) byId.set(c.id, c); });
+    fromSb.forEach(c => {
+      const old = byId.get(c.id);
+      // ฝั่งไหนอัปเดตล่าสุดกว่าให้ชนะ
+      if (!old || String(c.updatedAt || '') >= String(old.updatedAt || '')) byId.set(c.id, c);
+    });
+    DB.cases = [...byId.values()];
     _cacheCases();
   }
   // Apply branch overrides (BZM rename, branch rename, etc.) onto BRANCH_MASTER in-memory
@@ -4780,7 +4790,13 @@ async function gsFetch(payload, opts) {
 // real data back, effectively "discarding" the test edit.
 function gsSave(collection, id, record) {
   if (isTestMode() && collection !== 'quizMeta') return;
-  sbSaveOne(collection, id, record).catch(e => console.error('SB save error', collection, id, e));
+  sbSaveOne(collection, id, record).catch(e => {
+    console.error('SB save error', collection, id, e);
+    // เคสเป็นข้อมูลที่ผู้ใช้เพิ่งกรอกเอง ถ้าอัปไม่ขึ้นต้องบอกให้รู้ ไม่ใช่เงียบแล้วหายทีหลัง
+    if (collection === 'cases') {
+      notify('บันทึกขึ้นระบบไม่สำเร็จ — ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ' · แจ้งผู้ดูแลระบบ', 'error');
+    }
+  });
   gsPost({action:'save', collection, id, record});
 }
 function gsDel(collection, id) {
