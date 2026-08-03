@@ -4626,6 +4626,29 @@ function _applyHubTrPerms(res) {
   } catch (e) { console.warn('[perms] โหลดจาก HUB ไม่ได้ — ใช้ค่าเดิม', e); }
 }
 
+/* ── ตัวคุมการโหลดซ้ำ ──────────────────────────────────────────
+   เดิมโหลดใหม่ทั้งก้อนทุก 30 วินาที (Supabase ~650KB + Apps Script ที่ช้า)
+   แล้วเรนเดอร์หน้าใหม่ทุกครั้ง ทำให้เครื่องช้าและกินเน็ตมาก
+   ตอนนี้: กันโหลดซ้อน · เว้นระยะ aux · เรนเดอร์ใหม่เฉพาะตอนข้อมูลเปลี่ยนจริง */
+let _lastAuxAt = 0;
+let _gsLoadInFlight = null;
+let _lastGsLoadAt = 0;
+function gsLoadOnce() {
+  if (_gsLoadInFlight) return _gsLoadInFlight;          // มีรอบที่กำลังโหลดอยู่ ใช้ตัวเดียวกัน
+  _gsLoadInFlight = gsLoad().finally(() => {
+    _gsLoadInFlight = null;
+    _lastGsLoadAt = Date.now();
+  });
+  return _gsLoadInFlight;
+}
+/* ลายเซ็นข้อมูล — ใช้เทียบว่ามีอะไรเปลี่ยนจริงไหมก่อนสั่งเรนเดอร์ใหม่ */
+function _dataSig() {
+  const nEmp = Object.values(DB.employees || {}).reduce((n, l) => n + (l ? l.length : 0), 0);
+  return [nEmp, (DB.trainings || []).length, (DB.quizResults || []).length,
+          (DB.courseHistory || []).length, (DB.cases || []).length,
+          (DB.courseCatalog || []).length].join('|');
+}
+
 // Main load: Supabase first, auto-migrate from Sheets on first run if SB empty
 async function gsLoad() {
   await loadBranchesFromHub();   // ฐานสาขาจาก HUB ก่อน — branch_overrides จะทับทีหลังใน _applyServerData
@@ -4637,8 +4660,12 @@ async function gsLoad() {
       const isEmpty = !sbData.employees.length && !sbData.trainings.length;
       if (!isEmpty) {
         _applyServerData(sbData);
-        // Side-fetch the Sheets-only collections (chatLogs, cases)
-        _loadAuxFromSheets();
+        // chatLogs/cases อยู่บน Google Sheets ซึ่งช้าและไม่เสถียร (วัดได้ 5-60 วินาที)
+        // ไม่จำเป็นต้องดึงใหม่ทุกรอบ sync — ดึงครั้งแรก แล้วเว้นอย่างน้อย 5 นาที
+        if (Date.now() - _lastAuxAt > 5 * 60 * 1000) {
+          _lastAuxAt = Date.now();
+          _loadAuxFromSheets();
+        }
         return;
       }
       // Supabase empty → one-shot migrate from Sheets
@@ -4948,19 +4975,23 @@ let _autoSyncTimer = null;
 
 function startAutoSync() {
   stopAutoSync();
-  gsLoad().then(() => {
+  // ตอนเปิดหน้ามี gsLoad ไปแล้วรอบหนึ่ง ถ้าเพิ่งโหลดเสร็จไม่เกิน 10 วินาที ไม่ต้องโหลดซ้ำ
+  const fresh = _lastGsLoadAt && (Date.now() - _lastGsLoadAt < 10000);
+  const first = fresh ? Promise.resolve() : gsLoadOnce();
+  first.then(() => {
     if (currentUser) showPage(currentPage);
-    // Wait a tick for chatLogs/cases aux load to settle, then update badge + notify
-    setTimeout(() => {
-      refreshCaseBadge();
-      _maybeNotifyCaseUpdates();
-    }, 1200);
+    setTimeout(() => { refreshCaseBadge(); _maybeNotifyCaseUpdates(); }, 1200);
   });
+  // ซิงค์เบื้องหลังทุก 3 นาที (เดิม 30 วินาที ซึ่งถี่เกินไปสำหรับข้อมูลขนาดนี้)
   _autoSyncTimer = setInterval(async () => {
-    await gsLoad();
-    if (currentUser) showPage(currentPage);
+    if (document.hidden) return;                 // ไม่ได้เปิดดูอยู่ ไม่ต้องโหลด
+    if (document.querySelector('#modal-overlay.open')) return;   // กำลังกรอกฟอร์มอยู่ อย่าเรนเดอร์ทับ
+    const before = _dataSig();
+    await gsLoadOnce();
+    // เรนเดอร์ใหม่เฉพาะตอนข้อมูลเปลี่ยนจริง — กันหน้ากระพริบและ scroll เด้งทุก 3 นาที
+    if (currentUser && _dataSig() !== before) showPage(currentPage);
     setTimeout(refreshCaseBadge, 1200);
-  }, 30000);
+  }, 180000);
 }
 
 function stopAutoSync() {
