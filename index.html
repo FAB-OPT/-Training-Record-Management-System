@@ -7583,7 +7583,7 @@ function renderTrainings() {
         return `<tr>
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(t.date)}</span><span class="dt-long">${fmtDateTimeLong(t.date)}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`<strong>${e.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${e.position} · ${calcTenureShort(e.startDate)}</span>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
-          <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span></td>
+          <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId}${t.track?` <span class="badge" style="font-size:10.5px;background:${t.track==='steak'?'#FEE2E2':'#FEF3C7'};color:${t.track==='steak'?'#991B1B':'#92400E'};font-weight:700">${t.track==='steak'?'🥩 สเต็ก':'🍝 พาสต้า'}</span>`:''} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span></td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="สถานะ" style="white-space:nowrap">${badge}</td>
@@ -7654,6 +7654,7 @@ function openAddTraining() {
       </div>
     </div>
     <div class="form-full">
+      <div id="track-container" class="form-full" style="display:none;margin-bottom:14px"></div>
       <label class="form-label">Module หลัก <span class="req">*</span></label>
       <div id="module-hint" style="font-size:12px;color:var(--text3);margin-bottom:6px">⬆ เลือกพนักงานก่อน เพื่อแสดง Module ที่เหมาะสม</div>
       <select class="form-select" id="tr-module" onchange="updateSubtopics()" disabled>
@@ -7670,7 +7671,9 @@ function openAddTraining() {
     const subtopics = [...document.querySelectorAll('.sub-check:checked')].map(c=>c.value);
     const traineeIds = getSelectedEmpIds();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
+    if (moduleNeedsTrack(moduleId) && !_selectedTrack) { notify('กรุณาเลือกสายงาน — สเต็ก หรือ พาสต้า', 'error'); return; }
     const _nt={id:genId('T'),branchId:bid,date,moduleId,subtopics,traineeIds,trainerName:trainer,eval:null};
+    if (moduleNeedsTrack(moduleId)) _nt.track = _selectedTrack;
     DB.trainings.push(_nt);
     gsSave('trainings', _nt.id, _nt);
     closeModal(); showPage('trainings'); notify('บันทึกการสอนงานสำเร็จ');
@@ -7910,9 +7913,49 @@ function updateModulesByTrainees() {
 
 
 
+/* ══════════ สายงานครัว — สเต็ก / พาสต้า ══════════
+   Module ที่ต้องเลือกสายก่อน เนื้อหาหัวข้อย่อยเหมือนเดิมทุกอย่าง
+   ต่างกันแค่ "ชุดข้อสอบ" ที่จะได้ทำตอนจบ Module */
+const TRACK_MODULES = ['C003', 'C004'];
+const TRACKS = [
+  { key: 'steak', label: '🥩 สายสเต็ก', color: '#B91C1C' },
+  { key: 'pasta', label: '🍝 สายพาสต้า', color: '#B45309' },
+];
+function moduleNeedsTrack(mid) { return TRACK_MODULES.indexOf(mid) >= 0; }
+let _selectedTrack = '';
+
+function selectTrack(key) {
+  _selectedTrack = key;
+  document.querySelectorAll('.track-btn').forEach(b => {
+    const on = b.dataset.track === key;
+    b.classList.toggle('on', on);
+    b.style.background = on ? (TRACKS.find(t => t.key === key)?.color || 'var(--accent)') : 'var(--surface)';
+    b.style.color = on ? '#fff' : 'var(--text)';
+    b.style.borderColor = on ? 'transparent' : 'var(--border2)';
+  });
+}
+
 function updateSubtopics() {
   const moduleId = document.getElementById('tr-module').value;
   const container = document.getElementById('subtopics-container');
+  const trackBox = document.getElementById('track-container');
+  _selectedTrack = '';
+  if (trackBox) {
+    if (moduleNeedsTrack(moduleId)) {
+      trackBox.style.display = '';
+      trackBox.innerHTML =
+        `<label class="form-label">เลือกสายงาน <span class="req">*</span>
+           <span style="font-weight:500;color:var(--text3);font-size:11px">— เนื้อหาสอนเหมือนกัน ต่างกันที่ชุดข้อสอบ</span></label>
+         <div style="display:flex;gap:8px;flex-wrap:wrap">` +
+        TRACKS.map(t => `<button type="button" class="track-btn" data-track="${t.key}" onclick="selectTrack('${t.key}')"
+            style="flex:1;min-width:140px;padding:11px 14px;border:1.5px solid var(--border2);border-radius:11px;
+                   background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+            ${t.label}</button>`).join('') + `</div>`;
+    } else {
+      trackBox.style.display = 'none';
+      trackBox.innerHTML = '';
+    }
+  }
   if(!moduleId){container.innerHTML='<span class="text-muted">กรุณาเลือก Module ก่อน</span>';return;}
   container.innerHTML = (MODULES[moduleId]?.subtopics||[]).map(s=>
     `<label class="checkbox-item" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`).join('');
@@ -10133,7 +10176,11 @@ function openQuiz(trainingId) {
     return;
   }
   // Pull from question pool (admin pre-generates with AI; employee gets random 5)
-  const allQ = getAllQuestionsForModule(t.moduleId).filter(q => isQuizActive(q.uid));
+  // Module ที่แยกสาย (สเต็ก/พาสต้า) จะได้เฉพาะข้อของสายที่เรียนมา
+  // ข้อที่ยังไม่ได้ติดป้ายสาย ถือว่าใช้ได้ทั้งสองสาย — ของเดิมจึงไม่พัง
+  const allQ = getAllQuestionsForModule(t.moduleId)
+    .filter(q => isQuizActive(q.uid))
+    .filter(q => !t.track || !q.track || q.track === t.track);
   if (allQ.length === 0) {
     notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
     return;
