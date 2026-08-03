@@ -2872,7 +2872,9 @@ const POSITION_GROUPS = {
   'Shift Supervisor':'ทีมผู้จัดการสาขา','Assistant Manager':'ทีมผู้จัดการสาขา',
   'Senior Assistant Manager':'ทีมผู้จัดการสาขา','Restaurant General Manager':'ทีมผู้จัดการสาขา',
 };
-function getPositionGroup(pos) { return POSITION_GROUPS[pos] || 'อื่นๆ'; }
+/* หมายเหตุ: getPositionGroup ตัวจริงอยู่ล่างไฟล์ (ประกาศทีหลังจึงทับตัวนี้)
+   ตัวล่างใช้วิธีดูคำขึ้นต้น service/cook ที่เหลือเหมาเป็นทีมผู้จัดการสาขา
+   ตารางค้นหา POSITION_GROUPS ด้านบนใช้เป็นข้อมูลอ้างอิงของกลุ่มมาตรฐานเท่านั้น */
 const EVAL_METHODS = ['A = สังเกตการณ์', 'B = สัมภาษณ์', 'C = ตรวจงาน', 'D = การทดสอบ'];
 const EVAL_RESULTS = [
   { value: '1', label: '1 = ยังทำไม่ได้ตามมาตรฐาน (0-49%)', badge: 'badge-red' },
@@ -4190,7 +4192,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], chatLogs: [], cases: [], adminUsers: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], courseCatalog: [], chatLogs: [], cases: [], adminUsers: [] };
 try {
   const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
   if (_c && _c.employees && _c.trainings) {
@@ -4235,6 +4237,7 @@ const _SB_TABLE = {
   courseHistory: 'course_history',
   quizMeta:      'quiz_meta',
   branchOverrides: 'branch_overrides',
+  courseCatalog: 'course_catalog',
   trainingDrafts: 'training_drafts',
 };
 const _SB_FIELD_MAP = {
@@ -4281,7 +4284,7 @@ function _fromSb(coll, row) {
 
 async function sbLoadAll() {
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
-  const [emps, trs, qrs, cqs, chs, qms, bos] = await Promise.all([
+  const [emps, trs, qrs, cqs, chs, qms, bos, cat] = await Promise.all([
     sb.from('employees').select('*'),
     sb.from('trainings').select('*'),
     sb.from('quiz_results').select('*'),
@@ -4289,9 +4292,14 @@ async function sbLoadAll() {
     sb.from('course_history').select('*'),
     sb.from('quiz_meta').select('*').eq('id','singleton').maybeSingle(),
     sb.from('branch_overrides').select('*'),
+    sb.from('course_catalog').select('*'),
   ]);
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
+  }
+  // ทะเบียนหลักสูตร — ถ้ายังไม่ได้สร้างตาราง ให้ข้ามไปเงียบ ๆ ระบบอื่นต้องใช้งานได้ปกติ
+  if (cat && !cat.error && Array.isArray(cat.data)) {
+    DB.courseCatalog = cat.data.map(r => _fromSb('courseCatalog', r));
   }
   // Apply branch overrides (BZM rename, branch rename, etc.) onto BRANCH_MASTER in-memory
   if (bos && !bos.error && Array.isArray(bos.data)) {
@@ -4620,10 +4628,35 @@ function gsPost(payload) {
     .catch(err => console.warn('GS mirror failed:', err));
 }
 // Fetch with response (no no-cors) — used for AI proxy that needs JSON back
-async function gsFetch(payload) {
-  const resp = await fetch(GS_URL, { method:'POST', body: JSON.stringify(payload) });
-  if (!resp.ok) throw new Error('GS HTTP ' + resp.status);
-  return await resp.json();
+/* Apps Script ไม่เสถียร — บางครั้งตอบเป็นหน้า HTML ของ Google (404/หมดเวลา) แทน JSON
+   และบางจังหวะใช้เวลาเป็นนาที จึงต้องมี timeout + ยิงซ้ำเองเมื่อเจออาการชั่วคราว
+   opts: { timeoutMs, retries } */
+async function gsFetch(payload, opts) {
+  const o = opts || {};
+  const retries   = o.retries   != null ? o.retries   : 2;
+  const timeoutMs = o.timeoutMs != null ? o.timeoutMs : 45000;
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, attempt * 1200));   // หน่วงก่อนยิงซ้ำ
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const resp = await fetch(GS_URL, { method: 'POST', body: JSON.stringify(payload), signal: ctrl.signal });
+      const text = await resp.text();
+      if (!resp.ok) throw new Error('GS_HTTP_' + resp.status);
+      const head = (text || '').trim().charAt(0);
+      if (head !== '{' && head !== '[') throw new Error('GS_HTML');       // ได้หน้า error ไม่ใช่ข้อมูล
+      return JSON.parse(text);
+    } catch (e) {
+      lastErr = e;
+      const transient = e.name === 'AbortError'
+        || /GS_HTML|GS_HTTP_(404|408|429|500|502|503|504)|Failed to fetch|NetworkError|network/i.test(e.message || '');
+      if (!transient || attempt === retries) break;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastErr;
 }
 // Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget).
 // TEST MODE: when ON, skip ALL backend writes except quizMeta (so the test-mode
@@ -5246,9 +5279,14 @@ function _renderChatTyping() {
   const row = document.createElement('div');
   row.className = 'cb-row-bot';
   row.id = 'chatbot-typing';
-  row.innerHTML = '<div class="cb-row-avatar"><img src="nong-happy.png" alt=""></div><div class="cb-msg bot"><span class="cb-typing"><span></span><span></span><span></span></span></div>';
+  row.innerHTML = '<div class="cb-row-avatar"><img src="nong-happy.png" alt=""></div><div class="cb-msg bot"><span class="cb-typing"><span></span><span></span><span></span></span><span class="cb-slow" style="display:none;font-size:12px;color:var(--text3);margin-left:8px"></span></div>';
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
+  // ถ้าเกิน 8 วิ ให้บอกผู้ใช้ว่ายังไม่ค้าง แค่ช้ากว่าปกติ — จะได้ไม่กดซ้ำรัว ๆ
+  row._slowTimer = setTimeout(() => {
+    const s = row.querySelector('.cb-slow');
+    if (s) { s.textContent = 'ระบบตอบช้ากว่าปกติ กำลังลองให้อยู่…'; s.style.display = 'inline'; }
+  }, 8000);
   return row;
 }
 
@@ -5613,7 +5651,8 @@ async function sendChatMessage() {
       action: 'chat',
       system: _chatSystemPrompt(),
       messages: _chatHistory,
-    });
+    }, { timeoutMs: 40000, retries: 2 });
+    if (typing?._slowTimer) clearTimeout(typing._slowTimer);
     typing?.remove();
     if (res.error) {
       const msg = 'ขออภัย เกิดข้อผิดพลาด: ' + res.error;
@@ -5628,11 +5667,18 @@ async function sendChatMessage() {
       _chatLogMessage('bot', reply, false);
     }
   } catch (err) {
+    if (typing?._slowTimer) clearTimeout(typing._slowTimer);
     typing?.remove();
-    const msg = 'ขออภัย เชื่อมต่อไม่ได้: ' + (err.message || err);
+    // แยกอาการให้ผู้ใช้รู้ว่าควรทำอะไรต่อ แทนที่จะโยน error ดิบใส่หน้า
+    const raw = String(err && (err.message || err) || '');
+    const msg = (err && err.name === 'AbortError')
+      ? 'ตอนนี้ระบบตอบช้ากว่าปกติจนหมดเวลารอค่ะ ลองพิมพ์ถามอีกครั้งได้เลย'
+      : /GS_HTML|GS_HTTP_/.test(raw)
+        ? 'ระบบหลังบ้านไม่ตอบชั่วคราวค่ะ ลองใหม่อีกครั้งในอีกสักครู่'
+        : 'เชื่อมต่อไม่ได้ค่ะ เช็คอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง';
     const errDiv = _renderChatMessage('bot', msg);
     errDiv?.classList.add('err');
-    _chatLogMessage('bot', msg, true);
+    _chatLogMessage('bot', msg + ' [' + raw.slice(0, 80) + ']', true);
   } finally {
     if (btn) btn.disabled = false;
     input.focus();
@@ -8207,11 +8253,38 @@ function _tenureMonths(startDate) {
 /* เงื่อนไขพนักงาน = หลายชุด · แต่ละชุดจับคู่ (ตำแหน่ง + อายุงาน) ของตัวเอง
    เช่น ชุด1 = ครัว/อายุงาน 3-6 ด. · ชุด2 = ผจก./อายุงาน 1-2 ปี → เข้าชุดใดชุดหนึ่งก็นับ */
 let _covRowSeq = 0, _covRowIds = [];
+/* รายการตำแหน่งในดรอปดาว = รายการมาตรฐาน + ตำแหน่งที่มีอยู่จริงในทะเบียนพนักงาน
+   เดิมใช้รายการมาตรฐานอย่างเดียว ตำแหน่งที่ไม่ได้อยู่ในนั้น (เช่น Restaurant Manager)
+   จึงเลือกเจาะจงไม่ได้ ทั้งที่มีพนักงานอยู่จริง */
+function _allPositionsInUse() {
+  const seen = new Set();
+  Object.values(DB.employees || {}).forEach(list => {
+    (list || []).forEach(e => { const p = (e && e.position || '').trim(); if (p) seen.add(p); });
+  });
+  return seen;
+}
 function _covItemsPos() {
-  const out = [];
+  const inUse = _allPositionsInUse();
+  const known = new Set();
+  const byGroup = {};
   Object.keys(POSITION_BY_GROUP || {}).forEach(g => {
+    byGroup[g] = (POSITION_BY_GROUP[g] || []).slice();
+    byGroup[g].forEach(p => known.add(p));
+  });
+  // ตำแหน่งที่มีในข้อมูลแต่ไม่อยู่ในรายการมาตรฐาน → จัดเข้ากลุ่มตามกติกาเดียวกับที่ระบบใช้
+  inUse.forEach(p => {
+    if (known.has(p)) return;
+    const g = getPositionGroup(p);
+    if (!byGroup[g]) byGroup[g] = [];
+    byGroup[g].push(p);
+  });
+  const out = [];
+  Object.keys(byGroup).forEach(g => {
+    if (!byGroup[g].length) return;
     out.push({ v: 'grp:' + g, label: g + ' (ทั้งกลุ่ม)', group: g });
-    (POSITION_BY_GROUP[g] || []).forEach(pp => out.push({ v: 'pos:' + pp, label: pp, group: g }));
+    byGroup[g]
+      .sort((a, b) => a.localeCompare(b, 'th'))
+      .forEach(pp => out.push({ v: 'pos:' + pp, label: pp + (known.has(pp) ? '' : ' *'), group: g }));
   });
   return out;
 }
@@ -8338,8 +8411,8 @@ function _covSyncPlanBtn(n) {
 }
 function openCourseCoverage() {
   const list = DB.courseHistory || [];
-  const courses = [...new Set(list.map(c => (c.courseName || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
-  if (!courses.length) { notify('ยังไม่มีข้อมูลประวัติการอบรม', 'error'); return; }
+  const courses = allCourseNames();
+  if (!courses.length) { notify('ยังไม่มีหลักสูตรในระบบ — กด “+ เพิ่มหลักสูตร” ในหน้าจัดอบรมก่อน', 'error'); return; }
   const itCourse = courses.map(c => ({ v: c, label: c }));
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   _covRowSeq = 0; _covRowIds = [1]; _covRowSeq = 1;   // เริ่มด้วยเงื่อนไข 1 ชุด
@@ -8488,6 +8561,44 @@ function renderTrainingPlan() {
   <div class="card" style="margin-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">📕 ทะเบียนหลักสูตร</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${allCourseNames().length} หลักสูตร</span>
+      </div>
+      <button class="btn btn-sm btn-accent" onclick="addCourseName()">+ เพิ่มหลักสูตร</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:12px">ชื่อที่อยู่ในทะเบียนจะเลือกได้ทันทีในชนรายชื่อและฟอร์มจัดอบรม · เปลี่ยนชื่อแล้วประวัติเก่าจะถูกแก้ตามให้ทั้งหมด</div>
+    ${(() => {
+      const names = allCourseNames();
+      if (!names.length) return '<p class="text-muted" style="text-align:center;padding:20px;font-size:13px">ยังไม่มีหลักสูตร — กด “+ เพิ่มหลักสูตร” เพื่อเริ่ม</p>';
+      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+      const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<div class="tp-draft-grid">' + names.map(n => {
+        const used = courseUseCount(n);
+        const inCat = !!_catalogEntry(n);
+        return `<div class="tp-draft-card${used ? '' : ' draft-incomplete'}">
+          <div class="tp-draft-top">
+            <span class="tp-chip ${used ? 'ok' : 'warn'}">${used ? '✓ มีผู้ผ่านแล้ว' : '! ยังไม่มีใครผ่าน'}</span>
+            ${inCat ? '' : '<span class="tp-chip batch">มาจากประวัติ</span>'}
+          </div>
+          <div class="tp-draft-title" title="${esc(n)}">${esc(n)}</div>
+          <div class="tp-draft-people">
+            <div class="tp-people-n">${used}<span>คน</span></div>
+            <div class="tp-people-sub">ที่ผ่านหลักสูตรนี้</div>
+          </div>
+          <div class="tp-draft-foot">
+            <div class="tp-draft-actions">
+              <button class="btn btn-sm btn-outline" onclick="renameCourseName('${js(n)}')">เปลี่ยนชื่อ</button>
+              <button class="btn btn-sm btn-outline tp-del" onclick="deleteCourseName('${js(n)}')" title="${used ? 'ลบไม่ได้ — มีประวัติอ้างอยู่' : 'ลบออกจากทะเบียน'}"${used ? ' style="opacity:.4"' : ''}>🗑</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('') + '</div>';
+    })()}
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
         <div style="font-weight:800;font-size:15px;color:var(--text)">📝 แบบร่างที่บันทึกไว้</div>
         <span id="tp-draft-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
       </div>
@@ -8495,6 +8606,120 @@ function renderTrainingPlan() {
     </div>
     <div id="tp-drafts"><p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p></div>
   </div>`;
+}
+
+/* ══════════ ทะเบียนหลักสูตร ══════════
+   เดิมชื่อหลักสูตรงอกมาจากประวัติการอบรมอย่างเดียว หลักสูตรใหม่ที่ยังไม่มีใครผ่านจึงไม่โผล่
+   ตอนนี้เก็บทะเบียนแยกไว้ที่ตาราง course_catalog แล้วรวมกับชื่อที่มีในประวัติเวลาแสดงผล */
+function allCourseNames() {
+  const fromHistory = (DB.courseHistory || []).map(c => (c.courseName || '').trim()).filter(Boolean);
+  const fromCatalog = (DB.courseCatalog || []).map(c => (c.name || '').trim()).filter(Boolean);
+  return [...new Set([...fromCatalog, ...fromHistory])].sort((a, b) => a.localeCompare(b, 'th'));
+}
+function courseUseCount(name) {
+  const n = String(name || '').trim();
+  return (DB.courseHistory || []).filter(c => (c.courseName || '').trim() === n).length;
+}
+function _catalogEntry(name) {
+  const n = String(name || '').trim();
+  return (DB.courseCatalog || []).find(c => (c.name || '').trim() === n) || null;
+}
+
+/* เพิ่มชื่อหลักสูตรใหม่เข้าทะเบียน */
+function addCourseName() {
+  showModal('➕ เพิ่มหลักสูตร', `
+    <div class="form-group">
+      <label class="form-label">ชื่อหลักสูตร <span class="req">*</span></label>
+      <input class="form-input" id="cc-name" placeholder="เช่น Admin Operations Level 3" maxlength="120">
+      <div style="font-size:11.5px;color:var(--text3);margin-top:5px">เพิ่มแล้วจะเลือกได้ทันทีในชนรายชื่อและฟอร์มจัดอบรม แม้ยังไม่มีใครผ่าน</div>
+    </div>`, async () => {
+    const name = (document.getElementById('cc-name').value || '').trim();
+    if (!name) { notify('กรุณากรอกชื่อหลักสูตร', 'error'); return; }
+    if (allCourseNames().some(c => c.toLowerCase() === name.toLowerCase())) {
+      notify('มีหลักสูตรชื่อนี้อยู่แล้ว', 'error'); return;
+    }
+    const rec = { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name,
+                  createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+                  createdAt: new Date().toISOString() };
+    try {
+      const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+      const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
+      if (res.error) throw res.error;
+      DB.courseCatalog = [...(DB.courseCatalog || []), rec];
+      closeModal(); notify('เพิ่มหลักสูตรแล้ว');
+      if (currentPage === 'admin-training-plan') showPage('admin-training-plan');
+    } catch (e) { notify('เพิ่มไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
+  }, 'เพิ่ม');
+}
+
+/* เปลี่ยนชื่อหลักสูตร — แก้ย้อนหลังทุกแถวในประวัติ + แบบร่างที่อ้างชื่อเดิม */
+function renameCourseName(oldName) {
+  const used = courseUseCount(oldName);
+  showModal('✏️ เปลี่ยนชื่อหลักสูตร', `
+    <div style="padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">ชื่อเดิม</div>
+      <div style="font-size:15px;font-weight:800;color:var(--text)">${String(oldName).replace(/</g,'&lt;')}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:5px">มีประวัติอ้างอยู่ <b>${used}</b> รายการ</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ชื่อใหม่ <span class="req">*</span></label>
+      <input class="form-input" id="cc-new" value="${String(oldName).replace(/"/g,'&quot;')}" maxlength="120">
+    </div>
+    <div style="font-size:12.5px;color:#B45309;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.28);border-radius:9px;padding:10px 13px;line-height:1.55">
+      ⚠️ ประวัติการอบรมทั้ง ${used} รายการจะถูกเปลี่ยนชื่อตามไปด้วย เพื่อไม่ให้ประวัติแตกเป็นสองชื่อ
+    </div>`, async () => {
+    const newName = (document.getElementById('cc-new').value || '').trim();
+    if (!newName) { notify('กรุณากรอกชื่อใหม่', 'error'); return; }
+    if (newName === oldName) { closeModal(); return; }
+    if (allCourseNames().some(c => c.toLowerCase() === newName.toLowerCase())) {
+      notify('มีหลักสูตรชื่อนี้อยู่แล้ว — ถ้าต้องการรวมกัน ให้แก้ประวัติเอง', 'error'); return;
+    }
+    try {
+      // 1) ประวัติการอบรมทุกแถวที่ใช้ชื่อเดิม
+      const hits = (DB.courseHistory || []).filter(c => (c.courseName || '').trim() === String(oldName).trim());
+      hits.forEach(c => { c.courseName = newName; });
+      if (hits.length) gsSaveMany('courseHistory', hits);
+      // 2) ทะเบียนหลักสูตร
+      const sb = _initSb();
+      const entry = _catalogEntry(oldName);
+      if (entry) {
+        entry.name = newName;
+        if (sb) { const r = await sb.from('course_catalog').upsert(_toSb('courseCatalog', entry)); if (r.error) throw r.error; }
+      } else if (sb) {
+        const rec = { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: newName,
+                      createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+                      createdAt: new Date().toISOString() };
+        const r = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
+        if (r.error) throw r.error;
+        DB.courseCatalog = [...(DB.courseCatalog || []), rec];
+      }
+      // 3) แบบร่างใบรายชื่อที่อ้างชื่อเดิม
+      try {
+        if (sb) await sb.from('training_drafts').update({ course: newName }).eq('course', oldName);
+      } catch (_) {}
+      closeModal();
+      notify(`เปลี่ยนชื่อแล้ว · แก้ประวัติ ${hits.length} รายการ`);
+      if (currentPage === 'admin-training-plan') showPage('admin-training-plan');
+    } catch (e) { notify('เปลี่ยนชื่อไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
+  }, 'เปลี่ยนชื่อ');
+}
+
+/* ลบชื่อออกจากทะเบียน — ทำได้เฉพาะหลักสูตรที่ยังไม่มีประวัติอ้างถึง */
+function deleteCourseName(name) {
+  const used = courseUseCount(name);
+  if (used) { notify(`ลบไม่ได้ — มีประวัติอ้างอยู่ ${used} รายการ`, 'error'); return; }
+  const entry = _catalogEntry(name);
+  if (!entry) { notify('หลักสูตรนี้ไม่ได้อยู่ในทะเบียน', 'error'); return; }
+  showConfirm(`ลบ <b>${String(name).replace(/</g,'&lt;')}</b> ออกจากทะเบียนหลักสูตร?`, async () => {
+    try {
+      const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+      const res = await sb.from('course_catalog').delete().eq('id', entry.id);
+      if (res.error) throw res.error;
+      DB.courseCatalog = (DB.courseCatalog || []).filter(c => c.id !== entry.id);
+      notify('ลบแล้ว');
+      if (currentPage === 'admin-training-plan') showPage('admin-training-plan');
+    } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
+  });
 }
 
 /* ══════════ แบบร่างใบรายชื่อ — เก็บบน Supabase ตาราง training_drafts (แอดมินทุกคนเห็นร่วมกัน) ══════════ */
@@ -8896,7 +9121,7 @@ function _caeRenderBatches() {
 function openCourseAttendeesExport() {
   const list = DB.courseHistory || [];
   if (!list.length) { notify('ยังไม่มีข้อมูลประวัติการอบรม', 'error'); return; }
-  const courses = [...new Set(list.map(c => (c.courseName || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+  const courses = allCourseNames();
   const courseOpts = courses.map(c => `<option value="${c.replace(/"/g, '&quot;')}">${c}</option>`).join('');
   showModal('📄 ส่งออก PDF · รายชื่อผู้ผ่านหลักสูตร', `
     <div class="form-row">
