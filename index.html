@@ -4350,14 +4350,14 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode } : { deleted: [], disabled: [], testMode: false },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{} } : { deleted: [], disabled: [], testMode: false, quizTrack: {} },
   };
 }
 async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -7923,6 +7923,37 @@ const TRACKS = [
 ];
 function moduleNeedsTrack(mid) { return TRACK_MODULES.indexOf(mid) >= 0; }
 let _selectedTrack = '';
+
+/* ── ป้ายสายของข้อสอบ ──────────────────────────────────────────
+   ข้อสอบชุดพื้นฐานอยู่ในโค้ด แก้ไม่ได้ จึงเก็บป้ายแยกไว้ที่ quizMeta.quizTrack
+   เป็น map uid → 'steak' | 'pasta'   (ไม่มีค่า = ใช้ได้ทั้งสองสาย) */
+function getQuizTrack(uid) { return (DB.quizMeta && DB.quizMeta.quizTrack && DB.quizMeta.quizTrack[uid]) || ''; }
+function setQuizTrack(uid, track, mid) {
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  if (!DB.quizMeta.quizTrack) DB.quizMeta.quizTrack = {};
+  if (track) DB.quizMeta.quizTrack[uid] = track;
+  else delete DB.quizMeta.quizTrack[uid];
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  const label = track === 'steak' ? 'สายสเต็ก' : track === 'pasta' ? 'สายพาสต้า' : 'ทั้งสองสาย';
+  notify('ตั้งเป็น ' + label + ' แล้ว');
+  if (mid) openQuizListModal(mid, true);
+}
+function _trackPickerHTML(uid, mid) {
+  const cur = getQuizTrack(uid);
+  const opt = (val, label, bg, fg) => {
+    const on = cur === val;
+    return `<button type="button" onclick="setQuizTrack('${uid}','${val}','${mid}')"
+      style="padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;
+             border:1px solid ${on ? 'transparent' : 'var(--border2)'};
+             background:${on ? bg : 'var(--surface)'};color:${on ? fg : 'var(--text3)'}">${label}</button>`;
+  };
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
+    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ใช้กับสาย</span>
+    ${opt('', 'ทั้งสองสาย', 'var(--surface3)', 'var(--text)')}
+    ${opt('steak', '🥩 สเต็ก', '#FEE2E2', '#991B1B')}
+    ${opt('pasta', '🍝 พาสต้า', '#FEF3C7', '#92400E')}
+  </div>`;
+}
 
 function selectTrack(key) {
   _selectedTrack = key;
@@ -13379,7 +13410,7 @@ function getAllQuestionsForModule(mid, includeDeleted) {
   const groupKey = MODULES[mid]?.quizGroup;
   const pool = (groupKey ? (QUIZ_BANK_POOL[groupKey] || []) : []).map((q, i) => ({...q, source:'pool', uid: `pool_${groupKey}_${i}`}));
   const custom = DB.customQuiz.filter(q => q.moduleId === mid).map(q => ({...q, source:'custom', uid: q.id}));
-  const all = [...base, ...pool, ...custom];
+  const all = [...base, ...pool, ...custom].map(q => ({ ...q, track: getQuizTrack(q.uid) || q.track || '' }));
   if (includeDeleted) return all;
   const deleted = new Set(DB.quizMeta?.deleted || []);
   return all.filter(q => !deleted.has(q.uid));
@@ -13515,6 +13546,7 @@ function openQuizListModal(mid, restore) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px">
           ${['A','B','C','D'].map(k=>`<div style="padding:6px 10px;background:${q.ans===k?'var(--green-light)':'var(--surface2)'};border-radius:6px;color:${q.ans===k?'#1F7A33':'var(--text2)'};font-weight:${q.ans===k?'700':'400'}"><b>${k}.</b> ${q.opts[k]||''}${q.ans===k?' ✓':''}</div>`).join('')}
         </div>
+        ${moduleNeedsTrack(mid) ? _trackPickerHTML(q.uid, mid) : ''}
       </div>`;}).join('')}
   `, null, 'ปิด');
   // คืนตำแหน่ง scroll + คอยจำตำแหน่งล่าสุด (กันเด้งกลับข้อ 1 ตอนลบ/แก้/เปิด-ปิด)
