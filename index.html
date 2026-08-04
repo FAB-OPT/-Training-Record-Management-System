@@ -4783,6 +4783,28 @@ function _applyHubTrPerms(res) {
   } catch (e) { console.warn('[perms] โหลดจาก HUB ไม่ได้ — ใช้ค่าเดิม', e); }
 }
 
+/* ── ใช้รายชื่อสาขาจากที่จำไว้ตั้งแต่ยังไม่ทันเรนเดอร์ ──────────────
+   เดิมหน้าแรกวาดด้วยรายชื่อสาขาที่ฝังมากับไฟล์ (ยังไม่รู้ว่าสาขาไหนปิดไปแล้ว)
+   แล้ว HUB ค่อยมาทีหลัง ตัวเลขบนแดชบอร์ดจึงไม่ตรงกันในแต่ละครั้งที่เปิด
+   — บางครั้งทัน บางครั้งไม่ทัน กลายเป็นเดี๋ยว 815 เดี๋ยว 807
+   อ่านจาก localStorage ได้ทันทีแบบไม่ต้องรอเน็ต จึงเอามาใส่ก่อนวาดหน้าแรกเลย */
+try {
+  const _bootCfg = _hubCfgFromCache();
+  if (_bootCfg) { _applyHubBranches(_bootCfg); _applyHubTrPerms(_bootCfg); }
+} catch (_) {}
+
+/* พนักงานที่ยังทำงานอยู่ แต่สาขาถูกปิดไปแล้ว — ไม่ถูกนับในตัวเลขไหนเลย
+   ถ้าไม่บอกไว้ จะกลายเป็นคนหายไปเฉย ๆ โดยไม่มีใครรู้ */
+function orphanEmployees() {
+  const known = new Set(openBranchIds());
+  const out = [];
+  Object.entries(DB.employees || {}).forEach(([bid, list]) => {
+    if (known.has(bid)) return;
+    (list || []).forEach(e => { if (e && e.status === 'active') out.push({ ...e, branchId: bid }); });
+  });
+  return out;
+}
+
 /* ── ตัวคุมการโหลดซ้ำ ──────────────────────────────────────────
    เดิมโหลดใหม่ทั้งก้อนทุก 30 วินาที (Supabase ~650KB + Apps Script ที่ช้า)
    แล้วเรนเดอร์หน้าใหม่ทุกครั้ง ทำให้เครื่องช้าและกินเน็ตมาก
@@ -6721,6 +6743,24 @@ function renderDashboard() {
         <div class="dash-stat-value">${passRate}%</div>
       </div>
     </div>
+    ${(() => {
+      // พนักงานที่ยังทำงานอยู่ในสาขาที่ปิดไปแล้ว จะไม่ถูกนับในตัวเลขข้างบน
+      // ถ้าไม่บอกไว้ตรงนี้ จะดูเหมือนคนหายไปเฉย ๆ
+      if (bid !== 'ALL') return '';
+      const orph = orphanEmployees();
+      if (!orph.length) return '';
+      const byBranch = {};
+      orph.forEach(e => { byBranch[e.branchId] = (byBranch[e.branchId] || 0) + 1; });
+      const list = Object.entries(byBranch)
+        .map(([b, n]) => `${b} ${(BRANCH_MASTER[b]?.name || '').replace(b + ' ', '')} (${n} คน)`).join(' · ');
+      return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:11px 15px;
+                  background:#FFFBEB;border:1px solid #FDE68A;border-radius:11px;font-size:12.5px;color:#92400E;line-height:1.6">
+        <span style="font-size:16px">⚠️</span>
+        <span style="flex:1;min-width:0">มีพนักงานที่ยังเปิดใช้งานอยู่ <b>${orph.length} คน</b> ในสาขาที่ปิดไปแล้ว
+          จึงไม่ถูกนับในตัวเลขข้างบน — ${list}<br>
+          <span style="color:#92400ECC">ถ้าคนกลุ่มนี้ย้ายไปสาขาอื่นแล้ว ให้แก้สาขาให้ถูก หรือปิดใช้งานถ้าลาออกไปแล้ว</span></span>
+      </div>`;
+    })()}
     <div class="dash-top-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch">
       <div class="card" style="margin:0">
         <div class="card-header"><span class="card-title">👥 ข้อมูลพนักงาน</span><span style="font-size:11px;color:var(--text3)">กดเพื่อดูรายชื่อ</span></div>
@@ -7763,10 +7803,25 @@ function openAddTraining() {
     <div class="form-row">
       <div><label class="form-label">วันที่และเวลาที่สอน <span class="req">*</span></label><input class="form-input" type="datetime-local" id="tr-date" value="${now}"></div>
       <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label>
-        <input class="form-input" id="tr-trainer" list="trainer-list" placeholder="พิมพ์เพื่อค้นหา หรือพิมพ์ชื่อใหม่" autocomplete="off">
-        <datalist id="trainer-list">
-          ${emps.map(e => `<option value="${String(e.name).replace(/"/g,'&quot;')}">${String(e.position||'').replace(/</g,'&lt;')}</option>`).join('')}
-        </datalist>
+        <div class="emp-multiselect" id="trainer-multiselect">
+          <div class="emp-select-box" id="trainer-select-box" onclick="openTrainerDropdown()">
+            <input type="text" id="tr-trainer" placeholder="พิมพ์เพื่อค้นหา หรือพิมพ์ชื่อใหม่" autocomplete="off"
+                   oninput="filterTrainerDropdown()" onfocus="openTrainerDropdown()" onkeydown="onTrainerKey(event)">
+          </div>
+          <div class="emp-dropdown-list" id="trainer-dropdown-list">
+            ${emps.length === 0
+              ? '<div class="emp-no-result">ไม่มีพนักงานในสาขา — พิมพ์ชื่อผู้สอนเองได้</div>'
+              : emps.map(e => `
+                <div class="emp-opt trn-opt" data-name="${String(e.name).replace(/"/g,'&quot;')}" data-pos="${String(e.position||'').replace(/"/g,'&quot;')}"
+                     onclick="pickTrainer(this)">
+                  <div>
+                    <div>${e.name}</div>
+                    <div class="emp-opt-pos">${e.position||''}</div>
+                  </div>
+                  <span class="emp-opt-check">✓</span>
+                </div>`).join('')}
+          </div>
+        </div>
         <div style="font-size:11.5px;color:var(--text3);margin-top:4px">เลือกจากรายชื่อพนักงานในสาขา หรือพิมพ์เองได้ถ้าผู้สอนมาจากที่อื่น</div>
       </div>
     </div>
@@ -7790,14 +7845,16 @@ function openAddTraining() {
               </div>`).join('')}
         </div>
       </div>
+      <div id="emp-note" style="display:none;margin-top:7px;font-size:12.5px;font-weight:600;color:#B91C1C;
+           background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;line-height:1.5"></div>
     </div>
     <div class="form-full">
-      <div id="track-container" class="form-full" style="display:none;margin-bottom:14px"></div>
       <label class="form-label">Module หลัก <span class="req">*</span></label>
       <div id="module-hint" style="font-size:12px;color:var(--text3);margin-bottom:6px">⬆ เลือกพนักงานก่อน เพื่อแสดง Module ที่เหมาะสม</div>
       <select class="form-select" id="tr-module" onchange="updateSubtopics()" disabled>
         <option value="">— กรุณาเลือกพนักงานก่อน —</option>
       </select>
+      <div id="track-container" style="display:none;margin-top:14px"></div>
     </div>
     <div class="form-full">
       <label class="form-label">หัวข้อย่อย <span class="req">*</span></label>
@@ -7893,7 +7950,77 @@ function filterEmpDropdown() {
   }
 }
 
+/* ── ช่องชื่อผู้สอนงาน ────────────────────────────────────────
+   ใช้หน้าตาเดียวกับช่องเลือกพนักงานที่เข้ารับการสอน (ค้นหาได้ เห็นตำแหน่ง)
+   แต่เลือกได้คนเดียว และยังพิมพ์ชื่อเองได้ถ้าผู้สอนมาจากสาขาอื่น */
+function openTrainerDropdown() {
+  const list = document.getElementById('trainer-dropdown-list');
+  const box  = document.getElementById('trainer-select-box');
+  if (!list) return;
+  list.style.display = 'block';
+  if (box) box.classList.add('open');
+  filterTrainerDropdown();
+  setTimeout(() => document.addEventListener('click', closeTrainerDropdownOutside), 0);
+}
+function closeTrainerDropdown() {
+  const list = document.getElementById('trainer-dropdown-list');
+  const box  = document.getElementById('trainer-select-box');
+  if (list) list.style.display = 'none';
+  if (box) box.classList.remove('open');
+  document.removeEventListener('click', closeTrainerDropdownOutside);
+}
+function closeTrainerDropdownOutside(e) {
+  const ms = document.getElementById('trainer-multiselect');
+  if (ms && !ms.contains(e.target)) closeTrainerDropdown();
+}
+function onTrainerKey(e) {
+  if (e.key === 'Escape') closeTrainerDropdown();
+  if (e.key === 'Enter') { e.preventDefault(); closeTrainerDropdown(); }
+}
+function filterTrainerDropdown() {
+  const q = (document.getElementById('tr-trainer')?.value || '').toLowerCase().trim();
+  const cur = q;
+  let any = false;
+  document.querySelectorAll('.trn-opt').forEach(o => {
+    const name = (o.dataset.name || '').toLowerCase();
+    const pos  = (o.dataset.pos || '').toLowerCase();
+    const hit  = !q || name.includes(q) || pos.includes(q);
+    o.style.display = hit ? '' : 'none';
+    o.classList.toggle('selected', name === cur);   // ตรงเป๊ะ = ติ๊กถูกให้เห็น
+    if (hit) any = true;
+  });
+  const list = document.getElementById('trainer-dropdown-list');
+  if (!list) return;
+  let no = document.getElementById('trainer-no-result');
+  if (!any) {
+    if (!no) {
+      no = document.createElement('div');
+      no.id = 'trainer-no-result';
+      no.className = 'emp-no-result';
+      list.appendChild(no);
+    }
+    no.textContent = 'ไม่พบชื่อนี้ในสาขา — พิมพ์ต่อได้เลย ระบบจะใช้ชื่อที่พิมพ์';
+  } else if (no) { no.remove(); }
+}
+function pickTrainer(el) {
+  const inp = document.getElementById('tr-trainer');
+  if (inp) inp.value = el.dataset.name || '';
+  filterTrainerDropdown();
+  closeTrainerDropdown();
+}
+
 const MAX_TRAINEES = 2;   // สอนพร้อมกันได้ไม่เกิน 2 คน และต้องเป็นประเภทเดียวกัน
+
+/* เตือนเรื่องการเลือกพนักงาน ให้ขึ้นตรงใต้ช่องที่กำลังกดอยู่
+   เดิมเด้งเป็นกล่องมุมขวาบน ซึ่งอยู่คนละที่กับสายตา และทับขอบจอบนมือถือ */
+function _empNote(msg) {
+  const el = document.getElementById('emp-note');
+  if (!el) { notify(msg, 'error'); return; }
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+  clearTimeout(_empNote._t);
+  _empNote._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
 
 function toggleEmpSelection(empId) {
   const opt = document.getElementById('empopt-' + empId);
@@ -7914,12 +8041,12 @@ function toggleEmpSelection(empId) {
   if (_selectedEmps.length) {
     const grp0 = getPositionGroup(_selectedEmps[0].position);
     if (grp !== grp0) {
-      notify(`เลือกพร้อมกันได้เฉพาะประเภทเดียวกัน — คนแรกเป็น "${grp0}" แต่คนนี้เป็น "${grp}"`, 'error');
+      _empNote(`เลือกพร้อมกันได้เฉพาะประเภทเดียวกัน — คนแรกเป็น "${grp0}" แต่คนนี้เป็น "${grp}"`);
       return;
     }
   }
   if (_selectedEmps.length >= MAX_TRAINEES) {
-    notify(`เลือกได้สูงสุด ${MAX_TRAINEES} คนต่อการสอน 1 ครั้ง — เอาคนเดิมออกก่อนถ้าต้องการเปลี่ยน`, 'error');
+    _empNote(`เลือกได้สูงสุด ${MAX_TRAINEES} คนต่อการสอน 1 ครั้ง — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
     return;
   }
 
