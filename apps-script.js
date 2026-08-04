@@ -235,17 +235,23 @@ function _chatViaGemini(req, apiKey) {
       generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
     });
 
-    // Try multiple free-tier models in order — fall through on quota OR not-found
-    // (Google occasionally retires aliases like 'gemini-1.5-flash-latest', so the
-    // list is ordered by "most likely still alive + free" first.)
-    // Order: smartest free model first, fall through to lighter/older on quota or 404
-    // Gemini 1.5 line was deprecated by Google in Sep 2025 — removed from list.
-    // Order: most capable free model first; lite/older as backups during rate limits.
+    /* ไล่ลองทีละรุ่นจากบนลงล่าง — ตกลงตัวถัดไปเมื่อโควตาเต็มหรือหารุ่นไม่เจอ
+       Google ปิดรุ่นเก่าเป็นระยะ ต้องคอยตัดตัวที่ตายแล้วออก ไม่งั้นจะเสียเวลา
+       ลองรุ่นที่ไม่มีอยู่จริงตัวละ 3 รอบก่อนไปถึงตัวที่ใช้ได้ (สาขาจะเจออาการค้าง)
+
+       รุ่นที่เคยอยู่ในลิสต์แล้วถูกตัดออก:
+         gemini-1.5-*        Google ปิด ก.ย. 2025
+         gemini-2.0-flash    Google ปิด 1 มิ.ย. 2026
+         gemini-2.0-flash-001  ปิดพร้อมกัน
+
+       ราคาต่อล้าน token (เข้า/ออก) ณ ส.ค. 2026 — ทุกตัวมี free tier
+         3.5-flash-lite  $0.30 / $2.50   เท่ากับ 2.5-flash แต่ใหม่กว่าหนึ่งรุ่น
+         3.1-flash-lite  $0.25 / $1.50   ถูกกว่าและใหม่กว่า 2.5-flash
+         2.5-flash       $0.30 / $2.50   ของเดิม เก็บไว้เผื่อรุ่นใหม่มีปัญหา */
     const models = [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-001',
       'gemini-flash-latest',
     ];
     var resp, code, body;
