@@ -4471,14 +4471,14 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{} } : { deleted: [], disabled: [], testMode: false, quizTrack: {} },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{} } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {} },
   };
 }
 async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -7809,7 +7809,7 @@ function openAddTraining() {
     const subtopics = [...document.querySelectorAll('.sub-check:checked')].map(c=>c.value);
     const traineeIds = getSelectedEmpIds();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
-    if (moduleNeedsTrack(moduleId) && !_selectedTrack) { notify('กรุณาเลือกสายงาน — สเต็ก หรือ พาสต้า', 'error'); return; }
+    if (moduleNeedsTrack(moduleId) && !_selectedTrack) { notify('กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า', 'error'); return; }
     const _nt={id:genId('T'),branchId:bid,date,moduleId,subtopics,traineeIds,trainerName:trainer,eval:null};
     if (moduleNeedsTrack(moduleId)) _nt.track = _selectedTrack;
     DB.trainings.push(_nt);
@@ -7927,8 +7927,8 @@ function toggleEmpSelection(empId) {
   opt.classList.add('selected');
   renderEmpTags();
   updateModulesByTrainees();
-  if (_selectedEmps.length >= MAX_TRAINEES) closeEmpDropdown();   // ครบแล้วค่อยปิด
   _markIncompatibleEmpOptions();
+  closeEmpDropdown();   // เลือกได้คนแล้วปิดให้เลย ส่วนใหญ่สอนคนเดียว — อยากเพิ่มคนที่สองก็กดเปิดใหม่
 }
 
 /* ทำตัวเลือกที่คนละประเภทให้จางลง จะได้เห็นตั้งแต่ยังไม่กด ว่าเลือกคู่กันไม่ได้ */
@@ -8051,20 +8051,23 @@ function updateModulesByTrainees() {
 
 
 
-/* ══════════ สายงานครัว — สเต็ก / พาสต้า ══════════
-   Module ที่ต้องเลือกสายก่อน เนื้อหาหัวข้อย่อยเหมือนเดิมทุกอย่าง
-   ต่างกันแค่ "ชุดข้อสอบ" ที่จะได้ทำตอนจบ Module */
-const TRACK_MODULES = ['C003', 'C004'];
+/* ══════════ หน้างานครัว — สเต็ก / พาสต้า ══════════
+   Module ที่ต้องเลือกหน้างานก่อน เนื้อหาหัวข้อย่อยเหมือนเดิมทุกอย่าง
+   ต่างกันแค่ "ชุดข้อสอบ" ที่จะได้ทำตอนจบ Module
+
+   Module 4 ครัวไม่ต้องเลือก เพราะหัวข้อย่อยแยกหน้างานอยู่ในตัวแล้ว
+   (4.1 ย่างสเต็ก · 4.2 เช็คเกอร์สเต็ก · 4.3 พาสต้า) จึงออกข้อสอบตามหัวข้อที่สอนแทน */
+const TRACK_MODULES = ['C003'];
 const TRACKS = [
-  { key: 'steak', label: '🥩 สายสเต็ก', color: '#B91C1C' },
-  { key: 'pasta', label: '🍝 สายพาสต้า', color: '#B45309' },
+  { key: 'steak', label: '🥩 สเต็ก', color: '#B91C1C' },
+  { key: 'pasta', label: '🍝 พาสต้า', color: '#B45309' },
 ];
 function moduleNeedsTrack(mid) { return TRACK_MODULES.indexOf(mid) >= 0; }
 let _selectedTrack = '';
 
-/* ── ป้ายสายของข้อสอบ ──────────────────────────────────────────
+/* ── ป้ายหน้างานของข้อสอบ ──────────────────────────────────────
    ข้อสอบชุดพื้นฐานอยู่ในโค้ด แก้ไม่ได้ จึงเก็บป้ายแยกไว้ที่ quizMeta.quizTrack
-   เป็น map uid → 'steak' | 'pasta'   (ไม่มีค่า = ใช้ได้ทั้งสองสาย) */
+   เป็น map uid → 'steak' | 'pasta'   (ไม่มีค่า = ใช้ได้ทั้งสองหน้างาน) */
 function getQuizTrack(uid) { return (DB.quizMeta && DB.quizMeta.quizTrack && DB.quizMeta.quizTrack[uid]) || ''; }
 function setQuizTrack(uid, track, mid) {
   if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
@@ -8072,10 +8075,43 @@ function setQuizTrack(uid, track, mid) {
   if (track) DB.quizMeta.quizTrack[uid] = track;
   else delete DB.quizMeta.quizTrack[uid];
   gsSave('quizMeta', 'singleton', DB.quizMeta);
-  const label = track === 'steak' ? 'สายสเต็ก' : track === 'pasta' ? 'สายพาสต้า' : 'ทั้งสองสาย';
+  const label = track === 'steak' ? 'สเต็ก' : track === 'pasta' ? 'พาสต้า' : 'ทั้งสองหน้างาน';
   notify('ตั้งเป็น ' + label + ' แล้ว');
   if (mid) openQuizListModal(mid, true);
 }
+/* ══════════ ข้อสอบประจำหัวข้อย่อย — Module 4 ครัว ══════════
+   หัวข้อย่อยของ C004 แยกหน้างานอยู่แล้ว (ย่างสเต็ก · เช็คเกอร์สเต็ก · พาสต้า)
+   จึงไม่ต้องเลือกหน้างานตอนบันทึกการสอน แต่ให้ข้อสอบออกตามหัวข้อที่สอนจริง
+   ป้ายเก็บที่ quizMeta.quizSub เป็น map uid → ชื่อหัวข้อย่อย (ไม่มีค่า = ออกทุกหัวข้อ) */
+const SUBTOPIC_QUIZ_MODULES = ['C004'];
+function moduleUsesSubtopicQuiz(mid) { return SUBTOPIC_QUIZ_MODULES.indexOf(mid) >= 0; }
+function getQuizSub(uid) { return (DB.quizMeta && DB.quizMeta.quizSub && DB.quizMeta.quizSub[uid]) || ''; }
+function setQuizSub(uid, sub, mid) {
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  if (!DB.quizMeta.quizSub) DB.quizMeta.quizSub = {};
+  if (sub) DB.quizMeta.quizSub[uid] = sub;
+  else delete DB.quizMeta.quizSub[uid];
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  notify('ตั้งเป็น ' + (sub || 'ออกทุกหัวข้อ') + ' แล้ว');
+  if (mid) openQuizListModal(mid, true);
+}
+function _subPickerHTML(uid, mid) {
+  const cur = getQuizSub(uid);
+  const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
+  const opt = (val, label) => {
+    const on = cur === val;
+    return `<button type="button" onclick="setQuizSub('${uid}','${String(val).replace(/'/g, "\\'")}','${mid}')"
+      style="padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;
+             border:1px solid ${on ? 'transparent' : 'var(--border2)'};
+             background:${on ? '#DBEAFE' : 'var(--surface)'};color:${on ? '#1E40AF' : 'var(--text3)'}">${label}</button>`;
+  };
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
+    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ข้อสอบของหัวข้อ</span>
+    ${opt('', 'ทุกหัวข้อ')}
+    ${subs.map(s => opt(s, s)).join('')}
+  </div>`;
+}
+
 function _trackPickerHTML(uid, mid) {
   const cur = getQuizTrack(uid);
   const opt = (val, label, bg, fg) => {
@@ -8086,8 +8122,8 @@ function _trackPickerHTML(uid, mid) {
              background:${on ? bg : 'var(--surface)'};color:${on ? fg : 'var(--text3)'}">${label}</button>`;
   };
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
-    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ใช้กับสาย</span>
-    ${opt('', 'ทั้งสองสาย', 'var(--surface3)', 'var(--text)')}
+    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ใช้กับหน้างาน</span>
+    ${opt('', 'ทั้งสอง', 'var(--surface3)', 'var(--text)')}
     ${opt('steak', '🥩 สเต็ก', '#FEE2E2', '#991B1B')}
     ${opt('pasta', '🍝 พาสต้า', '#FEF3C7', '#92400E')}
   </div>`;
@@ -8113,7 +8149,7 @@ function updateSubtopics() {
     if (moduleNeedsTrack(moduleId)) {
       trackBox.style.display = '';
       trackBox.innerHTML =
-        `<label class="form-label">เลือกสายงาน <span class="req">*</span>
+        `<label class="form-label">เลือกหน้างาน <span class="req">*</span>
            <span style="font-weight:500;color:var(--text3);font-size:11px">— เนื้อหาสอนเหมือนกัน ต่างกันที่ชุดข้อสอบ</span></label>
          <div style="display:flex;gap:8px;flex-wrap:wrap">` +
         TRACKS.map(t => `<button type="button" class="track-btn" data-track="${t.key}" onclick="selectTrack('${t.key}')"
@@ -10345,11 +10381,18 @@ function openQuiz(trainingId) {
     return;
   }
   // Pull from question pool (admin pre-generates with AI; employee gets random 5)
-  // Module ที่แยกสาย (สเต็ก/พาสต้า) จะได้เฉพาะข้อของสายที่เรียนมา
-  // ข้อที่ยังไม่ได้ติดป้ายสาย ถือว่าใช้ได้ทั้งสองสาย — ของเดิมจึงไม่พัง
+  // Module ที่แยกหน้างาน (สเต็ก/พาสต้า) จะได้เฉพาะข้อของหน้างานที่เรียนมา
+  // ข้อที่ยังไม่ได้ติดป้าย ถือว่าใช้ได้ทั้งสองหน้างาน — ของเดิมจึงไม่พัง
+  // Module 4 ครัว ออกข้อสอบตามหัวข้อย่อยที่สอนในครั้งนั้นแทน (ข้อที่ไม่ติดป้าย = ออกทุกหัวข้อ)
+  const subsTrained = new Set(t.subtopics || []);
   const allQ = getAllQuestionsForModule(t.moduleId)
     .filter(q => isQuizActive(q.uid))
-    .filter(q => !t.track || !q.track || q.track === t.track);
+    .filter(q => !t.track || !q.track || q.track === t.track)
+    .filter(q => {
+      if (!moduleUsesSubtopicQuiz(t.moduleId)) return true;
+      const s = getQuizSub(q.uid);
+      return !s || subsTrained.has(s);
+    });
   if (allQ.length === 0) {
     notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
     return;
@@ -13644,6 +13687,29 @@ function saveQuizMeta() {
   } catch(_) {}
 }
 
+/* สรุปให้เห็นตั้งแต่หัวหน้าจอว่าติดป้ายไปแล้วกี่ข้อ เหลืออีกกี่ข้อ
+   ไม่งั้นต้องไล่เลื่อนดูทีละข้อว่าทำครบหรือยัง */
+function _quizTagSummaryHTML(mid, all) {
+  if (!all.length) return '';
+  const box = (txt) => `<div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;
+    border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.7">${txt}</div>`;
+  if (moduleNeedsTrack(mid)) {
+    const n = k => all.filter(q => getQuizTrack(q.uid) === k).length;
+    const both = all.length - n('steak') - n('pasta');
+    return box(`<b>Module นี้แยกหน้างาน</b> — ติดป้ายให้แต่ละข้อว่าออกกับใคร ข้อที่ไม่ติดป้ายจะออกทั้งสองหน้างาน<br>
+      🥩 สเต็ก <b>${n('steak')}</b> ข้อ · 🍝 พาสต้า <b>${n('pasta')}</b> ข้อ · ยังไม่ติดป้าย <b>${both}</b> ข้อ`);
+  }
+  if (moduleUsesSubtopicQuiz(mid)) {
+    const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
+    const none = all.filter(q => !getQuizSub(q.uid)).length;
+    return box(`<b>Module นี้ออกข้อสอบตามหัวข้อย่อยที่สอน</b> — สอนหัวข้อไหน ก็ได้ข้อสอบของหัวข้อนั้น
+      ข้อที่ไม่ติดป้ายจะออกทุกหัวข้อ<br>` +
+      subs.map(s => `${s} <b>${all.filter(q => getQuizSub(q.uid) === s).length}</b> ข้อ`).join(' · ') +
+      ` · ยังไม่ติดป้าย <b>${none}</b> ข้อ`);
+  }
+  return '';
+}
+
 let _quizListScroll = 0;
 function openQuizListModal(mid, restore) {
   // เปิดใหม่จากการ์ด = เริ่มบนสุด · รีเฟรช (ลบ/แก้/เปิด-ปิด) = คงตำแหน่ง scroll เดิม
@@ -13660,6 +13726,7 @@ function openQuizListModal(mid, restore) {
         <button class="btn btn-sm btn-accent" onclick="openAddQuizChooser('${mid}')">+ เพิ่มคำถาม</button>
       </div>
     </div>
+    ${_quizTagSummaryHTML(mid, all)}
     ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
       <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
       <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
@@ -13685,6 +13752,7 @@ function openQuizListModal(mid, restore) {
           ${['A','B','C','D'].map(k=>`<div style="padding:6px 10px;background:${q.ans===k?'var(--green-light)':'var(--surface2)'};border-radius:6px;color:${q.ans===k?'#1F7A33':'var(--text2)'};font-weight:${q.ans===k?'700':'400'}"><b>${k}.</b> ${q.opts[k]||''}${q.ans===k?' ✓':''}</div>`).join('')}
         </div>
         ${moduleNeedsTrack(mid) ? _trackPickerHTML(q.uid, mid) : ''}
+        ${moduleUsesSubtopicQuiz(mid) ? _subPickerHTML(q.uid, mid) : ''}
       </div>`;}).join('')}
   `, null, 'ปิด');
   // คืนตำแหน่ง scroll + คอยจำตำแหน่งล่าสุด (กันเด้งกลับข้อ 1 ตอนลบ/แก้/เปิด-ปิด)
