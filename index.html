@@ -8095,18 +8095,42 @@ function _writeQuizTags(mid, uid, arr) {
   if (arr.length) DB.quizMeta[f][uid] = arr;
   else delete DB.quizMeta[f][uid];
 }
-/* กดปุ่มช่อง = สลับเข้า/ออกช่องนั้น กดได้หลายช่อง */
+/* กดปุ่มช่อง = สลับเข้า/ออกช่องนั้น กดได้หลายช่อง
+   เก็บสถานะก่อนหน้าไว้หนึ่งครั้ง เผื่อกดผิดจะได้ย้อนกลับได้ */
+let _qzUndo = null;   // { mid, uid, prev: [], text: '' }
 function toggleQuizBox(uid, key, mid) {
   const cur = quizBoxesOf(mid, uid);
+  const prev = cur.slice();
   const i = cur.indexOf(key);
   const inBox = i >= 0;
   if (inBox) cur.splice(i, 1); else cur.push(key);
   _writeQuizTags(mid, uid, cur);
   gsSave('quizMeta', 'singleton', DB.quizMeta);
   const name = key === 'steak' ? 'สเต็ก' : key === 'pasta' ? 'พาสต้า' : key;
-  notify(inBox ? 'เอาออกจากช่อง ' + name + ' แล้ว'
-               : 'ใส่เข้าช่อง ' + name + ' แล้ว' + (cur.length > 1 ? ' (ตอนนี้อยู่ ' + cur.length + ' ช่อง)' : ''));
+  const text = (inBox ? 'เอาออกจากช่อง ' : 'ใส่เข้าช่อง ') + name;
+  _qzUndo = { mid, uid, prev, text };
+  notify(text + ' แล้ว' + (!inBox && cur.length > 1 ? ' (ตอนนี้อยู่ ' + cur.length + ' ช่อง)' : ''));
   if (mid) openQuizListModal(mid, true);
+}
+function _qzUndoMove() {
+  if (!_qzUndo) return;
+  const u = _qzUndo;
+  _writeQuizTags(u.mid, u.uid, u.prev.slice());
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  _qzUndo = null;
+  notify('ย้อนกลับแล้ว');
+  openQuizListModal(u.mid, true);
+}
+function _qzUndoBarHTML(mid) {
+  if (!_qzUndo || _qzUndo.mid !== mid) return '';
+  const q = getAllQuestionsForModule(mid, true).find(x => x.uid === _qzUndo.uid);
+  const short = (q ? q.q.replace(/^\d+[\.\s]+/, '') : '').slice(0, 45);
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;
+              padding:9px 13px;background:var(--surface2);border:1px solid var(--border2);border-radius:9px">
+    <span style="font-size:12.5px;color:var(--text2);flex:1;min-width:0">
+      เพิ่ง<b>${_qzUndo.text}</b>${short ? ' · <span style="color:var(--text3)">' + short + '…</span>' : ''}</span>
+    <button class="btn btn-sm btn-outline" onclick="_qzUndoMove()" style="flex-shrink:0">↩ ย้อนกลับ</button>
+  </div>`;
 }
 
 /* ══════════ ข้อสอบประจำหัวข้อย่อย — Module 4 ครัว ══════════
@@ -13751,7 +13775,7 @@ function _quizTagSummaryHTML(mid, all) {
 let _quizListScroll = 0;
 function openQuizListModal(mid, restore) {
   // เปิดใหม่จากการ์ด = เริ่มบนสุด · รีเฟรช (ลบ/แก้/เปิด-ปิด) = คงตำแหน่ง scroll เดิม
-  if (!restore) _quizListScroll = 0;
+  if (!restore) { _quizListScroll = 0; _qzUndo = null; }   // เปิดใหม่ = ไม่ต้องค้างปุ่มย้อนกลับของครั้งก่อน
   const all = getAllQuestionsForModule(mid);
   const m = MODULES[mid];
   const activeCount = all.filter(q => isQuizActive(q.uid)).length;
@@ -13833,6 +13857,7 @@ function openQuizListModal(mid, restore) {
       </div>
     </div>
     ${_quizTagSummaryHTML(mid, all)}
+    ${_qzUndoBarHTML(mid)}
     ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
       <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
       <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
