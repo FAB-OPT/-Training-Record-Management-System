@@ -8120,7 +8120,6 @@ function quizBoxesFor(mid) {
     return [
       { key: 'steak', label: '🥩 ข้อสอบสเต็ก',  color: '#B91C1C', bg: '#FEE2E2', hint: 'ออกเฉพาะคนที่เรียนหน้างานสเต็ก' },
       { key: 'pasta', label: '🍝 ข้อสอบพาสต้า', color: '#B45309', bg: '#FEF3C7', hint: 'ออกเฉพาะคนที่เรียนหน้างานพาสต้า' },
-      { key: '',      label: '📋 ใช้ได้ทั้งสองหน้างาน', color: '#475569', bg: '#F1F5F9', hint: 'ออกกับทุกคนไม่ว่าเรียนหน้างานไหน' },
     ];
   }
   if (moduleUsesSubtopicQuiz(mid)) {
@@ -8159,7 +8158,6 @@ function _trackPickerHTML(uid, mid) {
   };
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
     <span style="font-size:11.5px;color:var(--text3);font-weight:600">ย้ายไปช่อง</span>
-    ${opt('', 'ทั้งสองหน้างาน', 'var(--surface3)', 'var(--text)')}
     ${opt('steak', '🥩 สเต็ก', '#FEE2E2', '#991B1B')}
     ${opt('pasta', '🍝 พาสต้า', '#FEF3C7', '#92400E')}
   </div>`;
@@ -13777,7 +13775,21 @@ function openQuizListModal(mid, restore) {
     ? '<p class="text-muted" style="text-align:center;padding:20px">ยังไม่มีคำถาม</p>'
     : !boxes
       ? all.map(card).join('')
-      : boxes.map(b => {
+      : (() => {
+        /* ข้อที่ยังไม่ได้จัดเข้าช่องไหน (เช่นข้อชุดเริ่มต้นที่ยังไม่เคยแตะ)
+           โผล่เป็นช่องพักไว้ก่อน จะได้ไม่หายไปจากหน้าจอ พอจัดครบช่องนี้ก็หายไปเอง */
+        const keys = new Set(boxes.map(b => b.key));
+        const left = all.filter(q => !keys.has(quizBoxOf(mid, q.uid)));
+        const pending = !left.length ? '' : `
+          <div style="border:1.5px solid #F59E0B55;border-radius:13px;margin-bottom:16px;overflow:hidden">
+            <div style="padding:11px 14px;background:#FEF3C7;border-bottom:1px solid #F59E0B33">
+              <div style="font-size:14px;font-weight:800;color:#92400E">⚠️ ยังไม่ได้จัดช่อง
+                <span style="font-weight:700;font-size:12.5px">· ${left.length} ข้อ</span></div>
+              <div style="font-size:11.5px;color:#92400ECC;margin-top:2px">ตอนนี้ยังออกกับทุกคน — กดปุ่มใต้แต่ละข้อเพื่อย้ายเข้าช่อง</div>
+            </div>
+            <div style="padding:12px 12px 2px">${left.map(card).join('')}</div>
+          </div>`;
+        return boxes.map(b => {
           const qs = all.filter(q => quizBoxOf(mid, q.uid) === b.key);
           const on = qs.filter(q => isQuizActive(q.uid)).length;
           return `
@@ -13797,7 +13809,8 @@ function openQuizListModal(mid, restore) {
                 : `<p class="text-muted" style="text-align:center;padding:14px 8px;font-size:12.5px">ยังไม่มีข้อสอบในช่องนี้</p>`}
             </div>
           </div>`;
-        }).join('');
+        }).join('') + pending;
+      })();
 
   showModal(`จัดการคำถาม · ${m.name}`, `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px;flex-wrap:wrap">
