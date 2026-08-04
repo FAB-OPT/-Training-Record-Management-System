@@ -8065,50 +8065,71 @@ const TRACKS = [
 function moduleNeedsTrack(mid) { return TRACK_MODULES.indexOf(mid) >= 0; }
 let _selectedTrack = '';
 
-/* ── ป้ายหน้างานของข้อสอบ ──────────────────────────────────────
-   ข้อสอบชุดพื้นฐานอยู่ในโค้ด แก้ไม่ได้ จึงเก็บป้ายแยกไว้ที่ quizMeta.quizTrack
-   เป็น map uid → 'steak' | 'pasta'   (ไม่มีค่า = ใช้ได้ทั้งสองหน้างาน) */
-function getQuizTrack(uid) { return (DB.quizMeta && DB.quizMeta.quizTrack && DB.quizMeta.quizTrack[uid]) || ''; }
-function setQuizTrack(uid, track, mid) {
+/* ── ป้ายช่องของข้อสอบ ─────────────────────────────────────────
+   ข้อสอบชุดพื้นฐานอยู่ในโค้ด แก้ไม่ได้ จึงเก็บป้ายแยกไว้ที่ quizMeta
+     quizTrack — หน้างานของ Module 3 ครัว   uid → ['steak','pasta']
+     quizSub   — หัวข้อย่อยของ Module 4 ครัว uid → ['4.1 …','4.3 …']
+
+   หนึ่งข้ออยู่ได้หลายช่องพร้อมกัน — ข้อที่ใช้ได้ทั้งสเต็กและพาสต้า
+   ก็กดทั้งสองปุ่ม แล้วมันจะไปโผล่ทั้งสองช่อง ไม่ใช่ย้ายไปมา
+   ไม่ได้อยู่ช่องไหนเลย = ออกกับทุกคน (ของเดิมที่ยังไม่เคยจัดจึงไม่พัง)
+
+   เก็บเป็น array แต่ของเดิมเป็นข้อความเดี่ยว จึงต้องอ่านรองรับทั้งสองแบบ */
+function _quizTagArr(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter(Boolean);
+  return String(v).split('|').map(s => s.trim()).filter(Boolean);
+}
+function quizTagField(mid) {
+  return moduleNeedsTrack(mid) ? 'quizTrack' : moduleUsesSubtopicQuiz(mid) ? 'quizSub' : null;
+}
+/* ข้อนี้อยู่ช่องไหนบ้าง */
+function quizBoxesOf(mid, uid) {
+  const f = quizTagField(mid);
+  return f ? _quizTagArr(DB.quizMeta && DB.quizMeta[f] && DB.quizMeta[f][uid]) : [];
+}
+function _writeQuizTags(mid, uid, arr) {
+  const f = quizTagField(mid); if (!f) return;
   if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
-  if (!DB.quizMeta.quizTrack) DB.quizMeta.quizTrack = {};
-  if (track) DB.quizMeta.quizTrack[uid] = track;
-  else delete DB.quizMeta.quizTrack[uid];
+  if (!DB.quizMeta[f]) DB.quizMeta[f] = {};
+  if (arr.length) DB.quizMeta[f][uid] = arr;
+  else delete DB.quizMeta[f][uid];
+}
+/* กดปุ่มช่อง = สลับเข้า/ออกช่องนั้น กดได้หลายช่อง */
+function toggleQuizBox(uid, key, mid) {
+  const cur = quizBoxesOf(mid, uid);
+  const i = cur.indexOf(key);
+  const inBox = i >= 0;
+  if (inBox) cur.splice(i, 1); else cur.push(key);
+  _writeQuizTags(mid, uid, cur);
   gsSave('quizMeta', 'singleton', DB.quizMeta);
-  const label = track === 'steak' ? 'สเต็ก' : track === 'pasta' ? 'พาสต้า' : 'ทั้งสองหน้างาน';
-  notify('ย้ายไปช่อง ' + label + ' แล้ว');
+  const name = key === 'steak' ? 'สเต็ก' : key === 'pasta' ? 'พาสต้า' : key;
+  notify(inBox ? 'เอาออกจากช่อง ' + name + ' แล้ว'
+               : 'ใส่เข้าช่อง ' + name + ' แล้ว' + (cur.length > 1 ? ' (ตอนนี้อยู่ ' + cur.length + ' ช่อง)' : ''));
   if (mid) openQuizListModal(mid, true);
 }
+
 /* ══════════ ข้อสอบประจำหัวข้อย่อย — Module 4 ครัว ══════════
    หัวข้อย่อยของ C004 แยกหน้างานอยู่แล้ว (ย่างสเต็ก · เช็คเกอร์สเต็ก · พาสต้า)
-   จึงไม่ต้องเลือกหน้างานตอนบันทึกการสอน แต่ให้ข้อสอบออกตามหัวข้อที่สอนจริง
-   ป้ายเก็บที่ quizMeta.quizSub เป็น map uid → ชื่อหัวข้อย่อย (ไม่มีค่า = ออกทุกหัวข้อ) */
+   จึงไม่ต้องเลือกหน้างานตอนบันทึกการสอน แต่ให้ข้อสอบออกตามหัวข้อที่สอนจริง */
 const SUBTOPIC_QUIZ_MODULES = ['C004'];
 function moduleUsesSubtopicQuiz(mid) { return SUBTOPIC_QUIZ_MODULES.indexOf(mid) >= 0; }
-function getQuizSub(uid) { return (DB.quizMeta && DB.quizMeta.quizSub && DB.quizMeta.quizSub[uid]) || ''; }
-function setQuizSub(uid, sub, mid) {
-  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
-  if (!DB.quizMeta.quizSub) DB.quizMeta.quizSub = {};
-  if (sub) DB.quizMeta.quizSub[uid] = sub;
-  else delete DB.quizMeta.quizSub[uid];
-  gsSave('quizMeta', 'singleton', DB.quizMeta);
-  notify('ย้ายไปช่อง ' + (sub || 'ออกทุกหัวข้อ') + ' แล้ว');
-  if (mid) openQuizListModal(mid, true);
-}
-function _subPickerHTML(uid, mid) {
-  const cur = getQuizSub(uid);
-  const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
-  const opt = (val, label) => {
-    const on = cur === val;
-    return `<button type="button" onclick="setQuizSub('${uid}','${String(val).replace(/'/g, "\\'")}','${mid}')"
+
+function _boxPickerHTML(uid, mid) {
+  const boxes = quizBoxesFor(mid); if (!boxes) return '';
+  const cur = quizBoxesOf(mid, uid);
+  const btn = b => {
+    const on = cur.indexOf(b.key) >= 0;
+    return `<button type="button" onclick="toggleQuizBox('${uid}','${String(b.key).replace(/'/g, "\\'")}','${mid}')"
+      title="${on ? 'กดอีกครั้งเพื่อเอาออกจากช่องนี้' : 'กดเพื่อใส่เข้าช่องนี้'}"
       style="padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;
              border:1px solid ${on ? 'transparent' : 'var(--border2)'};
-             background:${on ? '#DBEAFE' : 'var(--surface)'};color:${on ? '#1E40AF' : 'var(--text3)'}">${label}</button>`;
+             background:${on ? b.bg : 'var(--surface)'};color:${on ? b.color : 'var(--text3)'}">${on ? '✓ ' : ''}${b.short || b.label}</button>`;
   };
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
-    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ย้ายไปช่อง</span>
-    ${opt('', 'ออกทุกหัวข้อ')}
-    ${subs.map(s => opt(s, s)).join('')}
+    <span style="font-size:11.5px;color:var(--text3);font-weight:600">อยู่ในช่อง</span>
+    ${boxes.filter(b => b.key).map(btn).join('')}
+    ${cur.length > 1 ? '<span style="font-size:11px;color:var(--text3)">— ข้อนี้ออกทั้ง ' + cur.length + ' ช่อง</span>' : ''}
   </div>`;
 }
 
@@ -8118,49 +8139,32 @@ function _subPickerHTML(uid, mid) {
 function quizBoxesFor(mid) {
   if (moduleNeedsTrack(mid)) {
     return [
-      { key: 'steak', label: '🥩 ข้อสอบสเต็ก',  color: '#B91C1C', bg: '#FEE2E2', hint: 'ออกเฉพาะคนที่เรียนหน้างานสเต็ก' },
-      { key: 'pasta', label: '🍝 ข้อสอบพาสต้า', color: '#B45309', bg: '#FEF3C7', hint: 'ออกเฉพาะคนที่เรียนหน้างานพาสต้า' },
+      { key: 'steak', label: '🥩 ข้อสอบสเต็ก',  short: '🥩 สเต็ก',  color: '#B91C1C', bg: '#FEE2E2', hint: 'ออกกับคนที่เรียนหน้างานสเต็ก' },
+      { key: 'pasta', label: '🍝 ข้อสอบพาสต้า', short: '🍝 พาสต้า', color: '#B45309', bg: '#FEF3C7', hint: 'ออกกับคนที่เรียนหน้างานพาสต้า' },
     ];
   }
   if (moduleUsesSubtopicQuiz(mid)) {
     const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
-    return subs.map(s => ({ key: s, label: '📌 ' + s, color: '#1E40AF', bg: '#DBEAFE', hint: 'ออกเฉพาะครั้งที่สอนหัวข้อนี้' }))
-      .concat([{ key: '', label: '📋 ออกทุกหัวข้อ', color: '#475569', bg: '#F1F5F9', hint: 'ออกทุกครั้งไม่ว่าสอนหัวข้อไหน' }]);
+    return subs.map(s => ({ key: s, label: '📌 ' + s, short: s, color: '#1E40AF', bg: '#DBEAFE', hint: 'ออกกับครั้งที่สอนหัวข้อนี้' }))
+      .concat([{ key: '', label: '📋 ออกทุกหัวข้อ', color: '#475569', bg: '#F1F5F9', hint: 'ไม่ได้จัดเข้าหัวข้อไหน จึงออกทุกครั้ง' }]);
   }
   return null;
 }
-function quizBoxOf(mid, uid) {
-  return moduleNeedsTrack(mid) ? getQuizTrack(uid) : moduleUsesSubtopicQuiz(mid) ? getQuizSub(uid) : '';
+/* ข้อนี้อยู่ในช่องนี้ไหม — ช่องที่ key ว่าง คือช่องรวมของข้อที่ยังไม่ได้จัดเข้าช่องไหนเลย */
+function quizInBox(mid, uid, key) {
+  const cur = quizBoxesOf(mid, uid);
+  return key ? cur.indexOf(key) >= 0 : cur.length === 0;
 }
 
-/* ข้อที่เพิ่มใหม่จากในช่องไหน ให้เข้าช่องนั้นเลย ไม่ต้องมาติดป้ายทีหลัง */
+/* ข้อที่เพิ่มใหม่จากในช่องไหน ให้เข้าช่องนั้นเลย ไม่ต้องมาจัดทีหลัง */
 let _qzAddBox = null;   // { mid, key }
 function _qzOpenAddIn(mid, key) { _qzAddBox = { mid, key }; openAddQuizChooser(mid); }
 function _qzTagNew(mid, uids) {
   if (!_qzAddBox || _qzAddBox.mid !== mid || !_qzAddBox.key || !uids.length) { _qzAddBox = null; return; }
-  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
-  const field = moduleNeedsTrack(mid) ? 'quizTrack' : moduleUsesSubtopicQuiz(mid) ? 'quizSub' : null;
-  if (!field) { _qzAddBox = null; return; }
-  if (!DB.quizMeta[field]) DB.quizMeta[field] = {};
-  uids.forEach(u => { DB.quizMeta[field][u] = _qzAddBox.key; });
+  if (!quizTagField(mid)) { _qzAddBox = null; return; }
+  uids.forEach(u => _writeQuizTags(mid, u, [_qzAddBox.key]));
   gsSave('quizMeta', 'singleton', DB.quizMeta);
   _qzAddBox = null;
-}
-
-function _trackPickerHTML(uid, mid) {
-  const cur = getQuizTrack(uid);
-  const opt = (val, label, bg, fg) => {
-    const on = cur === val;
-    return `<button type="button" onclick="setQuizTrack('${uid}','${val}','${mid}')"
-      style="padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;
-             border:1px solid ${on ? 'transparent' : 'var(--border2)'};
-             background:${on ? bg : 'var(--surface)'};color:${on ? fg : 'var(--text3)'}">${label}</button>`;
-  };
-  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
-    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ย้ายไปช่อง</span>
-    ${opt('steak', '🥩 สเต็ก', '#FEE2E2', '#991B1B')}
-    ${opt('pasta', '🍝 พาสต้า', '#FEF3C7', '#92400E')}
-  </div>`;
 }
 
 function selectTrack(key) {
@@ -10415,17 +10419,20 @@ function openQuiz(trainingId) {
     return;
   }
   // Pull from question pool (admin pre-generates with AI; employee gets random 5)
-  // Module ที่แยกหน้างาน (สเต็ก/พาสต้า) จะได้เฉพาะข้อของหน้างานที่เรียนมา
-  // ข้อที่ยังไม่ได้ติดป้าย ถือว่าใช้ได้ทั้งสองหน้างาน — ของเดิมจึงไม่พัง
-  // Module 4 ครัว ออกข้อสอบตามหัวข้อย่อยที่สอนในครั้งนั้นแทน (ข้อที่ไม่ติดป้าย = ออกทุกหัวข้อ)
+  // Module ที่แยกช่อง จะได้เฉพาะข้อในช่องที่ตรงกับที่เรียนมา
+  //   Module 3 ครัว — ช่องหน้างานสเต็ก/พาสต้า ตามที่เลือกตอนบันทึกการสอน
+  //   Module 4 ครัว — ช่องหัวข้อย่อยที่สอนจริงในครั้งนั้น
+  // ข้อหนึ่งอยู่ได้หลายช่อง ขอแค่ช่องใดช่องหนึ่งตรงก็ออก
+  // ข้อที่ยังไม่ได้จัดเข้าช่องไหนเลย ถือว่าออกกับทุกคน — ของเดิมจึงไม่พัง
   const subsTrained = new Set(t.subtopics || []);
   const allQ = getAllQuestionsForModule(t.moduleId)
     .filter(q => isQuizActive(q.uid))
-    .filter(q => !t.track || !q.track || q.track === t.track)
     .filter(q => {
-      if (!moduleUsesSubtopicQuiz(t.moduleId)) return true;
-      const s = getQuizSub(q.uid);
-      return !s || subsTrained.has(s);
+      const boxes = quizBoxesOf(t.moduleId, q.uid);
+      if (!boxes.length) return true;
+      if (moduleNeedsTrack(t.moduleId)) return !t.track || boxes.indexOf(t.track) >= 0;
+      if (moduleUsesSubtopicQuiz(t.moduleId)) return boxes.some(s => subsTrained.has(s));
+      return true;
     });
   if (allQ.length === 0) {
     notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
@@ -13625,7 +13632,7 @@ function getAllQuestionsForModule(mid, includeDeleted) {
   const groupKey = MODULES[mid]?.quizGroup;
   const pool = (groupKey ? (QUIZ_BANK_POOL[groupKey] || []) : []).map((q, i) => ({...q, source:'pool', uid: `pool_${groupKey}_${i}`}));
   const custom = DB.customQuiz.filter(q => q.moduleId === mid).map(q => ({...q, source:'custom', uid: q.id}));
-  const all = [...base, ...pool, ...custom].map(q => ({ ...q, track: getQuizTrack(q.uid) || q.track || '' }));
+  const all = [...base, ...pool, ...custom];
   if (includeDeleted) return all;
   const deleted = new Set(DB.quizMeta?.deleted || []);
   return all.filter(q => !deleted.has(q.uid));
@@ -13665,9 +13672,11 @@ function _doDeleteQuizQuestion(uid, source, mid, refresh) {
 
 // ══════════ ลบข้อสอบหลายข้อ (ติ๊กเลือก) / ลบทั้งหมด ══════════
 function _qzToggleAll(mid, on) { document.querySelectorAll('.qz-chk').forEach(c => c.checked = on); _updQzSel(mid); }
-function _updQzSel(mid) {
-  const total = document.querySelectorAll('.qz-chk').length;
-  const sel = document.querySelectorAll('.qz-chk:checked').length;
+function _updQzSel(mid, el) {
+  // ข้อเดียวอาจโผล่หลายช่อง (ช่องละกล่อง) — ติ๊กที่หนึ่ง ให้ติ๊กตามกันทุกที่ และนับเป็นข้อเดียว
+  if (el) document.querySelectorAll('.qz-chk').forEach(c => { if (c.value === el.value) c.checked = el.checked; });
+  const total = new Set(Array.from(document.querySelectorAll('.qz-chk')).map(c => c.value)).size;
+  const sel = new Set(Array.from(document.querySelectorAll('.qz-chk:checked')).map(c => c.value)).size;
   const btn = document.getElementById('qz-delsel');
   if (btn) { btn.disabled = sel === 0; btn.textContent = `🗑 ลบที่เลือก (${sel})`; }
   const selall = document.getElementById('qz-selall');
@@ -13689,7 +13698,10 @@ function _bulkDeleteQuiz(mid, items) {
   if (metaChanged) saveQuizMeta();
 }
 function _qzDeleteSelected(mid) {
-  const items = Array.from(document.querySelectorAll('.qz-chk:checked')).map(c => ({ uid: c.value, source: c.getAttribute('data-src') }));
+  const seen = new Set();
+  const items = Array.from(document.querySelectorAll('.qz-chk:checked'))
+    .map(c => ({ uid: c.value, source: c.getAttribute('data-src') }))
+    .filter(x => !seen.has(x.uid) && seen.add(x.uid));   // ข้อที่โผล่หลายช่อง นับครั้งเดียว
   if (!items.length) { notify('ยังไม่ได้เลือกข้อสอบ', 'error'); return; }
   showConfirm(`ลบข้อสอบที่เลือก <b>${items.length}</b> ข้อ?`, () => {
     _bulkDeleteQuiz(mid, items);
@@ -13727,11 +13739,12 @@ function _quizTagSummaryHTML(mid, all) {
   const box = (txt) => `<div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;
     border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.65">${txt}</div>`;
   if (moduleNeedsTrack(mid))
-    return box(`<b>Module นี้แยกช่องตามหน้างาน</b> — ข้อไหนอยู่ช่องไหน ก็ออกกับคนที่เรียนหน้างานนั้น
-      เพิ่มข้อใหม่ให้กดปุ่มในช่องที่ต้องการ ย้ายข้ามช่องได้ที่ปุ่มใต้แต่ละข้อ`);
+    return box(`<b>Module นี้แยกช่องตามหน้างาน</b> — ข้ออยู่ช่องไหน ก็ออกกับคนที่เรียนหน้างานนั้น<br>
+      <b>ข้อเดียวอยู่ได้หลายช่อง</b> — ข้อที่ใช้ได้ทั้งสเต็กและพาสต้า กดทั้งสองปุ่ม เดี๋ยวไปโผล่ทั้งสองช่อง
+      กดปุ่มเดิมซ้ำ = เอาออกจากช่องนั้น`);
   if (moduleUsesSubtopicQuiz(mid))
-    return box(`<b>Module นี้แยกช่องตามหัวข้อย่อย</b> — สอนหัวข้อไหน ก็ได้ข้อสอบจากช่องนั้น
-      เพิ่มข้อใหม่ให้กดปุ่มในช่องที่ต้องการ ย้ายข้ามช่องได้ที่ปุ่มใต้แต่ละข้อ`);
+    return box(`<b>Module นี้แยกช่องตามหัวข้อย่อย</b> — สอนหัวข้อไหน ก็ได้ข้อสอบจากช่องนั้น<br>
+      <b>ข้อเดียวอยู่ได้หลายช่อง</b> — ข้อที่ใช้กับหลายหัวข้อ กดหลายปุ่มได้เลย กดปุ่มเดิมซ้ำ = เอาออกจากช่องนั้น`);
   return '';
 }
 
@@ -13751,7 +13764,7 @@ function openQuizListModal(mid, restore) {
       <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface);opacity:${active?1:0.55}">
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;align-items:flex-start">
           <div style="display:flex;gap:8px;flex:1;align-items:flex-start;min-width:0">
-            <input type="checkbox" class="qz-chk" value="${q.uid}" data-src="${q.source}" onchange="_updQzSel('${mid}')" style="margin-top:3px;flex-shrink:0">
+            <input type="checkbox" class="qz-chk" value="${q.uid}" data-src="${q.source}" onchange="_updQzSel('${mid}',this)" style="margin-top:3px;flex-shrink:0">
             <div style="font-size:13.5px;font-weight:700;color:var(--text)">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
@@ -13764,8 +13777,7 @@ function openQuizListModal(mid, restore) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px">
           ${['A','B','C','D'].map(k=>`<div style="padding:6px 10px;background:${q.ans===k?'var(--green-light)':'var(--surface2)'};border-radius:6px;color:${q.ans===k?'#1F7A33':'var(--text2)'};font-weight:${q.ans===k?'700':'400'}"><b>${k}.</b> ${q.opts[k]||''}${q.ans===k?' ✓':''}</div>`).join('')}
         </div>
-        ${moduleNeedsTrack(mid) ? _trackPickerHTML(q.uid, mid) : ''}
-        ${moduleUsesSubtopicQuiz(mid) ? _subPickerHTML(q.uid, mid) : ''}
+        ${boxes ? _boxPickerHTML(q.uid, mid) : ''}
       </div>`;
   };
 
@@ -13778,19 +13790,19 @@ function openQuizListModal(mid, restore) {
       : (() => {
         /* ข้อที่ยังไม่ได้จัดเข้าช่องไหน (เช่นข้อชุดเริ่มต้นที่ยังไม่เคยแตะ)
            โผล่เป็นช่องพักไว้ก่อน จะได้ไม่หายไปจากหน้าจอ พอจัดครบช่องนี้ก็หายไปเอง */
-        const keys = new Set(boxes.map(b => b.key));
-        const left = all.filter(q => !keys.has(quizBoxOf(mid, q.uid)));
+        const hasCatchAll = boxes.some(b => !b.key);
+        const left = hasCatchAll ? [] : all.filter(q => !quizBoxesOf(mid, q.uid).length);
         const pending = !left.length ? '' : `
           <div style="border:1.5px solid #F59E0B55;border-radius:13px;margin-bottom:16px;overflow:hidden">
             <div style="padding:11px 14px;background:#FEF3C7;border-bottom:1px solid #F59E0B33">
               <div style="font-size:14px;font-weight:800;color:#92400E">⚠️ ยังไม่ได้จัดช่อง
                 <span style="font-weight:700;font-size:12.5px">· ${left.length} ข้อ</span></div>
-              <div style="font-size:11.5px;color:#92400ECC;margin-top:2px">ตอนนี้ยังออกกับทุกคน — กดปุ่มใต้แต่ละข้อเพื่อย้ายเข้าช่อง</div>
+              <div style="font-size:11.5px;color:#92400ECC;margin-top:2px">ตอนนี้ยังออกกับทุกคน — กดปุ่มใต้แต่ละข้อเพื่อใส่เข้าช่อง (ใส่ได้มากกว่าหนึ่งช่อง)</div>
             </div>
             <div style="padding:12px 12px 2px">${left.map(card).join('')}</div>
           </div>`;
         return boxes.map(b => {
-          const qs = all.filter(q => quizBoxOf(mid, q.uid) === b.key);
+          const qs = all.filter(q => quizInBox(mid, q.uid, b.key));
           const on = qs.filter(q => isQuizActive(q.uid)).length;
           return `
           <div style="border:1.5px solid ${b.color}33;border-radius:13px;margin-bottom:16px;overflow:hidden">
@@ -14121,13 +14133,8 @@ function openEditQuizModal(uid, source, mid) {
       DB.customQuiz.push(fork);
       gsSave('customQuiz', fork.id, fork);
       if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
-      // ข้อเดิมอยู่ช่องไหน ข้อที่แก้แล้วต้องอยู่ช่องนั้น ไม่งั้นแก้ทีเดียวหลุดออกจากช่อง
-      const _box = quizBoxOf(mid, uid);
-      if (_box) {
-        const f = moduleNeedsTrack(mid) ? 'quizTrack' : 'quizSub';
-        if (!DB.quizMeta[f]) DB.quizMeta[f] = {};
-        DB.quizMeta[f][fork.id] = _box;
-      }
+      // ข้อเดิมอยู่ช่องไหนบ้าง ข้อที่แก้แล้วต้องอยู่ช่องเดียวกัน ไม่งั้นแก้ทีเดียวหลุดออกจากช่อง
+      _writeQuizTags(mid, fork.id, quizBoxesOf(mid, uid));
       DB.quizMeta.deleted = DB.quizMeta.deleted || [];
       if (!DB.quizMeta.deleted.includes(uid)) DB.quizMeta.deleted.push(uid);
       saveQuizMeta();
