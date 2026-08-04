@@ -8076,7 +8076,7 @@ function setQuizTrack(uid, track, mid) {
   else delete DB.quizMeta.quizTrack[uid];
   gsSave('quizMeta', 'singleton', DB.quizMeta);
   const label = track === 'steak' ? 'สเต็ก' : track === 'pasta' ? 'พาสต้า' : 'ทั้งสองหน้างาน';
-  notify('ตั้งเป็น ' + label + ' แล้ว');
+  notify('ย้ายไปช่อง ' + label + ' แล้ว');
   if (mid) openQuizListModal(mid, true);
 }
 /* ══════════ ข้อสอบประจำหัวข้อย่อย — Module 4 ครัว ══════════
@@ -8092,7 +8092,7 @@ function setQuizSub(uid, sub, mid) {
   if (sub) DB.quizMeta.quizSub[uid] = sub;
   else delete DB.quizMeta.quizSub[uid];
   gsSave('quizMeta', 'singleton', DB.quizMeta);
-  notify('ตั้งเป็น ' + (sub || 'ออกทุกหัวข้อ') + ' แล้ว');
+  notify('ย้ายไปช่อง ' + (sub || 'ออกทุกหัวข้อ') + ' แล้ว');
   if (mid) openQuizListModal(mid, true);
 }
 function _subPickerHTML(uid, mid) {
@@ -8106,10 +8106,46 @@ function _subPickerHTML(uid, mid) {
              background:${on ? '#DBEAFE' : 'var(--surface)'};color:${on ? '#1E40AF' : 'var(--text3)'}">${label}</button>`;
   };
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
-    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ข้อสอบของหัวข้อ</span>
-    ${opt('', 'ทุกหัวข้อ')}
+    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ย้ายไปช่อง</span>
+    ${opt('', 'ออกทุกหัวข้อ')}
     ${subs.map(s => opt(s, s)).join('')}
   </div>`;
+}
+
+/* ══════════ ช่องข้อสอบ — แบ่งเป็นช่องแยกในหน้าจัดการข้อสอบ ══════════
+   Module 3 ครัว แยกตามหน้างาน · Module 4 ครัว แยกตามหัวข้อย่อย
+   Module อื่นไม่มีช่อง แสดงเป็นรายการเดียวเหมือนเดิม */
+function quizBoxesFor(mid) {
+  if (moduleNeedsTrack(mid)) {
+    return [
+      { key: 'steak', label: '🥩 ข้อสอบสเต็ก',  color: '#B91C1C', bg: '#FEE2E2', hint: 'ออกเฉพาะคนที่เรียนหน้างานสเต็ก' },
+      { key: 'pasta', label: '🍝 ข้อสอบพาสต้า', color: '#B45309', bg: '#FEF3C7', hint: 'ออกเฉพาะคนที่เรียนหน้างานพาสต้า' },
+      { key: '',      label: '📋 ใช้ได้ทั้งสองหน้างาน', color: '#475569', bg: '#F1F5F9', hint: 'ออกกับทุกคนไม่ว่าเรียนหน้างานไหน' },
+    ];
+  }
+  if (moduleUsesSubtopicQuiz(mid)) {
+    const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
+    return subs.map(s => ({ key: s, label: '📌 ' + s, color: '#1E40AF', bg: '#DBEAFE', hint: 'ออกเฉพาะครั้งที่สอนหัวข้อนี้' }))
+      .concat([{ key: '', label: '📋 ออกทุกหัวข้อ', color: '#475569', bg: '#F1F5F9', hint: 'ออกทุกครั้งไม่ว่าสอนหัวข้อไหน' }]);
+  }
+  return null;
+}
+function quizBoxOf(mid, uid) {
+  return moduleNeedsTrack(mid) ? getQuizTrack(uid) : moduleUsesSubtopicQuiz(mid) ? getQuizSub(uid) : '';
+}
+
+/* ข้อที่เพิ่มใหม่จากในช่องไหน ให้เข้าช่องนั้นเลย ไม่ต้องมาติดป้ายทีหลัง */
+let _qzAddBox = null;   // { mid, key }
+function _qzOpenAddIn(mid, key) { _qzAddBox = { mid, key }; openAddQuizChooser(mid); }
+function _qzTagNew(mid, uids) {
+  if (!_qzAddBox || _qzAddBox.mid !== mid || !_qzAddBox.key || !uids.length) { _qzAddBox = null; return; }
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  const field = moduleNeedsTrack(mid) ? 'quizTrack' : moduleUsesSubtopicQuiz(mid) ? 'quizSub' : null;
+  if (!field) { _qzAddBox = null; return; }
+  if (!DB.quizMeta[field]) DB.quizMeta[field] = {};
+  uids.forEach(u => { DB.quizMeta[field][u] = _qzAddBox.key; });
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  _qzAddBox = null;
 }
 
 function _trackPickerHTML(uid, mid) {
@@ -8122,8 +8158,8 @@ function _trackPickerHTML(uid, mid) {
              background:${on ? bg : 'var(--surface)'};color:${on ? fg : 'var(--text3)'}">${label}</button>`;
   };
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)">
-    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ใช้กับหน้างาน</span>
-    ${opt('', 'ทั้งสอง', 'var(--surface3)', 'var(--text)')}
+    <span style="font-size:11.5px;color:var(--text3);font-weight:600">ย้ายไปช่อง</span>
+    ${opt('', 'ทั้งสองหน้างาน', 'var(--surface3)', 'var(--text)')}
     ${opt('steak', '🥩 สเต็ก', '#FEE2E2', '#991B1B')}
     ${opt('pasta', '🍝 พาสต้า', '#FEF3C7', '#92400E')}
   </div>`;
@@ -13687,26 +13723,17 @@ function saveQuizMeta() {
   } catch(_) {}
 }
 
-/* สรุปให้เห็นตั้งแต่หัวหน้าจอว่าติดป้ายไปแล้วกี่ข้อ เหลืออีกกี่ข้อ
-   ไม่งั้นต้องไล่เลื่อนดูทีละข้อว่าทำครบหรือยัง */
+/* บอกวิธีใช้ช่องสั้น ๆ ไว้หัวหน้าจอ ส่วนจำนวนข้อดูที่หัวช่องแต่ละช่องได้เลย */
 function _quizTagSummaryHTML(mid, all) {
   if (!all.length) return '';
   const box = (txt) => `<div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;
-    border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.7">${txt}</div>`;
-  if (moduleNeedsTrack(mid)) {
-    const n = k => all.filter(q => getQuizTrack(q.uid) === k).length;
-    const both = all.length - n('steak') - n('pasta');
-    return box(`<b>Module นี้แยกหน้างาน</b> — ติดป้ายให้แต่ละข้อว่าออกกับใคร ข้อที่ไม่ติดป้ายจะออกทั้งสองหน้างาน<br>
-      🥩 สเต็ก <b>${n('steak')}</b> ข้อ · 🍝 พาสต้า <b>${n('pasta')}</b> ข้อ · ยังไม่ติดป้าย <b>${both}</b> ข้อ`);
-  }
-  if (moduleUsesSubtopicQuiz(mid)) {
-    const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
-    const none = all.filter(q => !getQuizSub(q.uid)).length;
-    return box(`<b>Module นี้ออกข้อสอบตามหัวข้อย่อยที่สอน</b> — สอนหัวข้อไหน ก็ได้ข้อสอบของหัวข้อนั้น
-      ข้อที่ไม่ติดป้ายจะออกทุกหัวข้อ<br>` +
-      subs.map(s => `${s} <b>${all.filter(q => getQuizSub(q.uid) === s).length}</b> ข้อ`).join(' · ') +
-      ` · ยังไม่ติดป้าย <b>${none}</b> ข้อ`);
-  }
+    border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.65">${txt}</div>`;
+  if (moduleNeedsTrack(mid))
+    return box(`<b>Module นี้แยกช่องตามหน้างาน</b> — ข้อไหนอยู่ช่องไหน ก็ออกกับคนที่เรียนหน้างานนั้น
+      เพิ่มข้อใหม่ให้กดปุ่มในช่องที่ต้องการ ย้ายข้ามช่องได้ที่ปุ่มใต้แต่ละข้อ`);
+  if (moduleUsesSubtopicQuiz(mid))
+    return box(`<b>Module นี้แยกช่องตามหัวข้อย่อย</b> — สอนหัวข้อไหน ก็ได้ข้อสอบจากช่องนั้น
+      เพิ่มข้อใหม่ให้กดปุ่มในช่องที่ต้องการ ย้ายข้ามช่องได้ที่ปุ่มใต้แต่ละข้อ`);
   return '';
 }
 
@@ -13718,23 +13745,11 @@ function openQuizListModal(mid, restore) {
   const m = MODULES[mid];
   const activeCount = all.filter(q => isQuizActive(q.uid)).length;
   const srcBadge = { base: '<span class="badge badge-gray">เริ่มต้น</span>', pool: '<span class="badge badge-blue">กลุ่ม</span>', custom: '<span class="badge badge-green">เพิ่มเอง</span>' };
-  showModal(`จัดการคำถาม · ${m.name}`, `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px;flex-wrap:wrap">
-      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
-        <button class="btn btn-sm btn-accent" onclick="openAddQuizChooser('${mid}')">+ เพิ่มคำถาม</button>
-      </div>
-    </div>
-    ${_quizTagSummaryHTML(mid, all)}
-    ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
-      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
-      <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
-      <button class="btn btn-sm btn-outline" onclick="_qzDeleteAll('${mid}')" style="margin-left:auto;color:#DC2626;border-color:#DC2626">🗑 ลบทั้งหมด</button>
-    </div>`:''}
-    ${all.length===0?'<p class="text-muted" style="text-align:center;padding:20px">ยังไม่มีคำถาม</p>':all.map((q,i)=>{
-      const active = isQuizActive(q.uid);
-      return `
+  const boxes = quizBoxesFor(mid);
+
+  const card = (q, i) => {
+    const active = isQuizActive(q.uid);
+    return `
       <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface);opacity:${active?1:0.55}">
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;align-items:flex-start">
           <div style="display:flex;gap:8px;flex:1;align-items:flex-start;min-width:0">
@@ -13753,7 +13768,52 @@ function openQuizListModal(mid, restore) {
         </div>
         ${moduleNeedsTrack(mid) ? _trackPickerHTML(q.uid, mid) : ''}
         ${moduleUsesSubtopicQuiz(mid) ? _subPickerHTML(q.uid, mid) : ''}
-      </div>`;}).join('')}
+      </div>`;
+  };
+
+  /* Module ที่แยกช่อง — แสดงเป็นช่อง ๆ ไม่ใช่รายการยาวรวดเดียว
+     จะได้เห็นทันทีว่าช่องไหนมีกี่ข้อ ช่องไหนยังว่าง และเพิ่มเข้าช่องนั้นได้ตรง ๆ */
+  const listHTML = !all.length
+    ? '<p class="text-muted" style="text-align:center;padding:20px">ยังไม่มีคำถาม</p>'
+    : !boxes
+      ? all.map(card).join('')
+      : boxes.map(b => {
+          const qs = all.filter(q => quizBoxOf(mid, q.uid) === b.key);
+          const on = qs.filter(q => isQuizActive(q.uid)).length;
+          return `
+          <div style="border:1.5px solid ${b.color}33;border-radius:13px;margin-bottom:16px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+                        padding:11px 14px;background:${b.bg};border-bottom:1px solid ${b.color}25">
+              <div style="min-width:0">
+                <div style="font-size:14px;font-weight:800;color:${b.color}">${b.label}
+                  <span style="font-weight:700;font-size:12.5px">· ${qs.length} ข้อ${on !== qs.length ? ' (เปิดใช้ ' + on + ')' : ''}</span></div>
+                <div style="font-size:11.5px;color:${b.color}CC;margin-top:2px">${b.hint}</div>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="_qzOpenAddIn('${mid}','${String(b.key).replace(/'/g, "\\'")}')"
+                      style="border-color:${b.color};color:${b.color};flex-shrink:0">+ เพิ่มในช่องนี้</button>
+            </div>
+            <div style="padding:12px 12px 2px">
+              ${qs.length ? qs.map(card).join('')
+                : `<p class="text-muted" style="text-align:center;padding:14px 8px;font-size:12.5px">ยังไม่มีข้อสอบในช่องนี้</p>`}
+            </div>
+          </div>`;
+        }).join('');
+
+  showModal(`จัดการคำถาม · ${m.name}`, `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px;flex-wrap:wrap">
+      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
+        <button class="btn btn-sm btn-accent" onclick="_qzOpenAddIn('${mid}','')">+ เพิ่มคำถาม</button>
+      </div>
+    </div>
+    ${_quizTagSummaryHTML(mid, all)}
+    ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
+      <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
+      <button class="btn btn-sm btn-outline" onclick="_qzDeleteAll('${mid}')" style="margin-left:auto;color:#DC2626;border-color:#DC2626">🗑 ลบทั้งหมด</button>
+    </div>`:''}
+    ${listHTML}
   `, null, 'ปิด');
   // คืนตำแหน่ง scroll + คอยจำตำแหน่งล่าสุด (กันเด้งกลับข้อ 1 ตอนลบ/แก้/เปิด-ปิด)
   const _qlBody = document.querySelector('#modal-overlay .modal-body');
@@ -13824,6 +13884,7 @@ function openImportQuizModal(targetMid) {
     });
     if (!newQs.length) { notify('ไม่พบข้อสอบที่เลือก', 'error'); return; }
     DB.customQuiz.push(...newQs);
+    _qzTagNew(targetMid, newQs.map(q => q.id));
     // บันทึกแบบ batch แล้ว "รอให้เสร็จ" ก่อนปิด — กัน auto-sync (ทุก 30 วิ) ดึง cloud มาทับ DB.customQuiz
     // ก่อนข้อที่นำเข้าจะบันทึกเสร็จ → ข้อที่นำเข้าเลยหาย (เดิมยิงทีละข้อ async หลายข้อ บาง req หลุด)
     try { await sbSaveMany('customQuiz', newQs); } catch (e) { console.warn('import SB save failed', e); }
@@ -13981,6 +14042,7 @@ async function doImportQuizFile(mid) {
     id: genId('CQ'), moduleId: mid, q: r.q, opts: { ...r.opts }, ans: r.ans, createdAt: new Date().toISOString()
   }));
   DB.customQuiz.push(...newQs);
+  _qzTagNew(mid, newQs.map(q => q.id));
   // บันทึกแบบ batch แล้วรอให้เสร็จก่อนปิด — กัน auto-sync ดึง cloud มาทับก่อนบันทึกเสร็จ (แบบเดียวกับนำเข้าจาก Module อื่น)
   try { await sbSaveMany('customQuiz', newQs); } catch (e) { console.warn('quiz file import SB save failed', e); }
   gsPost({ action: 'save_many', collection: 'customQuiz', records: newQs });
@@ -14007,6 +14069,7 @@ function openAddQuizModal(mid) {
     const newQ = { id: genId('CQ'), moduleId: mid, q, opts, ans, createdAt: new Date().toISOString() };
     DB.customQuiz.push(newQ);
     gsSave('customQuiz', newQ.id, newQ);
+    _qzTagNew(mid, [newQ.id]);
     closeModal();
     notify('เพิ่มคำถามสำเร็จ');
     openQuizListModal(mid, true);
@@ -14045,6 +14108,13 @@ function openEditQuizModal(uid, source, mid) {
       DB.customQuiz.push(fork);
       gsSave('customQuiz', fork.id, fork);
       if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+      // ข้อเดิมอยู่ช่องไหน ข้อที่แก้แล้วต้องอยู่ช่องนั้น ไม่งั้นแก้ทีเดียวหลุดออกจากช่อง
+      const _box = quizBoxOf(mid, uid);
+      if (_box) {
+        const f = moduleNeedsTrack(mid) ? 'quizTrack' : 'quizSub';
+        if (!DB.quizMeta[f]) DB.quizMeta[f] = {};
+        DB.quizMeta[f][fork.id] = _box;
+      }
       DB.quizMeta.deleted = DB.quizMeta.deleted || [];
       if (!DB.quizMeta.deleted.includes(uid)) DB.quizMeta.deleted.push(uid);
       saveQuizMeta();
@@ -14115,6 +14185,7 @@ function openAiQuizModal(mid) {
         if (!checked.length) { notify('เลือกอย่างน้อย 1 ข้อ', 'error'); return; }
         const records = checked.map(q => ({ id: genId('CQ'), moduleId: mid, q: q.q, opts: q.opts, ans: q.ans, createdAt: new Date().toISOString() }));
         records.forEach(r => DB.customQuiz.push(r));
+        _qzTagNew(mid, records.map(r => r.id));
         // Track rejected AI questions so they don't show up again in future AI generations
         if (rejected.length) {
           if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [], aiRejected: {} };
