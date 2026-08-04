@@ -4966,10 +4966,23 @@ function mkEmployee(bid, name, pos, start, status) {
 const POSITION_BY_GROUP = {
   'พนักงานบริการ':['Service Basic P/T','Service Basic','Service Silver P/T','Service Silver','Service Gold P/T','Service Gold'],
   'พนักงานครัว':['Cook Basic P/T','Cook Basic','Cook Silver P/T','Cook Silver','Cook Gold P/T','Cook Gold'],
-  'ทีมผู้จัดการสาขา':['Shift Supervisor','Assistant Manager','Senior Assistant Manager','Restaurant General Manager'],
+  // Restaurant Manager กับ Trainee Manager มีอยู่ในข้อมูลพนักงานจริงแต่เดิมไม่ได้อยู่ในรายการนี้
+  'ทีมผู้จัดการสาขา':['Trainee Manager','Shift Supervisor','Assistant Manager','Senior Assistant Manager','Restaurant Manager','Restaurant General Manager'],
 };
+/* ตำแหน่งของกลุ่มนี้ = รายการมาตรฐาน + ตำแหน่งที่มีคนใช้อยู่จริงแต่ยังไม่ได้เพิ่มเข้ารายการ
+   เช่น Restaurant Manager กับ Trainee Manager ที่มีในข้อมูลพนักงานแต่ไม่มีในรายการ
+   ถ้าไม่รวมเข้ามา คนกลุ่มนี้จะหายไปจากหน้าจอ ทั้งที่ยังถูกนับรวมอยู่ในยอดของกลุ่ม
+   และตอนแก้ไขพนักงาน ตำแหน่งเดิมจะหลุดหายเพราะไม่มีตัวเลือกให้ */
+function positionsOfGroup(g) {
+  const out = (POSITION_BY_GROUP[g] || []).slice();
+  const known = new Set(out);
+  try {
+    _allPositionsInUse().forEach(p => { if (!known.has(p) && getPositionGroup(p) === g) out.push(p); });
+  } catch (_) {}
+  return out;
+}
 function positionSelectOptions(group='', selected='') {
-  const ps = POSITION_BY_GROUP[group] || [];
+  const ps = positionsOfGroup(group);
   if(!ps.length) return `<option value="">-- เลือกตำแหน่ง --</option>`;
   return `<option value="">-- เลือกตำแหน่ง --</option>`+ps.map(p=>`<option value="${p}"${p===selected?' selected':''}>${p}</option>`).join('');
 }
@@ -6767,7 +6780,7 @@ function renderDashboard() {
         <!-- 3 columns by group, each lists its positions -->
         <div class="dash-emp-groups" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
           ${pieGroups.map(({g,n,color})=>{
-            const positions = (POSITION_BY_GROUP[g] || []).map(pos => ({pos, cnt: activeEmps.filter(e=>e.position===pos).length})).filter(x=>x.cnt>0).sort((a,b)=>b.cnt-a.cnt);
+            const positions = positionsOfGroup(g).map(pos => ({pos, cnt: activeEmps.filter(e=>e.position===pos).length})).filter(x=>x.cnt>0).sort((a,b)=>b.cnt-a.cnt);
             const grpPct = totalActive ? Math.round(n/totalActive*100) : 0;
             const maxC = Math.max(...positions.map(p=>p.cnt), 1);
             return `<div style="border:1px solid ${color}33;background:${color}08;border-radius:12px;padding:14px 14px 12px;display:flex;flex-direction:column">
