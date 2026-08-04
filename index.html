@@ -5581,7 +5581,51 @@ function _renderChatTyping() {
 }
 
 // Build a compact, role-scoped context string for Claude
-function _chatBuildContext() {
+/* ── เลือกว่าคำถามนี้ต้องใช้ข้อมูลก้อนไหนบ้าง ────────────────────
+   เดิมส่งข้อมูลทั้งหมดไปทุกครั้งที่มีคนพิมพ์ (~21,000 ตัวอักษร) ทำให้ตอบช้า 20 วินาที
+   ทั้งที่คำถามอย่าง "ทำข้อสอบยังไง" ไม่ต้องใช้รายชื่อพนักงาน 80 คนเลย
+
+   ดูคำถาม 3 ข้อความล่าสุดรวมกัน ไม่ใช่เฉพาะข้อความปัจจุบัน
+   เพราะคำถามต่อเนื่องอย่าง "แล้วคนที่สองล่ะ" ไม่มีคำใบ้ในตัวเอง
+   ต้องอาศัยบริบทจากที่ถามมาก่อนหน้า */
+function _chatRecentAsk() {
+  try {
+    return (_chatHistory || []).filter(m => m.role === 'user').slice(-3)
+      .map(m => String(m.content || '')).join(' ').toLowerCase();
+  } catch (_) { return ''; }
+}
+function _chatPickSections(q) {
+  const s = String(q == null ? _chatRecentAsk() : q).toLowerCase();
+  const has = (...ws) => ws.some(w => s.indexOf(w) >= 0);
+  // คำที่บอกว่ากำลังถามหาข้อมูล แต่ไม่ได้เจาะจงว่าเรื่องอะไร
+  const wantsData = has('กี่', 'เท่าไหร่', 'เท่าไร', 'ใคร', 'รายชื่อ', 'ทั้งหมด', 'สรุป', 'มีบ้าง', 'อะไรบ้าง');
+  const sec = {
+    positions:   has('ตำแหน่ง', 'ครัว', 'บริการ', 'ผู้จัดการ', 'cook', 'service', 'manager'),
+    branches:    has('สาขา', 'เขต', 'โซน', 'bzm'),
+    trainers:    has('ผู้สอน', 'คนสอน', 'ใครสอน', 'วิทยากร', 'เทรนเนอร์'),
+    moduleStats: has('module', 'โมดูล', 'ผ่าน', 'ไม่ผ่าน', 'อัตรา', 'สถิติ', 'ประเมิน', 'คะแนน'),
+    modules:     has('module', 'โมดูล', 'หัวข้อ', 'เนื้อหา', 'บทเรียน', 'ข้อสอบ', 'สอนอะไร', 'หลักสูตร'),
+    employees:   has('พนักงาน', 'ชื่อ', 'อายุงาน', 'ลูกน้อง', 'คนไหน', 'รายชื่อ'),
+    untrained:   has('ยังไม่', 'ไม่ได้สอน', 'ตกหล่น', 'ค้าง', 'ขาด'),
+    recent:      has('ล่าสุด', 'ประวัติ', 'เมื่อไหร่', 'ที่ผ่านมา', 'สอนไปแล้ว', 'บันทึกการสอน', 'ย้อนหลัง'),
+    empRules:    has('ลาออก', 'ไล่ออก', 'ย้าย', 'ปิดใช้งาน', 'สถานะ', 'พักงาน', 'เปิดใช้งาน'),
+  };
+  /* คำถามแนว "ทำยังไง" ต้องการขั้นตอน ไม่ใช่ข้อมูล
+     "พนักงานลาออกทำยังไง" มีคำว่าพนักงานก็จริง แต่ไม่ต้องใช้รายชื่อ 80 คน
+     ตัดก้อนหนักออก เหลือแต่ก้อนที่อธิบายกฎ/ขั้นตอน */
+  if (has('ยังไง', 'ยังงัย', 'วิธี', 'ทำไง', 'อย่างไร', 'ขั้นตอน', 'ตรงไหน', 'กดที่ไหน')) {
+    sec.employees = false; sec.recent = false; sec.positions = false;
+    sec.trainers = false; sec.moduleStats = false; sec.branches = false;
+  }
+  // ถามหาข้อมูลแต่จับไม่ได้เลยว่าเรื่องอะไร → ให้ก้อนหลักไปด้วย ยอมช้ากว่าเสี่ยงตอบไม่ได้
+  if (wantsData && !Object.keys(sec).some(k => sec[k])) {
+    sec.employees = true; sec.positions = true; sec.recent = true;
+  }
+  return sec;
+}
+
+function _chatBuildContext(question) {
+  const sec = _chatPickSections(question);
   const access = (typeof getAccessibleBranches === 'function' ? getAccessibleBranches() : Object.keys(BRANCH_MASTER || {}));
   const accSet = new Set(access);
   const allEmps = Object.entries(DB.employees || {})
@@ -5720,44 +5764,50 @@ function _chatBuildContext() {
     userInfo = `ผู้ใช้: ${currentUser?.name||'—'} (${currentUser?.nick||'—'}) · ${roleLabel}\nสาขาที่เข้าถึง: ${access.length} สาขา`;
   }
 
-  return `${userInfo}
-วันที่ปัจจุบัน: ${fmtDate(today.toISOString())}
-
-═══ สรุปภาพรวม ═══
+  /* ประกอบเฉพาะก้อนที่คำถามนี้ต้องใช้
+     "สรุปภาพรวม" ส่งไปทุกครั้งเพราะสั้นแค่ 3 บรรทัด และตอบคำถามนับจำนวนได้เลย
+     โดยไม่ต้องแนบรายชื่อพนักงานทั้งหมดไปด้วย */
+  const parts = [
+    `${userInfo}\nวันที่ปัจจุบัน: ${fmtDate(today.toISOString())}`,
+    `═══ สรุปภาพรวม ═══
 - พนักงานเปิดใช้งาน: ${emps.length} คน (ถูกสอนแล้ว ${trainedEmps.length} · ยังไม่ถูกสอน ${untrainedEmps.length})
-- บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)
+- บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)`,
+  ];
+  const add = (on, title, body) => { if (on) parts.push(`═══ ${title} ═══\n${body}`); };
 
-═══ จำนวนแยกตามตำแหน่ง ═══
-${posLines||'(ไม่มีข้อมูล)'}
-
-═══ สาขา (เรียงตามจำนวนการสอน) ═══
-${branchLines||'(ไม่มีข้อมูล)'}
-
-═══ ผู้สอน (Top 10) ═══
-${trainerLines||'(ยังไม่มี)'}
-
-═══ สถิติแยกตาม Module ═══
-${moduleStatsLines||'(ยังไม่มีการสอน)'}
-
-═══ Modules ที่มีในระบบ (พร้อมหัวข้อย่อย) ═══
-${modules}
-
-═══ พนักงานทั้งหมดในขอบเขต (ชื่อ | ตำแหน่ง | สาขา | อายุงาน | ถูกสอนกี่ครั้ง | สอนล่าสุด) ═══
-${empListStr}
-
-═══ พนักงานที่ยังไม่ได้รับการสอน ═══
-${untrainedSection}
-
-═══ การสอน 30 รายการล่าสุด ═══
-${recent||'(ยังไม่มี)'}
-
-═══ กฎการจัดการสถานะพนักงาน (อธิบายให้ผู้ใช้ที่ถาม) ═══
-- ลาออก / ไล่ออก: หน้า "รายชื่อพนักงาน" → กดแก้ไข → เปลี่ยนสถานะเป็น "ปิดใช้งาน" + ใส่เหตุผล
+  add(sec.positions,   'จำนวนแยกตามตำแหน่ง', posLines || '(ไม่มีข้อมูล)');
+  add(sec.branches,    'สาขา (เรียงตามจำนวนการสอน)', branchLines || '(ไม่มีข้อมูล)');
+  add(sec.trainers,    'ผู้สอน (Top 10)', trainerLines || '(ยังไม่มี)');
+  add(sec.moduleStats, 'สถิติแยกตาม Module', moduleStatsLines || '(ยังไม่มีการสอน)');
+  add(sec.modules,     'Modules ที่มีในระบบ (พร้อมหัวข้อย่อย)', modules);
+  add(sec.employees,   'พนักงานทั้งหมดในขอบเขต (ชื่อ | ตำแหน่ง | สาขา | อายุงาน | ถูกสอนกี่ครั้ง | สอนล่าสุด)', empListStr);
+  add(sec.untrained,   'พนักงานที่ยังไม่ได้รับการสอน', untrainedSection);
+  add(sec.recent,      'การสอน 30 รายการล่าสุด', recent || '(ยังไม่มี)');
+  add(sec.empRules,    'กฎการจัดการสถานะพนักงาน (อธิบายให้ผู้ใช้ที่ถาม)',
+`- ลาออก / ไล่ออก: หน้า "รายชื่อพนักงาน" → กดแก้ไข → เปลี่ยนสถานะเป็น "ปิดใช้งาน" + ใส่เหตุผล
   ระบบจะเก็บประวัติการสอน/ประเมินไว้ครบ ชื่อจะหายจาก list หลัก แต่ยังย้อนดูได้
 - ย้ายสาขา (admin only): กดปุ่ม 🔁 ย้าย ในตารางพนักงานของสาขาเดิม
   ระบบจะย้ายพนักงานคนเดิม (รหัสเดิม) ไปสาขาใหม่ ประวัติการสอนติดตามไปด้วย
   ไม่ต้องลบ+สร้างใหม่ — ระบบเก็บประวัติการย้ายไว้ใน "ประวัติการย้ายสาขา" ของพนักงาน
-- BZM/VP/COO ย้ายไม่ได้ — ดูได้อย่างเดียว ต้องแจ้ง Admin (Kantapon)`;
+- BZM/VP/COO ย้ายไม่ได้ — ดูได้อย่างเดียว ต้องแจ้ง Admin (Kantapon)`);
+
+  // บอกโมเดลตรง ๆ ว่ามีข้อมูลอะไรที่ยังไม่ได้แนบมา จะได้ขอเพิ่มแทนที่จะเดา
+  const missing = [];
+  if (!sec.employees) missing.push('รายชื่อพนักงานรายคน');
+  if (!sec.recent)    missing.push('ประวัติการสอนรายครั้ง');
+  if (!sec.modules)   missing.push('รายละเอียดหัวข้อย่อยของแต่ละ Module');
+  if (missing.length) {
+    parts.push(`═══ ข้อมูลที่ยังไม่ได้แนบมาในรอบนี้ ═══
+${missing.map(m => '- ' + m).join('\n')}
+ถ้าคำถามต้องใช้ข้อมูลข้างบนนี้ ให้บอกผู้ใช้ว่าขอถามให้ชัดเจนอีกนิด (เช่น "ขอชื่อพนักงานที่ต้องการดูค่ะ") ห้ามเดาหรือแต่งข้อมูลขึ้นมาเอง`);
+  }
+  const out = parts.join('\n\n');
+  // ไว้ดูใน console ว่าคำถามแต่ละแบบส่งข้อมูลไปเท่าไหร่ — ใช้จูนคำค้นในอนาคต
+  try {
+    console.log('[chat] ส่งข้อมูล ' + out.length.toLocaleString() + ' ตัวอักษร · ก้อนที่แนบ: '
+      + (Object.keys(sec).filter(k => sec[k]).join(', ') || 'ไม่มี'));
+  } catch (_) {}
+  return out;
 }
 
 /* ── พฤติกรรมการใช้งานล่าสุด — สรุปจากประวัติแชต 30 วันย้อนหลัง ──
