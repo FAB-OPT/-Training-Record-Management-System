@@ -4966,8 +4966,9 @@ function mkEmployee(bid, name, pos, start, status) {
 const POSITION_BY_GROUP = {
   'พนักงานบริการ':['Service Basic P/T','Service Basic','Service Silver P/T','Service Silver','Service Gold P/T','Service Gold'],
   'พนักงานครัว':['Cook Basic P/T','Cook Basic','Cook Silver P/T','Cook Silver','Cook Gold P/T','Cook Gold'],
-  // Restaurant Manager กับ Trainee Manager มีอยู่ในข้อมูลพนักงานจริงแต่เดิมไม่ได้อยู่ในรายการนี้
-  'ทีมผู้จัดการสาขา':['Trainee Manager','Shift Supervisor','Assistant Manager','Senior Assistant Manager','Restaurant Manager','Restaurant General Manager'],
+  // Trainee Manager มีอยู่ในข้อมูลพนักงานจริงแต่เดิมไม่ได้อยู่ในรายการนี้
+  // ส่วน Restaurant Manager เปลี่ยนเป็น Restaurant General Manager ทั้งหมดแล้ว (49 คน) จึงไม่มีในรายการ
+  'ทีมผู้จัดการสาขา':['Trainee Manager','Shift Supervisor','Assistant Manager','Senior Assistant Manager','Restaurant General Manager'],
 };
 /* ตำแหน่งของกลุ่มนี้ = รายการมาตรฐาน + ตำแหน่งที่มีคนใช้อยู่จริงแต่ยังไม่ได้เพิ่มเข้ารายการ
    เช่น Restaurant Manager กับ Trainee Manager ที่มีในข้อมูลพนักงานแต่ไม่มีในรายการ
@@ -8199,11 +8200,23 @@ function updateModulesByTrainees() {
    (4.1 ย่างสเต็ก · 4.2 เช็คเกอร์สเต็ก · 4.3 พาสต้า) จึงออกข้อสอบตามหัวข้อที่สอนแทน */
 const TRACK_MODULES = ['C003'];
 const TRACKS = [
-  { key: 'steak', label: '🥩 สเต็ก', color: '#B91C1C' },
-  { key: 'pasta', label: '🍝 พาสต้า', color: '#B45309' },
+  { key: 'steak', label: '🥩 สเต็ก', color: '#B91C1C', bg: '#FEE2E2' },
+  { key: 'pasta', label: '🍝 พาสต้า', color: '#B45309', bg: '#FEF3C7' },
 ];
 function moduleNeedsTrack(mid) { return TRACK_MODULES.indexOf(mid) >= 0; }
 let _selectedTrack = '';
+
+/* หัวข้อย่อยไหนเป็นของหน้างานไหน — ใช้กับ Module ที่หัวข้อย่อยแยกหน้างานอยู่ในตัว
+   ระบุด้วยเลขหัวข้อ (4.1 / 4.2 / …) เพื่อไม่ให้พังถ้ามีการแก้ชื่อหัวข้อทีหลัง */
+const SUBTOPIC_TRACK = {
+  'C004': { '4.1': 'steak', '4.2': 'steak', '4.3': 'pasta' },
+};
+function subtopicTrack(mid, sub) {
+  const map = SUBTOPIC_TRACK[mid]; if (!map) return '';
+  const no = String(sub || '').trim().split(/\s+/)[0];
+  return map[no] || '';
+}
+function moduleHasSubtopicTracks(mid) { return !!SUBTOPIC_TRACK[mid]; }
 
 /* ── ป้ายช่องของข้อสอบ ─────────────────────────────────────────
    ข้อสอบชุดพื้นฐานอยู่ในโค้ด แก้ไม่ได้ จึงเก็บป้ายแยกไว้ที่ quizMeta
@@ -8309,7 +8322,13 @@ function quizBoxesFor(mid) {
   }
   if (moduleUsesSubtopicQuiz(mid)) {
     const subs = (MODULES[mid] && MODULES[mid].subtopics) || [];
-    return subs.map(s => ({ key: s, label: '📌 ' + s, short: s, color: '#1E40AF', bg: '#DBEAFE', hint: 'ออกกับครั้งที่สอนหัวข้อนี้' }))
+    // หัวข้อไหนเป็นของหน้างานไหน ใส่สีกับไอคอนให้ตรงกัน จะได้ดูออกทันทีว่าช่องนี้ของสเต็กหรือพาสต้า
+    return subs.map(s => {
+      const t = TRACKS.find(x => x.key === subtopicTrack(mid, s));
+      return { key: s, label: (t ? t.label.split(' ')[0] : '📌') + ' ' + s, short: s,
+               color: t ? t.color : '#1E40AF', bg: t ? t.bg : '#DBEAFE',
+               hint: 'ออกกับครั้งที่สอนหัวข้อนี้' + (t ? ' · หน้างาน' + t.label.split(' ')[1] : '') };
+    })
       .concat([{ key: '', label: '📋 ออกทุกหัวข้อ', color: '#475569', bg: '#F1F5F9', hint: 'ไม่ได้จัดเข้าหัวข้อไหน จึงออกทุกครั้ง' }]);
   }
   return null;
@@ -8364,8 +8383,27 @@ function updateSubtopics() {
     }
   }
   if(!moduleId){container.innerHTML='<span class="text-muted">กรุณาเลือก Module ก่อน</span>';return;}
-  container.innerHTML = (MODULES[moduleId]?.subtopics||[]).map(s=>
-    `<label class="checkbox-item" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`).join('');
+  const subs = MODULES[moduleId]?.subtopics || [];
+  const chip = s => `<label class="checkbox-item" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`;
+  // Module ที่หัวข้อย่อยแยกหน้างานอยู่ในตัว (เช่น Module 4 ครัว) — แยกหมวดให้เห็นว่าหัวข้อไหนของหน้างานไหน
+  if (moduleHasSubtopicTracks(moduleId)) {
+    const groups = TRACKS.map(t => ({ t, items: subs.filter(s => subtopicTrack(moduleId, s) === t.key) }))
+      .filter(g => g.items.length);
+    const rest = subs.filter(s => !subtopicTrack(moduleId, s));
+    container.innerHTML =
+      groups.map(g => `
+        <div style="width:100%;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:800;color:${g.t.color};margin-bottom:6px">${g.t.label}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">${g.items.map(chip).join('')}</div>
+        </div>`).join('') +
+      (rest.length ? `
+        <div style="width:100%">
+          <div style="font-size:12px;font-weight:800;color:var(--text3);margin-bottom:6px">ทั่วไป</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">${rest.map(chip).join('')}</div>
+        </div>` : '');
+    return;
+  }
+  container.innerHTML = subs.map(chip).join('');
 }
 
 function toggleCheck(el) { setTimeout(()=>{ el.classList.toggle('checked', el.querySelector('input').checked); },0); }
