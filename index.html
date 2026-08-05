@@ -4486,14 +4486,14 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{} } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {} },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'' } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '' },
   };
 }
 async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -5403,6 +5403,14 @@ function _loadChatHistory() {
     const raw = localStorage.getItem(key);
     if (!raw) return;
     const data = JSON.parse(raw);
+    /* Admin สั่งล้างประวัติทุกเครื่องไว้ทีหลังกว่าที่บันทึกไว้ในเครื่องนี้ → ทิ้งของเก่า
+       ประวัติในกล่องแชตเก็บแยกในเบราว์เซอร์ของแต่ละคน ลบจากส่วนกลางไม่ได้
+       จึงใช้วิธีให้เครื่องเช็คเองว่าถูกสั่งล้างหรือยัง แล้วล้างตัวเองตอนเปิดระบบ */
+    const wipeAt = new Date(DB.quizMeta?.chatWipeAt || 0).getTime();
+    if (wipeAt && (!data.savedAt || data.savedAt < wipeAt)) {
+      localStorage.removeItem(key);
+      return;
+    }
     if (Array.isArray(data.messages)) _chatHistory = data.messages;
     if (data.sessionId) _chatSessionId = data.sessionId;
   } catch (_) {}
@@ -5971,6 +5979,12 @@ ${((currentUser?.type === 'branch' ? BRANCH_NAV_ITEMS : (typeof getActiveNavItem
 • ห้ามเดาชื่อเมนู ห้ามแต่งชื่อหน้าจอ — ถ้าไม่อยู่ในรายการเมนูข้างบน แปลว่าผู้ใช้คนนี้ไม่มี
 • ถ้าข้อมูลที่ถามไม่มีหน้าจอให้เปิดดู → **ตอบข้อมูลนั้นตรง ๆ จาก context ให้เลย** แล้วบอกสั้น ๆ ว่าสรุปให้จากระบบ
   ห้ามตอบว่า "ดูได้ที่เมนู X" ถ้า X ไม่มีจริง
+
+⛔ ห้ามย่อชื่อ — ต้องคัดลอกมาเต็ม ๆ ตามที่เขียนไว้ในข้อมูล:
+• ชื่อตำแหน่ง เช่น "Restaurant General Manager" ห้ามย่อเป็น "Restaurant Manager" หรือ "RGM"
+  "Senior Assistant Manager" ห้ามย่อเป็น "Assistant Manager" — คนละตำแหน่งกัน บอกผิดคือให้ข้อมูลผิด
+• ชื่อเมนู ชื่อ Module ชื่อหัวข้อย่อย ชื่อพนักงาน ชื่อสาขา — เขียนเต็มเหมือนต้นฉบับทุกตัวอักษร
+• ถ้าชื่อยาวจนคำตอบดูรก ให้ตัดข้อความส่วนอื่นแทน ห้ามตัดชื่อ
 
 ═══════════════════════════════════════════════════════════
 📚 แนวทางตอบคำถาม — คอลัมน์ขวาคือ "ชื่อกลุ่มข้อมูล" ที่ใช้ค้นคำตอบ ไม่ใช่ชื่อเมนู
@@ -15683,6 +15697,34 @@ async function refreshChatLogsOnly() {
   }
 }
 
+/* ล้างประวัติแชตทุกเครื่องทุกสาขา — ทั้งฝั่งเซิร์ฟเวอร์และกล่องแชตของทุกคน
+   กล่องแชตเก็บประวัติแยกใน localStorage ของแต่ละเบราว์เซอร์ สั่งลบตรง ๆ ไม่ได้
+   จึงบันทึก "เวลาที่สั่งล้าง" ไว้ที่ส่วนกลาง แล้วให้แต่ละเครื่องเช็คเองตอนเปิดระบบ
+   เครื่องไหนมีประวัติเก่ากว่าเวลานั้น จะล้างตัวเองทิ้งอัตโนมัติ */
+function clearChatEverywhere() {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้น', 'error'); return; }
+  showConfirm(
+    `ล้างประวัติแชตบอท <b>ทั้งระบบทุกสาขา</b>?<br><br>` +
+    `• ประวัติฝั่งเซิร์ฟเวอร์ถูกลบถาวร <b>กู้คืนไม่ได้</b><br>` +
+    `• กล่องแชตของทุกคนจะว่างเปล่าเมื่อเปิดระบบครั้งถัดไป<br>` +
+    `• คนที่กำลังเปิดค้างอยู่ตอนนี้ จะโดนล้างหลังรีเฟรช`,
+    () => {
+      const all = DB.chatLogs || [];
+      if (all.length) gsClearCollection('chatLogs');
+      DB.chatLogs = [];
+      // ประทับเวลาสั่งล้างไว้ที่ส่วนกลาง — ทุกเครื่องอ่านค่านี้ตอนเปิดระบบ
+      if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+      DB.quizMeta.chatWipeAt = new Date().toISOString();
+      gsSave('quizMeta', 'singleton', DB.quizMeta);
+      // ล้างของเครื่องที่กดด้วย จะได้เห็นผลทันทีไม่ต้องรอรีเฟรช
+      try { _clearChatHistory(); } catch (_) {}
+      document.getElementById('main-content').innerHTML = renderAdminChatLogs();
+      notify('ล้างประวัติทั้งระบบแล้ว — ทุกเครื่องจะว่างเมื่อเปิดครั้งถัดไป');
+    },
+    { title: 'ล้างประวัติทุกเครื่องทุกสาขา', icon: '🌐', confirmText: 'ล้างทั้งระบบ' }
+  );
+}
+
 function clearChatLogs(scope) {
   if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้น', 'error'); return; }
   const all = DB.chatLogs || [];
@@ -15804,6 +15846,7 @@ function renderAdminChatLogs() {
       <button class="btn btn-outline" onclick="refreshChatLogsOnly()">🔄 รีเฟรชข้อมูล</button>
       ${totalMsgs && totalMsgs < logs.length ? `<button class="btn btn-outline" style="color:var(--red);border-color:rgba(239,68,68,.35)" onclick="clearChatLogs('filtered')">🗑 ล้างที่กรองอยู่ (${totalMsgs})</button>` : ''}
       ${logs.length ? `<button class="btn btn-danger" onclick="clearChatLogs('all')">🗑 ล้างประวัติทั้งหมด</button>` : ''}
+      <button class="btn btn-danger" onclick="clearChatEverywhere()" title="ลบทั้งฝั่งเซิร์ฟเวอร์ และล้างกล่องแชตของทุกเครื่องทุกสาขา">🌐 ล้างทุกเครื่องทุกสาขา</button>
     </div>
   </div>
 
