@@ -9,11 +9,24 @@
 //  4. Copy URL ที่ได้ → วางใน index.html บรรทัด GS_URL
 // ========================================================
 
+/* ตัวช่วยกัน cold start — ตั้ง trigger ให้รันทุก 5 นาที
+   Apps Script จะปิด container ทิ้งเมื่อไม่มีคนเรียกสักพัก
+   คำขอถัดไปจึงต้องรอเปิดใหม่ (วัดได้ 8-12 วินาที ขณะที่ปกติ 2 วินาที)
+   สาขาที่ทักน้องแฮปปี้เป็นคนแรกของวันจะเจออาการนี้
+   ฟังก์ชันนี้ไม่ทำอะไรเลย แค่ทำให้ Apps Script ไม่ปิด container ทิ้ง
+
+   วิธีตั้ง: Apps Script → ⏰ Triggers → Add Trigger
+            เลือก keepWarm · Time-driven · Minutes timer · Every 5 minutes */
+function keepWarm() {
+  return 1;
+}
+
 function doGet(e) {
   const action = (e.parameter && e.parameter.action) || 'load';
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   if (action === 'load') {
+    // ผูก Spreadsheet เฉพาะตอนต้องใช้จริง — เดิมผูกทุกครั้งแม้แต่คำขอที่ไม่แตะชีตเลย
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
     const result = {
       employees:     readSheet(ss, 'employees'),
       trainings:     readSheet(ss, 'trainings'),
@@ -304,7 +317,9 @@ function _chatViaGemini(req, apiKey) {
       const blockReason = cand && cand.finishReason;
       return { error: 'Gemini ไม่ได้ตอบกลับ' + (blockReason ? ' (' + blockReason + ')' : '') };
     }
-    return { reply: text };
+    // ส่งชื่อรุ่นที่ตอบจริงกลับไปด้วย — ไว้ตรวจว่าใช้รุ่นที่ตั้งใจหรือตกไปตัวสำรอง
+    // (หน้าเว็บไม่ได้ใช้ฟิลด์นี้ แต่ดูได้จาก Network tab / สคริปต์ทดสอบ)
+    return { reply: text, model: models[mi], tried: mi + 1 };
   } catch (err) {
     return { error: 'Server error: ' + err.message };
   }
