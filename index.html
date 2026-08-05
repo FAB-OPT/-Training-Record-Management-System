@@ -2704,9 +2704,13 @@ function getPagePerm(page) {
   // 2) HUB ตามตำแหน่ง — ต้องชนะ pagePerms เก่า เพราะ UI ตั้งรายคนในระบบนี้ถูกยกไป HUB แล้ว
   //    ถ้าให้ค่าเก่าชนะ คนที่เคยถูกตั้งไว้จะติดค่านั้นถาวรโดยไม่มีที่ให้แก้
   if (hub && hub.roleLevels && hub.roleLevels[currentUser.role]) return hub.roleLevels[currentUser.role];
-  // 3) ค่าเก่าที่เคยตั้งไว้ก่อนย้ายมา HUB — ใช้ต่อเฉพาะตอน HUB ยังไม่เคยตั้ง
+  /* 3) ค่าเก่าที่เคยตั้งไว้ก่อนย้ายมา HUB — ใช้ต่อเฉพาะตอน HUB ยังไม่เคยตั้ง
+        ต้องเช็คว่าเคยตั้งค่าของหน้านี้ไว้จริงไหม ไม่ใช่แค่ perms[page] ว่างแล้วตัดเป็น none
+        ไม่งั้น "หน้าที่เพิ่มใหม่ทีหลัง" จะถูกซ่อนจากทุกคนที่มี pagePerms เก่าติดอยู่
+        โดยไม่มีใครรู้สาเหตุ — เจอตอนเพิ่มเมนูใบรายชื่อที่ออกแล้วแล้วมันไม่โผล่ */
   const perms = currentUser.pagePerms;
-  if (perms && typeof perms === 'object' && !Array.isArray(perms)) {
+  if (perms && typeof perms === 'object' && !Array.isArray(perms)
+      && Object.prototype.hasOwnProperty.call(perms, page)) {
     return perms[page] || 'none';
   }
   // 4) ไม่มีอะไรตั้งไว้ → ค่าเดิมในโค้ด (อยู่ในเมนู = full)
