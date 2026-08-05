@@ -4210,6 +4210,7 @@ try {
   if (Array.isArray(_cc)) DB.cases = _cc;
 } catch(_) {}
 let _casesFromSb = false;   // true = โหลดเคสจาก Supabase สำเร็จแล้ว ไม่ต้องให้ Sheets มาทับ
+let _chatLogsFromSb = false; // เหมือนกัน แต่สำหรับประวัติแชต
 /* เคสที่เครื่องนี้เพิ่งแจ้ง/แก้ แต่ยังยืนยันไม่ได้ว่าขึ้นเซิร์ฟเวอร์แล้ว
    ใช้กันเคสหายตอนซิงค์ โดยไม่ทำให้เคสที่แอดมินลบฟื้นกลับมา */
 const _pendingCaseIds = new Set();
@@ -4374,6 +4375,7 @@ const _SB_TABLE = {
   courseCatalog: 'course_catalog',
   trainingDrafts: 'training_drafts',
   cases:         'cases',
+  chatLogs:      'chat_logs',
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
@@ -4420,7 +4422,7 @@ function _fromSb(coll, row) {
 
 async function sbLoadAll() {
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
-  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse] = await Promise.all([
+  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse, clg] = await Promise.all([
     sb.from('employees').select('*'),
     sb.from('trainings').select('*'),
     sb.from('quiz_results').select('*'),
@@ -4430,6 +4432,8 @@ async function sbLoadAll() {
     sb.from('branch_overrides').select('*'),
     sb.from('course_catalog').select('*'),
     sb.from('cases').select('*'),
+    // ประวัติแชต — เอาแค่ 2,000 รายการล่าสุดพอ หน้าประวัติโชว์ได้ 80 บทสนทนาอยู่แล้ว
+    sb.from('chat_logs').select('*').order('ts', { ascending: false }).limit(2000),
   ]);
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
@@ -4437,6 +4441,17 @@ async function sbLoadAll() {
   // ทะเบียนหลักสูตร — ถ้ายังไม่ได้สร้างตาราง ให้ข้ามไปเงียบ ๆ ระบบอื่นต้องใช้งานได้ปกติ
   if (cat && !cat.error && Array.isArray(cat.data)) {
     DB.courseCatalog = cat.data.map(r => _fromSb('courseCatalog', r));
+  }
+  /* ประวัติแชต — ย้ายมาอยู่ Supabase แล้ว เดิมอยู่ Sheets อย่างเดียว
+     ทำให้หน้าประวัติแชตต้องดึงทุกชีตมาก่อน (วัดได้ 81 วินาที) */
+  if (clg && !clg.error && Array.isArray(clg.data)) {
+    _chatLogsFromSb = true;
+    DB.chatLogs = clg.data.map(r => {
+      const l = _fromSb('chatLogs', r);
+      l.branchId = l.branchId == null || l.branchId === '-' ? '-' : String(l.branchId);
+      l.err = l.err === true || l.err === 'true';
+      return l;
+    });
   }
   /* เคส — ย้ายมาอยู่ Supabase แล้ว (เดิมอยู่ Google Sheets อย่างเดียว จึงช้า 5-60 วินาที
      และสาขาส่งเคสแล้วแอดมินไม่เห็นทันที) ถ้าตารางยังไม่มีหรือยังว่าง จะตกไปใช้ของเดิมจาก Sheets */
@@ -4638,7 +4653,8 @@ async function _loadAuxFromSheets() {
   try {
     const resp = await fetch(GS_URL + '?action=load');
     const data = await resp.json();
-    if (Array.isArray(data.chatLogs)) {
+    // ถ้าโหลดประวัติแชตจาก Supabase ได้แล้ว อย่าให้ของจาก Sheets (ช้ากว่าและอาจเก่ากว่า) มาทับ
+    if (Array.isArray(data.chatLogs) && !_chatLogsFromSb) {
       // Sheets auto-coerces "5001" → number 5001; normalize string IDs so filters match.
       DB.chatLogs = data.chatLogs.map(l => ({
         ...l,
@@ -4951,14 +4967,34 @@ function gsDel(collection, id) {
   gsPost({action:'delete', collection, id});
 }
 // ลบหลายรายการในคำขอเดียว — ใช้กับประวัติแชตบอทที่มีเป็นพัน ๆ แถว
-// chatLogs เก็บใน Google Sheets อย่างเดียว จึงไม่ต้องลบฝั่ง Supabase
+// ลบทั้งสองที่: Supabase (ที่ระบบอ่านจริง) และ Sheets (สำเนาเก่า)
 function gsDelMany(collection, ids) {
   if (isTestMode()) return;
   if (!ids || !ids.length) return;
+  const table = _SB_TABLE[collection];
+  if (table) {
+    // ลบทีละ 200 id ต่อคำขอ กัน URL ยาวเกินจนโดนปฏิเสธ
+    try {
+      const sb = _initSb();
+      if (sb) for (let i = 0; i < ids.length; i += 200) {
+        sb.from(table).delete().in('id', ids.slice(i, i + 200))
+          .then(r => { if (r.error) console.error('SB del_many error', collection, r.error); });
+      }
+    } catch (e) { console.error('SB del_many error', collection, e); }
+  }
   gsPost({ action: 'delete_many', collection, ids });
 }
 function gsClearCollection(collection) {
   if (isTestMode()) return;
+  const table = _SB_TABLE[collection];
+  if (table) {
+    try {
+      const sb = _initSb();
+      // ต้องมีเงื่อนไขเสมอ ไม่งั้น PostgREST ปฏิเสธการลบทั้งตาราง — ใช้ "id ไม่ว่าง" แทน
+      if (sb) sb.from(table).delete().neq('id', '')
+        .then(r => { if (r.error) console.error('SB clear error', collection, r.error); });
+    } catch (e) { console.error('SB clear error', collection, e); }
+  }
   gsPost({ action: 'clear', collection });
 }
 function gsSaveMany(collection, records) {
@@ -5419,7 +5455,10 @@ function _chatLogMessage(role, content, isErr) {
     content: String(content || '').slice(0, 4000), // safety cap per message
     err: !!isErr,
   };
-  // Fire-and-forget — chat shouldn't block waiting on log save
+  // เก็บทันทีในหน่วยความจำ แอดมินที่เปิดหน้าประวัติอยู่จะเห็นเลยไม่ต้องรอ sync
+  if (!Array.isArray(DB.chatLogs)) DB.chatLogs = [];
+  DB.chatLogs.push(rec);
+  // บันทึกขึ้นเซิร์ฟเวอร์แบบไม่รอผล — แชตไม่ควรค้างเพราะรอบันทึก log
   try { gsSave('chatLogs', rec.id, rec); } catch (_) {}
 }
 
@@ -5449,7 +5488,7 @@ function openChatbot() {
 }
 
 function clearChatHistoryConfirm() {
-  showConfirm('ล้างบทสนทนาทั้งหมดกับน้องแฮปปี้?\n\nประวัติการคุยของคุณจะถูกลบจากเครื่องนี้ — เริ่มต้นใหม่ทันที', () => {
+  showConfirm('ล้างบทสนทนาทั้งหมดกับน้องแฮปปี้?\n\nกล่องแชตจะว่างและเริ่มคุยใหม่ทันที\n\nหมายเหตุ: เป็นการล้างหน้าจอของคุณเท่านั้น ระบบยังเก็บบันทึกไว้ให้ Admin ตามปกติ', () => {
     _clearChatHistory();
     closeChatbot();
     setTimeout(() => openChatbot(), 100);
@@ -15615,6 +15654,30 @@ function openChatLogSession(sid) {
 /* ล้างประวัติแชตบอท — เฉพาะ Admin
    scope 'all'      = ลบทุกแถวในชีต chatLogs
    scope 'filtered' = ลบเฉพาะที่ตรงกับตัวกรองที่เปิดอยู่บนหน้าจอ */
+/* รีเฟรชเฉพาะประวัติแชต — ดึงแค่ตารางเดียวจาก Supabase
+   เดิมปุ่มนี้เรียก gsLoadFromSheets ซึ่งอ่านทุกชีต (พนักงาน การสอน ข้อสอบ ฯลฯ)
+   แค่เพื่อจะได้ประวัติแชต วัดได้ 81 วินาที ตอนนี้เหลือไม่ถึง 1 วินาที */
+async function refreshChatLogsOnly() {
+  try {
+    const sb = _initSb();
+    if (!sb) { notify('เชื่อมต่อฐานข้อมูลไม่ได้', 'error'); return; }
+    const res = await sb.from('chat_logs').select('*').order('ts', { ascending: false }).limit(2000);
+    if (res.error) throw res.error;
+    _chatLogsFromSb = true;
+    DB.chatLogs = (res.data || []).map(r => {
+      const l = _fromSb('chatLogs', r);
+      l.branchId = l.branchId == null || l.branchId === '-' ? '-' : String(l.branchId);
+      l.err = l.err === true || l.err === 'true';
+      return l;
+    });
+    document.getElementById('main-content').innerHTML = renderAdminChatLogs();
+    notify('โหลดประวัติแชตล่าสุดแล้ว (' + DB.chatLogs.length + ' ข้อความ)');
+  } catch (e) {
+    console.error('refreshChatLogsOnly', e);
+    notify('โหลดไม่สำเร็จ — ถ้ายังไม่ได้รัน supabase-chat-logs.sql ให้รันก่อน', 'error');
+  }
+}
+
 function clearChatLogs(scope) {
   if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้น', 'error'); return; }
   const all = DB.chatLogs || [];
@@ -15623,8 +15686,8 @@ function clearChatLogs(scope) {
   if (!target.length) { notify('ไม่มีรายการที่ตรงกับตัวกรอง', 'error'); return; }
   const sessions = new Set(target.map(l => l.sessionId || '_')).size;
   const msg = scope === 'all'
-    ? `ล้างประวัติแชตบอท <b>ทั้งหมด ${all.length} ข้อความ</b> (${sessions} บทสนทนา)?<br><br>ข้อมูลจะถูกลบออกจากชีตถาวร <b>กู้คืนไม่ได้</b>`
-    : `ล้างเฉพาะที่กรองอยู่ <b>${target.length} ข้อความ</b> (${sessions} บทสนทนา)?<br><br>ข้อมูลจะถูกลบออกจากชีตถาวร <b>กู้คืนไม่ได้</b>`;
+    ? `ล้างประวัติแชตบอท <b>ทั้งหมด ${all.length} ข้อความ</b> (${sessions} บทสนทนา)?<br><br>ข้อมูลจะถูกลบออกจากระบบถาวร <b>กู้คืนไม่ได้</b>`
+    : `ล้างเฉพาะที่กรองอยู่ <b>${target.length} ข้อความ</b> (${sessions} บทสนทนา)?<br><br>ข้อมูลจะถูกลบออกจากระบบถาวร <b>กู้คืนไม่ได้</b>`;
   showConfirm(msg, () => {
     const ids = target.map(l => l.id).filter(Boolean);
     if (scope === 'all') gsClearCollection('chatLogs');
@@ -15730,10 +15793,10 @@ function renderAdminChatLogs() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">💬 ประวัติแชตบอท</div>
-      <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ${(DB.chatLogs||[]).length === 0 ? ' · <strong style="color:var(--accent)">ถ้าโชว์ 0 ทั้งหมด → ยังไม่ได้ deploy apps-script ตัวล่าสุด</strong>' : ''}</div>
+      <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ${(DB.chatLogs||[]).length === 0 ? ' · <strong style="color:var(--accent)">ยังไม่มีประวัติ — ถ้าเพิ่งรัน SQL ให้กดรีเฟรชข้อมูล</strong>' : ''}</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline" onclick="gsLoadFromSheets().then(() => { document.getElementById('main-content').innerHTML = renderAdminChatLogs(); notify('โหลดข้อมูลล่าสุดสำเร็จ'); })">🔄 รีเฟรชข้อมูล</button>
+      <button class="btn btn-outline" onclick="refreshChatLogsOnly()">🔄 รีเฟรชข้อมูล</button>
       ${totalMsgs && totalMsgs < logs.length ? `<button class="btn btn-outline" style="color:var(--red);border-color:rgba(239,68,68,.35)" onclick="clearChatLogs('filtered')">🗑 ล้างที่กรองอยู่ (${totalMsgs})</button>` : ''}
       ${logs.length ? `<button class="btn btn-danger" onclick="clearChatLogs('all')">🗑 ล้างประวัติทั้งหมด</button>` : ''}
     </div>
