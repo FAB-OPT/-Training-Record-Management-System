@@ -1152,8 +1152,9 @@
   .tp-step { display: flex; align-items: center; gap: 9px; }
   .tp-step-n {
     width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
-    background: var(--accent); color: #fff; font-weight: 800; font-size: 12.5px;
-    display: flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff !important; font-weight: 800;
+    font-size: 13px; line-height: 24px; text-align: center;
+    font-family: 'Sarabun', sans-serif;
   }
   .tp-step b { display: block; font-size: 13px; color: var(--text); font-weight: 800; }
   .tp-step span { display: block; font-size: 11.5px; color: var(--text3); margin-top: 1px; }
@@ -1182,6 +1183,39 @@
   .tp-start-go { color: var(--border2); font-size: 20px; font-weight: 700; align-self: center; flex-shrink: 0; }
   .tp-start:hover .tp-start-go { color: var(--accent); }
   .tp-start-b:hover .tp-start-go { color: #7C3AED; }
+
+  /* ── ทะเบียนหลักสูตรแบบตาราง ─────────────────────────────────── */
+  .cc-table { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
+  .cc-head, .cc-row {
+    display: grid; grid-template-columns: 1fr 96px 160px;
+    gap: 10px; align-items: center; padding: 9px 14px;
+  }
+  .cc-head {
+    background: var(--surface2); font-size: 11.5px; font-weight: 800;
+    color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
+  }
+  .cc-row { border-top: 1px solid var(--border); transition: background .12s; }
+  .cc-row:hover { background: var(--surface2); }
+  .cc-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .cc-name > span[title] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .cc-dot.zero { background: #F59E0B; }
+  .cc-src {
+    font-size: 10.5px; font-weight: 700; color: var(--text3); flex-shrink: 0;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
+  }
+  .cc-num { text-align: right; font-size: 15px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+  .cc-num.zero { color: var(--text3); }
+  .cc-num span { font-size: 11px; font-weight: 600; color: var(--text3); }
+  .cc-act { display: flex; gap: 6px; justify-content: flex-end; }
+  .cc-empty { padding: 22px; text-align: center; font-size: 13px; color: var(--text3); border-top: 1px solid var(--border); }
+  @media (max-width: 720px) {
+    .cc-head { display: none; }
+    .cc-row { grid-template-columns: 1fr auto; row-gap: 7px; padding: 11px 13px; }
+    .cc-name { grid-column: 1 / -1; white-space: normal; }
+    .cc-name > span[title] { white-space: normal; }
+    .cc-num { text-align: left; }
+  }
 
   .tp-draft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
   .tp-draft-card {
@@ -9336,14 +9370,6 @@ function _printCourseCoverage(r) {
    2 ทาง: ชนรายชื่อ (หาคนที่ยังไม่ผ่าน) · เลือกเอง (หยิบจากทะเบียนพนักงาน)
    ทั้งสองทางไปจบที่ฟอร์มเดียวกัน → พรีวิว/ติ๊กรายชื่อ → ออกใบรายชื่อ PDF */
 function renderTrainingPlan() {
-  const card = (icon, title, desc, onclick, accent) => `
-    <button onclick="${onclick}" style="flex:1;min-width:230px;border:1.5px solid var(--border);background:var(--surface);border-radius:16px;padding:22px 20px;cursor:pointer;text-align:left;font-family:'Sarabun','Segoe UI Emoji',sans-serif;transition:all .18s"
-      onmouseenter="this.style.borderColor='${accent}';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(15,23,42,.08)'"
-      onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-      <div style="font-size:30px;margin-bottom:8px">${icon}</div>
-      <div style="font-weight:800;font-size:15.5px;color:var(--text);margin-bottom:5px">${title}</div>
-      <div style="font-size:12.5px;color:var(--text2);line-height:1.55">${desc}</div>
-    </button>`;
   setTimeout(_tpRenderDrafts, 0);
   return `
   <div class="page-hero">
@@ -9384,44 +9410,7 @@ function renderTrainingPlan() {
     </button>
   </div>
 
-  <div class="card" style="margin-top:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-        <div style="font-weight:800;font-size:15px;color:var(--text)">📕 ทะเบียนหลักสูตร</div>
-        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${allCourseNames().length} หลักสูตร</span>
-      </div>
-      <button class="btn btn-sm btn-accent" onclick="addCourseName()">+ เพิ่มหลักสูตร</button>
-    </div>
-    <div style="font-size:12.5px;color:var(--text3);margin-bottom:12px">ชื่อที่อยู่ในทะเบียนจะเลือกได้ทันทีในชนรายชื่อและฟอร์มจัดอบรม · เปลี่ยนชื่อแล้วประวัติเก่าจะถูกแก้ตามให้ทั้งหมด</div>
-    ${(() => {
-      const names = allCourseNames();
-      if (!names.length) return '<p class="text-muted" style="text-align:center;padding:20px;font-size:13px">ยังไม่มีหลักสูตร — กด “+ เพิ่มหลักสูตร” เพื่อเริ่ม</p>';
-      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-      const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return '<div class="tp-draft-grid">' + names.map(n => {
-        const used = courseUseCount(n);
-        const inCat = !!_catalogEntry(n);
-        return `<div class="tp-draft-card${used ? '' : ' draft-incomplete'}">
-          <div class="tp-draft-top">
-            <span class="tp-chip ${used ? 'ok' : 'warn'}">${used ? '✓ มีผู้ผ่านแล้ว' : '! ยังไม่มีใครผ่าน'}</span>
-            ${inCat ? '' : '<span class="tp-chip batch">มาจากประวัติ</span>'}
-          </div>
-          <div class="tp-draft-title" title="${esc(n)}">${esc(n)}</div>
-          <div class="tp-draft-people">
-            <div class="tp-people-n">${used}<span>คน</span></div>
-            <div class="tp-people-sub">ที่ผ่านหลักสูตรนี้</div>
-          </div>
-          <div class="tp-draft-foot">
-            <div class="tp-draft-actions">
-              <button class="btn btn-sm btn-outline" onclick="renameCourseName('${js(n)}')">เปลี่ยนชื่อ</button>
-              <button class="btn btn-sm btn-outline tp-del" onclick="deleteCourseName('${js(n)}')" title="${used ? 'ลบไม่ได้ — มีประวัติอ้างอยู่' : 'ลบออกจากทะเบียน'}"${used ? ' style="opacity:.4"' : ''}>🗑</button>
-            </div>
-          </div>
-        </div>`;
-      }).join('') + '</div>';
-    })()}
-  </div>
-
+  <!-- แบบร่างมาก่อนทะเบียนหลักสูตร — เป็นงานที่ค้างอยู่ ต้องเห็นก่อนของอ้างอิง -->
   <div class="card" style="margin-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;min-width:0">
@@ -9431,7 +9420,64 @@ function renderTrainingPlan() {
       <button class="btn btn-sm btn-refresh" onclick="_tpRenderDrafts()"><span class="refresh-ic">↻</span> รีเฟรช</button>
     </div>
     <div id="tp-drafts"><p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p></div>
+  </div>
+
+  <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
+       ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">📕 ทะเบียนหลักสูตร</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${allCourseNames().length} หลักสูตร</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="search-input" id="cc-search" placeholder="🔍 ค้นหาหลักสูตร…" oninput="_ccFilter(this.value)" style="min-width:190px">
+        <button class="btn btn-sm btn-accent" onclick="addCourseName()">+ เพิ่มหลักสูตร</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">เลือกได้ทันทีในชนรายชื่อและฟอร์มจัดอบรม · เปลี่ยนชื่อแล้วประวัติเก่าจะถูกแก้ตามให้ทั้งหมด</div>
+    ${(() => {
+      const names = allCourseNames();
+      if (!names.length) return '<p class="text-muted" style="text-align:center;padding:20px;font-size:13px">ยังไม่มีหลักสูตร — กด “+ เพิ่มหลักสูตร” เพื่อเริ่ม</p>';
+      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+      const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      // เรียงคนผ่านมากไปน้อย — หลักสูตรที่ใช้จริงอยู่บน ตัวที่ยังไม่มีใครผ่านอยู่ล่างให้เห็นชัด
+      const rows = names.map(n => ({ n, used: courseUseCount(n), inCat: !!_catalogEntry(n) }))
+        .sort((a, b) => b.used - a.used || a.n.localeCompare(b.n, 'th'));
+      return `<div class="cc-table" id="cc-table">
+        <div class="cc-head">
+          <div>หลักสูตร</div><div style="text-align:right">ผ่านแล้ว</div><div style="text-align:right">จัดการ</div>
+        </div>
+        ${rows.map(r => `<div class="cc-row" data-name="${esc(r.n.toLowerCase())}">
+          <div class="cc-name">
+            <span class="cc-dot${r.used ? '' : ' zero'}"></span>
+            <span title="${esc(r.n)}">${esc(r.n)}</span>
+            ${r.inCat ? '' : '<span class="cc-src" title="ชื่อนี้มาจากประวัติอบรมเก่า ยังไม่ได้เพิ่มเข้าทะเบียน">ประวัติ</span>'}
+          </div>
+          <div class="cc-num${r.used ? '' : ' zero'}">${r.used}<span> คน</span></div>
+          <div class="cc-act">
+            <button class="btn btn-sm btn-outline" onclick="renameCourseName('${js(r.n)}')">เปลี่ยนชื่อ</button>
+            <button class="btn btn-sm btn-outline tp-del" onclick="deleteCourseName('${js(r.n)}')"
+              title="${r.used ? 'ลบไม่ได้ — มีประวัติอ้างอยู่ ' + r.used + ' คน' : 'ลบออกจากทะเบียน'}"${r.used ? ' style="opacity:.35"' : ''}>🗑</button>
+          </div>
+        </div>`).join('')}
+        <div class="cc-empty" id="cc-empty" style="display:none">ไม่พบหลักสูตรที่ตรงกับคำค้น</div>
+      </div>`;
+    })()}
   </div>`;
+}
+
+/* ค้นหาในทะเบียนหลักสูตร — กรองที่ฝั่งหน้าจอ ไม่ต้องวาดใหม่ทั้งตาราง */
+function _ccFilter(q) {
+  const k = String(q || '').toLowerCase().trim();
+  let shown = 0;
+  document.querySelectorAll('#cc-table .cc-row').forEach(r => {
+    const hit = !k || (r.dataset.name || '').indexOf(k) >= 0;
+    r.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+  const empty = document.getElementById('cc-empty');
+  if (empty) empty.style.display = shown ? 'none' : 'block';
 }
 
 /* ══════════ ทะเบียนหลักสูตร ══════════
