@@ -1143,6 +1143,46 @@
   .tp-chip.ok    { background: #ECFDF5; color: #047857; }
   .tp-chip.warn  { background: #FFFBEB; color: #B45309; }
   .tp-chip.batch { background: var(--surface2); color: var(--text2); }
+  /* ── จัดอบรม: แถบขั้นตอน + ปุ่มเริ่มงาน ───────────────────────── */
+  .tp-steps {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 13px; padding: 13px 16px; margin-bottom: 14px;
+  }
+  .tp-step { display: flex; align-items: center; gap: 9px; }
+  .tp-step-n {
+    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: #fff; font-weight: 800; font-size: 12.5px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tp-step b { display: block; font-size: 13px; color: var(--text); font-weight: 800; }
+  .tp-step span { display: block; font-size: 11.5px; color: var(--text3); margin-top: 1px; }
+  .tp-step-arrow { color: var(--border2); font-size: 17px; font-weight: 700; }
+  @media (max-width: 640px) { .tp-step-arrow { display: none; } .tp-steps { gap: 13px; } }
+
+  .tp-start {
+    display: flex; align-items: flex-start; gap: 14px; text-align: left; width: 100%;
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px;
+    padding: 20px; cursor: pointer; font-family: 'Sarabun', 'Segoe UI Emoji', sans-serif;
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+  }
+  .tp-start:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,23,42,.09); }
+  .tp-start-a:hover { border-color: var(--accent); }
+  .tp-start-b:hover { border-color: #7C3AED; }
+  .tp-start-ic {
+    width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+  }
+  .tp-start-a .tp-start-ic { background: var(--accent-light); }
+  .tp-start-b .tp-start-ic { background: #F3E8FF; }
+  .tp-start-body { flex: 1; min-width: 0; }
+  .tp-start-t { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .tp-start-d { font-size: 12.5px; color: var(--text2); line-height: 1.6; }
+  .tp-start-tag { font-size: 11.5px; color: var(--text3); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .tp-start-go { color: var(--border2); font-size: 20px; font-weight: 700; align-self: center; flex-shrink: 0; }
+  .tp-start:hover .tp-start-go { color: var(--accent); }
+  .tp-start-b:hover .tp-start-go { color: #7C3AED; }
+
   .tp-draft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
   .tp-draft-card {
     display: flex; flex-direction: column;
@@ -4486,14 +4526,14 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'' } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '' },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'', companies: qms.data.companies||[] } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '', companies: [] },
   };
 }
 async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, companies: rec.companies||[], updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -9309,17 +9349,39 @@ function renderTrainingPlan() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดอบรม</div>
-      <div class="page-hero-sub">หารายชื่อ → พรีวิวและติ๊กคนที่จะเข้าอบรม → บันทึกแบบร่าง หรือออกใบรายชื่อผู้เข้าอบรม (PDF)</div>
+      <div class="page-hero-sub">หารายชื่อ → ติ๊กคนที่จะเข้าอบรม → ออกใบรายชื่อ PDF</div>
     </div>
   </div>
-  <div class="card">
-    <div style="display:flex;gap:14px;flex-wrap:wrap">
-      ${card('🔀','ชนรายชื่อ','เลือกตำแหน่ง · อายุงาน · สาขา แล้วเช็คว่าใคร<strong>ยังไม่ผ่าน</strong>หลักสูตรนั้น<br>เหมาะกับการหาคนที่ต้องอบรมเพิ่ม','openCourseCoverage()','var(--accent)')}
-      ${card('👥','เลือกรายชื่อเอง','หยิบพนักงานจากทะเบียนตามสาขา/ตำแหน่ง<br>เหมาะกับกรณีรู้อยู่แล้วว่าจะจัดให้ใคร','openTrainingPickPeople()','#7C3AED')}
-    </div>
-    <div style="margin-top:16px;padding:11px 14px;background:var(--surface2);border-radius:9px;font-size:12.5px;color:var(--text2);line-height:1.6">
-      💡 ทั้งสองทางจะพาไปที่ฟอร์มเดียวกัน — กรอกหลักสูตร/รุ่น/วันเวลา/สถานที่/วิทยากร แล้วติ๊กเลือกรายชื่อ · กด <strong>บันทึกแบบร่าง</strong> เก็บไว้ทำต่อทีหลังได้ (แอดมินทุกคนเห็นร่างเดียวกัน)
-    </div>
+
+  <!-- ขั้นตอนการทำงาน — บอกให้เห็นภาพรวมก่อนว่าต้องผ่านอะไรบ้าง
+       เดิมมีแต่ปุ่มสองปุ่มกับข้อความอธิบายยาว ๆ คนใช้ครั้งแรกไม่รู้ว่าต่อจากนั้นเจออะไร -->
+  <div class="tp-steps">
+    <div class="tp-step"><span class="tp-step-n">1</span><div><b>หาคน</b><span>ชนรายชื่อ หรือเลือกเอง</span></div></div>
+    <div class="tp-step-arrow">→</div>
+    <div class="tp-step"><span class="tp-step-n">2</span><div><b>กรอกรายละเอียด</b><span>บริษัท · หลักสูตร · วันเวลา</span></div></div>
+    <div class="tp-step-arrow">→</div>
+    <div class="tp-step"><span class="tp-step-n">3</span><div><b>ออกใบ PDF</b><span>หรือเก็บเป็นแบบร่าง</span></div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">
+    <button class="tp-start tp-start-a" onclick="openCourseCoverage()">
+      <div class="tp-start-ic">🔀</div>
+      <div class="tp-start-body">
+        <div class="tp-start-t">ชนรายชื่อกับหลักสูตร</div>
+        <div class="tp-start-d">เลือกหลักสูตร แล้วระบบหาให้ว่า<strong>ใครยังไม่ผ่าน</strong> กรองตามตำแหน่ง อายุงาน สาขาได้</div>
+        <div class="tp-start-tag">เหมาะกับ — จัดอบรมประจำปี · ตามให้ครบทุกคน</div>
+      </div>
+      <div class="tp-start-go">→</div>
+    </button>
+    <button class="tp-start tp-start-b" onclick="openTrainingPickPeople()">
+      <div class="tp-start-ic">👥</div>
+      <div class="tp-start-body">
+        <div class="tp-start-t">เลือกรายชื่อเอง</div>
+        <div class="tp-start-d">หยิบพนักงานจากทะเบียนโดยตรง กรองตามสาขาและตำแหน่ง</div>
+        <div class="tp-start-tag">เหมาะกับ — รู้อยู่แล้วว่าจะจัดให้ใคร</div>
+      </div>
+      <div class="tp-start-go">→</div>
+    </button>
   </div>
 
   <div class="card" style="margin-top:14px">
@@ -9671,12 +9733,90 @@ function openTrainingSessionForm() {
   closeModal();
   setTimeout(() => _openTsModal(course), 60);
 }
+/* ══════════ ทะเบียนบริษัทในเครือ ══════════
+   ใช้เลือกว่าใบรายชื่อผู้เข้าอบรมจะออกในนามบริษัทไหน
+   เดิมชื่อบริษัทฝังตายในโค้ด ออกใบให้บริษัทอื่นในเครือไม่ได้เลย
+   เก็บที่ quizMeta.companies เพื่อให้แอดมินทุกคนเห็นรายการเดียวกัน */
+const COMPANY_DEFAULTS = [
+  'บริษัท เอฟเอบี ฟู้ดโฮลดิ้ง จำกัด',
+  'บริษัท เคที เรสทัวรองท์ จำกัด',
+  'บริษัท ส้มตำเจ๊แดงสามย่าน จำกัด',
+  'บริษัท โนมิมาโช จำกัด',
+  'บริษัท ยามะจัง (ไทยแลนด์) จำกัด',
+];
+function allCompanies() {
+  const saved = (DB.quizMeta && Array.isArray(DB.quizMeta.companies)) ? DB.quizMeta.companies : [];
+  // รายชื่อเริ่มต้นมาก่อนเสมอ แล้วต่อด้วยที่แอดมินเพิ่มเอง (ไม่ซ้ำ)
+  const out = COMPANY_DEFAULTS.slice();
+  saved.forEach(c => { const n = String(c || '').trim(); if (n && out.indexOf(n) < 0) out.push(n); });
+  return out;
+}
+function _saveCompanies(list) {
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  // เก็บเฉพาะที่เพิ่มเอง ไม่ต้องเก็บตัวเริ่มต้นซ้ำ
+  DB.quizMeta.companies = list.filter(c => COMPANY_DEFAULTS.indexOf(c) < 0);
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+}
+/* เลือก "+ เพิ่มบริษัทใหม่" → เปิดช่องกรอกใต้ดรอปดาวน์
+   ใช้ช่องกรอกในที่เดิม ไม่เปิดหน้าต่างซ้อน เพราะฟอร์มจัดอบรมเปิดอยู่แล้ว
+   ถ้าเปิดหน้าต่างใหม่ทับ ข้อมูลที่กรอกค้างไว้จะหายหมด */
+function onCompanyPick(sel) {
+  const box = document.getElementById('ts-company-add');
+  if (sel.value === '__add__') {
+    if (box) { box.style.display = 'flex'; setTimeout(() => document.getElementById('ts-company-new')?.focus(), 30); }
+  } else {
+    sel.dataset.prev = sel.value;
+    if (box) box.style.display = 'none';
+  }
+}
+function cancelCompanyAdd() {
+  const sel = document.getElementById('ts-company');
+  const box = document.getElementById('ts-company-add');
+  if (sel) sel.value = sel.dataset.prev || COMPANY_DEFAULTS[0];
+  if (box) box.style.display = 'none';
+}
+function addCompanyInline() {
+  const sel = document.getElementById('ts-company');
+  const inp = document.getElementById('ts-company-new');
+  const n = String(inp?.value || '').trim();
+  if (!n) { notify('กรุณากรอกชื่อบริษัท', 'error'); return; }
+  if (allCompanies().some(c => c.toLowerCase() === n.toLowerCase())) {
+    notify('มีบริษัทนี้อยู่แล้วในทะเบียน', 'error'); return;
+  }
+  _saveCompanies(allCompanies().concat([n]));
+  const opt = document.createElement('option');
+  opt.value = n; opt.textContent = n;
+  sel.insertBefore(opt, sel.querySelector('option[value="__add__"]'));
+  sel.value = n; sel.dataset.prev = n;
+  inp.value = '';
+  document.getElementById('ts-company-add').style.display = 'none';
+  notify('เพิ่ม "' + n + '" เข้าทะเบียนบริษัทแล้ว — ใช้ได้ทุกครั้งต่อจากนี้');
+}
+function _companyOptions(selected) {
+  const cur = String(selected || COMPANY_DEFAULTS[0]);
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  return allCompanies().map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`).join('')
+    + '<option value="__add__">➕ เพิ่มบริษัทใหม่…</option>';
+}
+
 function _openTsModal(course, draft) {
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   const d = draft || {};
   const v = s => String(s == null ? '' : s).replace(/"/g,'&quot;');
   showModal('📋 จัดอบรม · ใบรายชื่อผู้เข้าอบรม', `
     ${_tsDraftId ? '<div style="margin-bottom:12px;padding:8px 12px;background:var(--accent-light);border:1px solid rgba(255,107,26,.3);border-radius:8px;font-size:12.5px;color:var(--accent-hover);font-weight:700">📝 กำลังแก้ไขแบบร่างที่บันทึกไว้ — กด “บันทึกแบบร่าง” เพื่ออัปเดต</div>' : ''}
+    <div class="form-full" style="margin-bottom:12px">
+      <label class="form-label">ออกใบในนามบริษัท <span class="req">*</span></label>
+      <select class="form-select" id="ts-company" data-prev="${v(d.company || COMPANY_DEFAULTS[0])}" onchange="onCompanyPick(this)">
+        ${_companyOptions(d.company)}
+      </select>
+      <div id="ts-company-add" style="display:none;gap:6px;margin-top:7px">
+        <input class="form-input" id="ts-company-new" placeholder="พิมพ์ชื่อบริษัทให้ครบตามที่ใช้ในเอกสาร" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addCompanyInline()}">
+        <button type="button" class="btn btn-sm btn-accent" onclick="addCompanyInline()">เพิ่ม</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="cancelCompanyAdd()">ยกเลิก</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:5px">ชื่อนี้จะขึ้นเป็นหัวกระดาษของใบรายชื่อผู้เข้าอบรม · บริษัทที่เพิ่มเองจะใช้ได้ทุกครั้งต่อจากนี้</div>
+    </div>
     <div class="form-row">
       <div><label class="form-label">หลักสูตร <span class="req">*</span></label><input class="form-input" id="ts-course" placeholder="ชื่อหลักสูตร" value="${v(course)}"></div>
       <div><label class="form-label">รุ่นที่</label><input class="form-input" id="ts-batch" placeholder="เช่น 3" value="${v(d.batch)}"></div>
@@ -9711,6 +9851,7 @@ function _openTsModal(course, draft) {
     const list = _tsPeople.filter(e => ids.has(e.id));
     if (!list.length) { notify('ยังไม่ได้เลือกผู้เข้าอบรม', 'error'); return; }
     const info = {
+      company: (document.getElementById('ts-company').value === '__add__' ? COMPANY_DEFAULTS[0] : document.getElementById('ts-company').value),
       course: courseV,
       batch: document.getElementById('ts-batch').value.trim(),
       date: date,
@@ -9738,6 +9879,7 @@ async function _tsSaveDraft() {
   if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
   const rec = {
     id: _tsDraftId || ('draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+    company: (g('ts-company') === '__add__' ? COMPANY_DEFAULTS[0] : g('ts-company')),
     course: g('ts-course').trim(),
     batch: g('ts-batch').trim(),
     trainDate: g('ts-date'),
@@ -9825,7 +9967,7 @@ function _printTrainingSession(info, list) {
     <div class="head">
       <div class="head-logo">${logoUrl ? `<img src="${logoUrl}" alt="">` : ''}</div>
       <div class="head-mid">
-        <div class="co">บริษัท เอฟเอบี ฟู้ดโฮลดิ้ง จำกัด</div>
+        <div class="co">${(info.company || COMPANY_DEFAULTS[0]).replace(/</g,"&lt;")}</div>
         <div class="doc">ทะเบียนรายชื่อผู้เข้าอบรม</div>
         <div class="fline"><span><b>หลักสูตร :</b> ${fld(info.course, '260px')}</span><span><b>รุ่นที่ :</b> ${fld(info.batch, '70px')}</span></div>
         <div class="fline"><span><b>วันที่ :</b> ${fld(dFrom, '160px')}</span><span><b>เวลา :</b> ${fld(info.time, '150px')} น.</span></div>
