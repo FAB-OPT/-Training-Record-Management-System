@@ -2728,7 +2728,6 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
-  { page: 'admin-roster-history',  icon: '🧾',  label: 'ใบรายชื่อที่ออกแล้ว' },
   { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับโซน BZM' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือนสำคัญ' },
@@ -6289,7 +6288,6 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
-  { page: 'admin-roster-history',  icon: '🧾',  label: 'ใบรายชื่อ' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับ' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
@@ -6334,7 +6332,6 @@ const _bnavMoreLabels = {
   'admin-cases':      'เคสจากสาขา',
   'admin-reports':    'ออกรายงาน',
   'admin-training-plan': 'จัดอบรม',
-  'admin-roster-history': 'ใบรายชื่อที่ออกแล้ว',
   'exec-alerts':      'แจ้งเตือนสำคัญ',
   'cases':            'ติดต่อ Admin',
   'reports':          'ออกรายงาน',
@@ -6405,7 +6402,6 @@ const _SIDEBAR_LABELS = {
   'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
-  'admin-roster-history': { admin: 'ใบรายชื่อที่ออกแล้ว',              bzm: '',                            exec: '' },
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
@@ -6425,7 +6421,6 @@ const NAV_SECTION = {
   'admin-trainings':      'เมนูหลัก',
   'admin-course-history': 'เมนูหลัก',
   'admin-training-plan':  'เมนูหลัก',
-  'admin-roster-history': 'เมนูหลัก',
   'admin-quiz':           'ติดตาม & ประเมิน',
   'exec-leaderboard':     'ติดตาม & ประเมิน',
   'exec-alerts':          'ติดตาม & ประเมิน',
@@ -6474,7 +6469,6 @@ function showPage(page) {
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
     'admin-training-plan': renderTrainingPlan,
-    'admin-roster-history': renderRosterHistory,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
@@ -9518,7 +9512,7 @@ function _printCourseCoverage(r) {
    2 ทาง: ชนรายชื่อ (หาคนที่ยังไม่ผ่าน) · เลือกเอง (หยิบจากทะเบียนพนักงาน)
    ทั้งสองทางไปจบที่ฟอร์มเดียวกัน → พรีวิว/ติ๊กรายชื่อ → ออกใบรายชื่อ PDF */
 function renderTrainingPlan() {
-  setTimeout(_tpRenderDrafts, 0);
+  setTimeout(_tpRenderAll, 0);
   return `
   <div class="page-hero">
     <div class="page-hero-body">
@@ -9565,9 +9559,23 @@ function renderTrainingPlan() {
         <div style="font-weight:800;font-size:15px;color:var(--text)">📝 แบบร่างที่บันทึกไว้</div>
         <span id="tp-draft-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
       </div>
-      <button class="btn btn-sm btn-refresh" onclick="_tpRenderDrafts()"><span class="refresh-ic">↻</span> รีเฟรช</button>
+      <button class="btn btn-sm btn-refresh" onclick="_tpRenderAll()"><span class="refresh-ic">↻</span> รีเฟรช</button>
     </div>
     <div id="tp-drafts"><p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p></div>
+  </div>
+
+  <!-- ใบที่ออกไปแล้ว — อยู่ในหน้านี้ ไม่แยกเป็นเมนูต่างหาก
+       เป็นงานเดียวกันกับแบบร่าง (ร่าง → ออกใบ → ประวัติ) แยกเมนูแล้วต้องเด้งไปมา -->
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">🧾 ใบรายชื่อที่ออกแล้ว</div>
+        <span id="rh-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
+      </div>
+      <button class="btn btn-sm btn-refresh" onclick="_tpRenderAll()"><span class="refresh-ic">↻</span> รีเฟรช</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">ทุกครั้งที่กดออกใบ PDF ระบบเก็บไว้ที่นี่ · แก้ไข เปิด PDF ซ้ำ หรือลบทิ้งได้</div>
+    <div id="rh-list"></div>
   </div>
 
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
@@ -9806,6 +9814,7 @@ function deleteCourseName(name) {
 
 /* ══════════ แบบร่างใบรายชื่อ — เก็บบน Supabase ตาราง training_drafts (แอดมินทุกคนเห็นร่วมกัน) ══════════ */
 let _tsDraftId = null;   // ร่างที่กำลังเปิดแก้อยู่ (null = ยังไม่เคยบันทึก)
+let _tsIssuedAt = null;  // มีค่า = กำลังแก้ "ใบที่ออกไปแล้ว" ต้องคงวันที่ออกใบเดิมไว้
 let _tpDrafts = [];
 async function _tpFetchDrafts() {
   const sb = _initSb();
@@ -9833,23 +9842,34 @@ async function _tsArchiveIssued(info, list) {
       people: (list || []).map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' })),
       createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
       savedAt: new Date().toISOString(),
-      issuedAt: new Date().toISOString(),
+      // แก้ใบเก่า = คงวันที่ออกใบเดิม ไม่ใช่เด้งขึ้นหัวรายการทุกครั้งที่แก้คำผิด
+      issuedAt: _tsIssuedAt || new Date().toISOString(),
     };
     await _tpUpsertDraft(rec);
     _tsDraftId = null;   // ร่างนี้กลายเป็นใบที่ออกแล้ว ไม่ใช่ร่างค้างอีกต่อไป
-    if (currentPage === 'admin-training-plan') _tpRenderDrafts();
+    _tsIssuedAt = null;
+    if (currentPage === 'admin-training-plan') _tpRenderAll();
   } catch (e) {
     console.warn('เก็บประวัติใบรายชื่อไม่สำเร็จ', e);
     notify('ออก PDF แล้ว แต่บันทึกประวัติไม่สำเร็จ — ถ้ายังไม่ได้รัน supabase-roster-history.sql ให้รันก่อน', 'error');
   }
 }
 let _rhRows = [];
-async function _rhRender() {
+/* แบบร่างกับใบที่ออกแล้วอยู่ตารางเดียวกัน — ดึงทีเดียวแล้วแจกให้ทั้งสองกล่อง
+   ไม่ใช่ยิงสองรอบเพราะบังเอิญเขียนเป็นคนละฟังก์ชัน */
+async function _tpRenderAll() {
+  let rows;
+  try { rows = await _tpFetchDrafts(); }
+  catch (e) { _tpRenderDrafts(); _rhRender(); return; }   // ให้แต่ละกล่องยิงเองเพื่อโชว์สาเหตุที่ตรงกับตัวเอง
+  _tpRenderDrafts(rows);
+  _rhRender(rows);
+}
+async function _rhRender(rows) {
   const box = document.getElementById('rh-list');
   if (!box) return;
   box.innerHTML = '<p class="text-muted" style="text-align:center;padding:20px;font-size:13px">กำลังโหลด…</p>';
   try {
-    _rhRows = (await _tpFetchDrafts()).filter(d => d.issuedAt)
+    _rhRows = (rows || await _tpFetchDrafts()).filter(d => d.issuedAt)
       .sort((a, b) => String(b.issuedAt || '').localeCompare(String(a.issuedAt || '')));
   } catch (e) {
     const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache|issued_at/i);
@@ -9861,7 +9881,7 @@ async function _rhRender() {
   const cnt = document.getElementById('rh-count');
   if (cnt) cnt.textContent = _rhRows.length + ' ใบ';
   if (!_rhRows.length) {
-    box.innerHTML = '<p class="text-muted" style="text-align:center;padding:28px;font-size:13px">ยังไม่มีใบรายชื่อที่ออก — ไปที่เมนู <b>จัดอบรม</b> เพื่อออกใบแรก</p>';
+    box.innerHTML = '<p class="text-muted" style="text-align:center;padding:28px;font-size:13px">ยังไม่มีใบรายชื่อที่ออก — เตรียมรายชื่อด้านบนแล้วกด <b>ออกใบรายชื่อ PDF</b></p>';
     return;
   }
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -9880,6 +9900,7 @@ async function _rhRender() {
       <div style="text-align:right"><span class="cc-num">${(d.people || []).length}<span> คน</span></span></div>
       <div class="cc-act">
         <button class="btn btn-sm btn-outline" onclick="_rhView(${i})">ดูรายชื่อ</button>
+        <button class="btn btn-sm btn-accent" onclick="_rhEdit(${i})" title="แก้รายละเอียดหรือตัดคนออก แล้วทับใบเดิม">แก้ไข</button>
         <button class="btn btn-sm btn-outline" onclick="_rhReprint(${i})" title="เปิด PDF ใบเดิมอีกครั้ง">🖨</button>
         <button class="btn btn-sm btn-outline tp-del" onclick="_rhDelete(${i})" title="ลบออกจากประวัติ">🗑</button>
       </div>
@@ -9892,6 +9913,15 @@ function _rhInfo(d) {
 function _rhReprint(i) {
   const d = _rhRows[i]; if (!d) return;
   _printTrainingSession(_rhInfo(d), d.people || []);
+}
+/* แก้ใบที่ออกไปแล้ว — เปิดฟอร์มเดิม แต่จำ issuedAt ของใบนั้นไว้
+   เพื่อให้บันทึกแล้ว "ทับใบเดิม" ไม่ใช่กลายเป็นร่างใหม่หรือใบที่สอง */
+function _rhEdit(i) {
+  const d = _rhRows[i]; if (!d) return;
+  _tsPeople = (d.people || []).slice();
+  _tsDraftId = d.id;
+  _tsIssuedAt = d.issuedAt || new Date().toISOString();
+  _openTsModal(d.course || '', d);
 }
 function _rhView(i) {
   const d = _rhRows[i]; if (!d) return;
@@ -9928,38 +9958,18 @@ function _rhDelete(i) {
     } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
   }, { title: 'ลบจากประวัติ', icon: '🗑', confirmText: 'ลบ' });
 }
-function renderRosterHistory() {
-  setTimeout(_rhRender, 0);
-  return `
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-title">ใบรายชื่อที่ออกแล้ว</div>
-      <div class="page-hero-sub">ทุกครั้งที่กดออกใบ PDF ระบบเก็บไว้ที่นี่ · ดูย้อนหลัง เปิด PDF ซ้ำ หรือลบทิ้งได้</div>
-    </div>
-  </div>
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="font-weight:800;font-size:15px;color:var(--text)">🧾 ประวัติการออกใบ</div>
-        <span id="rh-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
-      </div>
-      <button class="btn btn-sm btn-refresh" onclick="_rhRender()"><span class="refresh-ic">↻</span> รีเฟรช</button>
-    </div>
-    <div id="rh-list"></div>
-  </div>`;
-}
 async function _tpUpsertDraft(rec) {
   const sb = _initSb();
   if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
   const res = await sb.from('training_drafts').upsert(_toSb('trainingDrafts', rec));
   if (res.error) throw res.error;
 }
-async function _tpRenderDrafts() {
+async function _tpRenderDrafts(rows) {
   const box = document.getElementById('tp-drafts');
   if (!box) return;
   box.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p>';
   try {
-    _tpDrafts = (await _tpFetchDrafts()).filter(d => !d.issuedAt);
+    _tpDrafts = (rows || await _tpFetchDrafts()).filter(d => !d.issuedAt);
   } catch (e) {
     // ตารางยังไม่ถูกสร้างบน Supabase → บอกวิธีแก้แทนที่จะขึ้น error ดิบ
     const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache/i);
@@ -10019,6 +10029,7 @@ function _tpOpenDraft(id) {
   if (!d) return;
   _tsPeople = (d.people || []).slice();
   _tsDraftId = d.id;
+  _tsIssuedAt = null;   // ร่าง ไม่ใช่ใบที่ออกแล้ว
   _openTsModal(d.course || '', d);
 }
 function _tpPrintDraft(id) {
@@ -10036,7 +10047,7 @@ function _tpDeleteDraft(id) {
       if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
       const res = await sb.from('training_drafts').delete().eq('id', id);
       if (res.error) throw res.error;
-      if (_tsDraftId === id) _tsDraftId = null;
+      if (_tsDraftId === id) { _tsDraftId = null; _tsIssuedAt = null; }
       notify('ลบแบบร่างแล้ว');
       _tpRenderDrafts();
     } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
@@ -10064,7 +10075,7 @@ function openTrainingPickPeople() {
     if (!picked.length) { notify('ยังไม่ได้เลือกรายชื่อ', 'error'); return; }
     const all = _tpTargets();
     _tsPeople = all.filter(e => picked.indexOf(e.id) >= 0);
-    _tsDraftId = null;   // เริ่มร่างใหม่
+    _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่
     closeModal();
     setTimeout(() => _openTsModal(''), 60);
   }, 'ถัดไป · กรอกรายละเอียดอบรม');
@@ -10117,7 +10128,7 @@ function openTrainingSessionForm() {
   if (!r.course) { notify('เลือกหลักสูตรก่อน', 'error'); return; }
   if (!r.notPassed.length) { notify('ไม่มีคนที่ยังไม่ผ่าน', 'error'); return; }
   _tsPeople = r.notPassed.slice();   // snapshot ก่อนปิด modal ชนรายชื่อ
-  _tsDraftId = null;                 // เริ่มร่างใหม่ (ไม่ทับร่างที่เปิดค้างไว้ก่อนหน้า)
+  _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่ (ไม่ทับร่าง/ใบที่เปิดค้างไว้ก่อนหน้า)
   const course = r.course;
   closeModal();
   setTimeout(() => _openTsModal(course), 60);
@@ -10192,8 +10203,13 @@ function _openTsModal(course, draft) {
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   const d = draft || {};
   const v = s => String(s == null ? '' : s).replace(/"/g,'&quot;');
-  showModal('📋 จัดอบรม · ใบรายชื่อผู้เข้าอบรม', `
-    ${_tsDraftId ? '<div style="margin-bottom:12px;padding:8px 12px;background:var(--accent-light);border:1px solid rgba(255,107,26,.3);border-radius:8px;font-size:12.5px;color:var(--accent-hover);font-weight:700">📝 กำลังแก้ไขแบบร่างที่บันทึกไว้ — กด “บันทึกแบบร่าง” เพื่ออัปเดต</div>' : ''}
+  showModal(_tsIssuedAt ? '✏️ แก้ไขใบรายชื่อที่ออกแล้ว' : '📋 จัดอบรม · ใบรายชื่อผู้เข้าอบรม', `
+    ${_tsIssuedAt
+      ? `<div style="margin-bottom:12px;padding:9px 12px;background:var(--accent-light);border:1px solid rgba(255,107,26,.3);border-radius:8px;font-size:12.5px;color:var(--accent-hover);font-weight:700;line-height:1.65">
+           ✏️ กำลังแก้ใบที่ออกไปแล้ว (ออกเมื่อ ${d.issuedAt ? fmtDateTime(d.issuedAt) : '—'}) — บันทึกแล้ว<u>ทับใบเดิม</u> ไม่ได้สร้างใบใหม่
+           <div style="font-weight:600;color:var(--text3);margin-top:3px">ตัดคนออกได้ด้วยการเอาติ๊กออก · ถ้าจะ<b>เพิ่ม</b>คนต้องออกใบใหม่ เพราะรายชื่อในใบนี้ถูกล็อกไว้ตอนออกใบแล้ว</div>
+         </div>`
+      : (_tsDraftId ? '<div style="margin-bottom:12px;padding:8px 12px;background:var(--accent-light);border:1px solid rgba(255,107,26,.3);border-radius:8px;font-size:12.5px;color:var(--accent-hover);font-weight:700">📝 กำลังแก้ไขแบบร่างที่บันทึกไว้ — กด “บันทึกแบบร่าง” เพื่ออัปเดต</div>' : '')}
     <div class="form-full" style="margin-bottom:12px">
       <label class="form-label">ออกใบในนามบริษัท <span class="req">*</span></label>
       <select class="form-select" id="ts-company" data-prev="${v(d.company || COMPANY_DEFAULTS[0])}" onchange="onCompanyPick(this)">
@@ -10251,11 +10267,12 @@ function _openTsModal(course, draft) {
     closeModal();
     _tsArchiveIssued(info, list);   // เก็บเป็นประวัติก่อน แล้วค่อยเปิด PDF
     _printTrainingSession(info, list);
-  }, 'ออกใบรายชื่อ PDF');
-  // ปุ่ม "บันทึกแบบร่าง" — แทรกเพิ่มในแถบล่างของ modal (showModal รองรับแค่ 2 ปุ่ม)
+  }, _tsIssuedAt ? 'บันทึก + เปิด PDF ใหม่' : 'ออกใบรายชื่อ PDF');
+  /* ปุ่มซ้าย — แทรกเพิ่มในแถบล่างของ modal (showModal รองรับแค่ 2 ปุ่ม)
+     ตอนแก้ใบที่ออกแล้วต้องมีทางบันทึกโดยไม่เปิด PDF ซ้ำ แค่แก้คำผิดไม่ควรต้องสั่งพิมพ์ใหม่ */
   const footer = document.querySelector('#modal-overlay .modal-footer');
   if (footer) footer.insertAdjacentHTML('afterbegin',
-    '<button class="btn btn-outline" id="ts-save-draft" onclick="_tsSaveDraft()" style="margin-right:auto">💾 บันทึกแบบร่าง</button>');
+    `<button class="btn btn-outline" id="ts-save-draft" onclick="_tsSaveDraft()" style="margin-right:auto">💾 ${_tsIssuedAt ? 'บันทึกการแก้ไข' : 'บันทึกแบบร่าง'}</button>`);
   _tsUpd();
 }
 /* เก็บสิ่งที่กรอกไว้เป็นแบบร่าง — ไม่บังคับกรอกครบ ขอแค่มีรายชื่อที่ติ๊กไว้ */
@@ -10264,8 +10281,9 @@ async function _tsSaveDraft() {
   const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
   const people = _tsPeople.filter(e => ids.has(e.id))
     .map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' }));
-  if (!people.length) { notify('ยังไม่ได้เลือกรายชื่อ — ติ๊กอย่างน้อย 1 คนก่อนบันทึกร่าง', 'error'); return; }
+  if (!people.length) { notify('ยังไม่ได้เลือกรายชื่อ — ติ๊กอย่างน้อย 1 คนก่อนบันทึก', 'error'); return; }
   const btn = document.getElementById('ts-save-draft');
+  const wasIssued = _tsIssuedAt;
   if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
   const rec = {
     id: _tsDraftId || ('draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
@@ -10280,15 +10298,19 @@ async function _tsSaveDraft() {
     createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
     savedAt: new Date().toISOString(),
   };
+  /* ถ้ากำลังแก้ใบที่ออกแล้ว ต้องส่ง issuedAt กลับไปด้วย
+     upsert เขียนทั้งแถว ไม่ส่งไปคอลัมน์นี้จะกลายเป็นว่าง = ใบเด้งกลับไปเป็นแบบร่าง */
+  if (wasIssued) rec.issuedAt = wasIssued;
   try {
     await _tpUpsertDraft(rec);
     _tsDraftId = rec.id;
-    notify('บันทึกแบบร่างแล้ว — ดูได้ที่หน้าจัดอบรม');
+    notify(wasIssued ? 'แก้ไขใบรายชื่อแล้ว' : 'บันทึกแบบร่างแล้ว — ดูได้ที่หน้าจัดอบรม');
     closeModal();
-    if (currentPage === 'admin-training-plan') _tpRenderDrafts();
+    _tsIssuedAt = null;
+    if (currentPage === 'admin-training-plan') _tpRenderAll();
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 บันทึกแบบร่าง'; }
-    notify('บันทึกร่างไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 ' + (wasIssued ? 'บันทึกการแก้ไข' : 'บันทึกแบบร่าง'); }
+    notify('บันทึกไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error');
   }
 }
 function _tsToggleAll(on) { document.querySelectorAll('.ts-chk').forEach(c => c.checked = on); _tsUpd(); }
