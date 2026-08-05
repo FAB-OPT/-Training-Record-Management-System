@@ -479,12 +479,21 @@
   .msel-btn .msel-cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .msel-btn .msel-car { color: var(--text3); flex-shrink: 0; font-size: 11px; }
   .msel-btn.msel-empty .msel-cap { color: var(--text3); }
+  /* กล่องเลือกหลายรายการ — สาขามี 60 กว่าแห่ง ช่องเดิมสูง 240px เห็นทีละ 4-5 บรรทัด
+     เลื่อนหาเองไม่ไหว จึงขยายความสูงและใส่ช่องค้นหาไว้ด้านบน */
   .msel-panel { display: none; position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0;
     background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
-    box-shadow: 0 10px 28px rgba(0,0,0,.16); max-height: 240px; overflow: auto; padding: 6px; }
+    box-shadow: 0 10px 28px rgba(0,0,0,.16); max-height: min(46vh, 360px); overflow: auto; padding: 6px; }
   .msel.open .msel-panel { display: block; }
-  .msel-head { position: sticky; top: -6px; background: var(--surface); padding: 6px 8px; margin: -6px -6px 4px;
+  .msel-head { position: sticky; top: -6px; z-index: 1; background: var(--surface); padding: 6px 8px; margin: -6px -6px 4px;
     border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; }
+  .msel-search {
+    width: 100%; margin-bottom: 6px; padding: 6px 9px; font-size: 12.5px;
+    font-family: 'Sarabun', sans-serif; color: var(--text);
+    border: 1px solid var(--border2); border-radius: 7px; background: var(--white); outline: none;
+  }
+  .msel-search:focus { border-color: var(--accent); }
+  .msel-none { padding: 14px 8px; text-align: center; font-size: 12.5px; color: var(--text3); }
   .msel-opt { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text); }
   .msel-opt:hover { background: var(--surface2); }
   .msel-grp { font-size: 11px; font-weight: 800; color: var(--text3); padding: 6px 8px 2px; text-transform: uppercase; letter-spacing: .3px; }
@@ -1222,6 +1231,34 @@
     padding: 8px 11px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px;
   }
   .cp-n { font-size: 11.5px; color: var(--text3); font-weight: 700; min-width: 26px; flex-shrink: 0; }
+  /* หัวสรุปของหน้าผู้ผ่านหลักสูตร */
+  .cp-sum {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+    background: var(--border); border: 1px solid var(--border);
+    border-radius: 11px; overflow: hidden; margin-bottom: 12px;
+  }
+  .cp-sum-cell { background: var(--surface); padding: 13px 10px; text-align: center; }
+  .cp-sum-n { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .cp-sum-l { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+  .cp-brs { background: var(--surface2); border-radius: 10px; padding: 11px 13px; margin-bottom: 12px; }
+  .cp-brs-t { font-size: 11.5px; font-weight: 700; color: var(--text3); margin-bottom: 8px; }
+  .cp-brs-list { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cp-br {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 4px 3px 11px; font-size: 12px; color: var(--text2);
+  }
+  .cp-br-name { white-space: nowrap; }
+  .cp-br-n {
+    background: var(--accent-light); color: var(--accent);
+    font-weight: 800; font-size: 11.5px; border-radius: 999px;
+    min-width: 22px; text-align: center; padding: 2px 6px;
+  }
+  .cp-br-more {
+    cursor: pointer; font-family: 'Sarabun', sans-serif; color: var(--accent);
+    font-weight: 700; padding: 4px 12px; border-style: dashed;
+  }
+  .cp-br-more:hover { background: var(--accent-light); }
 
   /* ── ประวัติใบรายชื่อที่ออกแล้ว ───────────────────────────────── */
   .rh-head, .rh-row {
@@ -9090,29 +9127,66 @@ function _mselHTML(id, items, opts) {
   opts = opts || {};
   let body = '', lastGrp = null;
   items.forEach(it => {
-    if (it.group && it.group !== lastGrp) { body += `<div class="msel-grp">${it.group}</div>`; lastGrp = it.group; }
+    if (it.group && it.group !== lastGrp) { body += `<div class="msel-grp" data-grp="1">${it.group}</div>`; lastGrp = it.group; }
     const ck = opts.allChecked ? ' checked' : '';
-    body += `<label class="msel-opt"><input type="checkbox" class="msel-chk" value="${String(it.v).replace(/"/g,'&quot;')}"${ck} onchange="_mselSync('${id}')"> <span>${it.label}</span></label>`;
+    body += `<label class="msel-opt" data-k="${String(it.label).toLowerCase().replace(/"/g,'&quot;')}"><input type="checkbox" class="msel-chk" value="${String(it.v).replace(/"/g,'&quot;')}"${ck} onchange="_mselSync('${id}')"> <span>${it.label}</span></label>`;
   });
+  // ใส่ช่องค้นหาเมื่อรายการเยอะพอที่จะเลื่อนหาไม่ไหว (สาขามี 60 กว่าแห่ง)
+  const withSearch = items.length > 8;
   return `<div class="msel" id="${id}-wrap" data-onchange="${opts.onChange || ''}" data-none="${opts.noneText || '— เลือก —'}">
     <button type="button" class="form-select msel-btn" id="${id}-btn" onclick="_mselToggle('${id}')"><span class="msel-cap"></span><span class="msel-car">▼</span></button>
     <div class="msel-panel" id="${id}-panel">
-      <div class="msel-head"><label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAll('${id}', this.checked)"> เลือกทั้งหมด</label></div>
+      <div class="msel-head">
+        ${withSearch ? `<input class="msel-search" id="${id}-search" placeholder="🔍 พิมพ์เพื่อค้นหา…" oninput="_mselFilter('${id}', this.value)" onclick="event.stopPropagation()">` : ''}
+        <label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAll('${id}', this.checked)"> เลือกทั้งหมด</label>
+      </div>
       ${body}
+      <div class="msel-none" id="${id}-none" style="display:none">ไม่พบรายการที่ตรงกับคำค้น</div>
     </div>
   </div>`;
+}
+/* กรองรายการในดรอปดาว — ซ่อนหัวข้อกลุ่มที่ไม่เหลือรายการด้วย */
+function _mselFilter(id, q) {
+  const panel = document.getElementById(id + '-panel'); if (!panel) return;
+  const k = String(q || '').toLowerCase().trim();
+  let shown = 0;
+  panel.querySelectorAll('.msel-opt[data-k]').forEach(o => {
+    const hit = !k || (o.dataset.k || '').indexOf(k) >= 0;
+    o.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+  panel.querySelectorAll('.msel-grp[data-grp]').forEach(g => {
+    let any = false;
+    for (let el = g.nextElementSibling; el && !el.matches('.msel-grp'); el = el.nextElementSibling) {
+      if (el.matches('.msel-opt') && el.style.display !== 'none') { any = true; break; }
+    }
+    g.style.display = any ? '' : 'none';
+  });
+  const none = document.getElementById(id + '-none');
+  if (none) none.style.display = shown ? 'none' : 'block';
 }
 function _mselToggle(id) {
   const w = document.getElementById(id + '-wrap'); if (!w) return;
   const open = w.classList.contains('open');
   document.querySelectorAll('.msel.open').forEach(x => x.classList.remove('open'));   // ปิดตัวอื่นก่อน
-  if (!open) w.classList.add('open');
+  if (!open) {
+    w.classList.add('open');
+    // เปิดมาให้พิมพ์ค้นได้เลย ไม่ต้องเลื่อนหาเอง
+    const s = document.getElementById(id + '-search');
+    if (s) { s.value = ''; _mselFilter(id, ''); setTimeout(() => s.focus(), 30); }
+  }
 }
 function _mselValues(id) {
   return Array.from(document.querySelectorAll('#' + id + '-panel .msel-chk:checked')).map(c => c.value);
 }
+/* "เลือกทั้งหมด" = ทั้งหมดเท่าที่เห็นอยู่ตอนนี้
+   ถ้ากำลังค้นหา "เดอะมอลล์" อยู่ ก็ควรติ๊กเฉพาะสาขาเดอะมอลล์ ไม่ใช่ทั้ง 63 สาขา */
 function _mselAll(id, on) {
-  document.querySelectorAll('#' + id + '-panel .msel-chk').forEach(c => { c.checked = on; });
+  document.querySelectorAll('#' + id + '-panel .msel-opt[data-k]').forEach(o => {
+    if (o.style.display === 'none') return;
+    const c = o.querySelector('.msel-chk');
+    if (c) c.checked = on;
+  });
   _mselSync(id);
 }
 function _mselSync(id) {
@@ -9548,18 +9622,29 @@ function showCoursePassers(name) {
   const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   // เรียงวันที่อบรมล่าสุดก่อน คนที่เพิ่งผ่านอยู่บน
   rows.sort((a, b) => String(b.courseDate || '').localeCompare(String(a.courseDate || '')));
-  // นับแยกตามสาขา ไว้ดูภาพรวมว่าสาขาไหนส่งคนมาเยอะ
+  /* นับแยกตามสาขา ไว้ดูว่าสาขาไหนส่งคนมาเยอะ
+     เดิมเขียนติดกันเป็น "5088 สยาม สแควร์ 4" อ่านแล้วแยกไม่ออกว่า 4 คือส่วนหนึ่ง
+     ของชื่อสาขาหรือจำนวนคน จึงแยกตัวเลขออกมาเป็นป้ายต่างหาก */
   const byBranch = {};
   rows.forEach(r => { const k = r.branchId || '-'; byBranch[k] = (byBranch[k] || 0) + 1; });
-  const branchChips = Object.entries(byBranch).sort((a, b) => b[1] - a[1]).slice(0, 8)
-    .map(([b, c]) => `<span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${esc(brName(b))} ${c}</span>`).join('');
+  const sorted = Object.entries(byBranch).sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+  const TOP = 6;
+  const chip = ([b, c]) => `<span class="cp-br"><span class="cp-br-name">${esc(brName(b))}</span><span class="cp-br-n">${c}</span></span>`;
+  const more = sorted.length - TOP;
 
   showModal('🎓 ผู้ผ่านหลักสูตร · ' + n, `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <span class="tp-chip ok">ผ่านแล้ว ${rows.length} คน</span>
-      <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${Object.keys(byBranch).length} สาขา</span>
+    <div class="cp-sum">
+      <div class="cp-sum-cell"><div class="cp-sum-n">${rows.length}</div><div class="cp-sum-l">คนที่ผ่านแล้ว</div></div>
+      <div class="cp-sum-cell"><div class="cp-sum-n">${sorted.length}</div><div class="cp-sum-l">สาขา</div></div>
+      <div class="cp-sum-cell"><div class="cp-sum-n">${sorted.length ? sorted[0][1] : 0}</div><div class="cp-sum-l">มากสุดใน 1 สาขา</div></div>
     </div>
-    ${branchChips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${branchChips}</div>` : ''}
+    ${sorted.length ? `<div class="cp-brs">
+      <div class="cp-brs-t">สาขาที่ส่งคนมาอบรมมากที่สุด</div>
+      <div class="cp-brs-list">
+        ${sorted.slice(0, TOP).map(chip).join('')}
+        ${more > 0 ? `<button class="cp-br cp-br-more" onclick="this.parentElement.innerHTML='${sorted.map(chip).join('').replace(/'/g, "\\'")}'">+ อีก ${more} สาขา</button>` : ''}
+      </div>
+    </div>` : ''}
     <input class="search-input" placeholder="🔍 ค้นหาชื่อ / รหัส / สาขา…" oninput="_cpFilter(this.value)" style="width:100%;margin-bottom:10px">
     <div id="cp-list" style="max-height:52vh;overflow:auto">
       ${rows.map((r, i) => `<div class="cp-row" data-k="${esc(((r.empName||'') + ' ' + (r.empCode||'') + ' ' + brName(r.branchId) + ' ' + (r.position||'')).toLowerCase())}">
