@@ -8461,10 +8461,27 @@ function _quizTagArr(v) {
 function quizTagField(mid) {
   return moduleNeedsTrack(mid) ? 'quizTrack' : moduleUsesSubtopicQuiz(mid) ? 'quizSub' : null;
 }
-/* ข้อนี้อยู่ช่องไหนบ้าง */
+/* ── ที่พักการแก้ก่อนบันทึก ───────────────────────────────────────
+   เดิมกดปุ่มช่องทีเดียว = ยิงบันทึกขึ้นเซิร์ฟเวอร์ทันทีหนึ่งครั้ง
+   จัดข้อสอบ 50 ข้อ = ยิง 50 ครั้ง ช้าและเสี่ยงพลาดกลางทาง
+   ตอนนี้กดเลือกได้เรื่อย ๆ เก็บไว้ในเครื่องก่อน แล้วกดบันทึกทีเดียว */
+let _qzDraft = null;   // { mid, quizTrack:{}, quizSub:{}, n: จำนวนข้อที่แก้ }
+function _qzDraftFor(mid) {
+  const f = quizTagField(mid); if (!f) return null;
+  if (!_qzDraft || _qzDraft.mid !== mid) {
+    const src = (DB.quizMeta && DB.quizMeta[f]) || {};
+    _qzDraft = { mid, field: f, map: JSON.parse(JSON.stringify(src)), touched: {} };
+  }
+  return _qzDraft;
+}
+function _qzDirtyCount() { return _qzDraft ? Object.keys(_qzDraft.touched).length : 0; }
+
+/* ข้อนี้อยู่ช่องไหนบ้าง — อ่านจากที่พักก่อนถ้ากำลังแก้ค้างอยู่ */
 function quizBoxesOf(mid, uid) {
   const f = quizTagField(mid);
-  return f ? _quizTagArr(DB.quizMeta && DB.quizMeta[f] && DB.quizMeta[f][uid]) : [];
+  if (!f) return [];
+  if (_qzDraft && _qzDraft.mid === mid) return _quizTagArr(_qzDraft.map[uid]);
+  return _quizTagArr(DB.quizMeta && DB.quizMeta[f] && DB.quizMeta[f][uid]);
 }
 function _writeQuizTags(mid, uid, arr) {
   const f = quizTagField(mid); if (!f) return;
@@ -8473,41 +8490,52 @@ function _writeQuizTags(mid, uid, arr) {
   if (arr.length) DB.quizMeta[f][uid] = arr;
   else delete DB.quizMeta[f][uid];
 }
-/* กดปุ่มช่อง = สลับเข้า/ออกช่องนั้น กดได้หลายช่อง
-   เก็บสถานะก่อนหน้าไว้หนึ่งครั้ง เผื่อกดผิดจะได้ย้อนกลับได้ */
-let _qzUndo = null;   // { mid, uid, prev: [], text: '' }
+/* กดปุ่มช่อง = สลับเข้า/ออกช่องนั้น กดได้หลายช่อง หลายข้อ
+   ยังไม่บันทึกจนกว่าจะกดปุ่มบันทึก */
 function toggleQuizBox(uid, key, mid) {
-  const cur = quizBoxesOf(mid, uid);
-  const prev = cur.slice();
+  const d = _qzDraftFor(mid); if (!d) return;
+  const cur = _quizTagArr(d.map[uid]);
   const i = cur.indexOf(key);
-  const inBox = i >= 0;
-  if (inBox) cur.splice(i, 1); else cur.push(key);
-  _writeQuizTags(mid, uid, cur);
-  gsSave('quizMeta', 'singleton', DB.quizMeta);
-  const name = key === 'steak' ? 'สเต็ก' : key === 'pasta' ? 'พาสต้า' : key;
-  const text = (inBox ? 'เอาออกจากช่อง ' : 'ใส่เข้าช่อง ') + name;
-  _qzUndo = { mid, uid, prev, text };
-  notify(text + ' แล้ว' + (!inBox && cur.length > 1 ? ' (ตอนนี้อยู่ ' + cur.length + ' ช่อง)' : ''));
-  if (mid) openQuizListModal(mid, true);
+  if (i >= 0) cur.splice(i, 1); else cur.push(key);
+  if (cur.length) d.map[uid] = cur; else delete d.map[uid];
+  d.touched[uid] = true;
+  openQuizListModal(mid, true);   // วาดใหม่ในเครื่องอย่างเดียว ไม่แตะเซิร์ฟเวอร์
 }
-function _qzUndoMove() {
-  if (!_qzUndo) return;
-  const u = _qzUndo;
-  _writeQuizTags(u.mid, u.uid, u.prev.slice());
+/* เขียนที่พักลงของจริงแล้วยิงขึ้นเซิร์ฟเวอร์ครั้งเดียว */
+function _qzCommitDraft() {
+  if (!_qzDraft || !_qzDirtyCount()) return 0;
+  const n = _qzDirtyCount();
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  DB.quizMeta[_qzDraft.field] = _qzDraft.map;
   gsSave('quizMeta', 'singleton', DB.quizMeta);
-  _qzUndo = null;
-  notify('ย้อนกลับแล้ว');
-  openQuizListModal(u.mid, true);
+  return n;
 }
-function _qzUndoBarHTML(mid) {
-  if (!_qzUndo || _qzUndo.mid !== mid) return '';
-  const q = getAllQuestionsForModule(mid, true).find(x => x.uid === _qzUndo.uid);
-  const short = (q ? q.q.replace(/^\d+[\.\s]+/, '') : '').slice(0, 45);
-  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;
-              padding:9px 13px;background:var(--surface2);border:1px solid var(--border2);border-radius:9px">
-    <span style="font-size:12.5px;color:var(--text2);flex:1;min-width:0">
-      เพิ่ง<b>${_qzUndo.text}</b>${short ? ' · <span style="color:var(--text3)">' + short + '…</span>' : ''}</span>
-    <button class="btn btn-sm btn-outline" onclick="_qzUndoMove()" style="flex-shrink:0">↩ ย้อนกลับ</button>
+/* บันทึกทีเดียวทั้งหมด */
+function saveQuizBoxes() {
+  if (!_qzDraft) return;
+  const mid = _qzDraft.mid;
+  const n = _qzCommitDraft();
+  _qzDraft = null;
+  notify(n ? 'บันทึกการจัดช่อง ' + n + ' ข้อแล้ว' : 'ไม่มีอะไรเปลี่ยน');
+  openQuizListModal(mid, true);
+}
+/* ทิ้งที่แก้ค้างไว้ กลับไปใช้ของที่บันทึกไว้ล่าสุด */
+function discardQuizBoxes() {
+  if (!_qzDraft) return;
+  const mid = _qzDraft.mid;
+  _qzDraft = null;
+  notify('ยกเลิกการแก้แล้ว');
+  openQuizListModal(mid, true);
+}
+/* แถบเตือนว่ายังไม่ได้บันทึก — ติดไว้บนสุดของหน้าจัดการข้อสอบ */
+function _qzSaveBarHTML(mid) {
+  const n = (_qzDraft && _qzDraft.mid === mid) ? _qzDirtyCount() : 0;
+  if (!n) return '';
+  return `<div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      margin:-4px 0 12px;padding:11px 14px;background:#FEF3C7;border:1px solid #F59E0B66;border-radius:10px">
+    <span style="font-size:13px;color:#92400E;font-weight:700;flex:1;min-width:0">⚠️ แก้ไว้ ${n} ข้อ ยังไม่ได้บันทึก</span>
+    <button class="btn btn-sm btn-outline" onclick="discardQuizBoxes()">ยกเลิก</button>
+    <button class="btn btn-sm btn-accent" onclick="saveQuizBoxes()">💾 บันทึก ${n} ข้อ</button>
   </div>`;
 }
 
@@ -8566,7 +8594,12 @@ function quizInBox(mid, uid, key) {
 
 /* ข้อที่เพิ่มใหม่จากในช่องไหน ให้เข้าช่องนั้นเลย ไม่ต้องมาจัดทีหลัง */
 let _qzAddBox = null;   // { mid, key }
-function _qzOpenAddIn(mid, key) { _qzAddBox = { mid, key }; openAddQuizChooser(mid); }
+function _qzOpenAddIn(mid, key) {
+  // กำลังจะออกจากหน้านี้ไปเพิ่มข้อสอบ — บันทึกที่จัดค้างไว้ก่อน จะได้ไม่หาย
+  if (_qzDirtyCount()) { _qzCommitDraft(); _qzDraft = null; }
+  _qzAddBox = { mid, key };
+  openAddQuizChooser(mid);
+}
 function _qzTagNew(mid, uids) {
   if (!_qzAddBox || _qzAddBox.mid !== mid || !_qzAddBox.key || !uids.length) { _qzAddBox = null; return; }
   if (!quizTagField(mid)) { _qzAddBox = null; return; }
@@ -14477,7 +14510,13 @@ function _quizTagSummaryHTML(mid, all) {
 let _quizListScroll = 0;
 function openQuizListModal(mid, restore) {
   // เปิดใหม่จากการ์ด = เริ่มบนสุด · รีเฟรช (ลบ/แก้/เปิด-ปิด) = คงตำแหน่ง scroll เดิม
-  if (!restore) { _quizListScroll = 0; _qzUndo = null; }   // เปิดใหม่ = ไม่ต้องค้างปุ่มย้อนกลับของครั้งก่อน
+  /* เปิดใหม่จากการ์ด — ถ้ารอบก่อนยังมีที่แก้ค้างไว้ ให้บันทึกให้ก่อน
+     ดีกว่าทิ้งเงียบ ๆ แล้วงานที่จัดไว้หายไปโดยไม่มีใครรู้ */
+  if (!restore) {
+    _quizListScroll = 0;
+    if (_qzDirtyCount()) _qzCommitDraft();
+    _qzDraft = null;
+  }
   const all = getAllQuestionsForModule(mid);
   const m = MODULES[mid];
   const activeCount = all.filter(q => isQuizActive(q.uid)).length;
@@ -14559,7 +14598,7 @@ function openQuizListModal(mid, restore) {
       </div>
     </div>
     ${_quizTagSummaryHTML(mid, all)}
-    ${_qzUndoBarHTML(mid)}
+    ${_qzSaveBarHTML(mid)}
     ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
       <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
       <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
