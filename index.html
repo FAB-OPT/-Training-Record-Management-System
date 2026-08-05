@@ -4861,9 +4861,14 @@ async function gsLoad() {
       const isEmpty = !sbData.employees.length && !sbData.trainings.length;
       if (!isEmpty) {
         _applyServerData(sbData);
-        // chatLogs/cases อยู่บน Google Sheets ซึ่งช้าและไม่เสถียร (วัดได้ 5-60 วินาที)
-        // ไม่จำเป็นต้องดึงใหม่ทุกรอบ sync — ดึงครั้งแรก แล้วเว้นอย่างน้อย 5 นาที
-        if (Date.now() - _lastAuxAt > 5 * 60 * 1000) {
+        /* เรียก Sheets ครั้งเดียวต่อการเปิดหน้า ไม่ใช่ทุก 5 นาทีเหมือนเดิม
+           action=load อ่านทุกชีตในไฟล์ วัดเวลาจริงได้ 81 วินาที และกินคิว
+           ของ Apps Script ที่รับพร้อมกันได้ราว 30 งาน — 60 สาขาเรียกวนทุก 5 นาที
+           ทำให้คิวเต็มจนงานอื่น (รวมถึงแชตบอต) ต้องรอตามไปด้วย
+
+           ตอนนี้เคสกับประวัติแชตย้ายไป Supabase หมดแล้ว เหลือแค่รหัสผู้ใช้ Admin
+           กับค่าเสริมของ quizMeta ซึ่งแทบไม่เปลี่ยน จึงไม่ต้องดึงซ้ำ */
+        if (!_lastAuxAt) {
           _lastAuxAt = Date.now();
           _loadAuxFromSheets();
         }
