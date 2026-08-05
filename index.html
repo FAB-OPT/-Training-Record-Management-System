@@ -1209,6 +1209,37 @@
   .cc-num span { font-size: 11px; font-weight: 600; color: var(--text3); }
   .cc-act { display: flex; gap: 6px; justify-content: flex-end; }
   .cc-empty { padding: 22px; text-align: center; font-size: 13px; color: var(--text3); border-top: 1px solid var(--border); }
+  /* ตัวเลข "N คน" ที่กดได้ — เข้าไปดูว่าใครผ่านหลักสูตรนี้ */
+  .cc-who {
+    background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+    font-size: 15px; font-weight: 800; color: var(--accent);
+    border-bottom: 1.5px dashed rgba(255,107,26,.45);
+  }
+  .cc-who:hover { border-bottom-style: solid; }
+  .cc-who span { font-size: 11px; font-weight: 600; color: var(--text3); }
+  .cp-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 11px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px;
+  }
+  .cp-n { font-size: 11.5px; color: var(--text3); font-weight: 700; min-width: 26px; flex-shrink: 0; }
+
+  /* ── ประวัติใบรายชื่อที่ออกแล้ว ───────────────────────────────── */
+  .rh-head, .rh-row {
+    display: grid; grid-template-columns: 1fr 130px 92px 190px;
+    gap: 10px; align-items: center; padding: 10px 14px;
+  }
+  .rh-head {
+    background: var(--surface2); font-size: 11.5px; font-weight: 800;
+    color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
+  }
+  .rh-row { border-top: 1px solid var(--border); transition: background .12s; }
+  .rh-row:hover { background: var(--surface2); }
+  @media (max-width: 820px) {
+    .rh-head { display: none; }
+    .rh-row { grid-template-columns: 1fr auto; row-gap: 8px; }
+    .rh-row > div:first-child { grid-column: 1 / -1; }
+    .cc-act { justify-content: flex-start; }
+  }
   @media (max-width: 720px) {
     .cc-head { display: none; }
     .cc-row { grid-template-columns: 1fr auto; row-gap: 7px; padding: 11px 13px; }
@@ -2656,6 +2687,7 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
+  { page: 'admin-roster-history',  icon: '🧾',  label: 'ใบรายชื่อที่ออกแล้ว' },
   { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับโซน BZM' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือนสำคัญ' },
@@ -6216,6 +6248,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
+  { page: 'admin-roster-history',  icon: '🧾',  label: 'ใบรายชื่อ' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับ' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
@@ -6260,6 +6293,7 @@ const _bnavMoreLabels = {
   'admin-cases':      'เคสจากสาขา',
   'admin-reports':    'ออกรายงาน',
   'admin-training-plan': 'จัดอบรม',
+  'admin-roster-history': 'ใบรายชื่อที่ออกแล้ว',
   'exec-alerts':      'แจ้งเตือนสำคัญ',
   'cases':            'ติดต่อ Admin',
   'reports':          'ออกรายงาน',
@@ -6330,6 +6364,7 @@ const _SIDEBAR_LABELS = {
   'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
+  'admin-roster-history': { admin: 'ใบรายชื่อที่ออกแล้ว',              bzm: '',                            exec: '' },
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
@@ -6349,6 +6384,7 @@ const NAV_SECTION = {
   'admin-trainings':      'เมนูหลัก',
   'admin-course-history': 'เมนูหลัก',
   'admin-training-plan':  'เมนูหลัก',
+  'admin-roster-history': 'เมนูหลัก',
   'admin-quiz':           'ติดตาม & ประเมิน',
   'exec-leaderboard':     'ติดตาม & ประเมิน',
   'exec-alerts':          'ติดตาม & ประเมิน',
@@ -6397,6 +6433,7 @@ function showPage(page) {
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
     'admin-training-plan': renderTrainingPlan,
+    'admin-roster-history': renderRosterHistory,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
@@ -9454,7 +9491,9 @@ function renderTrainingPlan() {
             <span title="${esc(r.n)}">${esc(r.n)}</span>
             ${r.inCat ? '' : '<span class="cc-src" title="ชื่อนี้มาจากประวัติอบรมเก่า ยังไม่ได้เพิ่มเข้าทะเบียน">ประวัติ</span>'}
           </div>
-          <div class="cc-num${r.used ? '' : ' zero'}">${r.used}<span> คน</span></div>
+          <div class="cc-num${r.used ? '' : ' zero'}">${r.used > 0
+            ? `<button class="cc-who" onclick="showCoursePassers('${js(r.n)}')" title="กดดูรายชื่อคนที่ผ่านหลักสูตรนี้">${r.used}<span> คน</span></button>`
+            : `${r.used}<span> คน</span>`}</div>
           <div class="cc-act">
             <button class="btn btn-sm btn-outline" onclick="renameCourseName('${js(r.n)}')">เปลี่ยนชื่อ</button>
             <button class="btn btn-sm btn-outline tp-del" onclick="deleteCourseName('${js(r.n)}')"
@@ -9465,6 +9504,55 @@ function renderTrainingPlan() {
       </div>`;
     })()}
   </div>`;
+}
+
+/* กดตัวเลข "N คน" ในทะเบียนหลักสูตร → ดูว่าใครผ่านหลักสูตรนี้บ้าง
+   เดิมเห็นแค่จำนวน อยากรู้ว่าใครต้องไปเปิดหน้าประวัติการอบรมแล้วค้นเอง */
+function showCoursePassers(name) {
+  const n = String(name || '').trim();
+  const rows = (DB.courseHistory || []).filter(c => (c.courseName || '').trim() === n);
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  // เรียงวันที่อบรมล่าสุดก่อน คนที่เพิ่งผ่านอยู่บน
+  rows.sort((a, b) => String(b.courseDate || '').localeCompare(String(a.courseDate || '')));
+  // นับแยกตามสาขา ไว้ดูภาพรวมว่าสาขาไหนส่งคนมาเยอะ
+  const byBranch = {};
+  rows.forEach(r => { const k = r.branchId || '-'; byBranch[k] = (byBranch[k] || 0) + 1; });
+  const branchChips = Object.entries(byBranch).sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([b, c]) => `<span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${esc(brName(b))} ${c}</span>`).join('');
+
+  showModal('🎓 ผู้ผ่านหลักสูตร · ' + n, `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <span class="tp-chip ok">ผ่านแล้ว ${rows.length} คน</span>
+      <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${Object.keys(byBranch).length} สาขา</span>
+    </div>
+    ${branchChips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${branchChips}</div>` : ''}
+    <input class="search-input" placeholder="🔍 ค้นหาชื่อ / รหัส / สาขา…" oninput="_cpFilter(this.value)" style="width:100%;margin-bottom:10px">
+    <div id="cp-list" style="max-height:52vh;overflow:auto">
+      ${rows.map((r, i) => `<div class="cp-row" data-k="${esc(((r.empName||'') + ' ' + (r.empCode||'') + ' ' + brName(r.branchId) + ' ' + (r.position||'')).toLowerCase())}">
+        <span class="cp-n">${i + 1}.</span>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(r.empName) || '(ไม่มีชื่อ)'}</div>
+          <div style="font-size:11.5px;color:var(--text3)">${r.empCode ? esc(r.empCode) + ' · ' : ''}${esc(r.position || '-')} · ${esc(brName(r.branchId))}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:12px;color:var(--text2);font-weight:600">${r.courseDate ? fmtDate(r.courseDate) : '—'}</div>
+          ${r.batchNo ? `<div style="font-size:11px;color:var(--text3)">รุ่นที่ ${esc(r.batchNo)}</div>` : ''}
+        </div>
+      </div>`).join('') || '<p class="text-muted" style="text-align:center;padding:24px;font-size:13px">ยังไม่มีใครผ่านหลักสูตรนี้</p>'}
+      <div id="cp-empty" style="display:none;text-align:center;padding:22px;font-size:13px;color:var(--text3)">ไม่พบคนที่ตรงกับคำค้น</div>
+    </div>`, null, 'ปิด');
+}
+function _cpFilter(q) {
+  const k = String(q || '').toLowerCase().trim();
+  let shown = 0;
+  document.querySelectorAll('#cp-list .cp-row').forEach(r => {
+    const hit = !k || (r.dataset.k || '').indexOf(k) >= 0;
+    r.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+  const e = document.getElementById('cp-empty');
+  if (e) e.style.display = shown ? 'none' : 'block';
 }
 
 /* ค้นหาในทะเบียนหลักสูตร — กรองที่ฝั่งหน้าจอ ไม่ต้องวาดใหม่ทั้งตาราง */
@@ -9605,6 +9693,139 @@ async function _tpFetchDrafts() {
   return (res.data || []).map(r => _fromSb('trainingDrafts', r))
     .sort((a, b) => String(b.savedAt || '').localeCompare(String(a.savedAt || '')));
 }
+
+/* ══════════ ประวัติใบรายชื่อที่ออกไปแล้ว ══════════
+   เดิมกดออกใบ PDF แล้วจบ ไม่มีบันทึกไว้ที่ไหน อยากดูย้อนหลังว่าเคยจัดอบรม
+   รุ่นไหนให้ใครบ้างก็ดูไม่ได้ ต้องไปรื้อไฟล์ PDF ที่พิมพ์เก็บไว้เอง
+
+   เก็บในตาราง training_drafts เดิม เพราะข้อมูลหน้าตาเหมือนกันทุกอย่าง
+   แยกกันที่ issuedAt — ว่าง = แบบร่าง · มีเวลา = ออกใบไปแล้ว */
+async function _tsArchiveIssued(info, list) {
+  try {
+    const rec = {
+      id: _tsDraftId || ('issued_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+      company: info.company || COMPANY_DEFAULTS[0],
+      course: info.course, batch: info.batch,
+      trainDate: info.date, trainTime: info.time,
+      place: info.place, trainer: info.trainer,
+      people: (list || []).map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' })),
+      createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+      savedAt: new Date().toISOString(),
+      issuedAt: new Date().toISOString(),
+    };
+    await _tpUpsertDraft(rec);
+    _tsDraftId = null;   // ร่างนี้กลายเป็นใบที่ออกแล้ว ไม่ใช่ร่างค้างอีกต่อไป
+    if (currentPage === 'admin-training-plan') _tpRenderDrafts();
+  } catch (e) {
+    console.warn('เก็บประวัติใบรายชื่อไม่สำเร็จ', e);
+    notify('ออก PDF แล้ว แต่บันทึกประวัติไม่สำเร็จ — ถ้ายังไม่ได้รัน supabase-roster-history.sql ให้รันก่อน', 'error');
+  }
+}
+let _rhRows = [];
+async function _rhRender() {
+  const box = document.getElementById('rh-list');
+  if (!box) return;
+  box.innerHTML = '<p class="text-muted" style="text-align:center;padding:20px;font-size:13px">กำลังโหลด…</p>';
+  try {
+    _rhRows = (await _tpFetchDrafts()).filter(d => d.issuedAt)
+      .sort((a, b) => String(b.issuedAt || '').localeCompare(String(a.issuedAt || '')));
+  } catch (e) {
+    const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache|issued_at/i);
+    box.innerHTML = `<div style="padding:14px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);font-size:12.5px;color:var(--text2);line-height:1.7">
+      ${missing ? '⚠️ ยังไม่ได้เพิ่มคอลัมน์ <b>issued_at</b> — ให้รันไฟล์ <b>supabase-roster-history.sql</b> ก่อน'
+        : '⚠️ โหลดไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}</div>`;
+    return;
+  }
+  const cnt = document.getElementById('rh-count');
+  if (cnt) cnt.textContent = _rhRows.length + ' ใบ';
+  if (!_rhRows.length) {
+    box.innerHTML = '<p class="text-muted" style="text-align:center;padding:28px;font-size:13px">ยังไม่มีใบรายชื่อที่ออก — ไปที่เมนู <b>จัดอบรม</b> เพื่อออกใบแรก</p>';
+    return;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  box.innerHTML = `<div class="cc-table">
+    <div class="rh-head">
+      <div>หลักสูตร / บริษัท</div><div>วันที่อบรม</div><div style="text-align:right">ผู้เข้าอบรม</div><div style="text-align:right">จัดการ</div>
+    </div>
+    ${_rhRows.map((d, i) => `<div class="rh-row">
+      <div style="min-width:0">
+        <div style="font-size:13.5px;font-weight:700;color:var(--text)">${esc(d.course) || '(ไม่ระบุหลักสูตร)'}${d.batch ? ` <span style="font-size:11.5px;color:var(--text3);font-weight:600">รุ่นที่ ${esc(d.batch)}</span>` : ''}</div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:2px">${esc(d.company || '—')}</div>
+      </div>
+      <div style="font-size:12.5px;color:var(--text2)">
+        ${d.trainDate ? fmtDate(d.trainDate) : '—'}${d.trainTime ? `<div style="font-size:11px;color:var(--text3)">${esc(d.trainTime)}</div>` : ''}
+      </div>
+      <div style="text-align:right"><span class="cc-num">${(d.people || []).length}<span> คน</span></span></div>
+      <div class="cc-act">
+        <button class="btn btn-sm btn-outline" onclick="_rhView(${i})">ดูรายชื่อ</button>
+        <button class="btn btn-sm btn-outline" onclick="_rhReprint(${i})" title="เปิด PDF ใบเดิมอีกครั้ง">🖨</button>
+        <button class="btn btn-sm btn-outline tp-del" onclick="_rhDelete(${i})" title="ลบออกจากประวัติ">🗑</button>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+function _rhInfo(d) {
+  return { company: d.company, course: d.course, batch: d.batch, date: d.trainDate, time: d.trainTime, place: d.place, trainer: d.trainer };
+}
+function _rhReprint(i) {
+  const d = _rhRows[i]; if (!d) return;
+  _printTrainingSession(_rhInfo(d), d.people || []);
+}
+function _rhView(i) {
+  const d = _rhRows[i]; if (!d) return;
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const row = (k, v) => v ? `<div style="display:flex;gap:8px;font-size:12.5px;padding:3px 0"><span style="color:var(--text3);min-width:72px">${k}</span><span style="color:var(--text);font-weight:600">${esc(v)}</span></div>` : '';
+  showModal('📋 ' + (d.course || 'ใบรายชื่อผู้เข้าอบรม'), `
+    <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      ${row('บริษัท', d.company)}${row('รุ่นที่', d.batch)}${row('วันที่', d.trainDate ? fmtDate(d.trainDate) : '')}
+      ${row('เวลา', d.trainTime)}${row('สถานที่', d.place)}${row('วิทยากร', d.trainer)}
+      ${row('ออกใบเมื่อ', d.issuedAt ? fmtDateTime(d.issuedAt) : '')}${row('ออกโดย', d.createdBy)}
+    </div>
+    <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">ผู้เข้าอบรม ${(d.people || []).length} คน</div>
+    <div style="max-height:46vh;overflow:auto">
+      ${(d.people || []).map((p, n) => `<div style="display:flex;gap:10px;align-items:center;padding:8px 11px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px">
+        <span style="font-size:11.5px;color:var(--text3);font-weight:700;min-width:22px">${n + 1}.</span>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(p.name)}</div>
+          <div style="font-size:11.5px;color:var(--text3)">${p.empCode ? esc(p.empCode) + ' · ' : ''}${esc(p.position || '-')} · ${esc(brName(p.branchId))}</div>
+        </div>
+      </div>`).join('') || '<p class="text-muted" style="font-size:13px">ไม่มีรายชื่อ</p>'}
+    </div>`, () => { closeModal(); _rhReprint(i); }, '🖨 เปิด PDF อีกครั้ง');
+}
+function _rhDelete(i) {
+  const d = _rhRows[i]; if (!d) return;
+  showConfirm(`ลบใบรายชื่อ <b>${String(d.course || '').replace(/</g,'&lt;')}</b> ออกจากประวัติ?<br><br>` +
+    `ไฟล์ PDF ที่พิมพ์ไปแล้วไม่ได้รับผลกระทบ — ลบแค่บันทึกในระบบ <b>กู้คืนไม่ได้</b>`, async () => {
+    try {
+      const sb = _initSb();
+      const res = await sb.from('training_drafts').delete().eq('id', d.id);
+      if (res.error) throw res.error;
+      notify('ลบออกจากประวัติแล้ว');
+      _rhRender();
+    } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
+  }, { title: 'ลบจากประวัติ', icon: '🗑', confirmText: 'ลบ' });
+}
+function renderRosterHistory() {
+  setTimeout(_rhRender, 0);
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">ใบรายชื่อที่ออกแล้ว</div>
+      <div class="page-hero-sub">ทุกครั้งที่กดออกใบ PDF ระบบเก็บไว้ที่นี่ · ดูย้อนหลัง เปิด PDF ซ้ำ หรือลบทิ้งได้</div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">🧾 ประวัติการออกใบ</div>
+        <span id="rh-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
+      </div>
+      <button class="btn btn-sm btn-refresh" onclick="_rhRender()"><span class="refresh-ic">↻</span> รีเฟรช</button>
+    </div>
+    <div id="rh-list"></div>
+  </div>`;
+}
 async function _tpUpsertDraft(rec) {
   const sb = _initSb();
   if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
@@ -9616,7 +9837,7 @@ async function _tpRenderDrafts() {
   if (!box) return;
   box.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p>';
   try {
-    _tpDrafts = await _tpFetchDrafts();
+    _tpDrafts = (await _tpFetchDrafts()).filter(d => !d.issuedAt);
   } catch (e) {
     // ตารางยังไม่ถูกสร้างบน Supabase → บอกวิธีแก้แทนที่จะขึ้น error ดิบ
     const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache/i);
@@ -9906,6 +10127,7 @@ function _openTsModal(course, draft) {
       trainer: document.getElementById('ts-trainer').value.trim(),
     };
     closeModal();
+    _tsArchiveIssued(info, list);   // เก็บเป็นประวัติก่อน แล้วค่อยเปิด PDF
     _printTrainingSession(info, list);
   }, 'ออกใบรายชื่อ PDF');
   // ปุ่ม "บันทึกแบบร่าง" — แทรกเพิ่มในแถบล่างของ modal (showModal รองรับแค่ 2 ปุ่ม)
