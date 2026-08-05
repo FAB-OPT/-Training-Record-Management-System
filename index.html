@@ -4553,6 +4553,16 @@ async function sbMigrateFromCurrent() {
 let _empToFix = [];
 
 // Read directly from Google Sheets (legacy). Used as fallback / migration source.
+/* Sheets เก็บ object/array เป็นข้อความ JSON — ต้องแปลงกลับก่อนใช้
+   เดิมประกาศไว้ในตัว gsLoadFromSheets ทำให้ _loadAuxFromSheets เรียกไม่ถึง
+   แล้วพังด้วย ReferenceError: parseJSON is not defined เงียบ ๆ ใน console
+   ผลคือค่า "ต้องทำกี่ข้อต่อ Module" ที่แอดมินตั้งไว้ ไม่ถูกโหลดกลับมา
+   จึงตกไปใช้ค่าเริ่มต้นแทนโดยไม่มีใครรู้ — ย้ายมาไว้ระดับบนสุดให้ใช้ร่วมกันได้ */
+function parseJSON(v, fb) {
+  if (v === null || v === undefined) return fb;
+  try { return typeof v === 'string' ? JSON.parse(v) : v; } catch (_) { return fb; }
+}
+
 async function gsLoadFromSheets() {
   const resp = await fetch(GS_URL + '?action=load');
   const data = await resp.json();
@@ -4573,10 +4583,6 @@ async function gsLoadFromSheets() {
     DB.employees[bid].push(e);
   });
   if (_empToFix.length) _empToFix.forEach(e => gsSave('employees', e.id, e));
-  const parseJSON = (v, fb) => {
-    if (v === null || v === undefined) return fb;
-    try { return typeof v === 'string' ? JSON.parse(v) : v; } catch(_) { return fb; }
-  };
   const serverTrainings = (data.trainings || []).map(t => {
     t.branchId = String(t.branchId || '').trim();
     t.moduleId = String(t.moduleId || '').trim();
