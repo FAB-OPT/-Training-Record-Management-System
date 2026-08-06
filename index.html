@@ -14871,6 +14871,51 @@ function saveQuizMeta() {
 }
 
 /* บอกวิธีใช้ช่องสั้น ๆ ไว้หัวหน้าจอ ส่วนจำนวนข้อดูที่หัวช่องแต่ละช่องได้เลย */
+/* กรอบสรุปจำนวนข้อของแต่ละช่อง
+   ตัวเลข "89 ข้อทั้งหมด" ด้านบนไม่ได้ตอบว่าคนเรียนสเต็กจะได้ข้อสอบกี่ข้อ
+   เพราะข้อหนึ่งอยู่ได้หลายช่อง และข้อที่ยังไม่จัดช่องออกกับทุกคน
+   บวกเองในหัวไม่ได้ ต้องคำนวณให้เห็น โดยเฉพาะตอนเช็คว่าข้อพอสุ่มไหม */
+function _quizBoxStatsHTML(mid, all) {
+  const boxes = quizBoxesFor(mid);
+  if (!boxes || !all.length) return '';
+  // นับเฉพาะข้อที่เปิดใช้ ข้อที่ปิดอยู่ไม่เคยถูกสุ่มออกไป นับรวมแล้วตัวเลขจะหลอก
+  const act = all.filter(q => isQuizActive(q.uid));
+  const need = getQuizPick(mid);
+  const real = boxes.filter(b => b.key);
+  // ข้อที่ยังไม่ได้จัดเข้าช่องไหนเลย = ออกกับทุกคน จึงบวกเข้าทุกช่องตอนคิดว่าสุ่มจากกี่ข้อ
+  const free = act.filter(q => !quizBoxesSaved(mid, q.uid).length).length;
+  const multi = act.filter(q => quizBoxesSaved(mid, q.uid).length > 1).length;
+  const rows = real.map(b => {
+    const own = act.filter(q => quizBoxesSaved(mid, q.uid).indexOf(b.key) >= 0).length;
+    return { b, own, pool: own + free };
+  });
+  const thin = rows.filter(r => r.pool < need);
+  const chip = r => `<span style="display:inline-flex;align-items:center;gap:5px;background:${r.b.bg};color:${r.b.color};
+    border-radius:999px;padding:3px 11px;font-size:12px;font-weight:800">${r.b.short || r.b.label}
+    <span style="font-weight:900">${r.own}</span></span>`;
+  const line = r => `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12.5px">
+    <span style="color:var(--text2)">เรียน<b style="color:${r.b.color}">${r.b.short || r.b.label}</b> → สุ่มจาก</span>
+    <span style="font-weight:800;color:${r.pool < need ? '#B91C1C' : 'var(--text)'}">${r.pool} ข้อ${free ? ` <span style="font-weight:600;color:var(--text3)">(${r.own} + ${free} ที่ออกทุกคน)</span>` : ''}</span>
+  </div>`;
+  return `<div style="margin-bottom:12px;border:1px solid var(--border2);border-radius:11px;overflow:hidden">
+    <div style="padding:10px 14px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:800;color:var(--text)">📊 สรุปจำนวนข้อ
+        <span style="font-size:11.5px;font-weight:600;color:var(--text3)">· นับเฉพาะข้อที่เปิดใช้</span></div>
+      <div style="font-size:12.5px;color:var(--text2)">เปิดใช้ <b style="color:var(--text)">${act.length}</b> / ${all.length} ข้อ · ต้องทำ <b style="color:var(--text)">${need}</b> ข้อ/ครั้ง</div>
+    </div>
+    <div style="padding:11px 14px">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:9px">
+        ${rows.map(chip).join('')}
+        ${free ? `<span style="display:inline-flex;align-items:center;gap:5px;background:#F1F5F9;color:#475569;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:800">📋 ออกทุกคน <span style="font-weight:900">${free}</span></span>` : ''}
+      </div>
+      ${multi ? `<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">
+        ตัวเลขในป้ายบวกกันไม่ได้ — มี <b>${multi} ข้อ</b> ที่อยู่มากกว่าหนึ่งช่อง จึงถูกนับซ้ำในแต่ละช่องที่มันอยู่</div>` : ''}
+      <div style="border-top:1px dashed var(--border);padding-top:7px">${rows.map(line).join('')}</div>
+      ${thin.length ? `<div style="margin-top:9px;padding:8px 11px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;color:#B91C1C;font-weight:700;line-height:1.6">
+        ⚠️ ${thin.map(r => r.b.short || r.b.label).join(' · ')} มีข้อไม่พอ — ต้องทำ ${need} ข้อ/ครั้ง แต่มีให้สุ่มน้อยกว่านั้น คนเรียนหน้างานนี้จะได้ข้อสอบไม่ครบ</div>` : ''}
+    </div>
+  </div>`;
+}
 function _quizTagSummaryHTML(mid, all) {
   if (!all.length) return '';
   const box = (txt) => `<div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;
@@ -14976,6 +15021,7 @@ function openQuizListModal(mid, restore) {
       </div>
     </div>
     ${_quizTagSummaryHTML(mid, all)}
+    ${_quizBoxStatsHTML(mid, all)}
     <div id="qz-savebar">${_qzSaveBarHTML(mid)}</div>
     ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
       <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
