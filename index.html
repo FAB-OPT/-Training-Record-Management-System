@@ -1328,6 +1328,25 @@
     .cc-num { text-align: left; }
   }
 
+  /* ── ตารางหน้าสถิติข้อสอบ ────────────────────────────────────── */
+  .qs-head, .qs-row {
+    display: grid; grid-template-columns: minmax(0,1.4fr) 88px 104px 88px 92px minmax(0,1.5fr) 96px;
+    gap: 12px; align-items: center; padding: 11px 14px;
+  }
+  .qs-head {
+    background: var(--surface2); font-size: 11.5px; font-weight: 800;
+    color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
+  }
+  .qs-row { border-top: 1px solid var(--border); transition: background .12s; }
+  .qs-row:hover { background: var(--surface2); }
+  @media (max-width: 1080px) {
+    .qs-head { display: none; }
+    .qs-row { grid-template-columns: 1fr auto; row-gap: 8px; }
+    .qs-row > div:nth-child(1), .qs-row > div:nth-child(6) { grid-column: 1 / -1; }
+    .qs-row > div:nth-child(2), .qs-row > div:nth-child(3),
+    .qs-row > div:nth-child(4), .qs-row > div:nth-child(5) { text-align: left !important; }
+  }
+
   /* ── หัวช่องข้อสอบแบบดรอปดาว ─────────────────────────────────── */
   .qz-boxh {
     display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
@@ -2755,6 +2774,7 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
+  { page: 'admin-quiz-stats',      icon: '📊',  label: 'สถิติข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับโซน BZM' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือนสำคัญ' },
   { page: 'admin-cases',           icon: '📨',  label: 'จัดการเคส' },
@@ -4393,7 +4413,7 @@ const _pendingCaseIds = new Set();
 async function refreshCasesOnly(rerender) {
   try {
     const sb = _initSb(); if (!sb) return false;
-    const res = await sb.from('cases').select('*');
+    const res = await _sbAll(sb, 'cases');
     if (res.error || !Array.isArray(res.data)) return false;
     const fromSb = res.data.map(r => {
       const c = _fromSb('cases', r);
@@ -4592,20 +4612,45 @@ function _fromSb(coll, row) {
   return out;
 }
 
+/* ดึงทั้งตารางจริง ๆ ไม่ใช่แค่ 1000 แถวแรก
+
+   PostgREST ตัดผลลัพธ์ที่ 1000 แถวเสมอ และไม่ได้บอกว่าตัด ไม่มี error ไม่มีอะไรเลย
+   ได้ครบ 1000 พอดีเมื่อไหร่ ต้องถือว่ายังมีต่อ แล้วขอหน้าถัดไป
+
+   เจอตอนเช็คชื่ออบรมแล้วแถวไม่โผล่ในประวัติการอบรม
+   ทั้งที่เขียนขึ้นฐานข้อมูลสำเร็จ — ตาราง course_history มี 1570 แถว
+   แอปจึงมองไม่เห็น 570 แถวหลังสุดมาตลอด รวมถึงแถวที่เพิ่งสร้าง
+   ไม่ได้กระทบแค่เช็คชื่อ ทุกอย่างที่นับจากประวัติการอบรมก็ต่ำกว่าความจริงหมด */
+async function _sbAll(sb, table, tweak, max) {
+  const PAGE = 1000;
+  let out = [], from = 0;
+  for (;;) {
+    let q = sb.from(table).select('*');
+    if (tweak) q = tweak(q);
+    const r = await q.range(from, from + PAGE - 1);
+    if (r.error) return { data: null, error: r.error };
+    const rows = r.data || [];
+    out = out.concat(rows);
+    if (rows.length < PAGE) break;          // ได้ไม่เต็มหน้า = หมดแล้ว
+    from += PAGE;
+    if (max && out.length >= max) return { data: out.slice(0, max), error: null };
+  }
+  return { data: out, error: null };
+}
 async function sbLoadAll() {
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
   const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse, clg] = await Promise.all([
-    sb.from('employees').select('*'),
-    sb.from('trainings').select('*'),
-    sb.from('quiz_results').select('*'),
-    sb.from('custom_quiz').select('*'),
-    sb.from('course_history').select('*'),
+    _sbAll(sb, 'employees'),
+    _sbAll(sb, 'trainings'),
+    _sbAll(sb, 'quiz_results'),
+    _sbAll(sb, 'custom_quiz'),
+    _sbAll(sb, 'course_history'),
     sb.from('quiz_meta').select('*').eq('id','singleton').maybeSingle(),
-    sb.from('branch_overrides').select('*'),
-    sb.from('course_catalog').select('*'),
-    sb.from('cases').select('*'),
+    _sbAll(sb, 'branch_overrides'),
+    _sbAll(sb, 'course_catalog'),
+    _sbAll(sb, 'cases'),
     // ประวัติแชต — เอาแค่ 2,000 รายการล่าสุดพอ หน้าประวัติโชว์ได้ 80 บทสนทนาอยู่แล้ว
-    sb.from('chat_logs').select('*').order('ts', { ascending: false }).limit(2000),
+    _sbAll(sb, 'chat_logs', q => q.order('ts', { ascending: false }), 2000),
   ]);
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
@@ -4685,7 +4730,12 @@ async function sbSaveMany(coll, records) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table || !records || !records.length) return;
   const rows = records.map(r => _toSb(coll, r));
-  return sb.from(table).upsert(rows);
+  const res = await sb.from(table).upsert(rows);
+  /* ต้องโยน error ออกไป ไม่ใช่คืน { error } เงียบ ๆ
+     ตัวเรียกส่วนใหญ่เขียน await แล้วถือว่าผ่าน ถ้าบันทึกไม่ขึ้นก็ยังขึ้นข้อความว่าสำเร็จ
+     แล้วข้อมูลหายไปเฉย ๆ ตอนโหลดใหม่ โดยไม่มีอะไรฟ้องสักอย่าง */
+  if (res && res.error) throw res.error;
+  return res;
 }
 
 // Apply a {employees, trainings, ...} payload to the in-memory DB
@@ -6315,6 +6365,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
+  { page: 'admin-quiz-stats',      icon: '📊',  label: 'สถิติข้อสอบ' },
   { page: 'exec-leaderboard',      icon: '🏆',  label: 'อันดับ' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'admin-chat-logs',       icon: '💬',  label: 'แชตบอท' },
@@ -6355,6 +6406,7 @@ const _bnavMoreLabels = {
   'exec-leaderboard': 'จัดอันดับโซน',
   'admin-chat-logs':  'ประวัติแชตบอท',
   'admin-quiz':       'จัดการข้อสอบ',
+  'admin-quiz-stats': 'สถิติข้อสอบ',
   'admin-cases':      'เคสจากสาขา',
   'admin-reports':    'ออกรายงาน',
   'admin-training-plan': 'จัดอบรม',
@@ -6429,6 +6481,7 @@ const _SIDEBAR_LABELS = {
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
+  'admin-quiz-stats':     { admin: 'สถิติการทำข้อสอบ',              bzm: '',                            exec: '' },
   'admin-reports':        { admin: 'ออกรายงาน',                     bzm: 'รายงานเขต',                  exec: 'รายงานผู้บริหาร' },
   'admin-chat-logs':      { admin: 'ประวัติแชตบอท',                  bzm: '',                            exec: '' },
   'admin-users':          { admin: 'จัดการผู้ใช้งาน',                 bzm: '',                            exec: '' },
@@ -6448,6 +6501,7 @@ const NAV_SECTION = {
   'admin-course-history': 'เมนูหลัก',
   'admin-training-plan':  'เมนูหลัก',
   'admin-quiz':           'ติดตาม & ประเมิน',
+  'admin-quiz-stats':     'ติดตาม & ประเมิน',
   'exec-leaderboard':     'ติดตาม & ประเมิน',
   'exec-alerts':          'ติดตาม & ประเมิน',
   'admin-cases':          'ติดตาม & ประเมิน',
@@ -6497,7 +6551,7 @@ function showPage(page) {
     'admin-training-plan': renderTrainingPlan,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-course-history': renderAdminCourseHistory,
-    'admin-quiz': renderAdminQuiz, 'admin-reports': renderAdminReports,
+    'admin-quiz': renderAdminQuiz, 'admin-quiz-stats': renderQuizStatsPage, 'admin-reports': renderAdminReports,
     'admin-bzm': () => { _adminManageTab = 'bzm'; return renderAdminManage(); },
     'exec-leaderboard': renderExecLeaderboard,
     'exec-alerts': renderExecAlerts,
@@ -8816,6 +8870,65 @@ function _qhDelete(mid) {
   }, { title: 'ลบประวัติการสอบ', icon: '🗑', confirmText: 'ลบ' });
 }
 
+/* หน้าสถิติข้อสอบ — เมนูแยกของตัวเอง
+   เดิมซ่อนอยู่หลังปุ่มในหน้าจัดการข้อสอบ ต้องเลือก Module ก่อนถึงจะเห็น
+   เทียบข้าม Module ไม่ได้เลยว่าอันไหนคนตกเยอะ ทั้งที่นั่นคือคำถามแรกที่อยากรู้ */
+function renderQuizStatsPage() {
+  const mods = Object.keys(MODULES);
+  const rows = mods.map(m => ({ m, st: _qsStats(m) })).filter(r => r.st.runs);
+  const quiet = mods.length - rows.length;
+  // Module ที่คนตกเยอะสุดอยู่บน — เป็นตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน
+  rows.sort((a, b) => (a.st.passRate ?? 101) - (b.st.passRate ?? 101));
+  const tot = rows.reduce((a, r) => a + r.st.runs, 0);
+  const det = rows.reduce((a, r) => a + r.st.detailed, 0);
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">สถิติข้อสอบ</div>
+      <div class="page-hero-sub">Module ไหนคนตกเยอะ ข้อไหนตอบผิดบ่อย ใช้เวลาเท่าไหร่</div>
+    </div>
+  </div>
+  <div class="card">
+    ${!rows.length ? '<p class="text-muted" style="text-align:center;padding:34px;font-size:13px">ยังไม่มีใครทำข้อสอบในระบบ</p>' : `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="font-size:12.5px;color:var(--text2)">ทำข้อสอบไปแล้ว <b style="color:var(--text)">${tot}</b> ครั้ง ใน <b style="color:var(--text)">${rows.length}</b> Module${quiet ? ` · อีก ${quiet} Module ยังไม่มีใครสอบ` : ''}</div>
+      <button class="btn btn-sm btn-refresh" onclick="showPage('admin-quiz-stats')"><span class="refresh-ic">↻</span> รีเฟรช</button>
+    </div>
+    ${tot - det ? `<div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.55">
+      ⚠️ ${tot - det} ครั้งที่สอบก่อนหน้านี้ไม่มีข้อมูลรายข้อและเวลา — ช่องเวลาและข้อที่ตอบผิดบ่อยจึงนับจาก ${det} ครั้ง</div>` : ''}
+    <div class="tw-table">
+      <div class="qs-head">
+        <div>Module</div><div style="text-align:right">ครั้งที่สอบ</div><div style="text-align:right">คะแนนเฉลี่ย</div>
+        <div style="text-align:right">อัตราผ่าน</div><div style="text-align:right">เวลาที่ใช้</div><div>ข้อที่ตอบผิดบ่อยสุด</div><div></div>
+      </div>
+      ${rows.map(r => {
+        const st = r.st;
+        const pr = st.passRate;
+        const c = pr == null ? 'var(--text3)' : pr >= 80 ? '#047857' : pr >= 50 ? '#B45309' : '#B91C1C';
+        // ข้อที่แย่สุดของ Module นั้น — เห็นได้จากหน้ารวมโดยไม่ต้องเปิดเข้าไป
+        const worst = Object.entries(st.per).map(([uid, s]) => ({ uid, s, p: s.ok / s.n }))
+          .sort((a, b) => a.p - b.p)[0];
+        const wq = worst ? (getAllQuestionsForModule(r.m).find(q => q.uid === worst.uid) || {}).q : '';
+        return `<div class="qs-row">
+          <div style="min-width:0">
+            <div style="font-size:13.5px;font-weight:700;color:var(--text)">${esc(MODULES[r.m].name)}</div>
+            <div style="font-size:11.5px;color:var(--text3)">${MODULES[r.m].group === 'Cook' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${r.m}</div>
+          </div>
+          <div style="text-align:right;font-size:14px;font-weight:800;color:var(--text)">${st.runs}</div>
+          <div style="text-align:right;font-size:14px;font-weight:800;color:var(--text)">${st.avgPct == null ? '—' : st.avgPct + '%'}</div>
+          <div style="text-align:right;font-size:14px;font-weight:800;color:${c}">${pr == null ? '—' : pr + '%'}</div>
+          <div style="text-align:right;font-size:12.5px;color:var(--text2)">${_qsFmtSec(st.medSec)}</div>
+          <div style="min-width:0;font-size:12px;color:var(--text2);line-height:1.45">${worst && wq
+            ? `${esc(wq).replace(/^\d+[\.\s]+/, '').slice(0, 70)}<span style="color:#B91C1C;font-weight:700"> · ถูก ${Math.round(worst.p * 100)}%</span>`
+            : '<span style="color:var(--text3)">ยังไม่มีข้อมูลรายข้อ</span>'}</div>
+          <div style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openQuizStatsModal('${r.m}')">ดูรายข้อ</button></div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>`;
+}
+
 function openQuizStatsModal(mid) {
   const st = _qsStats(mid);
   const all = getAllQuestionsForModule(mid);
@@ -9161,6 +9274,7 @@ function _branchCourseHistory(bid) {
 
 let _chGroupFilter = 'all';
 let _chSearch = '';
+let _chCourse = '';   // กรองเฉพาะหลักสูตรที่เลือก ค่าว่าง = ทุกหลักสูตร
 let _chExpanded = new Set();
 let _chSort = { key: 'latestDate', dir: 'desc' };
 function setChGroupFilter(g) { _chGroupFilter = g; document.getElementById('main-content').innerHTML = renderCourseHistory(); }
@@ -9187,6 +9301,7 @@ function _chGetGroupedFiltered() {
     const e = getEmployee(c.empId);
     const pos = (e&&e.position) || c.position || '';
     if (wantGroup && getPositionGroup(pos) !== wantGroup) return false;
+    if (_chCourse && (c.courseName || '').trim() !== _chCourse) return false;
     if (!q) return true;
     const hay = [(e&&e.name)||c.empName, pos, c.courseName, c.batchNo, c.empCode].join(' ').toLowerCase();
     return hay.includes(q);
@@ -9270,7 +9385,9 @@ function renderCourseHistory() {
         <option value="cook"${_chGroupFilter==='cook'?' selected':''}>พนักงานครัว (${counts.cook})</option>
         <option value="svc"${_chGroupFilter==='svc'?' selected':''}>พนักงานบริการ (${counts.svc})</option>
       </select>
-      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:160px;margin-left:auto">
+      <select class="form-select" id="ch-course-filter" onchange="setChCourse(this.value)" title="เลือกหลักสูตรเพื่อดูว่าใครผ่านบ้าง" style="width:250px;margin-left:auto">${_chCourseOptions()}</select>
+      <span id="ch-found" style="font-size:12px;color:var(--text3);font-weight:600;white-space:nowrap"></span>
+      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / รหัสพนักงาน / หลักสูตร..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:150px">
       <button class="btn btn-sm btn-outline ch-expand-btn" onclick="expandAllCh(true)">ขยายทั้งหมด</button>
       <button class="btn btn-sm btn-outline ch-expand-btn" onclick="expandAllCh(false)">ย่อทั้งหมด</button>
     </div>
@@ -9329,6 +9446,35 @@ function filterCourseHistory() {
   _chSearch = inp ? inp.value : '';
   const groups = _chGetGroupedFiltered();
   document.getElementById('ch-tbody').innerHTML = renderCourseHistoryGroupedRows(groups);
+  _chUpdCount(groups);
+}
+/* เลือกหลักสูตร → เห็นเฉพาะคนที่ผ่านหลักสูตรนั้น และกางให้เลยว่าใครบ้าง
+   ไม่กางก็ต้องมานั่งกดทีละคนเพื่อดูว่าใช่หลักสูตรที่หาอยู่ไหม */
+function setChCourse(v) {
+  _chCourse = v || '';
+  const groups = _chGetGroupedFiltered();
+  if (_chCourse) groups.forEach(g => _chExpanded.add(g.key)); else _chExpanded.clear();
+  document.getElementById('ch-tbody').innerHTML = renderCourseHistoryGroupedRows(groups);
+  _chUpdCount(groups);
+}
+function _chUpdCount(groups) {
+  const el = document.getElementById('ch-found');
+  if (!el) return;
+  const n = groups.reduce((a, g) => a + g.items.length, 0);
+  el.textContent = (_chCourse || _chSearch)
+    ? `พบ ${groups.length} คน · ${n} รายการ` : `${groups.length} คน`;
+}
+/* ตัวเลือกหลักสูตร — เอาเฉพาะชื่อที่มีอยู่จริงในประวัติ พร้อมจำนวนคน
+   ใส่ทุกชื่อจากทะเบียนแล้วเลือกอันที่ไม่มีใครผ่าน จะได้หน้าว่างโดยไม่รู้ว่าทำไม */
+function _chCourseOptions() {
+  const cnt = {};
+  (_branchCourseHistory(getBranchId()) || []).forEach(c => {
+    const n = (c.courseName || '').trim(); if (n) cnt[n] = (cnt[n] || 0) + 1;
+  });
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  return `<option value="">🎓 ทุกหลักสูตร</option>` + Object.entries(cnt)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'))
+    .map(([n, c]) => `<option value="${esc(n)}"${_chCourse === n ? ' selected' : ''}>${esc(n)} (${c})</option>`).join('');
 }
 
 function _courseHistoryFormHtml(bid, c) {
@@ -11194,7 +11340,9 @@ function renderAdminCourseHistory() {
         ${tabBtn('cook','พนักงานครัว',counts.cook)}
         ${tabBtn('svc','พนักงานบริการ',counts.svc)}
       </div>
-      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / หลักสูตร / รหัสพนักงาน..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:160px;margin-left:auto">
+      <select class="form-select" id="ch-course-filter" onchange="setChCourse(this.value)" title="เลือกหลักสูตรเพื่อดูว่าใครผ่านบ้าง" style="width:250px;margin-left:auto">${_chCourseOptions()}</select>
+      <span id="ch-found" style="font-size:12px;color:var(--text3);font-weight:600;white-space:nowrap"></span>
+      <input class="search-input" id="ch-search" placeholder="ค้นหาชื่อ / รหัสพนักงาน / หลักสูตร..." oninput="filterCourseHistory()" value="${_chSearch.replace(/"/g,'&quot;')}" style="flex:1;min-width:150px">
       <button class="btn btn-sm btn-outline ch-expand-btn" onclick="expandAllChAdmin(true)">ขยายทั้งหมด</button>
       <button class="btn btn-sm btn-outline ch-expand-btn" onclick="expandAllChAdmin(false)">ย่อทั้งหมด</button>
     </div>
@@ -16756,7 +16904,7 @@ async function refreshChatLogsOnly() {
   try {
     const sb = _initSb();
     if (!sb) { notify('เชื่อมต่อฐานข้อมูลไม่ได้', 'error'); return; }
-    const res = await sb.from('chat_logs').select('*').order('ts', { ascending: false }).limit(2000);
+    const res = await _sbAll(sb, 'chat_logs', q => q.order('ts', { ascending: false }), 2000);
     if (res.error) throw res.error;
     _chatLogsFromSb = true;
     DB.chatLogs = (res.data || []).map(r => {
