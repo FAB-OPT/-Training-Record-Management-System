@@ -1328,6 +1328,18 @@
     .cc-num { text-align: left; }
   }
 
+  /* ── หัวช่องข้อสอบแบบดรอปดาว ─────────────────────────────────── */
+  .qz-boxh {
+    display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+    padding: 11px 14px; cursor: pointer; user-select: none;
+  }
+  .qz-boxh:hover { filter: brightness(.97); }
+  .qz-boxar {
+    flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 1;
+    transition: transform .16s;
+  }
+  .qz-boxar.on { transform: rotate(90deg); }
+
   /* ปุ่มลบในแถวงาน — แดงอ่อน ไม่ให้เด่นเท่าปุ่มที่ใช้บ่อย */
   .tp-del { color: #DC2626; border-color: #FECACA; }
   .tp-del:hover { background: #FEE2E2; border-color: #DC2626; }
@@ -8670,11 +8682,36 @@ function quizInBox(mid, uid, key) {
   return key ? cur.indexOf(key) >= 0 : cur.length === 0;
 }
 
+/* ══════════ ช่องข้อสอบเป็นดรอปดาว — ปิดไว้ก่อน กดแล้วค่อยคลี่ ══════════
+   จำไว้นอกฟังก์ชันวาด เพราะรายการถูกวาดใหม่ทุกครั้งที่ลบ แก้ เปิด-ปิด หรือบันทึก
+   ถ้าเก็บไว้ใน DOM อย่างเดียว ช่องที่เพิ่งเปิดดูจะหุบเองทุกครั้งที่แตะอะไรสักอย่าง */
+let _qzOpenBox = {};
+function _qzBoxKey(mid, key) { return mid + '|' + key; }
+function _qzBoxOpen(mid, key) { return !!_qzOpenBox[_qzBoxKey(mid, key)]; }
+function _qzToggleBoxOpen(mid, key) {
+  const k = _qzBoxKey(mid, key);
+  if (_qzOpenBox[k]) delete _qzOpenBox[k]; else _qzOpenBox[k] = 1;
+  openQuizListModal(mid, true);
+}
+function _qzAnyBoxOpen(mid) {
+  return Object.keys(_qzOpenBox).some(k => k.slice(0, k.indexOf('|')) === mid);
+}
+/* เปิด/ปิดทุกช่องพร้อมกัน */
+function _qzAllBoxes(mid, open) {
+  const boxes = quizBoxesFor(mid) || [];
+  boxes.forEach(b => { const k = _qzBoxKey(mid, b.key); if (open) _qzOpenBox[k] = 1; else delete _qzOpenBox[k]; });
+  const kl = _qzBoxKey(mid, '__left__');
+  if (open) _qzOpenBox[kl] = 1; else delete _qzOpenBox[kl];
+  openQuizListModal(mid, true);
+}
+
 /* ข้อที่เพิ่มใหม่จากในช่องไหน ให้เข้าช่องนั้นเลย ไม่ต้องมาจัดทีหลัง */
 let _qzAddBox = null;   // { mid, key }
 function _qzOpenAddIn(mid, key) {
   // กำลังจะออกจากหน้านี้ไปเพิ่มข้อสอบ — บันทึกที่จัดค้างไว้ก่อน จะได้ไม่หาย
   if (_qzDirtyCount()) { _qzCommitDraft(); _qzDraft = null; }
+  // กางช่องนั้นไว้ก่อน กลับมาจะได้เห็นข้อที่เพิ่งเพิ่มเลย ไม่ใช่กลับมาเจอช่องปิดเหมือนไม่มีอะไรเกิดขึ้น
+  _qzOpenBox[_qzBoxKey(mid, key)] = 1;
   _qzAddBox = { mid, key };
   openAddQuizChooser(mid);
 }
@@ -14761,7 +14798,15 @@ function _doDeleteQuizQuestion(uid, source, mid, refresh) {
 }
 
 // ══════════ ลบข้อสอบหลายข้อ (ติ๊กเลือก) / ลบทั้งหมด ══════════
-function _qzToggleAll(mid, on) { document.querySelectorAll('.qz-chk').forEach(c => c.checked = on); _updQzSel(mid); }
+/* ช่องที่ปิดอยู่ไม่มีช่องติ๊กอยู่ในหน้าจอ ถ้าไม่กางก่อน "เลือกทั้งหมด"
+   จะเลือกได้แค่ข้อในช่องที่เปิดค้างไว้ หรือไม่ได้เลยสักข้อถ้าปิดหมด
+   แล้วปุ่มลบที่เลือกก็ขึ้น 0 โดยไม่มีอะไรบอกว่าทำไม */
+function _qzToggleAll(mid, on) {
+  if (on && quizBoxesFor(mid) && !_qzAnyBoxOpen(mid)) { _qzAllBoxes(mid, true); }
+  document.querySelectorAll('.qz-chk').forEach(c => c.checked = on);
+  const sa = document.getElementById('qz-selall'); if (sa) sa.checked = on;
+  _updQzSel(mid);
+}
 function _updQzSel(mid, el) {
   // ข้อเดียวอาจโผล่หลายช่อง (ช่องละกล่อง) — ติ๊กที่หนึ่ง ให้ติ๊กตามกันทุกที่ และนับเป็นข้อเดียว
   if (el) document.querySelectorAll('.qz-chk').forEach(c => { if (c.value === el.value) c.checked = el.checked; });
@@ -14913,37 +14958,43 @@ function openQuizListModal(mid, restore) {
       : (() => {
         /* ข้อที่ยังไม่ได้จัดเข้าช่องไหน (เช่นข้อชุดเริ่มต้นที่ยังไม่เคยแตะ)
            โผล่เป็นช่องพักไว้ก่อน จะได้ไม่หายไปจากหน้าจอ พอจัดครบช่องนี้ก็หายไปเอง */
+        /* แต่ละช่องเป็นดรอปดาว ปิดไว้ก่อน กดแล้วค่อยคลี่ข้อสอบข้างใน
+           89 ข้อกางพร้อมกันหมด เลื่อนหาช่องพาสต้าทีต้องผ่านสเต็ก 39 ข้อก่อน
+           และตอนปิดอยู่ก็ไม่ต้องวาดการ์ดของช่องนั้นเลย เปิดหน้าไวขึ้นด้วย */
+        const sec = (o) => {
+          const open = _qzBoxOpen(mid, o.key);
+          return `
+          <div style="border:1.5px solid ${o.color}33;border-radius:13px;margin-bottom:12px;overflow:hidden">
+            <div class="qz-boxh" onclick="_qzToggleBoxOpen('${mid}','${String(o.key).replace(/'/g, "\\'")}')"
+                 style="background:${o.bg};border-bottom:${open ? '1px solid ' + o.color + '25' : 'none'}">
+              <span class="qz-boxar${open ? ' on' : ''}" style="color:${o.color}">▸</span>
+              <div style="min-width:0;flex:1">
+                <div style="font-size:14px;font-weight:800;color:${o.color}">${o.label}
+                  <span style="font-weight:700;font-size:12.5px">· ${o.n} ข้อ${o.on !== o.n ? ' (เปิดใช้ ' + o.on + ')' : ''}</span></div>
+                <div style="font-size:11.5px;color:${o.color}CC;margin-top:2px">${o.hint}</div>
+              </div>
+              ${o.add === false ? '' : `<button class="btn btn-sm btn-outline" onclick="event.stopPropagation();_qzOpenAddIn('${mid}','${String(o.key).replace(/'/g, "\\'")}')"
+                      style="border-color:${o.color};color:${o.color};flex-shrink:0">+ เพิ่มในช่องนี้</button>`}
+            </div>
+            ${open ? `<div style="padding:12px 12px 2px">${o.body()}</div>` : ''}
+          </div>`;
+        };
         const hasCatchAll = boxes.some(b => !b.key);
         const left = hasCatchAll ? [] : all.filter(q => !quizBoxesSaved(mid, q.uid).length);
-        const pending = !left.length ? '' : `
-          <div style="border:1.5px solid #F59E0B55;border-radius:13px;margin-bottom:16px;overflow:hidden">
-            <div style="padding:11px 14px;background:#FEF3C7;border-bottom:1px solid #F59E0B33">
-              <div style="font-size:14px;font-weight:800;color:#92400E">⚠️ ยังไม่ได้จัดช่อง
-                <span style="font-weight:700;font-size:12.5px">· ${left.length} ข้อ</span></div>
-              <div style="font-size:11.5px;color:#92400ECC;margin-top:2px">ตอนนี้ยังออกกับทุกคน — กดปุ่มใต้แต่ละข้อเพื่อใส่เข้าช่อง (ใส่ได้มากกว่าหนึ่งช่อง)</div>
-            </div>
-            <div style="padding:12px 12px 2px">${left.map(card).join('')}</div>
-          </div>`;
+        const pending = !left.length ? '' : sec({
+          key: '__left__', color: '#92400E', bg: '#FEF3C7', add: false,
+          label: '⚠️ ยังไม่ได้จัดช่อง', n: left.length, on: left.length,
+          hint: 'ตอนนี้ยังออกกับทุกคน — กดปุ่มใต้แต่ละข้อเพื่อใส่เข้าช่อง (ใส่ได้มากกว่าหนึ่งช่อง)',
+          // ช่องที่ปิดอยู่ไม่ต้องสร้างการ์ดเลย 90 ข้อไม่ต้องวาดทิ้งทุกครั้งที่เปิดหน้า
+          body: () => left.map(card).join(''),
+        });
         return boxes.map(b => {
           const qs = all.filter(q => quizInBox(mid, q.uid, b.key));
-          const on = qs.filter(q => isQuizActive(q.uid)).length;
-          return `
-          <div style="border:1.5px solid ${b.color}33;border-radius:13px;margin-bottom:16px;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
-                        padding:11px 14px;background:${b.bg};border-bottom:1px solid ${b.color}25">
-              <div style="min-width:0">
-                <div style="font-size:14px;font-weight:800;color:${b.color}">${b.label}
-                  <span style="font-weight:700;font-size:12.5px">· ${qs.length} ข้อ${on !== qs.length ? ' (เปิดใช้ ' + on + ')' : ''}</span></div>
-                <div style="font-size:11.5px;color:${b.color}CC;margin-top:2px">${b.hint}</div>
-              </div>
-              <button class="btn btn-sm btn-outline" onclick="_qzOpenAddIn('${mid}','${String(b.key).replace(/'/g, "\\'")}')"
-                      style="border-color:${b.color};color:${b.color};flex-shrink:0">+ เพิ่มในช่องนี้</button>
-            </div>
-            <div style="padding:12px 12px 2px">
-              ${qs.length ? qs.map(card).join('')
-                : `<p class="text-muted" style="text-align:center;padding:14px 8px;font-size:12.5px">ยังไม่มีข้อสอบในช่องนี้</p>`}
-            </div>
-          </div>`;
+          return sec(Object.assign({}, b, {
+            n: qs.length, on: qs.filter(q => isQuizActive(q.uid)).length,
+            body: () => qs.length ? qs.map(card).join('')
+              : '<p class="text-muted" style="text-align:center;padding:14px 8px;font-size:12.5px">ยังไม่มีข้อสอบในช่องนี้</p>',
+          }));
         }).join('') + pending;
       })();
 
@@ -14960,6 +15011,7 @@ function openQuizListModal(mid, restore) {
     ${all.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border2);border-radius:9px">
       <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz-selall" onchange="_qzToggleAll('${mid}',this.checked)"> เลือกทั้งหมด</label>
       <button class="btn btn-sm btn-danger" id="qz-delsel" onclick="_qzDeleteSelected('${mid}')" disabled>🗑 ลบที่เลือก (0)</button>
+      ${boxes ? `<button class="btn btn-sm btn-outline" onclick="_qzAllBoxes('${mid}',${_qzAnyBoxOpen(mid) ? 'false' : 'true'})">${_qzAnyBoxOpen(mid) ? '▾ ปิดทุกช่อง' : '▸ เปิดทุกช่อง'}</button>` : ''}
       <button class="btn btn-sm btn-outline" onclick="_qzDeleteAll('${mid}')" style="margin-left:auto;color:#DC2626;border-color:#DC2626">🗑 ลบทั้งหมด</button>
     </div>`:''}
     ${listHTML}
