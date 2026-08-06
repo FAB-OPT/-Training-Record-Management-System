@@ -8682,6 +8682,117 @@ function quizInBox(mid, uid, key) {
   return key ? cur.indexOf(key) >= 0 : cur.length === 0;
 }
 
+/* ══════════ สถิติการทำข้อสอบ ══════════
+   ตอบมาแล้วกี่ครั้ง ข้อไหนคนตอบผิดบ่อย ตัวลวงตัวไหนหลอกคนได้เยอะ ใช้เวลาเท่าไหร่
+
+   ครั้งที่สอบก่อนวันที่เพิ่มการเก็บนี้ ไม่มีข้อมูลรายข้อและไม่มีเวลา
+   เพราะเดิมเก็บแค่ว่า "ข้อที่ 1 ตอบ A" ซึ่งไร้ความหมายข้ามครั้ง
+   ตัวเลือกสลับใหม่ทุกครั้ง และไม่ได้เก็บด้วยว่าข้อที่ 1 คือข้อไหน
+   จึงต้องแยกนับและบอกให้ชัด ไม่ใช่เอาไปรวมแล้วให้ตัวเลขดูน้อยกว่าความจริง */
+function _qsStats(mid) {
+  const runs = (DB.quizResults || []).filter(r => r.moduleId === mid);
+  const detailed = runs.filter(r => r.answers && Array.isArray(r.answers.items) && r.answers.items.length);
+  const secs = detailed.map(r => r.answers.sec).filter(s => typeof s === 'number' && s > 0).sort((a, b) => a - b);
+  const per = {};   // uid → { n, ok, picks:{srcKey:count} }
+  detailed.forEach(r => (r.answers.items || []).forEach(it => {
+    if (!it || !it.uid) return;
+    const s = per[it.uid] || (per[it.uid] = { n: 0, ok: 0, picks: {} });
+    s.n++; if (it.ok) s.ok++;
+    if (!it.ok && it.pick) s.picks[it.pick] = (s.picks[it.pick] || 0) + 1;
+  }));
+  const pcts = runs.map(r => (r.answers && r.answers.pct != null) ? r.answers.pct : r.pct)
+    .filter(p => typeof p === 'number');
+  return {
+    runs: runs.length, detailed: detailed.length, legacy: runs.length - detailed.length,
+    avgPct: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
+    passRate: pcts.length ? Math.round(pcts.filter(p => p >= 80).length / pcts.length * 100) : null,
+    per,
+    // ใช้มัธยฐาน ไม่ใช่ค่าเฉลี่ย คนที่เปิดค้างไว้แล้วไปทำอย่างอื่นหนึ่งคน
+    // ลากค่าเฉลี่ยให้เพี้ยนได้ทั้งชุด
+    medSec: secs.length ? secs[Math.floor(secs.length / 2)] : null,
+    minSec: secs.length ? secs[0] : null,
+    maxSec: secs.length ? secs[secs.length - 1] : null,
+    nSec: secs.length,
+  };
+}
+function _qsFmtSec(s) {
+  if (s == null) return '—';
+  if (s < 60) return s + ' วิ';
+  const m = Math.floor(s / 60);
+  return m + ' นาที' + (s % 60 ? ' ' + (s % 60) + ' วิ' : '');
+}
+/* ป้ายเล็ก ๆ ท้ายหัวข้อแต่ละข้อ — เห็นทันทีว่าข้อนี้คนตอบผิดเยอะไหม
+   รับสถิติที่คิดไว้แล้วเข้ามา ไม่ใช่คิดใหม่ต่อการ์ด ไม่งั้น 90 ข้อ = ไล่ผลสอบทั้งกอง 90 รอบ */
+function _qsChipHTML(st, uid) {
+  const s = ((st && st.per) || {})[uid];
+  if (!s || !s.n) return '';
+  const pct = Math.round(s.ok / s.n * 100);
+  const c = pct >= 80 ? ['#047857', '#ECFDF5'] : pct >= 50 ? ['#B45309', '#FFFBEB'] : ['#B91C1C', '#FEE2E2'];
+  return `<span title="ตอบมาแล้ว ${s.n} ครั้ง ถูก ${s.ok} ครั้ง" style="flex-shrink:0;font-size:11px;font-weight:700;
+    color:${c[0]};background:${c[1]};border-radius:999px;padding:2px 9px">ถูก ${pct}% · ${s.n} ครั้ง</span>`;
+}
+function openQuizStatsModal(mid) {
+  const st = _qsStats(mid);
+  const all = getAllQuestionsForModule(mid);
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const cell = (n, l, sub) => `<div style="background:var(--surface);padding:12px 10px;text-align:center">
+    <div style="font-size:20px;font-weight:800;color:var(--accent);line-height:1.1">${n}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:3px">${l}</div>
+    ${sub ? `<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${sub}</div>` : ''}</div>`;
+
+  // เรียงข้อที่ตอบผิดเยอะสุดขึ้นก่อน — เป็นข้อที่ต้องไปแก้คำถามหรือสอนเพิ่ม
+  const rows = all.map(q => {
+    const s = st.per[q.uid];
+    return { q, s, pct: s && s.n ? s.ok / s.n : null };
+  }).filter(r => r.s && r.s.n).sort((a, b) => a.pct - b.pct || b.s.n - a.s.n);
+  const never = all.length - rows.length;
+
+  showModal('📊 สถิติข้อสอบ · ' + (MODULES[mid] ? MODULES[mid].name : mid), `
+    ${!st.runs ? '<p class="text-muted" style="text-align:center;padding:26px;font-size:13px">ยังไม่มีใครทำข้อสอบ Module นี้</p>' : `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:1px;background:var(--border);
+                border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:12px">
+      ${cell(st.runs, 'ครั้งที่สอบ')}
+      ${cell(st.avgPct == null ? '—' : st.avgPct + '%', 'คะแนนเฉลี่ย')}
+      ${cell(st.passRate == null ? '—' : st.passRate + '%', 'อัตราผ่าน', 'เกณฑ์ 80%')}
+      ${cell(_qsFmtSec(st.medSec), 'เวลาที่ใช้', st.nSec ? 'กลาง ๆ จาก ' + st.nSec + ' ครั้ง' : '')}
+    </div>
+    ${st.nSec ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+      เร็วสุด <b style="color:var(--text2)">${_qsFmtSec(st.minSec)}</b> · ช้าสุด <b style="color:var(--text2)">${_qsFmtSec(st.maxSec)}</b>
+      <span style="color:var(--text3)">— ใช้ค่ากลาง ไม่ใช่ค่าเฉลี่ย เพราะคนที่เปิดค้างไว้แล้วไปทำอย่างอื่นคนเดียวก็ลากค่าเฉลี่ยเพี้ยนทั้งชุด</span>
+    </div>` : ''}
+    ${st.legacy ? `<div style="margin-bottom:12px;padding:9px 13px;background:#FFFBEB;border:1px solid #F59E0B44;border-radius:9px;font-size:12px;color:#92400E;line-height:1.6">
+      ⚠️ มี <b>${st.legacy}</b> ครั้งที่สอบก่อนระบบเริ่มเก็บรายละเอียด — นับรวมในคะแนนเฉลี่ยและอัตราผ่านได้
+      แต่ไม่มีข้อมูลรายข้อและเวลา สถิติด้านล่างจึงนับจาก <b>${st.detailed}</b> ครั้งเท่านั้น</div>` : ''}
+    ${!rows.length ? `<p class="text-muted" style="text-align:center;padding:22px;font-size:13px">ยังไม่มีข้อมูลรายข้อ — จะเริ่มเก็บตั้งแต่ครั้งที่สอบถัดไป</p>` : `
+    <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">รายข้อ · เรียงจากที่ตอบผิดมากสุด</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:9px">ข้อที่อยู่บนสุดคือข้อที่ควรไปดูว่าคำถามกำกวมหรือต้องสอนเพิ่ม${never ? ` · อีก ${never} ข้อยังไม่เคยถูกสุ่มออกไป` : ''}</div>
+    <div style="max-height:46vh;overflow:auto">
+      ${rows.map((r, i) => {
+        const pct = Math.round(r.pct * 100);
+        const c = pct >= 80 ? '#047857' : pct >= 50 ? '#B45309' : '#B91C1C';
+        // ตัวลวงที่คนเลือกผิดมากสุด — บอกได้ว่าเข้าใจผิดตรงไหน
+        const top = Object.entries(r.s.picks).sort((a, b) => b[1] - a[1])[0];
+        const opt = top && r.q.opts ? r.q.opts[top[0]] : '';
+        return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:7px">
+          <div style="display:flex;gap:9px;align-items:flex-start">
+            <span style="font-size:11.5px;color:var(--text3);font-weight:700;min-width:20px;flex-shrink:0">${i + 1}.</span>
+            <div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);line-height:1.5">${esc(r.q.q).replace(/^\d+[\.\s]+/, '')}</div>
+            <span style="flex-shrink:0;font-size:14px;font-weight:800;color:${c}">${pct}%</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px;padding-left:29px">
+            <div style="flex:1;min-width:110px;height:6px;background:var(--surface2);border-radius:99px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:${c}"></div>
+            </div>
+            <span style="font-size:11.5px;color:var(--text3);flex-shrink:0">ถูก ${r.s.ok} / ${r.s.n} ครั้ง</span>
+          </div>
+          ${top && opt ? `<div style="margin-top:6px;padding-left:29px;font-size:11.5px;color:var(--text3)">
+            ตอบผิดไปที่ <b style="color:#B91C1C">${top[0]}. ${esc(opt)}</b> มากสุด ${top[1]} ครั้ง</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`}`}
+  `, null, 'ปิด');
+}
+
 /* ══════════ ช่องข้อสอบเป็นดรอปดาว — ปิดไว้ก่อน กดแล้วค่อยคลี่ ══════════
    จำไว้นอกฟังก์ชันวาด เพราะรายการถูกวาดใหม่ทุกครั้งที่ลบ แก้ เปิด-ปิด หรือบันทึก
    ถ้าเก็บไว้ใน DOM อย่างเดียว ช่องที่เพิ่งเปิดดูจะหุบเองทุกครั้งที่แตะอะไรสักอย่าง */
@@ -11571,16 +11682,18 @@ function openQuiz(trainingId) {
     const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
     const opts = order.map((srcKey, idx) => ({
       newKey: SRC[idx],
+      srcKey,                       // ตัวเลือกเดิมก่อนสลับ — ต้องเก็บไว้ทำสถิติ
       text: q.opts[srcKey],
       isCorrect: srcKey === q.ans,
     }));
     return {
+      uid: q.uid,                   // ต้องรู้ว่าเป็นข้อไหน ไม่งั้นย้อนดูสถิติรายข้อไม่ได้
       q: q.q.replace(/^\d+[\.\s]+/, ''),
       opts,
       correctNew: opts.find(o => o.isCorrect)?.newKey,
     };
   });
-  _quizState = { questions, answers: {}, trainingId };
+  _quizState = { questions, answers: {}, trainingId, startedAt: Date.now() };
   closeModal();
   showModal('ข้อสอบ: ' + (MODULES[t.moduleId]?.name||t.moduleId), `
     <div class="quiz-progress">
@@ -11608,10 +11721,22 @@ function openQuiz(trainingId) {
     const passed = pct >= 80;
     const _qrId = genId('QR');
     const _qrDate = new Date().toISOString();
+    /* เก็บรายละเอียดพอที่จะย้อนดูสถิติได้ทีหลัง
+       เดิมเก็บแค่ว่าข้อที่ 1 ตอบ A ซึ่งไร้ความหมายข้ามครั้ง
+       เพราะตัวเลือกถูกสลับใหม่ทุกครั้ง และไม่ได้เก็บว่าข้อที่ 1 คือข้อไหน
+       จึงบอกไม่ได้เลยว่าข้อไหนคนตอบผิดบ่อย
+
+       เก็บไว้ใน answers ซึ่งเป็น jsonb อยู่แล้ว ไม่ต้องแก้ตารางบน Supabase */
+    const _sec = _quizState.startedAt ? Math.round((Date.now() - _quizState.startedAt) / 1000) : null;
+    const _items = questions.map((q, i) => {
+      const chosen = q.opts.find(o => o.newKey === _quizState.answers[i]);
+      return { uid: q.uid, ok: _quizState.answers[i] === q.correctNew, pick: chosen ? chosen.srcKey : '' };
+    });
+    const _ans = { responses: _quizState.answers, pct, date: _qrDate, items: _items, sec: _sec };
     // Local copy keeps pct/date for in-memory calc; record sent to SB strips them (not in schema)
-    const _qrLocal = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, pct, date: _qrDate, answers: { responses: _quizState.answers, pct, date: _qrDate } };
+    const _qrLocal = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, pct, date: _qrDate, answers: _ans };
     DB.quizResults.push(_qrLocal);
-    const _qrForSave = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, answers: { responses: _quizState.answers, pct, date: _qrDate } };
+    const _qrForSave = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, answers: _ans };
     gsSave('quizResults', _qrId, _qrForSave);
     const attemptsAfter = _quizAttemptsFor(trainingId).length;
     const remaining = Math.max(0, QUIZ_MAX_ATTEMPTS - attemptsAfter);
@@ -14925,6 +15050,7 @@ function openQuizListModal(mid, restore) {
   const activeCount = all.filter(q => isQuizActive(q.uid)).length;
   const srcBadge = { base: '<span class="badge badge-gray">เริ่มต้น</span>', pool: '<span class="badge badge-blue">กลุ่ม</span>', custom: '<span class="badge badge-green">เพิ่มเอง</span>' };
   const boxes = quizBoxesFor(mid);
+  const _qlStats = _qsStats(mid);
 
   const card = (q, i) => {
     const active = isQuizActive(q.uid);
@@ -14936,6 +15062,7 @@ function openQuizListModal(mid, restore) {
             <div style="font-size:13.5px;font-weight:700;color:var(--text)">${i+1}. ${q.q.replace(/^\d+[\.\s]+/, '')}</div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            ${_qsChipHTML(_qlStats, q.uid)}
             ${srcBadge[q.source]||''}
             <button class="btn btn-sm btn-outline" onclick="openEditQuizModal('${q.uid}','${q.source}','${mid}')" title="แก้ไข">✏️ แก้</button>
             <button class="btn btn-sm ${active?'btn-outline':'btn-green'}" onclick="toggleQuizActive('${q.uid}','${mid}')" title="${active?'ปิดใช้งาน':'เปิดใช้งาน'}">${active?'⏸ ปิด':'▶ เปิด'}</button>
@@ -15002,6 +15129,7 @@ function openQuizListModal(mid, restore) {
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px;flex-wrap:wrap">
       <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="openQuizStatsModal('${mid}')" title="ข้อไหนคนตอบผิดบ่อย ใช้เวลาเท่าไหร่">📊 สถิติ</button>
         <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
         <button class="btn btn-sm btn-accent" onclick="_qzOpenAddIn('${mid}','')">+ เพิ่มคำถาม</button>
       </div>
