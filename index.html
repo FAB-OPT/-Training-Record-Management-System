@@ -1152,46 +1152,96 @@
   .tp-chip.ok    { background: #ECFDF5; color: #047857; }
   .tp-chip.warn  { background: #FFFBEB; color: #B45309; }
   .tp-chip.batch { background: var(--surface2); color: var(--text2); }
-  /* ── จัดอบรม: แถบขั้นตอน + ปุ่มเริ่มงาน ───────────────────────── */
-  .tp-steps {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  /* ── จัดอบรม: หัวเรื่อง + ขั้นตอน + ปุ่มเริ่มงาน รวมเป็นแถบเดียว ──────
+     เดิมแยกเป็นสามแถบซ้อนกัน หัวเรื่อง แถบ 1-2-3 และการ์ดเริ่มงานใบใหญ่
+     กินความสูงเกือบครึ่งจอโดยไม่มีข้อมูลจริงสักตัว และบนจอกว้าง
+     การ์ดสองใบยืดเต็มจอจนข้อความอยู่ซ้ายสุด ลูกศรอยู่ขวาสุด ห่างกันเป็นคืบ */
+  .tp-hero {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 18px; flex-wrap: wrap;
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 13px; padding: 13px 16px; margin-bottom: 14px;
+    border-radius: 15px; padding: 15px 18px; margin-bottom: 14px;
   }
-  .tp-step { display: flex; align-items: center; gap: 9px; }
-  .tp-step-n {
-    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
-    background: var(--accent); color: #fff !important; font-weight: 800;
-    font-size: 13px; line-height: 24px; text-align: center;
-    font-family: 'Sarabun', sans-serif;
+  .tp-hero-t { font-size: 21px; font-weight: 800; color: var(--text); line-height: 1.2; }
+  .tp-flow { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 7px; }
+  .tp-flow-i { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 600; }
+  .tp-flow-n {
+    width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface2); color: var(--text3); font-weight: 800;
+    font-size: 11px; line-height: 19px; text-align: center; font-family: 'Sarabun', sans-serif;
   }
-  .tp-step b { display: block; font-size: 13px; color: var(--text); font-weight: 800; }
-  .tp-step span { display: block; font-size: 11.5px; color: var(--text3); margin-top: 1px; }
-  .tp-step-arrow { color: var(--border2); font-size: 17px; font-weight: 700; }
-  @media (max-width: 640px) { .tp-step-arrow { display: none; } .tp-steps { gap: 13px; } }
+  .tp-flow-a { color: var(--border2); font-size: 12px; }
+  /* ปุ่มเริ่มงาน — กว้างพอดีตัว ไม่ยืดตามจอ กดง่ายแต่ไม่กินที่ */
+  .tp-go {
+    display: flex; align-items: center; gap: 11px; text-align: left;
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 10px 15px 10px 11px; cursor: pointer; font-family: 'Sarabun', 'Segoe UI Emoji', sans-serif;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .tp-go:hover { box-shadow: 0 6px 16px rgba(15,23,42,.08); }
+  .tp-go-a:hover { border-color: var(--accent); }
+  .tp-go-b:hover { border-color: #7C3AED; }
+  .tp-go-ic {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 19px;
+  }
+  .tp-go-a .tp-go-ic { background: var(--accent-light); }
+  .tp-go-b .tp-go-ic { background: #F3E8FF; }
+  .tp-go b { display: block; font-size: 13.5px; font-weight: 800; color: var(--text); }
+  .tp-go i { display: block; font-size: 11.5px; color: var(--text3); font-style: normal; margin-top: 1px; }
+  @media (max-width: 700px) { .tp-go { flex: 1 1 100%; } }
 
-  .tp-start {
-    display: flex; align-items: flex-start; gap: 14px; text-align: left; width: 100%;
-    background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px;
-    padding: 20px; cursor: pointer; font-family: 'Sarabun', 'Segoe UI Emoji', sans-serif;
-    transition: border-color .18s, transform .18s, box-shadow .18s;
+  /* ── จัดอบรม: ตารางงานรวม (แบบร่าง + ใบที่ออกแล้ว อยู่ตารางเดียว) ────
+     เดิมแยกเป็นสองกล่อง แบบร่างเป็นการ์ด ใบที่ออกแล้วเป็นตาราง
+     ทั้งที่เป็นงานชิ้นเดียวกันคนละช่วง ร่าง → ออกใบ → เช็คชื่อ
+     สองหน้าตา สองปุ่มรีเฟรช สองหัวเรื่อง อ่านแล้วนึกว่าคนละเรื่องกัน */
+  .tw-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tw-tab {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text2);
+    border-radius: 999px; padding: 5px 13px; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; font-family: 'Sarabun', sans-serif; transition: all .15s;
   }
-  .tp-start:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,23,42,.09); }
-  .tp-start-a:hover { border-color: var(--accent); }
-  .tp-start-b:hover { border-color: #7C3AED; }
-  .tp-start-ic {
-    width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 24px;
+  .tw-tab:hover { border-color: var(--border2); }
+  .tw-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tw-tab span { font-weight: 800; opacity: .75; margin-left: 3px; }
+  .tw-table { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
+  /* คอลัมน์สุดท้ายเป็น auto ไม่ใช่ความกว้างตายตัว
+     ปุ่มในแถวมีไม่เท่ากัน (ร่าง 3 ปุ่ม ใบที่ออกแล้ว 4 ปุ่ม) ตั้งตัวเลขตายไว้
+     พอปุ่มเกินความกว้างนั้น justify-content: flex-end จะดันส่วนเกินออกทางซ้าย
+     ไปทับคอลัมน์ข้าง ๆ ให้ grid วัดจากปุ่มจริงเอง แล้วบีบคอลัมน์แรกแทน */
+  .tw-head, .tw-row {
+    display: grid; grid-template-columns: minmax(0,1fr) 112px 92px 150px auto;
+    gap: 12px; align-items: center; padding: 11px 14px;
   }
-  .tp-start-a .tp-start-ic { background: var(--accent-light); }
-  .tp-start-b .tp-start-ic { background: #F3E8FF; }
-  .tp-start-body { flex: 1; min-width: 0; }
-  .tp-start-t { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-  .tp-start-d { font-size: 12.5px; color: var(--text2); line-height: 1.6; }
-  .tp-start-tag { font-size: 11.5px; color: var(--text3); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
-  .tp-start-go { color: var(--border2); font-size: 20px; font-weight: 700; align-self: center; flex-shrink: 0; }
-  .tp-start:hover .tp-start-go { color: var(--accent); }
-  .tp-start-b:hover .tp-start-go { color: #7C3AED; }
+  .tw-head {
+    background: var(--surface2); font-size: 11.5px; font-weight: 800;
+    color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
+  }
+  .tw-row { border-top: 1px solid var(--border); transition: background .12s; }
+  .tw-row:hover { background: var(--surface2); }
+  .tw-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .tw-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+  .tw-when { font-size: 12.5px; color: var(--text2); }
+  .tw-n { text-align: right; font-size: 15px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+  .tw-n span { font-size: 11px; font-weight: 600; color: var(--text3); }
+  .tw-act { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  .tw-st {
+    display: inline-block; border-radius: 999px; padding: 3px 10px;
+    font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  }
+  .tw-st.draft { background: var(--surface2); color: var(--text2); }
+  .tw-st.ready { background: #ECFDF5; color: #047857; }
+  .tw-st.warn  { background: #FFFBEB; color: #B45309; }
+  .tw-st.part  { background: #DBEAFE; color: #1E40AF; }
+  .tw-st.done  { background: #ECFDF5; color: #047857; }
+  @media (max-width: 900px) {
+    .tw-head { display: none; }
+    .tw-row { grid-template-columns: 1fr auto; row-gap: 9px; }
+    .tw-row > div:nth-child(1) { grid-column: 1 / -1; }
+    .tw-row > div:nth-child(5) { grid-column: 1 / -1; }
+    .tw-act { justify-content: flex-start; }
+    .tw-n { text-align: left; }
+  }
 
   /* ── ทะเบียนหลักสูตรแบบตาราง ─────────────────────────────────── */
   .cc-table { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
@@ -1262,23 +1312,7 @@
   }
   .cp-br-more:hover { background: var(--accent-light); }
 
-  /* ── ประวัติใบรายชื่อที่ออกแล้ว ───────────────────────────────── */
-  .rh-head, .rh-row {
-    display: grid; grid-template-columns: minmax(0, 1fr) 120px 104px minmax(210px, max-content);
-    gap: 10px; align-items: center; padding: 10px 14px;
-  }
-  .rh-head {
-    background: var(--surface2); font-size: 11.5px; font-weight: 800;
-    color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
-  }
-  .rh-row { border-top: 1px solid var(--border); transition: background .12s; }
-  .rh-row:hover { background: var(--surface2); }
-  @media (max-width: 820px) {
-    .rh-head { display: none; }
-    .rh-row { grid-template-columns: 1fr auto; row-gap: 8px; }
-    .rh-row > div:first-child { grid-column: 1 / -1; }
-    .cc-act { justify-content: flex-start; }
-  }
+  @media (max-width: 820px) { .cc-act { justify-content: flex-start; } }
   @media (max-width: 720px) {
     .cc-head { display: none; }
     .cc-row { grid-template-columns: 1fr auto; row-gap: 7px; padding: 11px 13px; }
@@ -1287,38 +1321,9 @@
     .cc-num { text-align: left; }
   }
 
-  .tp-draft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
-  .tp-draft-card {
-    display: flex; flex-direction: column;
-    border: 1px solid var(--border); border-radius: 14px;
-    background: var(--white); padding: 14px 15px 12px 18px;
-    position: relative; overflow: hidden;
-    transition: border-color .16s, box-shadow .16s, transform .16s;
-  }
-  /* แถบสีซ้าย: ส้ม = ครบพร้อมออกใบ · เหลือง = ยังกรอกไม่ครบ */
-  .tp-draft-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
-  .tp-draft-card.draft-incomplete::before { background: #F59E0B; }
-  .tp-draft-card:hover { border-color: var(--border2); box-shadow: 0 8px 22px rgba(15,23,42,.08); transform: translateY(-2px); }
-  .tp-draft-top { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-  .tp-draft-title { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.35; margin-bottom: 8px; word-break: break-word; }
-  .tp-draft-meta { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-  .tp-meta { display: flex; gap: 7px; align-items: flex-start; font-size: 12.5px; color: var(--text2); line-height: 1.45; }
-  .tp-meta.warn { color: #B45309; font-weight: 600; }
-  .tp-meta-ic { flex-shrink: 0; }
-  .tp-draft-people {
-    display: flex; align-items: baseline; gap: 8px;
-    background: var(--surface2); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px;
-  }
-  .tp-people-n { font-size: 20px; font-weight: 800; color: var(--accent); line-height: 1; }
-  .tp-people-n span { font-size: 11.5px; font-weight: 700; margin-left: 3px; }
-  .tp-people-sub { font-size: 11.5px; color: var(--text3); font-weight: 600; }
-  .tp-draft-foot { margin-top: auto; border-top: 1px dashed var(--border); padding-top: 9px; }
-  .tp-saved { display: block; font-size: 11px; color: var(--text3); margin-bottom: 8px; }
-  .tp-draft-actions { display: flex; gap: 6px; }
-  .tp-draft-actions .btn { flex: 1; justify-content: center; }
-  .tp-draft-actions .tp-del { flex: 0 0 auto; color: #DC2626; border-color: #FECACA; padding-left: 10px; padding-right: 10px; }
-  .tp-draft-actions .tp-del:hover { background: #FEE2E2; border-color: #DC2626; }
-  .tp-empty { text-align: center; padding: 30px 16px; border: 1px dashed var(--border); border-radius: 14px; background: var(--surface2); }
+  /* ปุ่มลบในแถวงาน — แดงอ่อน ไม่ให้เด่นเท่าปุ่มที่ใช้บ่อย */
+  .tp-del { color: #DC2626; border-color: #FECACA; }
+  .tp-del:hover { background: #FEE2E2; border-color: #DC2626; }
 
   /* ==================== BOTTOM NAV (Mobile) ==================== */
   .mobile-bottom-nav {
@@ -9545,68 +9550,38 @@ function _printCourseCoverage(r) {
 function renderTrainingPlan() {
   setTimeout(_tpRenderAll, 0);
   return `
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-title">จัดอบรม</div>
-      <div class="page-hero-sub">หารายชื่อ → ติ๊กคนที่จะเข้าอบรม → ออกใบรายชื่อ PDF</div>
+  <!-- หัวเรื่อง ขั้นตอน และปุ่มเริ่มงาน อยู่แถบเดียวกัน
+       เดิมเป็นสามแถบซ้อนกันกินความสูงเกือบครึ่งจอ โดยไม่มีข้อมูลจริงสักตัว -->
+  <div class="tp-hero">
+    <div style="min-width:0">
+      <div class="tp-hero-t">จัดอบรม</div>
+      <div class="tp-flow">
+        <span class="tp-flow-i"><span class="tp-flow-n">1</span>หาคน</span><span class="tp-flow-a">→</span>
+        <span class="tp-flow-i"><span class="tp-flow-n">2</span>กรอกรายละเอียด</span><span class="tp-flow-a">→</span>
+        <span class="tp-flow-i"><span class="tp-flow-n">3</span>ออกใบ PDF</span><span class="tp-flow-a">→</span>
+        <span class="tp-flow-i"><span class="tp-flow-n">4</span>เช็คชื่อคนที่มาจริง</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="tp-go tp-go-a" onclick="openCourseCoverage()">
+        <span class="tp-go-ic">🔀</span>
+        <span><b>ชนรายชื่อกับหลักสูตร</b><i>หาให้ว่าใครยังไม่ผ่าน</i></span>
+      </button>
+      <button class="tp-go tp-go-b" onclick="openTrainingPickPeople()">
+        <span class="tp-go-ic">👥</span>
+        <span><b>เลือกรายชื่อเอง</b><i>รู้อยู่แล้วว่าจะจัดให้ใคร</i></span>
+      </button>
     </div>
   </div>
 
-  <!-- ขั้นตอนการทำงาน — บอกให้เห็นภาพรวมก่อนว่าต้องผ่านอะไรบ้าง
-       เดิมมีแต่ปุ่มสองปุ่มกับข้อความอธิบายยาว ๆ คนใช้ครั้งแรกไม่รู้ว่าต่อจากนั้นเจออะไร -->
-  <div class="tp-steps">
-    <div class="tp-step"><span class="tp-step-n">1</span><div><b>หาคน</b><span>ชนรายชื่อ หรือเลือกเอง</span></div></div>
-    <div class="tp-step-arrow">→</div>
-    <div class="tp-step"><span class="tp-step-n">2</span><div><b>กรอกรายละเอียด</b><span>บริษัท · หลักสูตร · วันเวลา</span></div></div>
-    <div class="tp-step-arrow">→</div>
-    <div class="tp-step"><span class="tp-step-n">3</span><div><b>ออกใบ PDF</b><span>หรือเก็บเป็นแบบร่าง</span></div></div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">
-    <button class="tp-start tp-start-a" onclick="openCourseCoverage()">
-      <div class="tp-start-ic">🔀</div>
-      <div class="tp-start-body">
-        <div class="tp-start-t">ชนรายชื่อกับหลักสูตร</div>
-        <div class="tp-start-d">เลือกหลักสูตร แล้วระบบหาให้ว่า<strong>ใครยังไม่ผ่าน</strong> กรองตามตำแหน่ง อายุงาน สาขาได้</div>
-        <div class="tp-start-tag">เหมาะกับ — จัดอบรมประจำปี · ตามให้ครบทุกคน</div>
-      </div>
-      <div class="tp-start-go">→</div>
-    </button>
-    <button class="tp-start tp-start-b" onclick="openTrainingPickPeople()">
-      <div class="tp-start-ic">👥</div>
-      <div class="tp-start-body">
-        <div class="tp-start-t">เลือกรายชื่อเอง</div>
-        <div class="tp-start-d">หยิบพนักงานจากทะเบียนโดยตรง กรองตามสาขาและตำแหน่ง</div>
-        <div class="tp-start-tag">เหมาะกับ — รู้อยู่แล้วว่าจะจัดให้ใคร</div>
-      </div>
-      <div class="tp-start-go">→</div>
-    </button>
-  </div>
-
-  <!-- แบบร่างมาก่อนทะเบียนหลักสูตร — เป็นงานที่ค้างอยู่ ต้องเห็นก่อนของอ้างอิง -->
-  <div class="card" style="margin-top:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-        <div style="font-weight:800;font-size:15px;color:var(--text)">📝 แบบร่างที่บันทึกไว้</div>
-        <span id="tp-draft-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
-      </div>
+  <!-- แบบร่างกับใบที่ออกแล้ว อยู่ตารางเดียวกัน กรองด้วยแท็บ
+       เป็นงานชิ้นเดียวกันคนละช่วง แยกเป็นสองกล่องคนละหน้าตาแล้วอ่านเหมือนคนละเรื่อง -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="tw-tabs" id="tw-tabs"></div>
       <button class="btn btn-sm btn-refresh" onclick="_tpRenderAll()"><span class="refresh-ic">↻</span> รีเฟรช</button>
     </div>
-    <div id="tp-drafts"><p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p></div>
-  </div>
-
-  <!-- ใบที่ออกไปแล้ว — อยู่ในหน้านี้ ไม่แยกเป็นเมนูต่างหาก
-       เป็นงานเดียวกันกับแบบร่าง (ร่าง → ออกใบ → ประวัติ) แยกเมนูแล้วต้องเด้งไปมา -->
-  <div class="card" style="margin-top:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-        <div style="font-weight:800;font-size:15px;color:var(--text)">🧾 ใบรายชื่อที่ออกแล้ว</div>
-        <span id="rh-count" class="tp-chip" style="background:var(--surface2);color:var(--text2)">—</span>
-      </div>
-      <button class="btn btn-sm btn-refresh" onclick="_tpRenderAll()"><span class="refresh-ic">↻</span> รีเฟรช</button>
-    </div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">ทุกครั้งที่กดออกใบ PDF ระบบเก็บไว้ที่นี่ · แก้ไข เปิด PDF ซ้ำ หรือลบทิ้งได้</div>
-    <div id="rh-list"></div>
+    <div id="tw-list"><p class="text-muted" style="text-align:center;padding:22px;font-size:13px">กำลังโหลด…</p></div>
   </div>
 
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
@@ -9891,62 +9866,89 @@ let _rhRows = [];
 async function _tpRenderAll() {
   let rows;
   try { rows = await _tpFetchDrafts(); }
-  catch (e) { _tpRenderDrafts(); _rhRender(); return; }   // ให้แต่ละกล่องยิงเองเพื่อโชว์สาเหตุที่ตรงกับตัวเอง
-  _tpRenderDrafts(rows);
-  _rhRender(rows);
+  catch (e) { _twError(e); return; }
+  // แยกกันแค่ตอนแบ่งข้อมูล ส่วนที่แสดงผลใช้ตารางเดียวกัน
+  _tpDrafts = rows.filter(d => !d.issuedAt);
+  _rhRows = rows.filter(d => d.issuedAt)
+    .sort((a, b) => String(b.issuedAt || '').localeCompare(String(a.issuedAt || '')));
+  _twPaint();
 }
-async function _rhRender(rows) {
-  const box = document.getElementById('rh-list');
+function _twError(e) {
+  const box = document.getElementById('tw-list');
   if (!box) return;
-  box.innerHTML = '<p class="text-muted" style="text-align:center;padding:20px;font-size:13px">กำลังโหลด…</p>';
-  try {
-    _rhRows = (rows || await _tpFetchDrafts()).filter(d => d.issuedAt)
-      .sort((a, b) => String(b.issuedAt || '').localeCompare(String(a.issuedAt || '')));
-  } catch (e) {
-    const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache|issued_at/i);
-    box.innerHTML = `<div style="padding:14px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);font-size:12.5px;color:var(--text2);line-height:1.7">
-      ${missing ? '⚠️ ยังไม่ได้เพิ่มคอลัมน์ <b>issued_at</b> — ให้รันไฟล์ <b>supabase-roster-history.sql</b> ก่อน'
-        : '⚠️ โหลดไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}</div>`;
-    return;
-  }
-  const cnt = document.getElementById('rh-count');
-  if (cnt) cnt.textContent = _rhRows.length + ' ใบ';
-  if (!_rhRows.length) {
-    box.innerHTML = '<p class="text-muted" style="text-align:center;padding:28px;font-size:13px">ยังไม่มีใบรายชื่อที่ออก — เตรียมรายชื่อด้านบนแล้วกด <b>ออกใบรายชื่อ PDF</b></p>';
+  const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache|issued_at/i);
+  box.innerHTML = `<div style="padding:14px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);font-size:12.5px;color:var(--text2);line-height:1.7">
+    ${missing ? '⚠️ ตารางบน Supabase ยังไม่ครบ — ให้รัน <b>supabase-training-drafts.sql</b> และ <b>supabase-roster-history.sql</b> ก่อน'
+      : '⚠️ โหลดไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}</div>`;
+}
+/* แท็บกรอง — ค่าเริ่มต้นคือทั้งหมด เพราะงานที่ค้างอยู่มักปนกันทั้งสองแบบ */
+let _twTab = 'all';
+function _twSetTab(t) { _twTab = t; _twPaint(); }
+function _twPaint() {
+  const box = document.getElementById('tw-list');
+  if (!box) return;
+  const nD = _tpDrafts.length, nI = _rhRows.length;
+  const tabs = document.getElementById('tw-tabs');
+  if (tabs) tabs.innerHTML = [
+    ['all', '📋 ทั้งหมด', nD + nI], ['draft', '📝 แบบร่าง', nD], ['issued', '🧾 ออกใบแล้ว', nI],
+  ].map(([k, l, n]) => `<button class="tw-tab${_twTab === k ? ' on' : ''}" onclick="_twSetTab('${k}')">${l}<span>${n}</span></button>`).join('');
+
+  const items = []
+    .concat(_twTab === 'issued' ? [] : _tpDrafts.map(d => ({ d, kind: 'draft' })))
+    .concat(_twTab === 'draft' ? [] : _rhRows.map((d, i) => ({ d, kind: 'issued', i })));
+  if (!items.length) {
+    box.innerHTML = `<div style="text-align:center;padding:30px 14px">
+      <div style="font-size:34px;line-height:1">🗂</div>
+      <div style="font-weight:800;font-size:14px;color:var(--text);margin-top:8px">${
+        _twTab === 'issued' ? 'ยังไม่มีใบที่ออก' : _twTab === 'draft' ? 'ยังไม่มีแบบร่าง' : 'ยังไม่มีงานจัดอบรม'}</div>
+      <div style="font-size:12.5px;color:var(--text3);margin-top:4px;line-height:1.6">
+        เริ่มที่ <b>ชนรายชื่อกับหลักสูตร</b> หรือ <b>เลือกรายชื่อเอง</b> ด้านบน</div>
+    </div>`;
     return;
   }
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  box.innerHTML = `<div class="cc-table">
-    <div class="rh-head">
-      <div>หลักสูตร / บริษัท</div><div>วันที่อบรม</div><div style="text-align:right">ผู้เข้าอบรม</div><div style="text-align:right">จัดการ</div>
+  const js = s => String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  box.innerHTML = `<div class="tw-table">
+    <div class="tw-head">
+      <div>หลักสูตร / บริษัท</div><div>วันที่อบรม</div><div style="text-align:right">คน</div><div>สถานะ</div><div style="text-align:right">จัดการ</div>
     </div>
-    ${_rhRows.map((d, i) => `<div class="rh-row">
-      <div style="min-width:0">
-        <div style="font-size:13.5px;font-weight:700;color:var(--text)">${esc(d.course) || '(ไม่ระบุหลักสูตร)'}${d.batch ? ` <span style="font-size:11.5px;color:var(--text3);font-weight:600">รุ่นที่ ${esc(d.batch)}</span>` : ''}</div>
-        <div style="font-size:11.5px;color:var(--text3);margin-top:2px">${esc(d.company || '—')}</div>
-      </div>
-      <div style="font-size:12.5px;color:var(--text2)">
-        ${d.trainDate ? fmtDate(d.trainDate) : '—'}${d.trainTime ? `<div style="font-size:11px;color:var(--text3)">${esc(d.trainTime)}</div>` : ''}
-      </div>
-      <div style="text-align:right">
-        <span class="cc-num">${(d.people || []).length}<span> คน</span></span>
-        ${(() => {
-          // สถานะการอบรมของใบนี้ — เห็นได้ตั้งแต่หน้ารายการว่ายังค้างเช็คชื่ออยู่ไหม
-          const n = (d.people || []).length, a = _rhAttended(d);
-          if (!n) return '';
-          if (!a) return '<div style="font-size:11px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:999px;padding:2px 9px;display:inline-block;margin-top:4px">ยังไม่ได้เช็คชื่อ</div>';
-          if (a === n) return '<div style="font-size:11px;font-weight:700;color:#1F7A33;background:var(--green-light);border-radius:999px;padding:2px 9px;display:inline-block;margin-top:4px">✓ อบรมแล้วครบ</div>';
-          return `<div style="font-size:11px;font-weight:700;color:#1E40AF;background:#DBEAFE;border-radius:999px;padding:2px 9px;display:inline-block;margin-top:4px">อบรมแล้ว ${a}/${n} · ขาด ${n - a}</div>`;
-        })()}
-      </div>
-      <div class="cc-act">
-        <button class="btn btn-sm ${_rhAttended(d) ? 'btn-outline' : 'btn-green'}" onclick="_rhCheckIn(${i})" title="ติ๊กคนที่มาอบรมจริง แล้วเข้าประวัติการอบรมให้เลย">✅ เช็คชื่อ</button>
-        <button class="btn btn-sm btn-outline" onclick="_rhView(${i})">ดูรายชื่อ</button>
-        <button class="btn btn-sm btn-accent" onclick="_rhEdit(${i})" title="แก้รายละเอียดหรือตัดคนออก แล้วทับใบเดิม">แก้ไข</button>
-        <button class="btn btn-sm btn-outline" onclick="_rhReprint(${i})" title="เปิด PDF ใบเดิมอีกครั้ง">🖨</button>
-        <button class="btn btn-sm btn-outline tp-del" onclick="_rhDelete(${i})" title="ลบออกจากประวัติ">🗑</button>
-      </div>
-    </div>`).join('')}
+    ${items.map(it => _twRowHTML(it, esc, js)).join('')}
+  </div>`;
+}
+function _twRowHTML(it, esc, js) {
+  const d = it.d;
+  const n = (d.people || []).length;
+  const brs = new Set((d.people || []).map(p => p.branchId).filter(Boolean));
+  let stat, acts;
+  if (it.kind === 'draft') {
+    const ready = !!(d.course && d.trainDate && n);
+    stat = ready
+      ? '<span class="tw-st ready">✓ พร้อมออกใบ</span>'
+      : '<span class="tw-st warn">! ยังกรอกไม่ครบ</span>';
+    acts = `<button class="btn btn-sm btn-accent" onclick="_tpOpenDraft('${js(d.id)}')">เปิดทำต่อ</button>
+      <button class="btn btn-sm btn-outline" onclick="_tpPrintDraft('${js(d.id)}')"${ready ? '' : ' style="opacity:.5"'}>ออก PDF</button>
+      <button class="btn btn-sm btn-outline tp-del" onclick="_tpDeleteDraft('${js(d.id)}')" title="ลบแบบร่าง">🗑</button>`;
+  } else {
+    const a = _rhAttended(d);
+    stat = !n ? '<span class="tw-st draft">ไม่มีรายชื่อ</span>'
+      : !a ? '<span class="tw-st warn">ยังไม่ได้เช็คชื่อ</span>'
+      : a === n ? '<span class="tw-st done">✓ อบรมแล้วครบ</span>'
+      : `<span class="tw-st part">อบรมแล้ว ${a}/${n}</span>`;
+    // ปุ่ม 🖨 ไม่ต้องมีในแถว เพราะปุ่มยืนยันในหน้าดูรายชื่อคือเปิด PDF อยู่แล้ว
+    acts = `<button class="btn btn-sm ${a ? 'btn-outline' : 'btn-green'}" onclick="_rhCheckIn(${it.i})" title="ติ๊กคนที่มาอบรมจริง แล้วเข้าประวัติการอบรมให้เลย">✅ เช็คชื่อ</button>
+      <button class="btn btn-sm btn-outline" onclick="_rhView(${it.i})" title="ดูรายชื่อ · เปิด PDF ซ้ำ">ดูรายชื่อ</button>
+      <button class="btn btn-sm btn-accent" onclick="_rhEdit(${it.i})" title="แก้รายละเอียดหรือเพิ่ม/ตัดคน แล้วทับใบเดิม">แก้ไข</button>
+      <button class="btn btn-sm btn-outline tp-del" onclick="_rhDelete(${it.i})" title="ลบออกจากประวัติ">🗑</button>`;
+  }
+  return `<div class="tw-row">
+    <div style="min-width:0">
+      <div class="tw-name">${esc(d.course) || '(ยังไม่ระบุหลักสูตร)'}${d.batch ? ` <span style="font-size:11.5px;color:var(--text3);font-weight:600">รุ่นที่ ${esc(d.batch)}</span>` : ''}</div>
+      <div class="tw-sub">${esc(d.company || '—')}${d.place ? ' · ' + esc(d.place) : ''}${d.trainer ? ' · ' + esc(d.trainer) : ''}</div>
+    </div>
+    <div class="tw-when">${d.trainDate ? fmtDate(d.trainDate) : '—'}${d.trainTime ? `<div style="font-size:11px;color:var(--text3)">${esc(d.trainTime)}</div>` : ''}</div>
+    <div class="tw-n">${n}<span> คน</span>${brs.size ? `<div style="font-size:11px;font-weight:600;color:var(--text3)">${brs.size} สาขา</div>` : ''}</div>
+    <div>${stat}</div>
+    <div class="tw-act">${acts}</div>
   </div>`;
 }
 /* ══════════ เช็คชื่อว่าใครมาอบรมจริง ══════════
@@ -10136,7 +10138,7 @@ function _rhDelete(i) {
       const res = await sb.from('training_drafts').delete().eq('id', d.id);
       if (res.error) throw res.error;
       notify('ลบออกจากประวัติแล้ว');
-      _rhRender();
+      _twPaint();
     } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
   }, { title: 'ลบจากประวัติ', icon: '🗑', confirmText: 'ลบ' });
 }
@@ -10145,66 +10147,6 @@ async function _tpUpsertDraft(rec) {
   if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
   const res = await sb.from('training_drafts').upsert(_toSb('trainingDrafts', rec));
   if (res.error) throw res.error;
-}
-async function _tpRenderDrafts(rows) {
-  const box = document.getElementById('tp-drafts');
-  if (!box) return;
-  box.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">กำลังโหลดแบบร่าง…</p>';
-  try {
-    _tpDrafts = (rows || await _tpFetchDrafts()).filter(d => !d.issuedAt);
-  } catch (e) {
-    // ตารางยังไม่ถูกสร้างบน Supabase → บอกวิธีแก้แทนที่จะขึ้น error ดิบ
-    const missing = String(e && (e.code || e.message || '')).match(/42P01|does not exist|schema cache/i);
-    box.innerHTML = `<div style="padding:14px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);font-size:12.5px;color:var(--text2);line-height:1.7">
-      ${missing ? '⚠️ ยังไม่ได้สร้างตาราง <b>training_drafts</b> บน Supabase — บันทึกแบบร่างจะยังใช้ไม่ได้<br><span style="color:var(--text3)">ให้ผู้ดูแลระบบรัน SQL สร้างตารางก่อน (ดูไฟล์ supabase-training-drafts.sql ใน repo)</span>'
-        : '⚠️ โหลดแบบร่างไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}
-    </div>`;
-    return;
-  }
-  const cnt = document.getElementById('tp-draft-count');
-  if (cnt) cnt.textContent = _tpDrafts.length ? _tpDrafts.length + ' ร่าง' : 'ยังไม่มี';
-  if (!_tpDrafts.length) {
-    box.innerHTML = `<div class="tp-empty">
-      <div style="font-size:38px;line-height:1">🗂</div>
-      <div style="font-weight:800;font-size:14px;color:var(--text);margin-top:8px">ยังไม่มีแบบร่าง</div>
-      <div style="font-size:12.5px;color:var(--text3);margin-top:4px;line-height:1.6">
-        เตรียมรายชื่อจาก <b>ชนรายชื่อ</b> หรือ <b>เลือกรายชื่อเอง</b> ด้านบน<br>แล้วกด “💾 บันทึกแบบร่าง” ในฟอร์ม — ร่างจะมาโผล่ตรงนี้
-      </div>
-    </div>`;
-    return;
-  }
-  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
-  box.innerHTML = '<div class="tp-draft-grid">' + _tpDrafts.map(d => {
-    const n = (d.people || []).length;
-    const ready = !!(d.course && d.trainDate && n);
-    // นับสาขาที่เกี่ยวข้อง — ช่วยให้เห็นสเกลของรุ่นโดยไม่ต้องเปิดเข้าไปดู
-    const brs = new Set((d.people || []).map(p => p.branchId).filter(Boolean));
-    const when = d.savedAt ? new Date(d.savedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-    const meta = (ic, txt, warn) => `<div class="tp-meta${warn ? ' warn' : ''}"><span class="tp-meta-ic">${ic}</span><span>${txt}</span></div>`;
-    return `<div class="tp-draft-card${ready ? '' : ' draft-incomplete'}">
-      <div class="tp-draft-top">
-        <span class="tp-chip ${ready ? 'ok' : 'warn'}">${ready ? '✓ พร้อมออกใบ' : '! ยังไม่ครบ'}</span>
-        ${d.batch ? `<span class="tp-chip batch">รุ่นที่ ${esc(d.batch)}</span>` : ''}
-      </div>
-      <div class="tp-draft-title" title="${esc(d.course)}">${esc(d.course) || '(ยังไม่ระบุหลักสูตร)'}</div>
-      <div class="tp-draft-meta">
-        ${d.trainDate ? meta('📅', fmtDate(d.trainDate) + (d.trainTime ? ' · ' + esc(d.trainTime) : '')) : meta('📅', 'ยังไม่ระบุวันที่', true)}
-        ${(d.place || d.trainer) ? meta('📍', [esc(d.place), esc(d.trainer)].filter(Boolean).join(' · ')) : ''}
-      </div>
-      <div class="tp-draft-people">
-        <div class="tp-people-n">${n}<span>คน</span></div>
-        <div class="tp-people-sub">${brs.size ? brs.size + ' สาขา' : 'ยังไม่มีรายชื่อ'}</div>
-      </div>
-      <div class="tp-draft-foot">
-        <span class="tp-saved">แก้ล่าสุด ${when}${d.createdBy ? ' · ' + esc(d.createdBy) : ''}</span>
-        <div class="tp-draft-actions">
-          <button class="btn btn-sm btn-accent" onclick="_tpOpenDraft('${d.id}')">เปิดทำต่อ</button>
-          <button class="btn btn-sm btn-outline" onclick="_tpPrintDraft('${d.id}')" ${ready ? '' : 'style="opacity:.5"'}>ออก PDF</button>
-          <button class="btn btn-sm btn-outline tp-del" onclick="_tpDeleteDraft('${d.id}')" title="ลบแบบร่าง">🗑</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('') + '</div>';
 }
 function _tpOpenDraft(id) {
   const d = _tpDrafts.find(x => x.id === id);
@@ -10231,7 +10173,7 @@ function _tpDeleteDraft(id) {
       if (res.error) throw res.error;
       if (_tsDraftId === id) { _tsDraftId = null; _tsIssuedAt = null; }
       notify('ลบแบบร่างแล้ว');
-      _tpRenderDrafts();
+      _tpRenderAll();
     } catch (e) { notify('ลบไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error'); }
   });
 }
