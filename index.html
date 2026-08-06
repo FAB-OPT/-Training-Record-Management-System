@@ -9868,7 +9868,7 @@ async function _tsArchiveIssued(info, list) {
       course: info.course, batch: info.batch,
       trainDate: info.date, trainTime: info.time,
       place: info.place, trainer: info.trainer,
-      people: (list || []).map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' })),
+      people: (list || []).map(_tsPerson),
       createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
       savedAt: new Date().toISOString(),
       // แก้ใบเก่า = คงวันที่ออกใบเดิม ไม่ใช่เด้งขึ้นหัวรายการทุกครั้งที่แก้คำผิด
@@ -9926,8 +9926,19 @@ async function _rhRender(rows) {
       <div style="font-size:12.5px;color:var(--text2)">
         ${d.trainDate ? fmtDate(d.trainDate) : '—'}${d.trainTime ? `<div style="font-size:11px;color:var(--text3)">${esc(d.trainTime)}</div>` : ''}
       </div>
-      <div style="text-align:right"><span class="cc-num">${(d.people || []).length}<span> คน</span></span></div>
+      <div style="text-align:right">
+        <span class="cc-num">${(d.people || []).length}<span> คน</span></span>
+        ${(() => {
+          // สถานะการอบรมของใบนี้ — เห็นได้ตั้งแต่หน้ารายการว่ายังค้างเช็คชื่ออยู่ไหม
+          const n = (d.people || []).length, a = _rhAttended(d);
+          if (!n) return '';
+          if (!a) return '<div style="font-size:11px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:999px;padding:2px 9px;display:inline-block;margin-top:4px">ยังไม่ได้เช็คชื่อ</div>';
+          if (a === n) return '<div style="font-size:11px;font-weight:700;color:#1F7A33;background:var(--green-light);border-radius:999px;padding:2px 9px;display:inline-block;margin-top:4px">✓ อบรมแล้วครบ</div>';
+          return `<div style="font-size:11px;font-weight:700;color:#1E40AF;background:#DBEAFE;border-radius:999px;padding:2px 9px;display:inline-block;margin-top:4px">อบรมแล้ว ${a}/${n} · ขาด ${n - a}</div>`;
+        })()}
+      </div>
       <div class="cc-act">
+        <button class="btn btn-sm ${_rhAttended(d) ? 'btn-outline' : 'btn-green'}" onclick="_rhCheckIn(${i})" title="ติ๊กคนที่มาอบรมจริง แล้วเข้าประวัติการอบรมให้เลย">✅ เช็คชื่อ</button>
         <button class="btn btn-sm btn-outline" onclick="_rhView(${i})">ดูรายชื่อ</button>
         <button class="btn btn-sm btn-accent" onclick="_rhEdit(${i})" title="แก้รายละเอียดหรือตัดคนออก แล้วทับใบเดิม">แก้ไข</button>
         <button class="btn btn-sm btn-outline" onclick="_rhReprint(${i})" title="เปิด PDF ใบเดิมอีกครั้ง">🖨</button>
@@ -9935,6 +9946,136 @@ async function _rhRender(rows) {
       </div>
     </div>`).join('')}
   </div>`;
+}
+/* ══════════ เช็คชื่อว่าใครมาอบรมจริง ══════════
+   ออกใบรายชื่อ = ตั้งใจจะให้ใครไปอบรม ไม่ใช่หลักฐานว่าไปจริง
+   คนลาป่วย คนติดงานหน้าร้าน มีทุกรุ่น เดิมต้องมาไล่พิมพ์เข้าประวัติเองทีหลัง
+   ติ๊กแล้วเข้าประวัติการอบรมของคนนั้นให้เลย เอาติ๊กออกก็ถอนออกจากประวัติ */
+function _rhAttended(d) { return (d.people || []).filter(p => p.attended).length; }
+/* รูปคนหนึ่งคนที่เก็บลงใบ — ต้องพกสถานะเช็คชื่อไปด้วยทุกที่
+   เดิมเขียนสร้าง object ใหม่ซ้ำสามที่ ลืมที่เดียวสถานะก็หายเงียบตอนกดบันทึก */
+function _tsPerson(e) {
+  const p = { id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' };
+  if (e.attended) { p.attended = true; p.chId = e.chId || ''; }
+  return p;
+}
+/* คนที่เช็คชื่อไว้แล้วแต่กำลังจะถูกตัดออกจากใบ
+   ปล่อยผ่านไม่ได้ ตัดออกแล้วประวัติการอบรมของเขาจะค้างอยู่โดยไม่มีทางถอน
+   เพราะปุ่มถอนอยู่ในหน้าเช็คชื่อของใบนี้ ซึ่งเขาไม่อยู่แล้ว */
+function _tsBlockedRemoval(list) {
+  if (!_tsIssuedAt) return [];
+  const keep = new Set(list.map(e => String(e.id)));
+  return _tsPeople.filter(e => e.attended && !keep.has(String(e.id)));
+}
+function _tsWarnBlocked(blocked) {
+  notify('ตัด ' + blocked.map(e => e.name).join(', ') + ' ออกไม่ได้ — เช็คชื่อว่าอบรมแล้ว ให้ไปเอาติ๊กออกในปุ่มเช็คชื่อก่อน', 'error');
+}
+function _rhCheckIn(i) {
+  const d = _rhRows[i]; if (!d) return;
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const people = d.people || [];
+  if (!people.length) { notify('ใบนี้ไม่มีรายชื่อ', 'error'); return; }
+  if (!d.course || !d.trainDate) { notify('ใบนี้ยังไม่มีชื่อหลักสูตรหรือวันที่ — กดแก้ไขเติมก่อน จึงจะบันทึกเข้าประวัติได้', 'error'); return; }
+  showModal('✅ เช็คชื่อผู้เข้าอบรม · ' + esc(d.course), `
+    <div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.65">
+      ติ๊กเฉพาะคนที่<b>มาอบรมจริง</b> — กดบันทึกแล้วจะเข้า <b>ประวัติการอบรม</b> ของคนนั้นทันที<br>
+      หลักสูตร <b>${esc(d.course)}</b>${d.batch ? ' รุ่นที่ ' + esc(d.batch) : ''} · วันที่ <b>${d.trainDate ? fmtDate(d.trainDate) : '—'}</b><br>
+      <span style="color:#1E40AFCC">เอาติ๊กออก = ถอนออกจากประวัติของคนนั้นด้วย</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="rh-att-all" onchange="_rhAttToggleAll(this.checked)"> มาครบทุกคน</label>
+      <span id="rh-att-count" style="font-size:12px;color:var(--text2);font-weight:600"></span>
+    </div>
+    <div style="max-height:44vh;overflow:auto">
+      ${people.map(p => `<label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px;cursor:pointer;background:var(--surface)">
+        <input type="checkbox" class="rh-att" value="${esc(p.id)}"${p.attended ? ' checked' : ''} onchange="_rhAttUpd()" style="flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(p.name)}</div>
+          <div style="font-size:11.5px;color:var(--text3)">${p.empCode ? esc(p.empCode) + ' · ' : ''}${esc(p.position || '-')} · ${esc(brName(p.branchId))}</div>
+        </div>
+        ${p.attended ? '<span style="font-size:11px;font-weight:700;color:#1F7A33;background:var(--green-light);border-radius:999px;padding:3px 10px;flex-shrink:0">อยู่ในประวัติแล้ว</span>' : ''}
+      </label>`).join('')}
+    </div>
+  `, () => _rhApplyCheckIn(i), '💾 บันทึกการเช็คชื่อ');
+  _rhAttUpd();
+}
+function _rhAttToggleAll(on) { document.querySelectorAll('.rh-att').forEach(c => c.checked = on); _rhAttUpd(); }
+function _rhAttUpd() {
+  const total = document.querySelectorAll('.rh-att').length;
+  const n = document.querySelectorAll('.rh-att:checked').length;
+  const el = document.getElementById('rh-att-count');
+  if (el) el.textContent = `มาอบรม ${n} / ${total} คน` + (n < total ? ` · ขาด ${total - n}` : '');
+  const sa = document.getElementById('rh-att-all'); if (sa) sa.checked = total > 0 && n === total;
+}
+async function _rhApplyCheckIn(i) {
+  const d = _rhRows[i]; if (!d) return;
+  const on = new Set(Array.from(document.querySelectorAll('.rh-att:checked')).map(c => c.value));
+  const people = (d.people || []).map(p => Object.assign({}, p));
+  const add = [], delIds = [];
+  people.forEach(p => {
+    const want = on.has(String(p.id));
+    if (want && !p.attended) {
+      /* คนเดียว หลักสูตรเดียว วันเดียว ไม่ควรมีสองแถวในประวัติ
+         เผื่อเคยคีย์มือไว้ก่อนแล้ว หรือกดเช็คชื่อจากใบอื่นที่ซ้ำกัน */
+      const dup = (DB.courseHistory || []).find(c => String(c.empId) === String(p.id)
+        && (c.courseName || '').trim() === (d.course || '').trim()
+        && (c.courseDate || '') === (d.trainDate || ''));
+      if (dup) { p.attended = true; p.chId = dup.id; return; }
+      const rec = { id: genId('CH'), branchId: p.branchId || '', empId: p.id,
+        empCode: p.empCode || '', empName: p.name || '', position: p.position || '',
+        courseName: (d.course || '').trim(), batchNo: d.batch || '', courseDate: d.trainDate || '',
+        createdAt: new Date().toISOString() };
+      add.push(rec); p.attended = true; p.chId = rec.id;
+    } else if (!want && p.attended) {
+      if (p.chId) delIds.push(p.chId);
+      p.attended = false; delete p.chId;
+    }
+  });
+  if (!add.length && !delIds.length) { closeModal(); notify('ไม่มีอะไรเปลี่ยน'); return; }
+  /* ถอนออกจากประวัติ = ลบของจริงทิ้ง และอาจเป็นแถวที่เคยคีย์มือไว้ก่อนหน้า
+     ไม่ใช่สิ่งที่ควรเกิดจากการเผลอกดติ๊กออก จึงถามก่อน ส่วนการเพิ่มไม่ต้องถาม */
+  if (delIds.length) {
+    const names = people.filter(p => !p.attended && (d.people || []).some(o => String(o.id) === String(p.id) && o.attended)).map(p => p.name);
+    showConfirm(`จะถอน <b>${names.length}</b> คนออกจากประวัติการอบรม<br>` +
+      `<span style="font-size:12px;color:var(--text3)">${names.join(', ').replace(/</g,'&lt;')}</span><br><br>` +
+      `แถวในประวัติการอบรมของคนเหล่านี้จะถูกลบทิ้ง <b>กู้คืนไม่ได้</b>` +
+      (add.length ? `<br>และจะเพิ่ม <b>${add.length}</b> คนเข้าประวัติ` : ''),
+      () => _rhCommitCheckIn(d, people, add, delIds),
+      { title: 'ถอนออกจากประวัติ', icon: '⚠️', confirmText: 'ถอนออก' });
+    return;
+  }
+  _rhCommitCheckIn(d, people, add, delIds);
+}
+async function _rhCommitCheckIn(d, people, add, delIds) {
+  try {
+    if (add.length) {
+      DB.courseHistory.push(...add);
+      await sbSaveMany('courseHistory', add);
+      gsPost({ action: 'save_many', collection: 'courseHistory', records: add });
+    }
+    if (delIds.length) {
+      DB.courseHistory = (DB.courseHistory || []).filter(c => delIds.indexOf(c.id) < 0);
+      gsDelMany('courseHistory', delIds);
+    }
+    // เก็บสถานะไว้ในใบด้วย จะได้รู้ครั้งหน้าว่าเช็คไปแล้วใครบ้าง ไม่ใช่มาไล่ติ๊กใหม่ทุกรอบ
+    await _tpUpsertDraft(Object.assign({}, d, { people, savedAt: new Date().toISOString() }));
+    closeModal();
+    notify([add.length ? 'เข้าประวัติ ' + add.length + ' คน' : '', delIds.length ? 'ถอนออก ' + delIds.length + ' คน' : ''].filter(Boolean).join(' · '));
+    _tpRenderAll();
+  } catch (e) {
+    notify('บันทึกไม่สำเร็จ — ' + (e && e.message ? e.message : ''), 'error');
+  }
+}
+/* ไปดูของจริงในหน้าประวัติการอบรม กรองไว้ให้ที่หลักสูตรนี้เลย */
+function _rhGoHistory(i) {
+  const d = _rhRows[i]; if (!d) return;
+  closeModal();
+  showPage('admin-course-history');
+  setTimeout(() => {
+    const s = document.getElementById('ach-search');
+    if (s) { s.value = d.course || ''; filterAdminCourseHistory(); }
+  }, 120);
 }
 function _rhInfo(d) {
   return { company: d.company, course: d.course, batch: d.batch, date: d.trainDate, time: d.trainTime, place: d.place, trainer: d.trainer };
@@ -9963,14 +10104,24 @@ function _rhView(i) {
       ${row('เวลา', d.trainTime)}${row('สถานที่', d.place)}${row('วิทยากร', d.trainer)}
       ${row('ออกใบเมื่อ', d.issuedAt ? fmtDateTime(d.issuedAt) : '')}${row('ออกโดย', d.createdBy)}
     </div>
-    <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">ผู้เข้าอบรม ${(d.people || []).length} คน</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:800;color:var(--text)">ผู้เข้าอบรม ${(d.people || []).length} คน
+        <span style="font-size:11.5px;font-weight:700;color:var(--text3)">· อบรมแล้ว ${_rhAttended(d)}</span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-green" onclick="closeModal();setTimeout(()=>_rhCheckIn(${i}),60)">✅ เช็คชื่อ</button>
+        ${_rhAttended(d) ? `<button class="btn btn-sm btn-outline" onclick="_rhGoHistory(${i})" title="เปิดหน้าประวัติการอบรม กรองไว้ที่หลักสูตรนี้">🎓 ดูในประวัติ</button>` : ''}
+      </div>
+    </div>
     <div style="max-height:46vh;overflow:auto">
-      ${(d.people || []).map((p, n) => `<div style="display:flex;gap:10px;align-items:center;padding:8px 11px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px">
+      ${(d.people || []).map((p, n) => `<div style="display:flex;gap:10px;align-items:center;padding:8px 11px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;background:${p.attended ? 'var(--green-light)' : 'var(--surface)'}">
         <span style="font-size:11.5px;color:var(--text3);font-weight:700;min-width:22px">${n + 1}.</span>
-        <div style="min-width:0">
+        <div style="min-width:0;flex:1">
           <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(p.name)}</div>
           <div style="font-size:11.5px;color:var(--text3)">${p.empCode ? esc(p.empCode) + ' · ' : ''}${esc(p.position || '-')} · ${esc(brName(p.branchId))}</div>
         </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;border-radius:999px;padding:3px 10px;${p.attended
+          ? 'color:#1F7A33;background:#FFFFFF80'
+          : 'color:var(--text3);background:var(--surface2)'}">${p.attended ? '✓ อบรมแล้ว' : 'ยังไม่ได้เช็ค'}</span>
       </div>`).join('') || '<p class="text-muted" style="font-size:13px">ไม่มีรายชื่อ</p>'}
     </div>`, () => { closeModal(); _rhReprint(i); }, '🖨 เปิด PDF อีกครั้ง');
 }
@@ -10288,6 +10439,8 @@ function _openTsModal(course, draft) {
     const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c=>c.value));
     const list = _tsPeople.filter(e => ids.has(e.id));
     if (!list.length) { notify('ยังไม่ได้เลือกผู้เข้าอบรม', 'error'); return; }
+    const blocked = _tsBlockedRemoval(list);
+    if (blocked.length) { _tsWarnBlocked(blocked); return; }
     const info = {
       company: (document.getElementById('ts-company').value === '__add__' ? COMPANY_DEFAULTS[0] : document.getElementById('ts-company').value),
       course: courseV,
@@ -10312,9 +10465,10 @@ function _openTsModal(course, draft) {
 async function _tsSaveDraft() {
   const g = id => (document.getElementById(id) || {}).value || '';
   const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
-  const people = _tsPeople.filter(e => ids.has(e.id))
-    .map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || '' }));
+  const people = _tsPeople.filter(e => ids.has(e.id)).map(_tsPerson);
   if (!people.length) { notify('ยังไม่ได้เลือกรายชื่อ — ติ๊กอย่างน้อย 1 คนก่อนบันทึก', 'error'); return; }
+  const blocked = _tsBlockedRemoval(people);
+  if (blocked.length) { _tsWarnBlocked(blocked); return; }
   const btn = document.getElementById('ts-save-draft');
   const wasIssued = _tsIssuedAt;
   if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
@@ -10359,6 +10513,8 @@ function _tsAddPeople() {
     place: g('ts-place').trim(), trainer: g('ts-trainer').trim(),
     issuedAt: _tsIssuedAt || null,
   };
+  const blocked = _tsBlockedRemoval(_tsPeople.filter(e => keep.has(e.id)));
+  if (blocked.length) { _tsWarnBlocked(blocked); return; }
   // คนที่เอาติ๊กออกไว้ = ตั้งใจตัดออก อย่าเอากลับมาให้ต้องมาตัดซ้ำ
   _tsPeople = _tsPeople.filter(e => keep.has(e.id));
   closeModal();
