@@ -1205,12 +1205,17 @@
   .tw-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .tw-tab span { font-weight: 800; opacity: .75; margin-left: 3px; }
   .tw-table { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
-  /* คอลัมน์สุดท้ายเป็น auto ไม่ใช่ความกว้างตายตัว
-     ปุ่มในแถวมีไม่เท่ากัน (ร่าง 3 ปุ่ม ใบที่ออกแล้ว 4 ปุ่ม) ตั้งตัวเลขตายไว้
-     พอปุ่มเกินความกว้างนั้น justify-content: flex-end จะดันส่วนเกินออกทางซ้าย
-     ไปทับคอลัมน์ข้าง ๆ ให้ grid วัดจากปุ่มจริงเอง แล้วบีบคอลัมน์แรกแทน */
+  /* ทุกคอลัมน์ยกเว้นคอลัมน์แรกต้องเป็นความกว้างตายตัว ห้ามใช้ auto
+     หัวตารางกับแต่ละแถวเป็น grid คนละอันกัน ไม่ได้แชร์คอลัมน์กัน
+     ถ้าใช้ auto มันจะวัดจากเนื้อในของตัวเอง หัวตารางมีแค่คำว่าจัดการ
+     แถวมีปุ่มสี่ปุ่ม ความกว้างเลยคนละค่า แล้ว 1fr ไปดูดส่วนต่าง
+     หัวข้อจึงเลื่อนไม่ตรงกับข้อความในแถว
+
+     ตัวเลข 300px มาจากชุดปุ่มที่ยาวที่สุด เช็คชื่อ ดูรายชื่อ แก้ไข ถังขยะ
+     ถ้าวันหน้าปุ่มยาวกว่านี้ก็ตกบรรทัดเอง ไม่ล้นไปทับคอลัมน์ข้าง ๆ
+     เพราะ tw-act เปิด flex-wrap ไว้แล้ว */
   .tw-head, .tw-row {
-    display: grid; grid-template-columns: minmax(0,1fr) 112px 92px 150px auto;
+    display: grid; grid-template-columns: minmax(0,1fr) 108px 84px 132px 300px;
     gap: 12px; align-items: center; padding: 11px 14px;
   }
   .tw-head {
@@ -1234,7 +1239,9 @@
   .tw-st.warn  { background: #FFFBEB; color: #B45309; }
   .tw-st.part  { background: #DBEAFE; color: #1E40AF; }
   .tw-st.done  { background: #ECFDF5; color: #047857; }
-  @media (max-width: 900px) {
+  /* คอลัมน์ตายตัวรวมกัน 624px + ระยะห่าง + ขอบ ราว 700px
+     ต่ำกว่า 1000px ชื่อหลักสูตรจะเหลือที่น้อยจนอ่านไม่ออก สลับเป็นแบบซ้อนแทน */
+  @media (max-width: 1000px) {
     .tw-head { display: none; }
     .tw-row { grid-template-columns: 1fr auto; row-gap: 9px; }
     .tw-row > div:nth-child(1) { grid-column: 1 / -1; }
