@@ -367,9 +367,14 @@
   .ch-course-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .ch-course-batch { font-size: 11.5px; font-weight: 700; color: var(--accent); padding: 2px 8px; background: var(--accent-light); border-radius: 999px; white-space: nowrap; }
   .ch-course-date { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  /* แถวที่มีปุ่มจัดการ ต้องเพิ่มคอลัมน์ให้ ไม่งั้นปุ่มไปเบียดคอลัมน์วันที่ */
+  .ch-course-item.has-act { grid-template-columns: 1fr auto auto auto; }
+  .ch-course-act { display: flex; gap: 5px; flex-shrink: 0; }
+  .ch-course-act .btn { padding: 3px 8px; font-size: 12px; }
   @media (max-width: 768px) {
-    .ch-course-item { grid-template-columns: 1fr auto; gap: 6px 10px; padding: 8px 12px; }
+    .ch-course-item, .ch-course-item.has-act { grid-template-columns: 1fr auto; gap: 6px 10px; padding: 8px 12px; }
     .ch-course-name { grid-column: 1 / -1; }
+    .ch-course-act { grid-column: 1 / -1; justify-content: flex-end; }
     /* Monthly chart: switch heatmap → weekly cards on phones */
     .dash-month-heatmap { display: none !important; }
     .dash-month-weeks { display: flex !important; }
@@ -4718,7 +4723,9 @@ async function sbSaveOne(coll, id, rec) {
 async function sbDelOne(coll, id) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
-  return sb.from(table).delete().eq('id', id);
+  const res = await sb.from(table).delete().eq('id', id);
+  if (res && res.error) throw res.error;   // ลบไม่สำเร็จต้องรู้ ไม่ใช่หายไปจากจอแล้วกลับมาตอนรีเฟรช
+  return res;
 }
 // ลบทุกแถวของ collection (ใช้กับ "ลบทั้งหมด" — เร็วกว่ายิงลบทีละแถวหลักร้อยครั้ง)
 async function sbDelAll(coll) {
@@ -5175,22 +5182,24 @@ function gsSave(collection, id, record) {
   if (collection === 'cases') _pendingCaseIds.add(id);       // ยังไม่ยืนยันว่าขึ้นเซิร์ฟเวอร์
   sbSaveOne(collection, id, record)
     .then(res => {
-      if (collection !== 'cases') return;
+      /* ต้องเช็ค error ทุก collection ไม่ใช่เฉพาะเคส
+         PostgREST คืน { error } มาเฉย ๆ ไม่ได้โยน ถ้าไม่เช็คก็ผ่านไปเหมือนสำเร็จ
+         แล้วผู้ใช้เห็นว่าแก้แล้ว พอรีเฟรชค่ากลับเป็นของเดิม โดยไม่มีอะไรบอกสาเหตุ */
       if (res && res.error) throw res.error;
-      _pendingCaseIds.delete(id);                            // ขึ้นเรียบร้อย ปล่อยให้เซิร์ฟเวอร์คุมต่อ
+      if (collection === 'cases') _pendingCaseIds.delete(id);   // ขึ้นเรียบร้อย ปล่อยให้เซิร์ฟเวอร์คุมต่อ
     })
     .catch(e => {
       console.error('SB save error', collection, id, e);
-      // เคสเป็นข้อมูลที่ผู้ใช้เพิ่งกรอกเอง ถ้าอัปไม่ขึ้นต้องบอกให้รู้ ไม่ใช่เงียบแล้วหายทีหลัง
-      if (collection === 'cases') {
-        notify('บันทึกขึ้นระบบไม่สำเร็จ — ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ' · แจ้งผู้ดูแลระบบ', 'error');
-      }
+      notify('บันทึกขึ้นระบบไม่สำเร็จ — ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ' · แจ้งผู้ดูแลระบบ', 'error');
     });
   gsPost({action:'save', collection, id, record});
 }
 function gsDel(collection, id) {
   if (isTestMode() && collection !== 'quizMeta') return;
-  sbDelOne(collection, id).catch(e => console.error('SB del error', collection, id, e));
+  sbDelOne(collection, id).catch(e => {
+    console.error('SB del error', collection, id, e);
+    notify('ลบบนระบบไม่สำเร็จ — ' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ' · แจ้งผู้ดูแลระบบ', 'error');
+  });
   gsPost({action:'delete', collection, id});
 }
 // ลบหลายรายการในคำขอเดียว — ใช้กับประวัติแชตบอทที่มีเป็นพัน ๆ แถว
@@ -9425,11 +9434,20 @@ function renderCourseHistoryGroupedRows(groups) {
       <td data-label="ล่าสุด" style="font-size:12.5px">${fmtDate(g.latestDate)}</td>
     </tr>`;
     if (!open) return headRow;
+    /* ปุ่มแก้ไข/ลบรายบรรทัด — เฉพาะแอดมิน
+       เดิมกางออกมาแล้วเห็นอย่างเดียว แก้อะไรไม่ได้เลย
+       พิมพ์ชื่อหลักสูตรผิด หรือเช็คชื่อผิดคน ก็ต้องไปรื้อในฐานข้อมูลเอง
+       สาขาไม่ให้แก้ เพราะประวัติการอบรมเป็นของกลางที่ส่วนกลางเป็นคนคุม */
+    const canEdit = isAdminRole();
     const courseList = g.items.map((c)=>`
-      <div class="ch-course-item">
+      <div class="ch-course-item${canEdit ? ' has-act' : ''}">
         <span class="ch-course-name">${c.courseName||'—'}</span>
         <span class="ch-course-batch">รุ่น ${c.batchNo||'—'}</span>
         <span class="ch-course-date">${fmtDate(c.courseDate)}</span>
+        ${canEdit ? `<span class="ch-course-act">
+          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openEditCourseHistory('${c.id}')" title="แก้ชื่อหลักสูตร รุ่น วันที่ หรือเปลี่ยนตัวคน">✏️</button>
+          <button class="btn btn-sm btn-outline tp-del" onclick="event.stopPropagation();deleteCourseHistory('${c.id}')" title="ลบรายการนี้ออกจากประวัติ">🗑</button>
+        </span>` : ''}
       </div>`).join('');
     const childRows = `<tr class="ch-expanded-row"><td colspan="7" class="ch-expanded-cell" style="padding:0;background:var(--accent-light);border-left:3px solid var(--accent)">
       <div class="ch-expanded-inner" style="padding:12px 22px 14px 38px">
@@ -9479,7 +9497,14 @@ function _chCourseOptions() {
 
 function _courseHistoryFormHtml(bid, c) {
   const emps = (getBranchEmployees(bid)||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
-  const empOpts = emps.map(e=>`<option value="${e.id}"${c&&c.empId===e.id?' selected':''}>${e.empCode?e.empCode+' · ':''}${e.name} (${e.position||'-'})</option>`).join('');
+  let empOpts = emps.map(e=>`<option value="${e.id}"${c&&c.empId===e.id?' selected':''}>${e.empCode?e.empCode+' · ':''}${e.name} (${e.position||'-'})</option>`).join('');
+  /* คนในประวัติอาจย้ายสาขา ลาออก หรือถูกลบไปแล้ว จึงไม่อยู่ในรายชื่อของสาขานี้
+     ถ้าไม่ใส่กลับเข้าไป ฟอร์มจะเปิดมาแบบไม่ได้เลือกใคร พอกดบันทึกก็ติดว่ากรอกไม่ครบ
+     แก้แค่ชื่อหลักสูตรหรือวันที่ก็ทำไม่ได้ ทั้งที่ไม่ได้ตั้งใจจะเปลี่ยนตัวคน */
+  if (c && c.empId && !emps.some(e => String(e.id) === String(c.empId))) {
+    const nm = (getEmployee(c.empId) || {}).name || c.empName || '(ไม่พบในทะเบียนแล้ว)';
+    empOpts = `<option value="${c.empId}" selected>${(c.empCode ? c.empCode + ' · ' : '')}${nm} — ไม่อยู่ในสาขานี้แล้ว</option>` + empOpts;
+  }
   return `
     <div class="form-row">
       <div><label class="form-label">พนักงาน <span class="req">*</span></label>
