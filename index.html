@@ -14927,12 +14927,22 @@ function _qxCollect() {
   else if (scope.indexOf('mod:') === 0) mids = [scope.slice(4)];
   const out = [];
   mids.forEach(mid => {
+    // Module 3 กับ 4 ครัวแยกช่องอยู่แล้ว ต้องพกข้อมูลช่องออกไปด้วย
+    const boxes = quizBoxesFor(mid);
     getAllQuestionsForModule(mid, false).forEach(q => {
       if (onlyActive && !isQuizActive(q.uid)) return;
-      out.push({ mid: mid, module: MODULES[mid] ? MODULES[mid].name : mid, group: MODULES[mid] ? MODULES[mid].group : '', q: q });
+      out.push({ mid: mid, module: MODULES[mid] ? MODULES[mid].name : mid, group: MODULES[mid] ? MODULES[mid].group : '',
+                 q: q, boxes: boxes, tags: boxes ? quizBoxesSaved(mid, q.uid) : [] });
     });
   });
   return out;
+}
+/* ชื่อช่องของข้อนั้น สำหรับใส่ในไฟล์ Excel
+   ข้อที่ยังไม่ได้จัดช่องไม่ใช่ข้อที่ไม่มีช่อง แต่คือข้อที่ออกกับทุกคน ต้องเขียนให้ตรง */
+function _qxBoxNames(r) {
+  if (!r.boxes) return '';
+  if (!r.tags.length) return 'ออกทุกคน';
+  return r.tags.map(k => { const b = r.boxes.find(x => x.key === k); return b ? (b.label || k) : k; }).join(', ');
 }
 function _qxUpdCount() {
   const rows = _qxCollect();
@@ -14956,8 +14966,12 @@ function openQuizExport() {
     <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:12px 0 6px;font-size:13px;font-weight:600">
       <input type="checkbox" id="qx-active" checked onchange="_qxUpdCount()"> เฉพาะข้อที่เปิดใช้งาน
     </label>
-    <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:12px;font-size:13px;font-weight:600">
+    <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px;font-size:13px;font-weight:600">
       <input type="checkbox" id="qx-ans" checked> แสดงเฉลย
+    </label>
+    <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;margin-bottom:12px;font-size:13px;font-weight:600">
+      <input type="checkbox" id="qx-split" checked style="margin-top:3px">
+      <span>แยกตามช่องข้อสอบ (PDF)<span style="display:block;font-size:11.5px;font-weight:500;color:var(--text3)">Module 3 ครัวแยกสเต็ก/พาสต้า · Module 4 ครัวแยกตามหัวข้อย่อย · Module อื่นไม่มีช่อง พิมพ์รวมเหมือนเดิม</span></span>
     </label>
     <div id="qx-count" style="padding:10px 14px;background:var(--surface2);border-radius:9px;font-size:13px;color:var(--text2);margin-bottom:14px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -14979,7 +14993,7 @@ function _qxExcel() {
   const rows = _qxCollect();
   if (!rows.length) { notify('ไม่มีข้อสอบตามเงื่อนไข', 'error'); return; }
   const showAns = (document.getElementById('qx-ans') || {}).checked;
-  const head = ['กลุ่ม', 'Module', 'คำถาม', 'ตัวเลือก A', 'ตัวเลือก B', 'ตัวเลือก C', 'ตัวเลือก D'];
+  const head = ['กลุ่ม', 'Module', 'ช่องข้อสอบ', 'คำถาม', 'ตัวเลือก A', 'ตัวเลือก B', 'ตัวเลือก C', 'ตัวเลือก D'];
   if (showAns) head.push('เฉลย');
   head.push('ที่มา', 'สถานะ');
   const aoa = [head];
@@ -14988,6 +15002,7 @@ function _qxExcel() {
     const line = [
       r.group === 'Service' ? 'บริการ' : (r.group === 'Cook' ? 'ครัว' : r.group),
       r.module,
+      _qxBoxNames(r),
       String(q.q || '').replace(/^\d+[\.\s]+/, ''),
       (q.opts && q.opts.A) || '', (q.opts && q.opts.B) || '', (q.opts && q.opts.C) || '', (q.opts && q.opts.D) || ''
     ];
@@ -14997,7 +15012,7 @@ function _qxExcel() {
     aoa.push(line);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{ wch: 8 }, { wch: 26 }, { wch: 60 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 24 }].concat(showAns ? [{ wch: 6 }] : []).concat([{ wch: 10 }, { wch: 10 }]);
+  ws['!cols'] = [{ wch: 8 }, { wch: 26 }, { wch: 22 }, { wch: 60 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 24 }].concat(showAns ? [{ wch: 6 }] : []).concat([{ wch: 10 }, { wch: 10 }]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'ข้อสอบ');
   XLSX.writeFile(wb, 'ข้อสอบ_' + new Date().toISOString().slice(0, 10) + '.xlsx');
@@ -15010,20 +15025,46 @@ function _qxPdf() {
   const showAns = (document.getElementById('qx-ans') || {}).checked;
   const now = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
   // จัดกลุ่มตาม Module เพื่อให้อ่านเป็นชุด
-  const byMod = {};
-  rows.forEach(r => { (byMod[r.module] = byMod[r.module] || []).push(r.q); });
-  let n = 0;
-  const body = Object.keys(byMod).map(m => `
-    <h2>${m} <span style="font-weight:600;color:#6B7280;font-size:12px">(${byMod[m].length} ข้อ)</span></h2>
-    ${byMod[m].map(q => {
-      n++;
+  const split = (document.getElementById('qx-split') || {}).checked;
+  const byMid = {};
+  rows.forEach(r => { (byMid[r.mid] = byMid[r.mid] || []).push(r); });
+  // เลขข้อเริ่มใหม่ทุกช่วง เพราะแต่ละช่วงคือชุดข้อสอบคนละชุดที่เอาไปแจกแยกกัน
+  const qList = (list) => {
+    let n = 0;
+    return list.map(r => {
+      const q = r.q; n++;
       return `<div class="qitem">
         <div class="qtext">${n}. ${String(q.q || '').replace(/^\d+[\.\s]+/, '')}</div>
         <div class="qopts">
           ${['A','B','C','D'].map(k => `<div class="qopt${showAns && q.ans === k ? ' correct' : ''}"><b>${k}.</b> ${(q.opts && q.opts[k]) || ''}${showAns && q.ans === k ? ' ✓' : ''}</div>`).join('')}
         </div>
       </div>`;
-    }).join('')}`).join('');
+    }).join('');
+  };
+  /* Module 3 กับ 4 ครัวแยกช่องอยู่แล้ว ตอนพิมพ์ก็ควรแยกตาม
+     เดิมพิมพ์รวมกันหมด ได้กระดาษปึกเดียวที่เอาไปใช้ไม่ได้จริง
+     เพราะคนเรียนสเต็กกับพาสต้าไม่ได้ทำข้อเดียวกัน ต้องมานั่งคัดเองทุกครั้ง
+
+     ข้อที่อยู่สองช่องจะโผล่ทั้งสองช่วง เพราะมันอยู่ทั้งสองช่องจริง ๆ
+     ส่วนข้อที่ยังไม่ได้จัดช่องแยกไว้ท้ายสุด ไม่เอาไปทวนในทุกช่วง
+     ไม่งั้น Module 4 ที่มีข้อค้างอยู่ 89 ข้อ จะถูกพิมพ์ซ้ำทุกหัวข้อจนหนาเป็นเท่าตัว */
+  const body = Object.keys(byMid).map(mid => {
+    const list = byMid[mid];
+    const name = MODULES[mid] ? MODULES[mid].name : mid;
+    const boxes = list[0].boxes;
+    if (!split || !boxes) {
+      return `<h2>${name} <span class="cnt">(${list.length} ข้อ)</span></h2>${qList(list)}`;
+    }
+    const secs = boxes.filter(b => b.key).map(b => ({
+      t: b.label || b.key, hint: b.hint || '',
+      items: list.filter(r => r.tags.indexOf(b.key) >= 0),
+    }));
+    const left = list.filter(r => !r.tags.length);
+    if (left.length) secs.push({ t: '📋 ยังไม่ได้จัดช่อง — ออกกับทุกคน', hint: 'ข้อกลุ่มนี้ออกกับทุกคน ไม่ว่าเรียนอะไรมา', items: left });
+    return `<h2>${name} <span class="cnt">(${list.length} ข้อ · แยก ${secs.length} ช่วง)</span></h2>`
+      + secs.map(s => `<h3>${s.t} <span class="cnt">(${s.items.length} ข้อ)</span>${s.hint ? `<div class="h3sub">${s.hint}</div>` : ''}</h3>`
+          + (s.items.length ? qList(s.items) : '<div class="qempty">ยังไม่มีข้อสอบในช่องนี้</div>')).join('');
+  }).join('');
   const style = `<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
     @page { size: A4 portrait; margin: 14mm; }
@@ -15032,6 +15073,10 @@ function _qxPdf() {
     h1{font-size:19px;font-weight:800;margin:0 0 4px;text-align:center}
     .sub{text-align:center;color:#6B7280;font-size:12.5px;margin-bottom:18px}
     h2{font-size:14px;font-weight:800;margin:18px 0 8px;padding:6px 10px;background:#F3F4F6;border-left:4px solid #F0701A;border-radius:4px}
+    h3{font-size:13px;font-weight:800;margin:14px 0 8px;padding:5px 10px;background:#FFF7ED;border-left:3px solid #FDBA74;border-radius:4px;color:#9A3412}
+    .h3sub{font-size:11px;font-weight:600;color:#B45309;margin-top:2px}
+    .cnt{font-weight:600;color:#6B7280;font-size:12px}
+    .qempty{font-size:12px;color:#9CA3AF;padding:6px 0 10px 14px}
     .qitem{margin-bottom:12px;page-break-inside:avoid;break-inside:avoid}
     .qtext{font-size:13px;font-weight:700;margin-bottom:5px}
     .qopts{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;padding-left:14px}
@@ -15045,7 +15090,7 @@ function _qxPdf() {
   </style>`;
   const html = `<div id="root">
     <h1>ชุดข้อสอบ${showAns ? ' (มีเฉลย)' : ''}</h1>
-    <div class="sub">Santa Fe Steak · รวม ${rows.length} ข้อ · ออกเมื่อ ${now}</div>
+    <div class="sub">Santa Fe Steak · รวม ${rows.length} ข้อ · ออกเมื่อ ${now}${split ? ' · แยกตามช่องข้อสอบ' : ''}</div>
     ${body}
   </div>`;
   const toolbar = `<div class="toolbar no-print">
