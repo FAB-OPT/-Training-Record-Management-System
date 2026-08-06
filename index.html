@@ -1216,7 +1216,9 @@
   .cc-num { text-align: right; font-size: 15px; font-weight: 800; color: var(--accent); white-space: nowrap; }
   .cc-num.zero { color: var(--text3); }
   .cc-num span { font-size: 11px; font-weight: 600; color: var(--text3); }
-  .cc-act { display: flex; gap: 6px; justify-content: flex-end; }
+  /* ต้องมี flex-wrap ไม่งั้นพอปุ่มเยอะเกินความกว้างช่อง มันจะล้นไปทับคอลัมน์ซ้าย
+     เพราะ justify-content: flex-end ดันของส่วนเกินออกทางซ้าย ไม่ใช่ตกบรรทัด */
+  .cc-act { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
   .cc-empty { padding: 22px; text-align: center; font-size: 13px; color: var(--text3); border-top: 1px solid var(--border); }
   /* ตัวเลข "N คน" ที่กดได้ — เข้าไปดูว่าใครผ่านหลักสูตรนี้ */
   .cc-who {
@@ -1262,7 +1264,7 @@
 
   /* ── ประวัติใบรายชื่อที่ออกแล้ว ───────────────────────────────── */
   .rh-head, .rh-row {
-    display: grid; grid-template-columns: 1fr 130px 92px 190px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 120px 104px minmax(210px, max-content);
     gap: 10px; align-items: center; padding: 10px 14px;
   }
   .rh-head {
@@ -10655,12 +10657,14 @@ function _printTrainingSession(info, list) {
     </div>
     <table>
       <thead><tr>
-        <th style="width:42px">ลำดับ</th>
-        <th style="width:78px">รหัสพนักงาน</th>
-        <th style="width:165px">ชื่อ - นามสกุล</th>
-        <th style="width:135px">ตำแหน่ง</th>
+        <!-- ตำแหน่งกว้างสุดในบรรดาคอลัมน์ตายตัว เพราะ Restaurant General Manager ยาว 26 ตัวอักษร
+             เดิมให้ 135px แล้วตกเป็นสองบรรทัดทุกแถว ทั้งที่ช่องสาขายังเหลือที่ว่างเยอะ -->
+        <th style="width:40px">ลำดับ</th>
+        <th style="width:76px">รหัสพนักงาน</th>
+        <th style="width:150px">ชื่อ - นามสกุล</th>
+        <th style="width:182px">ตำแหน่ง</th>
         <th>สาขา/หน่วยงาน</th>
-        <th style="width:130px">ลายเซ็น</th>
+        <th style="width:118px">ลายเซ็น</th>
       </tr></thead>
       <tbody>${trs}</tbody>
     </table>
