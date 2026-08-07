@@ -15780,6 +15780,7 @@ function openQuizListModal(mid, restore) {
       <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm btn-outline" onclick="openQuizStatsModal('${mid}')" title="ข้อไหนคนตอบผิดบ่อย ใช้เวลาเท่าไหร่">📊 สถิติ</button>
+        <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
         <button class="btn btn-sm btn-accent" onclick="_qzOpenAddIn('${mid}','')">+ เพิ่มคำถาม</button>
       </div>
     </div>
