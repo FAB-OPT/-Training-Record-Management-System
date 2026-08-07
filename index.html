@@ -9233,7 +9233,52 @@ function renderQuizStatsPage() {
     </div>
   </div>
 
+  <div class="sec" style="margin-top:14px">
+    ${head('🧬', 'ข้อซ้ำ / คล้ายกัน', 'ตรวจจากคลังข้อสอบทั้งหมด — ไม่เกี่ยวกับตัวกรองสาขาและช่วงเวลา เพราะเป็นเรื่องของตัวข้อสอบเอง ไม่ใช่ผลสอบ', '#EDE9FE',
+      `<button class="btn btn-sm btn-accent" onclick="_qsDupScan()">🔍 ตรวจข้อซ้ำ</button>`)}
+    <div id="qs-dup"><div class="sec-empty-d" style="text-align:center;padding:14px">กด <b>ตรวจข้อซ้ำ</b> เพื่อเริ่มตรวจ${_qsMid ? ' Module ที่เลือกไว้' : 'ทุก Module'}</div></div>
+  </div>
+
   ${_qhListHTML(pool)}`}`;
+}
+/* ตรวจข้อซ้ำ — ไม่ตรวจตอนเปิดหน้า ต้องกดเอง
+   เพราะต้องจับคู่ข้อทุกคู่ใน Module Module ที่มี 125 ข้อคือหมื่นห้าพันคู่
+   คูณด้วยจำนวน Module แล้วหน้าจะค้างไปหลายวินาทีทุกครั้งที่เปิด
+   ทั้งที่ข้อสอบไม่ได้เปลี่ยนบ่อยขนาดต้องตรวจใหม่ทุกครั้ง */
+function _qsDupScan() {
+  const box = document.getElementById('qs-dup');
+  if (!box) return;
+  box.innerHTML = '<div class="sec-empty-d" style="text-align:center;padding:14px">กำลังตรวจ… อาจใช้เวลาสักครู่ถ้ามีข้อเยอะ</div>';
+  // ให้เบราว์เซอร์วาดข้อความกำลังตรวจก่อน ไม่งั้นจอค้างเฉย ๆ โดยไม่มีอะไรบอก
+  setTimeout(() => {
+    const mids = _qsMid ? [_qsMid] : Object.keys(MODULES);
+    const rows = mids.map(mid => {
+      const pairs = findSimilarQuestions(mid);
+      const exact = pairs.filter(p => p.exact).length;
+      const high = pairs.filter(p => !p.exact && p.sim >= 0.85).length;
+      return { mid, n: pairs.length, exact, high, sim: pairs.length - exact - high };
+    }).filter(r => r.n)
+      // ซ้ำเป๊ะขึ้นก่อน เป็นตัวที่ลบได้เลยโดยไม่ต้องคิด
+      .sort((a, b) => b.exact - a.exact || b.n - a.n);
+    const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if (!rows.length) {
+      box.innerHTML = `<div class="sec-empty"><div class="sec-empty-ic">✨</div>
+        <div class="sec-empty-t">ไม่พบข้อซ้ำหรือคล้ายกัน</div>
+        <div class="sec-empty-d">คลังข้อสอบ${_qsMid ? ' Module นี้' : 'ทุก Module'}สะอาดดี</div></div>`;
+      return;
+    }
+    const pill = (n, txt, col, bg) => n ? `<span class="qs-pill" style="color:${col};background:${bg}">${txt} ${n}</span>` : '';
+    box.innerHTML = rows.map(r => `<div class="qs-item">
+      <div style="flex:1;min-width:0">
+        <div class="qs-item-t">${esc(MODULES[r.mid].name)}</div>
+        <div class="qs-item-d">${MODULES[r.mid].group === 'Cook' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · พบ ${r.n} คู่</div>
+      </div>
+      ${pill(r.exact, 'ซ้ำเป๊ะ', '#B91C1C', '#FEE2E2')}
+      ${pill(r.high, 'คล้ายมาก', '#C2410C', '#FFF7ED')}
+      ${pill(r.sim, 'คล้ายกัน', '#B45309', '#FFFBEB')}
+      <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${r.mid}')">ดูรายละเอียด</button>
+    </div>`).join('');
+  }, 30);
 }
 
 function openQuizStatsModal(mid) {
@@ -15735,7 +15780,6 @@ function openQuizListModal(mid, restore) {
       <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm btn-outline" onclick="openQuizStatsModal('${mid}')" title="ข้อไหนคนตอบผิดบ่อย ใช้เวลาเท่าไหร่">📊 สถิติ</button>
-        <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
         <button class="btn btn-sm btn-accent" onclick="_qzOpenAddIn('${mid}','')">+ เพิ่มคำถาม</button>
       </div>
     </div>
