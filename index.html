@@ -15763,7 +15763,7 @@ function _quizBoxStatsHTML(mid, all) {
     <div style="padding:8px 14px 10px">
       ${rows.map(row).join('')}
       <div style="border-top:1px dashed var(--border);margin-top:7px;padding-top:7px;font-size:11.5px;color:var(--text3);line-height:1.6">
-        ${multi ? `<b>ใช้ร่วมกัน ${multi} ข้อ</b> — ข้อที่ใส่ไว้มากกว่าหนึ่ง${unit} จึงนับอยู่ในทุกช่องที่มันอยู่ · รวมข้อไม่ซ้ำ <b>${act.length} ข้อ</b> · ` : ''}
+        ${multi ? `<b>ใช้ร่วมกัน ${multi} ข้อ</b> · ` : ''}
         ${free ? `รวมข้อที่ยังไม่ได้จัดช่อง <b>${free} ข้อ</b> ซึ่งออกกับทุกคน · ` : ''}กดปุ่มใต้แต่ละข้อเพื่อจัดช่อง ใส่ได้หลายช่อง กดซ้ำ = เอาออก
       </div>
       ${thin.length ? `<div style="margin-top:8px;padding:8px 11px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;color:#B91C1C;font-weight:700;line-height:1.55">
