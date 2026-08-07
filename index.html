@@ -1365,11 +1365,18 @@
   .qs-filter-l { font-size: 12.5px; font-weight: 700; color: var(--text3); white-space: nowrap; }
   .qs-filter .form-select { width: auto; min-width: 165px; max-width: 240px; }
 
-  .qs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .qs-tile {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 13px; padding: 14px 12px; text-align: center;
+  /* ทุกตัวเลขอยู่ในกรอบเดียว คั่นด้วยเส้นบาง ๆ
+     แยกเป็นการ์ดคนละใบแล้วมันดูเหมือนของคนละชุด ทั้งที่สามใบแรกบวกกันได้
+     และทั้งแถวคือภาพรวมชุดเดียวกัน */
+  .qs-tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 13px; overflow: hidden;
+    margin-bottom: 14px;
   }
+  .qs-tile { background: var(--surface); padding: 14px 10px; text-align: center; }
+  /* เครื่องหมาย + และ = หน้าตัวเลข ทำให้เห็นว่าสามช่องแรกบวกกันได้ โดยไม่ต้องเขียนอธิบาย */
+  .qs-op { font-size: 15px; font-weight: 700; color: var(--text3); margin-right: 3px; }
   .qs-tile-n { font-size: 23px; font-weight: 800; color: var(--accent); line-height: 1.1; }
   .qs-tile-l { font-size: 12px; font-weight: 700; color: var(--text2); margin-top: 4px; }
   .qs-tile-s { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
@@ -9157,8 +9164,8 @@ function renderQuizStatsPage() {
 
   <div class="qs-tiles">
     ${tile(nTrain, 'การสอนที่สอบแล้ว', 'ฐานที่ใช้คิดอัตราผ่าน')}
-    ${tile(retake, 'สอบซ้ำ', retake ? 'รอบแรกไม่ผ่าน เลยสอบใหม่' : 'ไม่มีใครต้องสอบใหม่')}
-    ${tile(pool.length, 'รวมทำข้อสอบ', nTrain + ' + ' + retake + ' ครั้ง')}
+    ${tile('<span class="qs-op">+</span>' + retake, 'สอบซ้ำ', retake ? 'รอบแรกไม่ผ่าน เลยสอบใหม่' : 'ไม่มีใครต้องสอบใหม่')}
+    ${tile('<span class="qs-op">=</span>' + pool.length, 'รวมทำข้อสอบ', 'ครั้งที่กดทำข้อสอบจริง')}
     ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' การสอน', tone(passPct))}
     ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
     ${tile(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
