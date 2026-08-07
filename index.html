@@ -1469,6 +1469,14 @@
     transition: transform .16s;
   }
   .qz-boxar.on { transform: rotate(90deg); }
+  /* ช่องกรอกจำนวนข้อรายช่อง อยู่บนหัวช่องที่กดเปิด-ปิดได้ ต้องกันไม่ให้กดแล้วหุบ */
+  .qz-boxpick { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-size: 11.5px; font-weight: 700; }
+  .qz-boxpick input {
+    width: 54px; padding: 4px 7px; text-align: center;
+    border: 1px solid var(--border2); border-radius: 7px;
+    font-family: 'Sarabun', sans-serif; font-size: 12.5px; font-weight: 800;
+    background: var(--surface);
+  }
 
   /* ปุ่มลบในแถวงาน — แดงอ่อน ไม่ให้เด่นเท่าปุ่มที่ใช้บ่อย */
   .tp-del { color: #DC2626; border-color: #FECACA; }
@@ -12273,7 +12281,33 @@ function openQuiz(trainingId) {
     notify('Module นี้ยังไม่มีคำถามในระบบ — แจ้ง Admin ให้สร้างข้อสอบก่อน', 'error');
     return;
   }
-  const picked = shuffleArray(allQ).slice(0, Math.min(getQuizPick(t.moduleId), allQ.length));
+  /* ถ้าตั้งจำนวนข้อรายช่องไว้ ให้สุ่มแยกช่องแล้วเอามารวมกัน
+     เช่นสอน 4.1 กับ 4.3 แล้วตั้งไว้ 3 กับ 4 ก็ได้ข้อสอบ 7 ข้อ แบ่งตามที่ตั้ง
+     ไม่ใช่สุ่ม 10 ข้อจากกองรวมแล้วบังเอิญได้ 4.1 มาข้อเดียว
+
+     ข้อที่อยู่หลายช่องต้องไม่ถูกหยิบซ้ำ จึงจำ uid ที่หยิบไปแล้วไว้ */
+  let picked;
+  const _rel = _relevantBoxes(t);
+  if (_rel.some(b => getBoxPick(t.moduleId, b.key))) {
+    const used = new Set();
+    picked = [];
+    _rel.forEach(b => {
+      const n = getBoxPick(t.moduleId, b.key);
+      if (!n) return;
+      const pool = allQ.filter(q => !used.has(q.uid) && quizBoxesSaved(t.moduleId, q.uid).indexOf(b.key) >= 0);
+      shuffleArray(pool).slice(0, n).forEach(q => { used.add(q.uid); picked.push(q); });
+    });
+    // ข้อที่ยังไม่ได้จัดช่องออกกับทุกคน — เติมให้ถ้าช่องไหนมีข้อไม่พอตามที่ตั้งไว้
+    const want = _rel.reduce((a, b) => a + (getBoxPick(t.moduleId, b.key) || 0), 0);
+    if (picked.length < want) {
+      const free = allQ.filter(q => !used.has(q.uid) && !quizBoxesSaved(t.moduleId, q.uid).length);
+      shuffleArray(free).slice(0, want - picked.length).forEach(q => { used.add(q.uid); picked.push(q); });
+    }
+    picked = shuffleArray(picked);   // คละกัน ไม่ให้เรียงเป็นช่วง ๆ ตามช่อง
+  } else {
+    picked = shuffleArray(allQ).slice(0, Math.min(getQuizPick(t.moduleId), allQ.length));
+  }
+  if (!picked.length) { notify('Module นี้ยังไม่มีคำถามที่ตรงกับที่เรียนมา — แจ้ง Admin', 'error'); return; }
   const SRC = ['A','B','C','D'];
   const questions = picked.map(q => {
     const order = shuffleArray(SRC.filter(k => q.opts && q.opts[k] != null));
@@ -15039,6 +15073,38 @@ function getQuizPick(mid) {
   const v = DB.quizMeta && DB.quizMeta.quizPick ? DB.quizMeta.quizPick[mid] : null;
   return (typeof v === 'number' && v > 0) ? v : QUIZ_PICK;
 }
+/* จำนวนข้อรายช่อง — Module 3 ครัวแยกตามหน้างาน · Module 4 ครัวแยกตามหัวข้อย่อย
+   เก็บคีย์รวมไว้ในถังเดียวกับของ Module คือ quizPick โดยใช้รูป mid|key
+   ไม่ต้องเพิ่มคอลัมน์บนฐานข้อมูล และไปกับเส้นทางบันทึกเดิมได้เลย
+
+   ว่าง = ไม่ระบุ ไม่ใช่ศูนย์ ถ้าไม่มีช่องไหนระบุเลย ก็ใช้ค่ารวมของ Module เหมือนเดิม
+   ของเก่าจึงไม่พังและไม่ต้องไปไล่ตั้งใหม่ทุก Module */
+function getBoxPick(mid, key) {
+  const v = DB.quizMeta && DB.quizMeta.quizPick ? DB.quizMeta.quizPick[mid + '|' + key] : null;
+  return (typeof v === 'number' && v > 0) ? v : null;
+}
+function setBoxQuizPick(mid, key, val) {
+  if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
+  if (!DB.quizMeta.quizPick) DB.quizMeta.quizPick = {};
+  const k = mid + '|' + key;
+  const raw = String(val == null ? '' : val).trim();
+  if (!raw) { delete DB.quizMeta.quizPick[k]; notify('ล้างจำนวนข้อของช่องนี้แล้ว — กลับไปใช้ค่ารวมของ Module'); }
+  else {
+    DB.quizMeta.quizPick[k] = Math.max(1, Math.min(100, parseInt(raw, 10) || 1));
+    notify('ตั้งให้ช่องนี้ออก ' + DB.quizMeta.quizPick[k] + ' ข้อ');
+  }
+  saveQuizMeta();
+  openQuizListModal(mid, true);
+}
+/* ช่องที่เกี่ยวกับครั้งที่สอนนี้ — ใช้ทั้งตอนสุ่มข้อและตอนคิดว่าต้องทำกี่ข้อ */
+function _relevantBoxes(t) {
+  const boxes = quizBoxesFor(t.moduleId);
+  if (!boxes) return [];
+  const subs = new Set(t.subtopics || []);
+  return boxes.filter(b => b.key && (
+    moduleNeedsTrack(t.moduleId) ? (!t.track || b.key === t.track) : subs.has(b.key)
+  ));
+}
 function setModuleQuizPick(mid, val) {
   const n = Math.max(1, Math.min(100, parseInt(val, 10) || QUIZ_PICK));
   if (!DB.quizMeta) DB.quizMeta = { deleted: [], disabled: [] };
@@ -15645,19 +15711,24 @@ function _quizBoxStatsHTML(mid, all) {
   const need = getQuizPick(mid);
   // ข้อที่ยังไม่ได้จัดเข้าช่องไหนเลย = ออกกับทุกคน จึงบวกเข้าทุกช่อง
   const free = act.filter(q => !quizBoxesSaved(mid, q.uid).length).length;
+  /* ต้องทำกี่ข้อ ดูรายช่องก่อน ถ้าช่องนั้นไม่ได้ตั้งไว้ค่อยใช้ค่ารวมของ Module */
   const rows = boxes.filter(b => b.key).map(b => ({
-    b, pool: act.filter(q => quizBoxesSaved(mid, q.uid).indexOf(b.key) >= 0).length + free
+    b, need: getBoxPick(mid, b.key) || need,
+    own: !!getBoxPick(mid, b.key),
+    pool: act.filter(q => quizBoxesSaved(mid, q.uid).indexOf(b.key) >= 0).length + free
   }));
-  const thin = rows.filter(r => r.pool < need);
+  const thin = rows.filter(r => r.pool < r.need);
+  const anyOwn = rows.some(r => r.own);
   const unit = moduleNeedsTrack(mid) ? 'หน้างาน' : 'หัวข้อ';
-  const row = r => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:13px">
-    <span style="font-weight:700;color:${r.b.color};min-width:0">${r.b.short || r.b.label}</span>
-    <span style="font-weight:800;flex-shrink:0;color:${r.pool < need ? '#B91C1C' : 'var(--text)'}">${r.pool} ข้อ${r.pool < need ? ' ⚠️' : ''}</span>
+  const row = r => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:13px;flex-wrap:wrap">
+    <span style="font-weight:700;color:${r.b.color};min-width:0;margin-right:auto">${r.b.short || r.b.label}</span>
+    <span style="flex-shrink:0;font-size:12.5px;color:var(--text3);font-weight:600">ต้องทำ <b style="color:${r.own ? r.b.color : 'var(--text2)'}">${r.need}</b> ข้อ${r.own ? '' : ' (ค่ารวม)'} · สุ่มจาก</span>
+    <span style="font-weight:800;flex-shrink:0;color:${r.pool < r.need ? '#B91C1C' : 'var(--text)'}">${r.pool} ข้อ${r.pool < r.need ? ' ⚠️' : ''}</span>
   </div>`;
   return `<div style="margin-bottom:12px;border:1px solid var(--border2);border-radius:11px;overflow:hidden">
     <div style="padding:9px 14px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:13px;font-weight:800;color:var(--text)">📊 เรียน${unit}ไหน ได้สุ่มจากกี่ข้อ</span>
-      <span style="font-size:12px;color:var(--text2)">ต้องทำ <b style="color:var(--text)">${need}</b> ข้อ/ครั้ง</span>
+      <span style="font-size:12px;color:var(--text2)">${anyOwn ? 'รวม <b style="color:var(--text)">' + rows.reduce((a,r)=>a+r.need,0) + '</b> ข้อ ถ้าเรียนครบทุก' + unit : 'ต้องทำ <b style="color:var(--text)">' + need + '</b> ข้อ/ครั้ง'}</span>
     </div>
     <div style="padding:8px 14px 10px">
       ${rows.map(row).join('')}
@@ -15665,7 +15736,7 @@ function _quizBoxStatsHTML(mid, all) {
         ${free ? `รวมข้อที่ยังไม่ได้จัดช่อง <b>${free} ข้อ</b> ซึ่งออกกับทุกคน · ` : ''}กดปุ่มใต้แต่ละข้อเพื่อจัดช่อง ใส่ได้หลายช่อง กดซ้ำ = เอาออก
       </div>
       ${thin.length ? `<div style="margin-top:8px;padding:8px 11px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;color:#B91C1C;font-weight:700;line-height:1.55">
-        ⚠️ ${thin.map(r => r.b.short || r.b.label).join(' · ')} มีข้อไม่พอสุ่ม ${need} ข้อ — คนเรียน${unit}นี้จะได้ข้อสอบไม่ครบ</div>` : ''}
+        ⚠️ ${thin.map(r => (r.b.short || r.b.label) + ' (มี ' + r.pool + ' ต้องใช้ ' + r.need + ')').join(' · ')} — คนเรียน${unit}นี้จะได้ข้อสอบไม่ครบ</div>` : ''}
     </div>
   </div>`;
 }
@@ -15735,7 +15806,12 @@ function openQuizListModal(mid, restore) {
                   <span style="font-weight:700;font-size:12.5px">· ${o.n} ข้อ${o.on !== o.n ? ' (เปิดใช้ ' + o.on + ')' : ''}</span></div>
                 <div style="font-size:11.5px;color:${o.color}CC;margin-top:2px">${o.hint}</div>
               </div>
-              ${o.add === false ? '' : `<button class="btn btn-sm btn-outline" onclick="event.stopPropagation();_qzOpenAddIn('${mid}','${String(o.key).replace(/'/g, "\\'")}')"
+              ${o.add === false ? '' : `<span class="qz-boxpick" onclick="event.stopPropagation()" title="จำนวนข้อที่ออกจากช่องนี้ต่อครั้ง — เว้นว่าง = ใช้ค่ารวมของ Module">
+                <input type="number" min="1" max="100" value="${getBoxPick(mid, o.key) || ''}" placeholder="—"
+                       onchange="setBoxQuizPick('${mid}','${String(o.key).replace(/'/g, "\\'")}',this.value)"
+                       style="border-color:${o.color}55;color:${o.color}"><span style="color:${o.color}">ข้อ/ครั้ง</span>
+              </span>
+              <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();_qzOpenAddIn('${mid}','${String(o.key).replace(/'/g, "\\'")}')"
                       style="border-color:${o.color};color:${o.color};flex-shrink:0">+ เพิ่มในช่องนี้</button>`}
             </div>
             ${open ? `<div style="padding:12px 12px 2px">${o.body()}</div>` : ''}
