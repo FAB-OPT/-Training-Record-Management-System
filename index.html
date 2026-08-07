@@ -1365,35 +1365,26 @@
   .qs-filter-l { font-size: 12.5px; font-weight: 700; color: var(--text3); white-space: nowrap; }
   .qs-filter .form-select { width: auto; min-width: 165px; max-width: 240px; }
 
-  /* ทุกตัวเลขอยู่ในกรอบเดียว คั่นด้วยเส้นบาง ๆ
-     แยกเป็นการ์ดคนละใบแล้วมันดูเหมือนของคนละชุด ทั้งที่สามช่องแรกบวกกันได้
-     และทั้งแถวคือภาพรวมชุดเดียวกัน
-
-     ใช้เส้นคั่นจริงบนตัวช่อง ไม่ใช่ gap ที่เว้นให้พื้นหลังทะลุขึ้นมาเป็นเส้น
-     เพราะพอสีขอบจางมาก ช่องว่างนั้นจะดูเป็นสีขาวเหมือนกับพื้นการ์ด
-     กลายเป็นเห็นเป็นการ์ดหลายใบวางเรียงกันเหมือนเดิม */
+  /* กรอบเดียวจริง ๆ ไม่มีเส้นคั่น ไม่มีพื้นสีเป็นช่อง ๆ ข้างใน
+     ก่อนหน้านี้ทำเป็นช่องมาต่อกันหลายรอบ ทั้งเว้นช่องว่างและลากเส้นคั่น
+     ยังไงมันก็อ่านเป็นการ์ดหลายใบอยู่ดี เพราะยังมีเส้นแบ่งให้ตาจับได้
+     ตัวเลขทั้งแถวเป็นภาพรวมชุดเดียว จึงควรอยู่ในกรอบเดียวโล่ง ๆ
+     แล้วใช้ระยะห่างเป็นตัวแบ่ง ไม่ใช่เส้น */
   .qs-tiles {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
-    gap: 0; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 13px; overflow: hidden;
-    margin-bottom: 14px;
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    gap: 14px 30px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 22px; margin-bottom: 14px;
   }
-  .qs-tile {
-    background: var(--surface); padding: 14px 10px; text-align: center;
-    border: 0; border-radius: 0;
-    border-left: 1px solid var(--border);
-  }
-  .qs-tile:first-child { border-left: 0; }
-  /* เครื่องหมาย + และ = หน้าตัวเลข ทำให้เห็นว่าสามช่องแรกบวกกันได้ โดยไม่ต้องเขียนอธิบาย */
+  .qs-tile { text-align: center; min-width: 92px; }
+  /* เครื่องหมาย + และ = หน้าตัวเลข ทำให้เห็นว่าสามตัวแรกบวกกันได้ โดยไม่ต้องเขียนอธิบาย */
   .qs-op { font-size: 15px; font-weight: 700; color: var(--text3); margin-right: 3px; }
   .qs-tile-n { font-size: 23px; font-weight: 800; color: var(--accent); line-height: 1.1; }
   .qs-tile-l { font-size: 12px; font-weight: 700; color: var(--text2); margin-top: 4px; }
   .qs-tile-s { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
-  .qs-tile.ok   { background: #ECFDF5; }
+  /* สถานะดีร้ายบอกด้วยสีตัวเลขอย่างเดียว ถ้าใส่พื้นสีจะกลายเป็นช่องแยกอีก */
   .qs-tile.ok   .qs-tile-n { color: #047857; }
-  .qs-tile.warn { background: #FFFBEB; }
   .qs-tile.warn .qs-tile-n { color: #B45309; }
-  .qs-tile.bad  { background: #FEF2F2; }
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
   .qs-note { font-size: 11.5px; color: var(--text3); margin: -6px 0 13px; line-height: 1.55; }
 
