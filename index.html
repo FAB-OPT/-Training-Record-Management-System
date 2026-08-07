@@ -15749,7 +15749,6 @@ function _quizBoxStatsHTML(mid, all) {
   // ข้อที่ติดหลายช่อง = ต้นเหตุที่เลขบวกกันไม่ได้
   const multi = act.filter(q => quizBoxesSaved(mid, q.uid).length > 1).length;
   const thin = rows.filter(r => r.pool < r.need);
-  const anyOwn = rows.some(r => r.own);
   const unit = moduleNeedsTrack(mid) ? 'หน้างาน' : 'หัวข้อ';
   const row = r => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:13px;flex-wrap:wrap">
     <span style="font-weight:700;color:${r.b.color};min-width:0;margin-right:auto">${r.b.short || r.b.label}</span>
@@ -15759,13 +15758,12 @@ function _quizBoxStatsHTML(mid, all) {
   return `<div style="margin-bottom:12px;border:1px solid var(--border2);border-radius:11px;overflow:hidden">
     <div style="padding:9px 14px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:13px;font-weight:800;color:var(--text)">📊 เรียน${unit}ไหน ได้สุ่มจากกี่ข้อ</span>
-      <span style="font-size:12px;color:var(--text2)">${anyOwn ? 'รวม <b style="color:var(--text)">' + rows.reduce((a,r)=>a+r.need,0) + '</b> ข้อ ถ้าเรียนครบทุก' + unit : 'ต้องทำ <b style="color:var(--text)">' + need + '</b> ข้อ/ครั้ง'}</span>
+      <span style="font-size:12px;color:var(--text2)">ต้องทำ <b style="color:var(--text)">${quizPickSummary(mid).label}</b> ข้อ/ครั้ง</span>
     </div>
     <div style="padding:8px 14px 10px">
       ${rows.map(row).join('')}
       <div style="border-top:1px dashed var(--border);margin-top:7px;padding-top:7px;font-size:11.5px;color:var(--text3);line-height:1.6">
-        ${multi ? `เลขในช่อง <b>บวกกันไม่ได้</b> — มี <b>${multi} ข้อ</b> ที่อยู่มากกว่าหนึ่ง${unit} จึงถูกนับซ้ำในทุกช่องที่มันอยู่
-          (${rows.map(r => r.own2).join(' + ')} = ${rows.reduce((a, r) => a + r.own2, 0)} แต่ข้อไม่ซ้ำมี <b>${act.length} ข้อ</b>) · ` : ''}
+        ${multi ? `<b>ใช้ร่วมกัน ${multi} ข้อ</b> — ข้อที่ใส่ไว้มากกว่าหนึ่ง${unit} จึงนับอยู่ในทุกช่องที่มันอยู่ · รวมข้อไม่ซ้ำ <b>${act.length} ข้อ</b> · ` : ''}
         ${free ? `รวมข้อที่ยังไม่ได้จัดช่อง <b>${free} ข้อ</b> ซึ่งออกกับทุกคน · ` : ''}กดปุ่มใต้แต่ละข้อเพื่อจัดช่อง ใส่ได้หลายช่อง กดซ้ำ = เอาออก
       </div>
       ${thin.length ? `<div style="margin-top:8px;padding:8px 11px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;color:#B91C1C;font-weight:700;line-height:1.55">
