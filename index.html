@@ -1333,6 +1333,99 @@
     .cc-num { text-align: left; }
   }
 
+  /* ── หน้าสถิติข้อสอบ ─────────────────────────────────────────────
+     กรอบทุกกรอบใช้หัวข้อหน้าตาเดียวกัน ไอคอนในกรอบสี ชื่อตัวใหญ่ คำอธิบายตัวเล็กใต้ชื่อ
+     เดิมหัวข้อเป็นตัวหนาธรรมดาขนาดพอ ๆ กับเนื้อใน กวาดตาแล้วแยกไม่ออกว่ากรอบไหนเริ่มตรงไหน */
+  .sec {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 18px;
+  }
+  .sec-h { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 13px; }
+  .sec-ic {
+    width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 19px;
+  }
+  .sec-t { font-size: 16.5px; font-weight: 800; color: var(--text); line-height: 1.25; }
+  .sec-d { font-size: 12px; color: var(--text3); margin-top: 3px; line-height: 1.5; }
+  .sec-r { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .sec-cnt {
+    font-size: 11.5px; font-weight: 800; color: var(--text2);
+    background: var(--surface2); border-radius: 999px; padding: 4px 11px; white-space: nowrap;
+  }
+  .sec-empty { text-align: center; padding: 26px 14px; }
+  .sec-empty-ic { font-size: 30px; line-height: 1; margin-bottom: 7px; }
+  .sec-empty-t { font-size: 13.5px; font-weight: 800; color: var(--text2); }
+  .sec-empty-d { font-size: 12px; color: var(--text3); margin-top: 3px; line-height: 1.55; }
+
+  .qs-filter {
+    display: flex; gap: 9px; flex-wrap: wrap; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 13px; padding: 11px 15px; margin-bottom: 14px;
+  }
+  .qs-filter-l { font-size: 12.5px; font-weight: 700; color: var(--text3); white-space: nowrap; }
+  .qs-filter .form-select { width: auto; min-width: 165px; max-width: 240px; }
+
+  .qs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .qs-tile {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 13px; padding: 14px 12px; text-align: center;
+  }
+  .qs-tile-n { font-size: 23px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .qs-tile-l { font-size: 12px; font-weight: 700; color: var(--text2); margin-top: 4px; }
+  .qs-tile-s { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+  .qs-tile.ok   { background: #ECFDF5; border-color: #A7F3D0; }
+  .qs-tile.ok   .qs-tile-n { color: #047857; }
+  .qs-tile.warn { background: #FFFBEB; border-color: #FDE68A; }
+  .qs-tile.warn .qs-tile-n { color: #B45309; }
+  .qs-tile.bad  { background: #FEF2F2; border-color: #FECACA; }
+  .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
+  .qs-note { font-size: 11.5px; color: var(--text3); margin: -6px 0 13px; line-height: 1.55; }
+
+  .qs-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); gap: 14px; }
+  .qs-mod { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .qs-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+  .qs-num { font-size: 14.5px; font-weight: 800; color: var(--text); }
+  .qs-bar { flex: 1; min-width: 44px; height: 7px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .qs-bar > div { height: 100%; }
+  /* รายการย่อยในกรอบข้อที่ต้องแก้ / ยังไม่ผ่าน — หน้าตาเดียวกันทั้งสองกรอบ */
+  .qs-item {
+    display: flex; gap: 10px; align-items: center;
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 7px;
+  }
+  .qs-item:last-child { margin-bottom: 0; }
+  .qs-item-n {
+    flex-shrink: 0; width: 21px; height: 21px; border-radius: 50%;
+    background: var(--surface2); color: var(--text3);
+    font-size: 11px; font-weight: 800; line-height: 21px; text-align: center;
+  }
+  .qs-item-t { font-size: 12.5px; font-weight: 600; color: var(--text); line-height: 1.5; }
+  .qs-item-d { font-size: 11px; color: var(--text3); margin-top: 2px; line-height: 1.5; }
+  .qs-pill {
+    flex-shrink: 0; font-size: 11.5px; font-weight: 800;
+    border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+  }
+  .qs-more { font-size: 11.5px; color: var(--text3); text-align: center; padding: 8px; }
+
+  /* แถบเครื่องมือของตารางรายครั้ง */
+  .qh-bar {
+    display: flex; gap: 9px; flex-wrap: wrap; align-items: center;
+    padding: 9px 13px; background: var(--surface2); border-radius: 9px; margin-bottom: 8px;
+  }
+  .qh-selall { font-size: 13px; font-weight: 700; cursor: pointer; display: flex; gap: 7px; align-items: center; }
+  .qh-bar #qh-del { margin-left: auto; }
+  .qh-bar #qh-del:disabled { opacity: .45; cursor: not-allowed; }
+  .qh-warn {
+    font-size: 11.5px; color: #B45309; background: #FFFBEB;
+    border: 1px solid #FDE68A; border-radius: 8px;
+    padding: 7px 11px; margin-bottom: 10px; line-height: 1.55;
+  }
+  .qh-when { font-size: 12.5px; color: var(--text2); white-space: nowrap; }
+  .qh-who { font-size: 13px; font-weight: 600; color: var(--text); }
+  .qh-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .qh-mod { font-size: 12.5px; color: var(--text2); }
+  .qh-old { font-size: 10.5px; color: #92400E; margin-top: 1px; }
+
   /* ── ตารางหน้าสถิติข้อสอบ ────────────────────────────────────── */
   /* หกช่อง — Module · ครั้งที่สอบ · คะแนนเฉลี่ย · อัตราผ่าน(แถบ) · เวลา · ปุ่ม
      ทุกช่องยกเว้นช่องแรกเป็นเลขตายตัว หัวตารางกับแถวเป็นตัวจัดวางคนละอัน
@@ -8871,21 +8964,21 @@ function _qhListHTML(pool) {
   _qhRows = pool.slice().sort((a, b) => String(_qhDate(b) || '').localeCompare(String(_qhDate(a) || '')));
   const legacy = _qhRows.filter(r => !_qsHasDetail(r)).length;
   return `
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:3px">
-      <div style="font-weight:800;font-size:15px;color:var(--text)">🧾 ประวัติการสอบรายครั้ง</div>
-      <span id="qh-count" style="font-size:12px;color:var(--text3);font-weight:600"></span>
+  <div class="sec" style="margin-top:14px">
+    <div class="sec-h">
+      <span class="sec-ic" style="background:var(--surface2)">🧾</span>
+      <div style="min-width:0">
+        <div class="sec-t">ประวัติการสอบรายครั้ง</div>
+        <div class="sec-d">ตรงตามตัวกรองด้านบน · ติ๊กเลือกแล้วลบได้</div>
+      </div>
+      <div class="sec-r"><span class="sec-cnt" id="qh-count"></span></div>
     </div>
-    <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">
-      ตรงตามตัวกรองด้านบน · ติ๊กเลือกแล้วลบได้ —
-      <b style="color:#B91C1C">ลบครั้งไหนออก ครั้งนั้นจะเหมือนไม่เคยเกิดขึ้น</b>
-      คนที่ผ่านด้วยครั้งนั้นจะกลับไปเป็นยังไม่ผ่าน และสิทธิ์สอบที่ใช้ไปจะคืนกลับมา
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:8px 12px;background:var(--surface2);border-radius:8px">
-      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="qh-all" onchange="_qhToggleAll(this.checked)"> เลือกทั้งหมด</label>
+    <div class="qh-bar">
+      <label class="qh-selall"><input type="checkbox" id="qh-all" onchange="_qhToggleAll(this.checked)"> เลือกทั้งหมด</label>
       ${legacy ? `<button class="btn btn-sm btn-outline" onclick="_qhPickLegacy()" title="ครั้งที่สอบก่อนระบบเริ่มเก็บรายละเอียด — ไม่มีข้อมูลรายข้อและเวลา">เลือกเฉพาะแบบเก่า (${legacy})</button>` : ''}
-      <button class="btn btn-sm btn-danger" id="qh-del" onclick="_qhDelete()" style="margin-left:auto" disabled>🗑 ลบที่เลือก</button>
+      <button class="btn btn-sm btn-danger" id="qh-del" onclick="_qhDelete()" disabled>🗑 ลบที่เลือก</button>
     </div>
+    <div class="qh-warn">ลบครั้งไหนออก ครั้งนั้นจะเหมือนไม่เคยเกิดขึ้น — คนที่ผ่านด้วยครั้งนั้นจะกลับไปเป็นยังไม่ผ่าน และสิทธิ์สอบที่ใช้ไปจะคืนกลับมา</div>
     <div class="tw-table">
       <div class="qh-head">
         <div></div><div>วันที่สอบ</div><div>ผู้สอบ</div><div>Module</div>
@@ -8898,15 +8991,18 @@ function _qhListHTML(pool) {
         const det = _qsHasDetail(r);
         return `<label class="qh-row">
           <div><input type="checkbox" class="qh-chk" value="${i}" onchange="_qhUpd()"></div>
-          <div style="font-size:12.5px;color:var(--text2)">${_qhDate(r) ? fmtDateTime(_qhDate(r)) : '—'}</div>
+          <div class="qh-when">${_qhDate(r) ? fmtDateTime(_qhDate(r)) : '—'}</div>
           <div style="min-width:0">
-            <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(w.who)}</div>
-            <div style="font-size:11px;color:var(--text3)">${esc(brName(w.br))}</div>
+            <div class="qh-who">${esc(w.who)}</div>
+            <div class="qh-sub">${esc(brName(w.br))}</div>
           </div>
-          <div style="min-width:0;font-size:12.5px;color:var(--text2)">${esc((MODULES[r.moduleId] || {}).name || r.moduleId)}
-            ${det ? '' : '<span style="font-size:10px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:999px;padding:1px 7px;margin-left:5px">แบบเก่า</span>'}</div>
-          <div style="text-align:right;font-size:13.5px;font-weight:800;color:${pass ? '#047857' : '#B91C1C'}">${pct == null ? '—' : pct + '%'}</div>
-          <div style="text-align:right;font-size:12.5px;color:var(--text2)">${det && r.answers.sec ? _qsFmtSec(r.answers.sec) : '—'}</div>
+          <div style="min-width:0">
+            <div class="qh-mod">${esc((MODULES[r.moduleId] || {}).name || r.moduleId)}</div>
+            ${det ? '' : '<div class="qh-old">ไม่มีข้อมูลรายข้อ/เวลา</div>'}
+          </div>
+          <div style="text-align:right"><span class="qs-pill" style="${pass
+            ? 'color:#047857;background:#ECFDF5' : 'color:#B91C1C;background:#FEE2E2'}">${pct == null ? '—' : pct + '%'}</span></div>
+          <div style="text-align:right;font-size:12.5px;color:${det && r.answers.sec ? 'var(--text2)' : 'var(--text3)'}">${det && r.answers.sec ? _qsFmtSec(r.answers.sec) : '—'}</div>
         </label>`;
       }).join('')}
     </div>
@@ -8998,23 +9094,34 @@ function renderQuizStatsPage() {
   const fails = _qsNotPassed(pool);
   const worst = _qsWorstAll(pool, 10);
 
-  // ตัวเลือกสาขา — เอาเฉพาะสาขาที่มีคนสอบจริง เลือกสาขาที่ไม่มีข้อมูลแล้วได้หน้าว่างเปล่า ๆ ไม่ช่วยอะไร
-  const brCnt = {};
-  (DB.quizResults || []).forEach(r => { const b = String(r.branchId || ''); if (b) brCnt[b] = (brCnt[b] || 0) + 1; });
-  const midCnt = {};
-  (DB.quizResults || []).forEach(r => { if (r.moduleId) midCnt[r.moduleId] = (midCnt[r.moduleId] || 0) + 1; });
-  const midOpts = Object.entries(midCnt).sort((a, b) => b[1] - a[1])
-    .map(([m, c]) => `<option value="${m}"${_qsMid === m ? ' selected' : ''}>${esc((MODULES[m] || {}).name || m)} (${c})</option>`).join('');
+  // ตัวเลือก — เอาเฉพาะที่มีคนสอบจริง เลือกตัวที่ไม่มีข้อมูลแล้วได้หน้าว่างเปล่า ๆ ไม่ช่วยอะไร
+  const brCnt = {}, midCnt = {};
+  (DB.quizResults || []).forEach(r => {
+    const b = String(r.branchId || ''); if (b) brCnt[b] = (brCnt[b] || 0) + 1;
+    if (r.moduleId) midCnt[r.moduleId] = (midCnt[r.moduleId] || 0) + 1;
+  });
   const brOpts = Object.entries(brCnt).sort((a, b) => b[1] - a[1])
     .map(([b, c]) => `<option value="${b}"${_qsBranch === b ? ' selected' : ''}>${esc(brName(b))} (${c})</option>`).join('');
+  const midOpts = Object.entries(midCnt).sort((a, b) => b[1] - a[1])
+    .map(([m, c]) => `<option value="${m}"${_qsMid === m ? ' selected' : ''}>${esc((MODULES[m] || {}).name || m)} (${c})</option>`).join('');
+  const filtered = !!(_qsBranch || _qsDays || _qsMid);
 
-  const cell = (n, l, sub, color) => `<div style="background:var(--surface);padding:13px 10px;text-align:center">
-    <div style="font-size:21px;font-weight:800;color:${color || 'var(--accent)'};line-height:1.1">${n}</div>
-    <div style="font-size:11.5px;color:var(--text3);margin-top:3px">${l}</div>
-    ${sub ? `<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${sub}</div>` : ''}</div>`;
   const passPct = nTrain ? Math.round(passT / nTrain * 100) : null;
   const avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
   const med = secs.length ? secs[Math.floor(secs.length / 2)] : null;
+  const tone = p => p == null ? '' : p >= 80 ? 'ok' : p >= 50 ? 'warn' : 'bad';
+  const tile = (n, l, sub, t) => `<div class="qs-tile${t ? ' ' + t : ''}">
+    <div class="qs-tile-n">${n}</div><div class="qs-tile-l">${l}</div>
+    ${sub ? `<div class="qs-tile-s">${sub}</div>` : ''}</div>`;
+  /* หัวข้อของทุกกรอบใช้หน้าตาเดียวกัน — ไอคอนในกรอบสี ชื่อตัวใหญ่ คำอธิบายตัวเล็กใต้ชื่อ
+     เดิมหัวข้อเป็นตัวหนาธรรมดาขนาดพอ ๆ กับเนื้อใน กวาดตาแล้วแยกไม่ออกว่ากรอบไหนเริ่มตรงไหน */
+  const head = (ic, t, d, tint, right) => `<div class="sec-h">
+    <span class="sec-ic" style="background:${tint}">${ic}</span>
+    <div style="min-width:0"><div class="sec-t">${t}</div>${d ? `<div class="sec-d">${d}</div>` : ''}</div>
+    ${right ? `<div class="sec-r">${right}</div>` : ''}
+  </div>`;
+  const empty = (ic, t, d) => `<div class="sec-empty"><div class="sec-empty-ic">${ic}</div>
+    <div class="sec-empty-t">${t}</div>${d ? `<div class="sec-empty-d">${d}</div>` : ''}</div>`;
 
   return `
   <div class="page-hero">
@@ -9024,64 +9131,56 @@ function renderQuizStatsPage() {
     </div>
   </div>
 
-  <div class="card" style="padding-top:12px;padding-bottom:12px;margin-bottom:14px">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <select class="form-select" onchange="_qsSetBranch(this.value)" style="width:230px">
-        <option value="">🏢 ทุกสาขา</option>${brOpts}
-      </select>
-      <select class="form-select" onchange="_qsSetMid(this.value)" style="width:230px">
-        <option value="">📚 ทุก Module</option>${midOpts}
-      </select>
-      <select class="form-select" onchange="_qsSetDays(this.value)" style="width:170px">
-        <option value="0"${!_qsDays ? ' selected' : ''}>📅 ทุกช่วงเวลา</option>
-        <option value="30"${_qsDays === 30 ? ' selected' : ''}>30 วันล่าสุด</option>
-        <option value="90"${_qsDays === 90 ? ' selected' : ''}>90 วันล่าสุด</option>
-        <option value="365"${_qsDays === 365 ? ' selected' : ''}>1 ปีล่าสุด</option>
-      </select>
-      ${(_qsBranch || _qsDays || _qsMid) ? `<button class="btn btn-sm btn-outline" onclick="_qsBranch='';_qsDays=0;_qsMid='';showPage('admin-quiz-stats')">ล้างตัวกรอง</button>` : ''}
-      <button class="btn btn-sm btn-refresh" onclick="showPage('admin-quiz-stats')" style="margin-left:auto"><span class="refresh-ic">↻</span> รีเฟรช</button>
-    </div>
+  <div class="qs-filter">
+    <span class="qs-filter-l">ดูข้อมูลของ</span>
+    <select class="form-select" onchange="_qsSetMid(this.value)"><option value="">📚 ทุก Module</option>${midOpts}</select>
+    <select class="form-select" onchange="_qsSetBranch(this.value)"><option value="">🏢 ทุกสาขา</option>${brOpts}</select>
+    <select class="form-select" onchange="_qsSetDays(this.value)">
+      <option value="0"${!_qsDays ? ' selected' : ''}>📅 ทุกช่วงเวลา</option>
+      <option value="30"${_qsDays === 30 ? ' selected' : ''}>30 วันล่าสุด</option>
+      <option value="90"${_qsDays === 90 ? ' selected' : ''}>90 วันล่าสุด</option>
+      <option value="365"${_qsDays === 365 ? ' selected' : ''}>1 ปีล่าสุด</option>
+    </select>
+    ${filtered ? `<button class="btn btn-sm btn-outline" onclick="_qsBranch='';_qsDays=0;_qsMid='';showPage('admin-quiz-stats')">✕ ล้างตัวกรอง</button>` : ''}
+    <button class="btn btn-sm btn-refresh" onclick="showPage('admin-quiz-stats')" style="margin-left:auto"><span class="refresh-ic">↻</span> รีเฟรช</button>
   </div>
 
-  ${!pool.length ? `<div class="card"><p class="text-muted" style="text-align:center;padding:34px;font-size:13px">${
-    (_qsBranch || _qsDays) ? 'ไม่มีการสอบในขอบเขตที่เลือก — ลองขยายช่วงเวลาหรือเลือกทุกสาขา' : 'ยังไม่มีใครทำข้อสอบในระบบ'}</p></div>` : `
+  ${!pool.length ? `<div class="sec">${empty('📭',
+      filtered ? 'ไม่มีการสอบในขอบเขตที่เลือก' : 'ยังไม่มีใครทำข้อสอบในระบบ',
+      filtered ? 'ลองขยายช่วงเวลา หรือเลือกทุกสาขา/ทุก Module' : 'ตัวเลขจะขึ้นเองเมื่อมีคนทำข้อสอบครั้งแรก')}</div>` : `
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:1px;background:var(--border);
-              border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px">
-    ${cell(pool.length, 'ครั้งที่สอบ')}
-    ${cell(nTrain, 'ครั้งที่สอน', 'ที่มีการสอบ')}
-    ${cell(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' ครั้งที่สอน',
-      passPct == null ? null : passPct >= 80 ? '#047857' : passPct >= 50 ? '#B45309' : '#B91C1C')}
-    ${cell(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
-    ${cell(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
-    ${cell(fails.length, 'ยังไม่ผ่าน', 'ต้องตามมาสอบใหม่', fails.length ? '#B91C1C' : '#047857')}
+  <div class="qs-tiles">
+    ${tile(pool.length, 'ครั้งที่สอบ')}
+    ${tile(nTrain, 'ครั้งที่สอน', 'ที่มีการสอบ')}
+    ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' ครั้งที่สอน', tone(passPct))}
+    ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
+    ${tile(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
+    ${tile(fails.length, 'ยังไม่ผ่าน', 'ต้องตามมาสอบใหม่', fails.length ? 'bad' : 'ok')}
   </div>
-  ${pool.length - det ? `<div style="font-size:11px;color:var(--text3);margin:-6px 0 12px;line-height:1.55">
-    ⚠️ ${pool.length - det} ครั้งที่สอบก่อนหน้านี้ไม่มีข้อมูลรายข้อและเวลา — ช่องเวลาและหัวข้อ “ข้อที่ต้องแก้” จึงนับจาก ${det} ครั้ง</div>` : ''}
+  ${pool.length - det ? `<div class="qs-note">⚠️ ${pool.length - det} ครั้งที่สอบก่อนหน้านี้ไม่มีข้อมูลรายข้อและเวลา — ช่องเวลาและกรอบ “ข้อที่ต้องแก้” จึงนับจาก ${det} ครั้ง</div>` : ''}
 
-  <div class="card" style="margin-bottom:14px">
-    <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:3px">📚 แยกตาม Module</div>
-    <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">เรียงจากอัตราผ่านต่ำสุด — ตัวบนคือตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน</div>
+  <div class="sec" style="margin-bottom:14px">
+    ${head('📚', 'แยกตาม Module', 'เรียงจากอัตราผ่านต่ำสุด — ตัวบนคือตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน', 'var(--accent-light)',
+      `<span class="sec-cnt">${rows.length} Module</span>`)}
     <div class="tw-table">
       <div class="qs-head">
         <div>Module</div><div style="text-align:right">ครั้งที่สอบ</div><div style="text-align:right">คะแนนเฉลี่ย</div>
-        <div>อัตราผ่าน</div><div style="text-align:right">เวลาที่ใช้</div><div style="text-align:right"></div>
+        <div>อัตราผ่าน</div><div style="text-align:right">เวลาที่ใช้</div><div></div>
       </div>
       ${rows.map(r => {
         const st = r.st, pr = st.passRate;
         const c = pr == null ? 'var(--text3)' : pr >= 80 ? '#047857' : pr >= 50 ? '#B45309' : '#B91C1C';
         return `<div class="qs-row">
           <div style="min-width:0">
-            <div style="font-size:13.5px;font-weight:700;color:var(--text)">${esc(MODULES[r.m].name)}</div>
-            <div style="font-size:11.5px;color:var(--text3)">${MODULES[r.m].group === 'Cook' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${r.m}</div>
+            <div class="qs-mod">${esc(MODULES[r.m].name)}</div>
+            <div class="qs-sub">${MODULES[r.m].group === 'Cook' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${r.m}</div>
           </div>
-          <div style="text-align:right;font-size:14px;font-weight:800;color:var(--text)">${st.runs}</div>
-          <div style="text-align:right;font-size:14px;font-weight:800;color:var(--text)">${st.avgPct == null ? '—' : st.avgPct + '%'}</div>
+          <div style="text-align:right" class="qs-num">${st.runs}</div>
+          <div style="text-align:right" class="qs-num">${st.avgPct == null ? '—' : st.avgPct + '%'}</div>
           <div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="flex:1;min-width:46px;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden">
-                <div style="width:${pr || 0}%;height:100%;background:${c}"></div></div>
-              <span style="font-size:13px;font-weight:800;color:${c};flex-shrink:0">${pr == null ? '—' : pr + '%'}</span>
+            <div style="display:flex;align-items:center;gap:9px">
+              <div class="qs-bar"><div style="width:${pr || 0}%;background:${c}"></div></div>
+              <span style="font-size:13.5px;font-weight:800;color:${c};flex-shrink:0;min-width:38px;text-align:right">${pr == null ? '—' : pr + '%'}</span>
             </div>
           </div>
           <div style="text-align:right;font-size:12.5px;color:var(--text2)">${_qsFmtSec(st.medSec)}</div>
@@ -9091,44 +9190,41 @@ function renderQuizStatsPage() {
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
-    <div class="card">
-      <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:3px">⚠️ ข้อที่ต้องแก้</div>
-      <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">ตอบผิดเยอะสุดทั้งระบบ · นับเฉพาะข้อที่ถูกสุ่มออกไปแล้วอย่างน้อย 2 ครั้ง</div>
-      ${!worst.length ? '<p class="text-muted" style="text-align:center;padding:22px;font-size:13px">ยังไม่มีข้อที่ตอบผิดเกินเกณฑ์ — หรือยังมีข้อมูลรายข้อไม่พอ</p>'
+  <div class="qs-2col">
+    <div class="sec">
+      ${head('⚠️', 'ข้อที่ต้องแก้', 'ตอบผิดเยอะสุดทั้งระบบ · นับเฉพาะข้อที่ถูกสุ่มออกไปแล้วอย่างน้อย 2 ครั้ง', '#FEE2E2',
+        worst.length ? `<span class="sec-cnt">${worst.length} ข้อ</span>` : '')}
+      ${!worst.length ? empty('🎯', 'ยังไม่มีข้อที่ต้องแก้',
+          det ? 'ทุกข้อที่ออกไปแล้วมีคนตอบถูกเกิน 80%' : 'ต้องมีคนทำข้อสอบก่อน จึงจะรู้ว่าข้อไหนมีปัญหา')
         : worst.map((w, i) => {
         const pct = Math.round(w.pct * 100);
         const c = pct >= 50 ? '#B45309' : '#B91C1C';
         const opt = w.pick && w.q.opts ? w.q.opts[w.pick] : '';
-        return `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:7px">
-          <div style="display:flex;gap:9px;align-items:flex-start">
-            <span style="font-size:11.5px;color:var(--text3);font-weight:700;min-width:18px;flex-shrink:0">${i + 1}.</span>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12.5px;font-weight:600;color:var(--text);line-height:1.5">${esc(w.q.q).replace(/^\d+[\.\s]+/, '')}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(MODULES[w.mid].name)} · ถูก ${w.s.ok}/${w.s.n} ครั้ง${
-                opt ? ` · ตอบผิดไปที่ <b style="color:#B91C1C">${w.pick}. ${esc(opt).slice(0, 34)}</b> ${w.pickN} ครั้ง` : ''}</div>
-            </div>
-            <span style="flex-shrink:0;font-size:14px;font-weight:800;color:${c}">${pct}%</span>
+        return `<div class="qs-item">
+          <span class="qs-item-n">${i + 1}</span>
+          <div style="flex:1;min-width:0">
+            <div class="qs-item-t">${esc(w.q.q).replace(/^\d+[\.\s]+/, '')}</div>
+            <div class="qs-item-d">${esc(MODULES[w.mid].name)} · ถูก ${w.s.ok}/${w.s.n} ครั้ง${
+              opt ? ` · ตอบผิดไปที่ <b style="color:#B91C1C">${w.pick}. ${esc(opt).slice(0, 34)}</b> ${w.pickN} ครั้ง` : ''}</div>
           </div>
+          <span class="qs-pill" style="color:${c};background:${pct >= 50 ? '#FFFBEB' : '#FEE2E2'}">${pct}%</span>
         </div>`;
       }).join('')}
     </div>
 
-    <div class="card">
-      <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:3px">🙍 ยังไม่ผ่าน · ต้องตามต่อ</div>
-      <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">สอบแล้วแต่ยังไม่ถึง ${QUIZ_PASS_PCT}% — เรียงครั้งล่าสุดก่อน</div>
-      ${!fails.length ? '<p class="text-muted" style="text-align:center;padding:22px;font-size:13px">✅ ทุกคนที่สอบผ่านหมดแล้ว</p>'
-        : `<div style="max-height:44vh;overflow:auto">${fails.slice(0, 40).map(f => `
-        <div style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:7px">
+    <div class="sec">
+      ${head('🙍', 'ยังไม่ผ่าน · ต้องตามต่อ', 'สอบแล้วแต่ยังไม่ถึง ' + QUIZ_PASS_PCT + '% — เรียงครั้งล่าสุดก่อน', '#FEF3C7',
+        fails.length ? `<span class="sec-cnt">${fails.length} คน</span>` : '')}
+      ${!fails.length ? empty('✅', 'ทุกคนสอบผ่านหมดแล้ว', 'ไม่มีใครค้างอยู่ในขอบเขตที่เลือก')
+        : `<div style="max-height:42vh;overflow:auto">${fails.slice(0, 40).map(f => `
+        <div class="qs-item">
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(f.who)}</div>
-            <div style="font-size:11px;color:var(--text3)">${esc(brName(f.br))} · ${esc((MODULES[f.mid] || {}).name || f.mid)} · ${f.last ? fmtDate(f.last.slice(0, 10)) : '—'}</div>
+            <div class="qs-item-t">${esc(f.who)}</div>
+            <div class="qs-item-d">${esc(brName(f.br))} · ${esc((MODULES[f.mid] || {}).name || f.mid)} · ${f.last ? fmtDate(f.last.slice(0, 10)) : '—'}</div>
           </div>
-          <span style="flex-shrink:0;font-size:13px;font-weight:800;color:#B91C1C">${f.best < 0 ? '—' : f.best + '%'}</span>
-          <span style="flex-shrink:0;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;${f.left
-            ? 'color:#B45309;background:#FFFBEB'
-            : 'color:#B91C1C;background:#FEE2E2'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
-        </div>`).join('')}${fails.length > 40 ? `<div style="font-size:11.5px;color:var(--text3);text-align:center;padding:6px">แสดง 40 จาก ${fails.length} รายการ</div>` : ''}</div>`}
+          <span class="qs-pill" style="color:#B91C1C;background:#FEE2E2">${f.best < 0 ? '—' : f.best + '%'}</span>
+          <span class="qs-pill" style="${f.left ? 'color:#B45309;background:#FFFBEB' : 'color:#fff;background:#B91C1C'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
+        </div>`).join('')}${fails.length > 40 ? `<div class="qs-more">แสดง 40 จาก ${fails.length} รายการ</div>` : ''}</div>`}
     </div>
   </div>
 
