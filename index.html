@@ -9059,6 +9059,30 @@ function _qsNotPassed(pool) {
     })
     .sort((a, b) => String(b.last).localeCompare(String(a.last)));
 }
+/* ครั้งที่สอนที่สอบมากกว่าหนึ่งรอบ — ตัวเลขสอบซ้ำมาจากตรงนี้
+   เห็นแค่จำนวนแล้วทำอะไรต่อไม่ได้ ต้องรู้ว่าเป็นใคร Module ไหน
+   และรอบสองดีขึ้นไหม เพราะคนที่สอบสองรอบแล้วยังไม่ผ่านคือคนที่หมดสิทธิ์แล้ว */
+function _qsRetakes(pool) {
+  const byT = new Map();
+  pool.forEach(r => {
+    const t = byT.get(r.trainingId) || { id: r.trainingId, mid: r.moduleId, runs: [] };
+    t.runs.push(r); byT.set(r.trainingId, t);
+  });
+  return Array.from(byT.values()).filter(t => t.runs.length > 1).map(t => {
+    t.runs.sort((a, b) => String(_qhDate(a) || '').localeCompare(String(_qhDate(b) || '')));
+    const tr = (DB.trainings || []).find(x => x.id === t.id);
+    const names = tr ? (tr.traineeIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean) : [];
+    const pcts = t.runs.map(_qsPct);
+    const nums = pcts.filter(p => typeof p === 'number');
+    return Object.assign({}, t, {
+      who: names.join(', ') || '(ไม่พบชื่อ)',
+      br: (tr && tr.branchId) || t.runs[0].branchId || '',
+      pcts,
+      passed: nums.length ? Math.max.apply(null, nums) >= QUIZ_PASS_PCT : false,
+      last: _qhDate(t.runs[t.runs.length - 1]) || '',
+    });
+  }).sort((a, b) => String(b.last).localeCompare(String(a.last)));
+}
 /* ข้อที่ตอบผิดเยอะสุดของทั้งระบบ ไม่ใช่แยกดูทีละ Module
    ข้อที่ต้องไปแก้ไม่ได้กระจุกอยู่ Module เดียว ต้องเห็นรวมกันถึงจะจัดลำดับได้ */
 function _qsWorstAll(pool, limit) {
@@ -9093,6 +9117,7 @@ function renderQuizStatsPage() {
   const passT = new Set(pool.filter(r => (_qsPct(r) || 0) >= QUIZ_PASS_PCT).map(r => r.trainingId)).size;
   const fails = _qsNotPassed(pool);
   const worst = _qsWorstAll(pool, 10);
+  const retakes = _qsRetakes(pool);
 
   // ตัวเลือก — เอาเฉพาะที่มีคนสอบจริง เลือกตัวที่ไม่มีข้อมูลแล้วได้หน้าว่างเปล่า ๆ ไม่ช่วยอะไร
   const brCnt = {}, midCnt = {};
@@ -9232,6 +9257,26 @@ function renderQuizStatsPage() {
           <span class="qs-pill" style="${f.left ? 'color:#B45309;background:#FFFBEB' : 'color:#fff;background:#B91C1C'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
         </div>`).join('')}${fails.length > 40 ? `<div class="qs-more">แสดง 40 จาก ${fails.length} รายการ</div>` : ''}</div>`}
     </div>
+  </div>
+
+  <div class="sec" style="margin-top:14px">
+    ${head('🔁', 'รายละเอียดการสอบซ้ำ', 'ครั้งที่สอนที่สอบมากกว่าหนึ่งรอบ — เห็นว่ารอบสองดีขึ้นไหม', '#FFFBEB',
+      retakes.length ? `<span class="sec-cnt">${retakes.length} รายการ</span>` : '')}
+    ${!retakes.length ? empty('👍', 'ยังไม่มีใครสอบซ้ำ', 'ทุกคนผ่านตั้งแต่รอบแรกในขอบเขตที่เลือก')
+      : `<div style="max-height:44vh;overflow:auto">${retakes.map(t => `
+      <div class="qs-item">
+        <div style="flex:1;min-width:0">
+          <div class="qs-item-t">${esc(t.who)}</div>
+          <div class="qs-item-d">${esc(brName(t.br))} · ${esc((MODULES[t.mid] || {}).name || t.mid)} · สอบ ${t.runs.length} ครั้ง${t.last ? ' · ล่าสุด ' + fmtDate(t.last.slice(0, 10)) : ''}</div>
+        </div>
+        <span style="flex-shrink:0;font-size:12.5px;font-weight:800;white-space:nowrap">${t.pcts.map((p, i) => {
+          const ok = typeof p === 'number' && p >= QUIZ_PASS_PCT;
+          return (i ? '<span style="color:var(--text3);font-weight:600"> → </span>' : '')
+            + `<span style="color:${ok ? '#047857' : '#B91C1C'}">${p == null ? '—' : p + '%'}</span>`;
+        }).join('')}</span>
+        <span class="qs-pill" style="${t.passed
+          ? 'color:#047857;background:#ECFDF5' : 'color:#fff;background:#B91C1C'}">${t.passed ? 'ผ่านแล้ว' : 'ยังไม่ผ่าน'}</span>
+      </div>`).join('')}</div>`}
   </div>
 
   ${_qhListHTML(pool)}`}`;
