@@ -9034,7 +9034,7 @@ function _qsPool() {
   }
   return pool;
 }
-/* ครั้งที่สอนที่ยังสอบไม่ผ่าน — ผ่านคือมีครั้งใดครั้งหนึ่งถึงเกณฑ์
+/* การสอนที่ยังสอบไม่ผ่าน — ผ่านคือมีครั้งใดครั้งหนึ่งถึงเกณฑ์
    ดูครั้งล่าสุดอย่างเดียวไม่ได้ คนที่ผ่านรอบแรกแล้วเผลอกดสอบซ้ำจะกลายเป็นตก */
 function _qsNotPassed(pool) {
   const byT = new Map();
@@ -9106,6 +9106,10 @@ function renderQuizStatsPage() {
     .map(([m, c]) => `<option value="${m}"${_qsMid === m ? ' selected' : ''}>${esc((MODULES[m] || {}).name || m)} (${c})</option>`).join('');
   const filtered = !!(_qsBranch || _qsDays || _qsMid);
 
+  /* จำนวนครั้งที่ทำข้อสอบ กับจำนวนการสอน ไม่เท่ากันเพราะหนึ่งการสอนสอบซ้ำได้
+     ต่างกันเท่าไหร่ก็คือสอบซ้ำไปเท่านั้นครั้ง ต้องบอกไว้ ไม่งั้นเห็นสองเลขใกล้ ๆ กัน
+     แล้วไม่รู้ว่าทำไมไม่เท่ากัน — ยิ่งคำว่าสอบกับสอนต่างกันแค่ตัวอักษรเดียว */
+  const retake = pool.length - nTrain;
   const passPct = nTrain ? Math.round(passT / nTrain * 100) : null;
   const avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
   const med = secs.length ? secs[Math.floor(secs.length / 2)] : null;
@@ -9150,9 +9154,9 @@ function renderQuizStatsPage() {
       filtered ? 'ลองขยายช่วงเวลา หรือเลือกทุกสาขา/ทุก Module' : 'ตัวเลขจะขึ้นเองเมื่อมีคนทำข้อสอบครั้งแรก')}</div>` : `
 
   <div class="qs-tiles">
-    ${tile(pool.length, 'ครั้งที่สอบ')}
-    ${tile(nTrain, 'ครั้งที่สอน', 'ที่มีการสอบ')}
-    ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' ครั้งที่สอน', tone(passPct))}
+    ${tile(pool.length, 'ครั้งที่ทำข้อสอบ', retake ? 'ในนั้นเป็นการสอบซ้ำ ' + retake + ' ครั้ง' : 'ยังไม่มีใครสอบซ้ำ')}
+    ${tile(nTrain, 'การสอนที่สอบแล้ว', 'หนึ่งการสอนสอบได้ ' + QUIZ_MAX_ATTEMPTS + ' ครั้ง')}
+    ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' การสอน', tone(passPct))}
     ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
     ${tile(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
     ${tile(fails.length, 'ยังไม่ผ่าน', 'ต้องตามมาสอบใหม่', fails.length ? 'bad' : 'ok')}
@@ -9251,7 +9255,7 @@ function openQuizStatsModal(mid) {
     ${!st.runs ? '<p class="text-muted" style="text-align:center;padding:26px;font-size:13px">ยังไม่มีใครทำข้อสอบ Module นี้</p>' : `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:1px;background:var(--border);
                 border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:12px">
-      ${cell(st.runs, 'ครั้งที่สอบ')}
+      ${cell(st.runs, 'ครั้งที่ทำข้อสอบ')}
       ${cell(st.avgPct == null ? '—' : st.avgPct + '%', 'คะแนนเฉลี่ย')}
       ${cell(st.passRate == null ? '—' : st.passRate + '%', 'อัตราผ่าน', 'เกณฑ์ 80%')}
       ${cell(_qsFmtSec(st.medSec), 'เวลาที่ใช้', st.nSec ? 'กลาง ๆ จาก ' + st.nSec + ' ครั้ง' : '')}
