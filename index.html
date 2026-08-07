@@ -1365,26 +1365,19 @@
   .qs-filter-l { font-size: 12.5px; font-weight: 700; color: var(--text3); white-space: nowrap; }
   .qs-filter .form-select { width: auto; min-width: 165px; max-width: 240px; }
 
-  /* กรอบเดียวจริง ๆ ไม่มีเส้นคั่น ไม่มีพื้นสีเป็นช่อง ๆ ข้างใน
-     ก่อนหน้านี้ทำเป็นช่องมาต่อกันหลายรอบ ทั้งเว้นช่องว่างและลากเส้นคั่น
-     ยังไงมันก็อ่านเป็นการ์ดหลายใบอยู่ดี เพราะยังมีเส้นแบ่งให้ตาจับได้
-     ตัวเลขทั้งแถวเป็นภาพรวมชุดเดียว จึงควรอยู่ในกรอบเดียวโล่ง ๆ
-     แล้วใช้ระยะห่างเป็นตัวแบ่ง ไม่ใช่เส้น */
-  .qs-tiles {
-    display: flex; flex-wrap: wrap; align-items: flex-start;
-    gap: 14px 30px;
+  .qs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .qs-tile {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; padding: 16px 22px; margin-bottom: 14px;
+    border-radius: 13px; padding: 14px 12px; text-align: center;
   }
-  .qs-tile { text-align: center; min-width: 92px; }
-  /* เครื่องหมาย + และ = หน้าตัวเลข ทำให้เห็นว่าสามตัวแรกบวกกันได้ โดยไม่ต้องเขียนอธิบาย */
-  .qs-op { font-size: 15px; font-weight: 700; color: var(--text3); margin-right: 3px; }
   .qs-tile-n { font-size: 23px; font-weight: 800; color: var(--accent); line-height: 1.1; }
   .qs-tile-l { font-size: 12px; font-weight: 700; color: var(--text2); margin-top: 4px; }
   .qs-tile-s { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
-  /* สถานะดีร้ายบอกด้วยสีตัวเลขอย่างเดียว ถ้าใส่พื้นสีจะกลายเป็นช่องแยกอีก */
+  .qs-tile.ok   { background: #ECFDF5; border-color: #A7F3D0; }
   .qs-tile.ok   .qs-tile-n { color: #047857; }
+  .qs-tile.warn { background: #FFFBEB; border-color: #FDE68A; }
   .qs-tile.warn .qs-tile-n { color: #B45309; }
+  .qs-tile.bad  { background: #FEF2F2; border-color: #FECACA; }
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
   .qs-note { font-size: 11.5px; color: var(--text3); margin: -6px 0 13px; line-height: 1.55; }
 
@@ -9163,9 +9156,7 @@ function renderQuizStatsPage() {
       filtered ? 'ลองขยายช่วงเวลา หรือเลือกทุกสาขา/ทุก Module' : 'ตัวเลขจะขึ้นเองเมื่อมีคนทำข้อสอบครั้งแรก')}</div>` : `
 
   <div class="qs-tiles">
-    ${tile(nTrain, 'การสอนที่สอบแล้ว', 'ฐานที่ใช้คิดอัตราผ่าน')}
-    ${tile('<span class="qs-op">+</span>' + retake, 'สอบซ้ำ', retake ? 'รอบแรกไม่ผ่าน เลยสอบใหม่' : 'ไม่มีใครต้องสอบใหม่')}
-    ${tile('<span class="qs-op">=</span>' + pool.length, 'รวมทำข้อสอบ', 'ครั้งที่กดทำข้อสอบจริง')}
+    ${tile(pool.length, 'ทำข้อสอบ', nTrain + ' การสอน' + (retake ? ' · สอบซ้ำ ' + retake + ' ครั้ง' : ''))}
     ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' การสอน', tone(passPct))}
     ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
     ${tile(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
