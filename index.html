@@ -1379,7 +1379,6 @@
   .qs-tile.warn .qs-tile-n { color: #B45309; }
   .qs-tile.bad  { background: #FEF2F2; border-color: #FECACA; }
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
-  .qs-note { font-size: 11.5px; color: var(--text3); margin: -6px 0 13px; line-height: 1.55; }
 
   .qs-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); gap: 14px; }
   .qs-mod { font-size: 13.5px; font-weight: 700; color: var(--text); }
@@ -1415,11 +1414,6 @@
   .qh-selall { font-size: 13px; font-weight: 700; cursor: pointer; display: flex; gap: 7px; align-items: center; }
   .qh-bar #qh-del { margin-left: auto; }
   .qh-bar #qh-del:disabled { opacity: .45; cursor: not-allowed; }
-  .qh-warn {
-    font-size: 11.5px; color: #B45309; background: #FFFBEB;
-    border: 1px solid #FDE68A; border-radius: 8px;
-    padding: 7px 11px; margin-bottom: 10px; line-height: 1.55;
-  }
   .qh-when { font-size: 12.5px; color: var(--text2); white-space: nowrap; }
   .qh-who { font-size: 13px; font-weight: 600; color: var(--text); }
   .qh-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
@@ -8978,7 +8972,6 @@ function _qhListHTML(pool) {
       ${legacy ? `<button class="btn btn-sm btn-outline" onclick="_qhPickLegacy()" title="ครั้งที่สอบก่อนระบบเริ่มเก็บรายละเอียด — ไม่มีข้อมูลรายข้อและเวลา">เลือกเฉพาะแบบเก่า (${legacy})</button>` : ''}
       <button class="btn btn-sm btn-danger" id="qh-del" onclick="_qhDelete()" disabled>🗑 ลบที่เลือก</button>
     </div>
-    <div class="qh-warn">ลบครั้งไหนออก ครั้งนั้นจะเหมือนไม่เคยเกิดขึ้น — คนที่ผ่านด้วยครั้งนั้นจะกลับไปเป็นยังไม่ผ่าน และสิทธิ์สอบที่ใช้ไปจะคืนกลับมา</div>
     <div class="tw-table">
       <div class="qh-head">
         <div></div><div>วันที่สอบ</div><div>ผู้สอบ</div><div>Module</div>
@@ -9188,7 +9181,6 @@ function renderQuizStatsPage() {
     ${tile(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
     ${tile(fails.length, 'ยังไม่ผ่าน', 'ต้องตามมาสอบใหม่', fails.length ? 'bad' : 'ok')}
   </div>
-  ${pool.length - det ? `<div class="qs-note">⚠️ ${pool.length - det} ครั้งที่สอบก่อนหน้านี้ไม่มีข้อมูลรายข้อและเวลา — ช่องเวลาและกรอบ “ข้อที่ต้องแก้” จึงนับจาก ${det} ครั้ง</div>` : ''}
 
   <div class="sec" style="margin-bottom:14px">
     ${head('📚', 'แยกตาม Module', 'เรียงจากอัตราผ่านต่ำสุด — ตัวบนคือตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน', 'var(--accent-light)',
@@ -15520,11 +15512,6 @@ function renderAdminQuiz() {
     ${stat(activeQ, 'ข้อเปิดใช้งาน', 'var(--green)', `จาก ${totalQ} ข้อในคลัง`)}
     ${stat(QUIZ_PICK + ' ข้อ', 'ค่าเริ่มต้น/ครั้ง', 'var(--accent)', 'ปรับแยกราย Module ได้')}
     ${stat(lowMods, 'Module ข้อไม่พอ', lowMods ? '#D97706' : 'var(--green)', lowMods ? 'เปิดใช้ < ที่ตั้งไว้' : 'ครบทุก Module')}
-  </div>
-  <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
-    <div style="flex:1;min-width:260px;padding:11px 15px;background:var(--accent-light);border:1px solid var(--accent)33;border-radius:11px;font-size:13px;color:var(--accent-hover);font-weight:600;display:flex;align-items:center;gap:8px">
-      <span style="font-size:16px">ℹ️</span> ผู้เรียนทำข้อสอบตาม<b>จำนวนที่ตั้งไว้ของแต่ละ Module</b> (ค่าเริ่มต้น ${QUIZ_PICK} ข้อ) โดยสุ่มจากคลังที่เปิดใช้งาน — ปรับได้ที่ช่อง <b>"ต้องทำ/ครั้ง"</b>
-    </div>
   </div>
   ${sectionTable('svc', '#16A34A', '🍽 กลุ่มบริการ', svcMods)}
   ${sectionTable('cook', '#DC2626', '👨‍🍳 กลุ่มครัว', cookMods)}`;
