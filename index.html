@@ -15053,7 +15053,8 @@ function _renderQuizRowsFor(group) {
     const m = MODULES[mid];
     const c = getQuizCount(mid);
     const pick = getQuizPick(mid);
-    const enough = c.active >= pick;
+    const ps = quizPickSummary(mid);
+    const enough = c.active >= ps.max;
     const warnColor = c.active === 0 ? '#DC2626' : '#D97706';
     return `<tr style="cursor:pointer" onclick="openQuizListModal('${mid}')">
       <td style="font-weight:700;color:var(--text)">${m.name}</td>
@@ -15061,7 +15062,8 @@ function _renderQuizRowsFor(group) {
       <td style="text-align:center"><span style="font-weight:800;color:${enough?'var(--green)':warnColor};font-size:14px">${c.active}</span><span style="color:var(--text3);font-size:12.5px"> / ${c.total}</span></td>
       <td style="text-align:center" onclick="event.stopPropagation()">
         <input type="text" inputmode="numeric" value="${pick}" onchange="setModuleQuizPick('${mid}', this.value)" title="จำนวนข้อที่ผู้เรียนต้องทำต่อครั้ง" style="width:62px;text-align:center;padding:6px 4px;font-weight:800;font-size:14px;color:var(--accent);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit">
-        ${enough?'':` <span title="คำถามเปิดใช้งาน (${c.active}) น้อยกว่าจำนวนที่ตั้ง (${pick}) — ผู้เรียนจะเห็นเท่าที่มี" style="cursor:help">⚠️</span>`}
+        ${enough?'':` <span title="คำถามเปิดใช้งาน (${c.active}) น้อยกว่าจำนวนที่ต้องออก (${ps.max}) — ผู้เรียนจะเห็นเท่าที่มี" style="cursor:help">⚠️</span>`}
+        ${ps.note ? `<div style="font-size:10.5px;color:var(--text3);margin-top:3px;line-height:1.4" title="${ps.note}">ออกจริง <b style="color:var(--accent)">${ps.label}</b> ข้อ/ครั้ง</div>` : ''}
       </td>
       <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openQuizListModal('${mid}')">จัดการ →</button></td>
     </tr>`;
@@ -15095,6 +15097,32 @@ function setBoxQuizPick(mid, key, val) {
   }
   saveQuizMeta();
   openQuizListModal(mid, true);
+}
+/* จำนวนข้อที่ออกจริงต่อครั้ง หลังคิดค่ารายช่องแล้ว
+
+   ค่าระดับ Module ใช้ไม่ได้แล้วเมื่อตั้งรายช่อง
+   Module 4 ตั้งไว้หัวข้อละ 10 คนที่เรียนครบสามหัวข้อได้ 30 ข้อ ไม่ใช่ 10
+   ตารางรายการ Module ยังโชว์ 10 อยู่ เลยดูเหมือนตัวเลขไม่ตรงกัน
+
+   Module 3 แยกตามหน้างาน หนึ่งครั้งเรียนหน้างานเดียว จึงเอาค่ามากสุดเป็นเพดาน
+   Module 4 แยกตามหัวข้อย่อย ครั้งเดียวเรียนได้หลายหัวข้อ จึงบวกกัน */
+function quizPickSummary(mid) {
+  const base = getQuizPick(mid);
+  const boxes = quizBoxesFor(mid);
+  const real = boxes ? boxes.filter(b => b.key) : [];
+  if (!real.length || !real.some(b => getBoxPick(mid, b.key))) {
+    return { label: String(base), max: base, note: '' };
+  }
+  const vals = real.map(b => getBoxPick(mid, b.key) || base);
+  const min = Math.min.apply(null, vals);
+  const max = moduleNeedsTrack(mid) ? Math.max.apply(null, vals) : vals.reduce((a, b) => a + b, 0);
+  return {
+    label: min === max ? String(max) : min + '–' + max,
+    max,
+    note: moduleNeedsTrack(mid)
+      ? 'ตั้งแยกตามหน้างาน — หนึ่งครั้งเรียนหน้างานเดียว จึงได้ตามช่องนั้น'
+      : 'ตั้งแยกตามหัวข้อย่อย — เรียนกี่หัวข้อ ก็บวกจำนวนของหัวข้อนั้น ๆ',
+  };
 }
 /* ช่องที่เกี่ยวกับครั้งที่สอนนี้ — ใช้ทั้งตอนสุ่มข้อและตอนคิดว่าต้องทำกี่ข้อ */
 function _relevantBoxes(t) {
@@ -15843,7 +15871,7 @@ function openQuizListModal(mid, restore) {
 
   showModal(`จัดการคำถาม · ${m.name}`, `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--surface2);border-radius:10px;flex-wrap:wrap">
-      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${getQuizPick(mid)}</b> ข้อ/ครั้ง</div>
+      <div style="font-size:12.5px;color:var(--text2)"><b>${activeCount}</b> เปิดใช้ / <b>${all.length}</b> ข้อทั้งหมด · ต้องทำ <b>${quizPickSummary(mid).label}</b> ข้อ/ครั้ง${quizPickSummary(mid).note ? ' <span style="color:var(--text3)">(ตั้งแยกรายช่อง)</span>' : ''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm btn-outline" onclick="openDupCheckModal('${mid}')" title="ตรวจคำถามซ้ำหรือคล้ายกัน">🔍 ตรวจซ้ำ/คล้าย</button>
         <button class="btn btn-sm btn-accent" onclick="_qzOpenAddIn('${mid}','')">+ เพิ่มคำถาม</button>
