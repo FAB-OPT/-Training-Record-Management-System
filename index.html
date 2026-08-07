@@ -15712,11 +15712,14 @@ function _quizBoxStatsHTML(mid, all) {
   // ข้อที่ยังไม่ได้จัดเข้าช่องไหนเลย = ออกกับทุกคน จึงบวกเข้าทุกช่อง
   const free = act.filter(q => !quizBoxesSaved(mid, q.uid).length).length;
   /* ต้องทำกี่ข้อ ดูรายช่องก่อน ถ้าช่องนั้นไม่ได้ตั้งไว้ค่อยใช้ค่ารวมของ Module */
-  const rows = boxes.filter(b => b.key).map(b => ({
-    b, need: getBoxPick(mid, b.key) || need,
-    own: !!getBoxPick(mid, b.key),
-    pool: act.filter(q => quizBoxesSaved(mid, q.uid).indexOf(b.key) >= 0).length + free
-  }));
+  /* own2 = ข้อที่อยู่ในช่องนั้นจริง ๆ ไม่รวมข้อที่ออกทุกคน
+     ใช้อธิบายว่าทำไมเลขในช่องบวกกันแล้วเกินจำนวนข้อทั้งหมด */
+  const rows = boxes.filter(b => b.key).map(b => {
+    const own2 = act.filter(q => quizBoxesSaved(mid, q.uid).indexOf(b.key) >= 0).length;
+    return { b, need: getBoxPick(mid, b.key) || need, own: !!getBoxPick(mid, b.key), own2, pool: own2 + free };
+  });
+  // ข้อที่ติดหลายช่อง = ต้นเหตุที่เลขบวกกันไม่ได้
+  const multi = act.filter(q => quizBoxesSaved(mid, q.uid).length > 1).length;
   const thin = rows.filter(r => r.pool < r.need);
   const anyOwn = rows.some(r => r.own);
   const unit = moduleNeedsTrack(mid) ? 'หน้างาน' : 'หัวข้อ';
@@ -15733,6 +15736,8 @@ function _quizBoxStatsHTML(mid, all) {
     <div style="padding:8px 14px 10px">
       ${rows.map(row).join('')}
       <div style="border-top:1px dashed var(--border);margin-top:7px;padding-top:7px;font-size:11.5px;color:var(--text3);line-height:1.6">
+        ${multi ? `เลขในช่อง <b>บวกกันไม่ได้</b> — มี <b>${multi} ข้อ</b> ที่อยู่มากกว่าหนึ่ง${unit} จึงถูกนับซ้ำในทุกช่องที่มันอยู่
+          (${rows.map(r => r.own2).join(' + ')} = ${rows.reduce((a, r) => a + r.own2, 0)} แต่ข้อไม่ซ้ำมี <b>${act.length} ข้อ</b>) · ` : ''}
         ${free ? `รวมข้อที่ยังไม่ได้จัดช่อง <b>${free} ข้อ</b> ซึ่งออกกับทุกคน · ` : ''}กดปุ่มใต้แต่ละข้อเพื่อจัดช่อง ใส่ได้หลายช่อง กดซ้ำ = เอาออก
       </div>
       ${thin.length ? `<div style="margin-top:8px;padding:8px 11px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;color:#B91C1C;font-weight:700;line-height:1.55">
