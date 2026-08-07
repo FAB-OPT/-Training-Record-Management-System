@@ -1334,8 +1334,11 @@
   }
 
   /* ── ตารางหน้าสถิติข้อสอบ ────────────────────────────────────── */
+  /* หกช่อง — Module · ครั้งที่สอบ · คะแนนเฉลี่ย · อัตราผ่าน(แถบ) · เวลา · ปุ่ม
+     ทุกช่องยกเว้นช่องแรกเป็นเลขตายตัว หัวตารางกับแถวเป็นตัวจัดวางคนละอัน
+     ถ้าปล่อยให้วัดจากเนื้อในเอง สองอันจะได้คนละค่าแล้วหัวข้อเลื่อนไม่ตรงกัน */
   .qs-head, .qs-row {
-    display: grid; grid-template-columns: minmax(0,1.4fr) 88px 104px 88px 92px minmax(0,1.5fr) 96px;
+    display: grid; grid-template-columns: minmax(0,1fr) 96px 108px 168px 100px 104px;
     gap: 12px; align-items: center; padding: 11px 14px;
   }
   .qs-head {
@@ -1344,12 +1347,12 @@
   }
   .qs-row { border-top: 1px solid var(--border); transition: background .12s; }
   .qs-row:hover { background: var(--surface2); }
-  @media (max-width: 1080px) {
+  @media (max-width: 900px) {
     .qs-head { display: none; }
-    .qs-row { grid-template-columns: 1fr auto; row-gap: 8px; }
-    .qs-row > div:nth-child(1), .qs-row > div:nth-child(6) { grid-column: 1 / -1; }
+    .qs-row { grid-template-columns: 1fr auto; row-gap: 9px; }
+    .qs-row > div:nth-child(1), .qs-row > div:nth-child(4) { grid-column: 1 / -1; }
     .qs-row > div:nth-child(2), .qs-row > div:nth-child(3),
-    .qs-row > div:nth-child(4), .qs-row > div:nth-child(5) { text-align: left !important; }
+    .qs-row > div:nth-child(5) { text-align: left !important; }
   }
 
   /* ── หัวช่องข้อสอบแบบดรอปดาว ─────────────────────────────────── */
@@ -8753,8 +8756,9 @@ function quizInBox(mid, uid, key) {
    ตัวเลือกสลับใหม่ทุกครั้ง และไม่ได้เก็บด้วยว่าข้อที่ 1 คือข้อไหน
    จึงต้องแยกนับและบอกให้ชัด ไม่ใช่เอาไปรวมแล้วให้ตัวเลขดูน้อยกว่าความจริง */
 function _qsHasDetail(r) { return !!(r && r.answers && Array.isArray(r.answers.items) && r.answers.items.length); }
-function _qsStats(mid) {
-  const runs = (DB.quizResults || []).filter(r => r.moduleId === mid);
+function _qsPct(r) { return (r && r.answers && r.answers.pct != null) ? r.answers.pct : (r ? r.pct : null); }
+function _qsStats(mid, pool) {
+  const runs = (pool || DB.quizResults || []).filter(r => r.moduleId === mid);
   const detailed = runs.filter(_qsHasDetail);
   const secs = detailed.map(r => r.answers.sec).filter(s => typeof s === 'number' && s > 0).sort((a, b) => a - b);
   const per = {};   // uid → { n, ok, picks:{srcKey:count} }
@@ -8882,43 +8886,150 @@ function _qhDelete(mid) {
 /* หน้าสถิติข้อสอบ — เมนูแยกของตัวเอง
    เดิมซ่อนอยู่หลังปุ่มในหน้าจัดการข้อสอบ ต้องเลือก Module ก่อนถึงจะเห็น
    เทียบข้าม Module ไม่ได้เลยว่าอันไหนคนตกเยอะ ทั้งที่นั่นคือคำถามแรกที่อยากรู้ */
+/* ══════════ หน้าสถิติข้อสอบ ══════════
+   ตอบสามคำถามเรียงกันจากกว้างไปแคบ
+     ภาพรวมตอนนี้เป็นยังไง → Module ไหนมีปัญหา → ข้อไหนกับใครที่ต้องตามต่อ
+   เดิมมีแต่ตาราง Module อย่างเดียว รู้ว่า Module ไหนคนตก
+   แต่ไม่รู้ว่าต้องไปแก้ข้อไหน หรือต้องตามใครมาสอบใหม่ ซึ่งคือสิ่งที่ต้องทำจริง ๆ */
+let _qsBranch = '';      // '' = ทุกสาขา
+let _qsDays = 0;         // 0 = ทุกช่วงเวลา
+function _qsSetBranch(v) { _qsBranch = v || ''; showPage('admin-quiz-stats'); }
+function _qsSetDays(v) { _qsDays = +v || 0; showPage('admin-quiz-stats'); }
+/* ผลสอบที่อยู่ในขอบเขตของตัวกรองบนหน้า */
+function _qsPool() {
+  let pool = DB.quizResults || [];
+  if (_qsBranch) pool = pool.filter(r => String(r.branchId || '') === _qsBranch);
+  if (_qsDays) {
+    const cut = new Date(Date.now() - _qsDays * 86400000).toISOString();
+    pool = pool.filter(r => String(_qhDate(r) || '') >= cut);
+  }
+  return pool;
+}
+/* ครั้งที่สอนที่ยังสอบไม่ผ่าน — ผ่านคือมีครั้งใดครั้งหนึ่งถึงเกณฑ์
+   ดูครั้งล่าสุดอย่างเดียวไม่ได้ คนที่ผ่านรอบแรกแล้วเผลอกดสอบซ้ำจะกลายเป็นตก */
+function _qsNotPassed(pool) {
+  const byT = new Map();
+  pool.forEach(r => {
+    const t = byT.get(r.trainingId) || { id: r.trainingId, mid: r.moduleId, n: 0, best: -1, last: '' };
+    const p = _qsPct(r);
+    t.n++;
+    if (typeof p === 'number' && p > t.best) t.best = p;
+    const d = _qhDate(r); if (d && d > t.last) t.last = d;
+    byT.set(r.trainingId, t);
+  });
+  return Array.from(byT.values())
+    .filter(t => t.best < QUIZ_PASS_PCT)
+    .map(t => {
+      const tr = (DB.trainings || []).find(x => x.id === t.id);
+      const names = tr ? (tr.traineeIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean) : [];
+      return Object.assign({}, t, {
+        who: names.join(', ') || '(ไม่พบชื่อ)',
+        br: (tr && tr.branchId) || '',
+        left: Math.max(0, QUIZ_MAX_ATTEMPTS - t.n),
+      });
+    })
+    .sort((a, b) => String(b.last).localeCompare(String(a.last)));
+}
+/* ข้อที่ตอบผิดเยอะสุดของทั้งระบบ ไม่ใช่แยกดูทีละ Module
+   ข้อที่ต้องไปแก้ไม่ได้กระจุกอยู่ Module เดียว ต้องเห็นรวมกันถึงจะจัดลำดับได้ */
+function _qsWorstAll(pool, limit) {
+  const out = [];
+  Object.keys(MODULES).forEach(mid => {
+    const st = _qsStats(mid, pool);
+    if (!st.detailed) return;
+    const qs = getAllQuestionsForModule(mid);
+    Object.entries(st.per).forEach(([uid, s]) => {
+      if (s.n < 2) return;                       // ตอบมาครั้งเดียวยังตัดสินไม่ได้ว่าข้อมีปัญหา
+      const q = qs.find(x => x.uid === uid);
+      if (!q) return;
+      const top = Object.entries(s.picks).sort((a, b) => b[1] - a[1])[0];
+      out.push({ mid, uid, s, pct: s.ok / s.n, q, pick: top ? top[0] : '', pickN: top ? top[1] : 0 });
+    });
+  });
+  return out.filter(r => r.pct < 0.8).sort((a, b) => a.pct - b.pct || b.s.n - a.s.n).slice(0, limit || 10);
+}
 function renderQuizStatsPage() {
-  const mods = Object.keys(MODULES);
-  const rows = mods.map(m => ({ m, st: _qsStats(m) })).filter(r => r.st.runs);
-  const quiet = mods.length - rows.length;
-  // Module ที่คนตกเยอะสุดอยู่บน — เป็นตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน
-  rows.sort((a, b) => (a.st.passRate ?? 101) - (b.st.passRate ?? 101));
-  const tot = rows.reduce((a, r) => a + r.st.runs, 0);
-  const det = rows.reduce((a, r) => a + r.st.detailed, 0);
+  const pool = _qsPool();
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const mods = Object.keys(MODULES);
+  const rows = mods.map(m => ({ m, st: _qsStats(m, pool) })).filter(r => r.st.runs);
+  // Module ที่คนตกเยอะสุดอยู่บน — เป็นตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน
+  rows.sort((a, b) => (a.st.passRate == null ? 101 : a.st.passRate) - (b.st.passRate == null ? 101 : b.st.passRate));
+
+  const pcts = pool.map(_qsPct).filter(p => typeof p === 'number');
+  const secs = pool.filter(_qsHasDetail).map(r => r.answers.sec).filter(s => typeof s === 'number' && s > 0).sort((a, b) => a - b);
+  const det = pool.filter(_qsHasDetail).length;
+  const nTrain = new Set(pool.map(r => r.trainingId)).size;
+  const passT = new Set(pool.filter(r => (_qsPct(r) || 0) >= QUIZ_PASS_PCT).map(r => r.trainingId)).size;
+  const fails = _qsNotPassed(pool);
+  const worst = _qsWorstAll(pool, 10);
+
+  // ตัวเลือกสาขา — เอาเฉพาะสาขาที่มีคนสอบจริง เลือกสาขาที่ไม่มีข้อมูลแล้วได้หน้าว่างเปล่า ๆ ไม่ช่วยอะไร
+  const brCnt = {};
+  (DB.quizResults || []).forEach(r => { const b = String(r.branchId || ''); if (b) brCnt[b] = (brCnt[b] || 0) + 1; });
+  const brOpts = Object.entries(brCnt).sort((a, b) => b[1] - a[1])
+    .map(([b, c]) => `<option value="${b}"${_qsBranch === b ? ' selected' : ''}>${esc(brName(b))} (${c})</option>`).join('');
+
+  const cell = (n, l, sub, color) => `<div style="background:var(--surface);padding:13px 10px;text-align:center">
+    <div style="font-size:21px;font-weight:800;color:${color || 'var(--accent)'};line-height:1.1">${n}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:3px">${l}</div>
+    ${sub ? `<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${sub}</div>` : ''}</div>`;
+  const passPct = nTrain ? Math.round(passT / nTrain * 100) : null;
+  const avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
+  const med = secs.length ? secs[Math.floor(secs.length / 2)] : null;
+
   return `
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">สถิติข้อสอบ</div>
-      <div class="page-hero-sub">Module ไหนคนตกเยอะ ข้อไหนตอบผิดบ่อย ใช้เวลาเท่าไหร่</div>
+      <div class="page-hero-sub">Module ไหนคนตกเยอะ ข้อไหนต้องแก้ ใครต้องตามมาสอบใหม่</div>
     </div>
   </div>
-  <div class="card">
-    ${!rows.length ? '<p class="text-muted" style="text-align:center;padding:34px;font-size:13px">ยังไม่มีใครทำข้อสอบในระบบ</p>' : `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="font-size:12.5px;color:var(--text2)">ทำข้อสอบไปแล้ว <b style="color:var(--text)">${tot}</b> ครั้ง ใน <b style="color:var(--text)">${rows.length}</b> Module${quiet ? ` · อีก ${quiet} Module ยังไม่มีใครสอบ` : ''}</div>
-      <button class="btn btn-sm btn-refresh" onclick="showPage('admin-quiz-stats')"><span class="refresh-ic">↻</span> รีเฟรช</button>
+
+  <div class="card" style="padding-top:12px;padding-bottom:12px;margin-bottom:14px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <select class="form-select" onchange="_qsSetBranch(this.value)" style="width:230px">
+        <option value="">🏢 ทุกสาขา</option>${brOpts}
+      </select>
+      <select class="form-select" onchange="_qsSetDays(this.value)" style="width:170px">
+        <option value="0"${!_qsDays ? ' selected' : ''}>📅 ทุกช่วงเวลา</option>
+        <option value="30"${_qsDays === 30 ? ' selected' : ''}>30 วันล่าสุด</option>
+        <option value="90"${_qsDays === 90 ? ' selected' : ''}>90 วันล่าสุด</option>
+        <option value="365"${_qsDays === 365 ? ' selected' : ''}>1 ปีล่าสุด</option>
+      </select>
+      ${(_qsBranch || _qsDays) ? `<button class="btn btn-sm btn-outline" onclick="_qsBranch='';_qsDays=0;showPage('admin-quiz-stats')">ล้างตัวกรอง</button>` : ''}
+      <button class="btn btn-sm btn-refresh" onclick="showPage('admin-quiz-stats')" style="margin-left:auto"><span class="refresh-ic">↻</span> รีเฟรช</button>
     </div>
-    ${tot - det ? `<div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.55">
-      ⚠️ ${tot - det} ครั้งที่สอบก่อนหน้านี้ไม่มีข้อมูลรายข้อและเวลา — ช่องเวลาและข้อที่ตอบผิดบ่อยจึงนับจาก ${det} ครั้ง</div>` : ''}
+  </div>
+
+  ${!pool.length ? `<div class="card"><p class="text-muted" style="text-align:center;padding:34px;font-size:13px">${
+    (_qsBranch || _qsDays) ? 'ไม่มีการสอบในขอบเขตที่เลือก — ลองขยายช่วงเวลาหรือเลือกทุกสาขา' : 'ยังไม่มีใครทำข้อสอบในระบบ'}</p></div>` : `
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:1px;background:var(--border);
+              border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px">
+    ${cell(pool.length, 'ครั้งที่สอบ')}
+    ${cell(nTrain, 'ครั้งที่สอน', 'ที่มีการสอบ')}
+    ${cell(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' ครั้งที่สอน',
+      passPct == null ? null : passPct >= 80 ? '#047857' : passPct >= 50 ? '#B45309' : '#B91C1C')}
+    ${cell(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
+    ${cell(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
+    ${cell(fails.length, 'ยังไม่ผ่าน', 'ต้องตามมาสอบใหม่', fails.length ? '#B91C1C' : '#047857')}
+  </div>
+  ${pool.length - det ? `<div style="font-size:11px;color:var(--text3);margin:-6px 0 12px;line-height:1.55">
+    ⚠️ ${pool.length - det} ครั้งที่สอบก่อนหน้านี้ไม่มีข้อมูลรายข้อและเวลา — ช่องเวลาและหัวข้อ “ข้อที่ต้องแก้” จึงนับจาก ${det} ครั้ง</div>` : ''}
+
+  <div class="card" style="margin-bottom:14px">
+    <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:3px">📚 แยกตาม Module</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">เรียงจากอัตราผ่านต่ำสุด — ตัวบนคือตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน</div>
     <div class="tw-table">
       <div class="qs-head">
         <div>Module</div><div style="text-align:right">ครั้งที่สอบ</div><div style="text-align:right">คะแนนเฉลี่ย</div>
-        <div style="text-align:right">อัตราผ่าน</div><div style="text-align:right">เวลาที่ใช้</div><div>ข้อที่ตอบผิดบ่อยสุด</div><div></div>
+        <div>อัตราผ่าน</div><div style="text-align:right">เวลาที่ใช้</div><div style="text-align:right"></div>
       </div>
       ${rows.map(r => {
-        const st = r.st;
-        const pr = st.passRate;
+        const st = r.st, pr = st.passRate;
         const c = pr == null ? 'var(--text3)' : pr >= 80 ? '#047857' : pr >= 50 ? '#B45309' : '#B91C1C';
-        // ข้อที่แย่สุดของ Module นั้น — เห็นได้จากหน้ารวมโดยไม่ต้องเปิดเข้าไป
-        const worst = Object.entries(st.per).map(([uid, s]) => ({ uid, s, p: s.ok / s.n }))
-          .sort((a, b) => a.p - b.p)[0];
-        const wq = worst ? (getAllQuestionsForModule(r.m).find(q => q.uid === worst.uid) || {}).q : '';
         return `<div class="qs-row">
           <div style="min-width:0">
             <div style="font-size:13.5px;font-weight:700;color:var(--text)">${esc(MODULES[r.m].name)}</div>
@@ -8926,16 +9037,60 @@ function renderQuizStatsPage() {
           </div>
           <div style="text-align:right;font-size:14px;font-weight:800;color:var(--text)">${st.runs}</div>
           <div style="text-align:right;font-size:14px;font-weight:800;color:var(--text)">${st.avgPct == null ? '—' : st.avgPct + '%'}</div>
-          <div style="text-align:right;font-size:14px;font-weight:800;color:${c}">${pr == null ? '—' : pr + '%'}</div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="flex:1;min-width:46px;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden">
+                <div style="width:${pr || 0}%;height:100%;background:${c}"></div></div>
+              <span style="font-size:13px;font-weight:800;color:${c};flex-shrink:0">${pr == null ? '—' : pr + '%'}</span>
+            </div>
+          </div>
           <div style="text-align:right;font-size:12.5px;color:var(--text2)">${_qsFmtSec(st.medSec)}</div>
-          <div style="min-width:0;font-size:12px;color:var(--text2);line-height:1.45">${worst && wq
-            ? `${esc(wq).replace(/^\d+[\.\s]+/, '').slice(0, 70)}<span style="color:#B91C1C;font-weight:700"> · ถูก ${Math.round(worst.p * 100)}%</span>`
-            : '<span style="color:var(--text3)">ยังไม่มีข้อมูลรายข้อ</span>'}</div>
           <div style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openQuizStatsModal('${r.m}')">ดูรายข้อ</button></div>
         </div>`;
       }).join('')}
-    </div>`}
-  </div>`;
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
+    <div class="card">
+      <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:3px">⚠️ ข้อที่ต้องแก้</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">ตอบผิดเยอะสุดทั้งระบบ · นับเฉพาะข้อที่ถูกสุ่มออกไปแล้วอย่างน้อย 2 ครั้ง</div>
+      ${!worst.length ? '<p class="text-muted" style="text-align:center;padding:22px;font-size:13px">ยังไม่มีข้อที่ตอบผิดเกินเกณฑ์ — หรือยังมีข้อมูลรายข้อไม่พอ</p>'
+        : worst.map((w, i) => {
+        const pct = Math.round(w.pct * 100);
+        const c = pct >= 50 ? '#B45309' : '#B91C1C';
+        const opt = w.pick && w.q.opts ? w.q.opts[w.pick] : '';
+        return `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:7px">
+          <div style="display:flex;gap:9px;align-items:flex-start">
+            <span style="font-size:11.5px;color:var(--text3);font-weight:700;min-width:18px;flex-shrink:0">${i + 1}.</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text);line-height:1.5">${esc(w.q.q).replace(/^\d+[\.\s]+/, '')}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(MODULES[w.mid].name)} · ถูก ${w.s.ok}/${w.s.n} ครั้ง${
+                opt ? ` · ตอบผิดไปที่ <b style="color:#B91C1C">${w.pick}. ${esc(opt).slice(0, 34)}</b> ${w.pickN} ครั้ง` : ''}</div>
+            </div>
+            <span style="flex-shrink:0;font-size:14px;font-weight:800;color:${c}">${pct}%</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:3px">🙍 ยังไม่ผ่าน · ต้องตามต่อ</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-bottom:11px">สอบแล้วแต่ยังไม่ถึง ${QUIZ_PASS_PCT}% — เรียงครั้งล่าสุดก่อน</div>
+      ${!fails.length ? '<p class="text-muted" style="text-align:center;padding:22px;font-size:13px">✅ ทุกคนที่สอบผ่านหมดแล้ว</p>'
+        : `<div style="max-height:44vh;overflow:auto">${fails.slice(0, 40).map(f => `
+        <div style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:7px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(f.who)}</div>
+            <div style="font-size:11px;color:var(--text3)">${esc(brName(f.br))} · ${esc((MODULES[f.mid] || {}).name || f.mid)} · ${f.last ? fmtDate(f.last.slice(0, 10)) : '—'}</div>
+          </div>
+          <span style="flex-shrink:0;font-size:13px;font-weight:800;color:#B91C1C">${f.best < 0 ? '—' : f.best + '%'}</span>
+          <span style="flex-shrink:0;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;${f.left
+            ? 'color:#B45309;background:#FFFBEB'
+            : 'color:#B91C1C;background:#FEE2E2'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
+        </div>`).join('')}${fails.length > 40 ? `<div style="font-size:11.5px;color:var(--text3);text-align:center;padding:6px">แสดง 40 จาก ${fails.length} รายการ</div>` : ''}</div>`}
+    </div>
+  </div>`}`;
 }
 
 function openQuizStatsModal(mid) {
