@@ -7111,6 +7111,11 @@ function showSubtopicBreakdown(trainingId) {
 // Note: uses includeSelf=true because the quiz IS the evaluation step for this
 // training — so the training itself counts toward completion even before t.eval is set.
 function isLatestCompletingTraining(t) {
+  /* Module ที่มีข้อสอบประจำหัวข้อย่อย (Module 4 ครัว) — หนึ่งครั้งสอนหนึ่งหัวข้อ
+     และมีข้อสอบของหัวข้อนั้นเองอยู่แล้ว จึงไม่ต้องรอให้สอนครบทุกหัวข้อก่อน
+     ถ้ารอ คนที่เพิ่งเรียน 4.1 จบจะยังสอบไม่ได้ ทั้งที่ข้อสอบของ 4.1 พร้อมอยู่แล้ว
+     และต้องรอจนเรียนครบสามหัวข้อถึงจะได้สอบทีเดียว ซึ่งวัดผลของแต่ละหัวข้อไม่ได้ */
+  if (moduleUsesSubtopicQuiz(t.moduleId)) return true;
   if (!isModuleComplete(t, true)) return false;
   const overlap = (a, b) => (a||[]).some(id => (b||[]).includes(id));
   const siblings = DB.trainings.filter(x =>
@@ -8334,7 +8339,8 @@ function openAddTraining() {
       <div id="track-container" style="display:none;margin-top:14px"></div>
     </div>
     <div class="form-full">
-      <label class="form-label">หัวข้อย่อย <span class="req">*</span></label>
+      <label class="form-label">หัวข้อย่อย <span class="req">*</span>
+        <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span></label>
       <div class="checkbox-group" id="subtopics-container"><span class="text-muted">กรุณาเลือก Module ก่อน</span></div>
     </div>`, () => {
     const date = _localToISO(document.getElementById('tr-date').value);
@@ -9423,7 +9429,15 @@ function updateSubtopics() {
   }
   if(!moduleId){container.innerHTML='<span class="text-muted">กรุณาเลือก Module ก่อน</span>';return;}
   const subs = MODULES[moduleId]?.subtopics || [];
-  const chip = s => `<label class="checkbox-item" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`;
+  /* Module ที่มีข้อสอบประจำหัวข้อย่อย — บังคับเลือกได้ครั้งละหัวข้อเดียว
+     เพราะข้อสอบผูกกับหัวข้อ ถ้าเลือกหลายหัวข้อในครั้งเดียว ข้อสอบจะปนกัน
+     แล้ววัดไม่ได้ว่าตกหัวข้อไหน ใช้ radio แทน checkbox ให้กดได้ทีละอัน */
+  const one = moduleUsesSubtopicQuiz(moduleId);
+  const hint = document.getElementById('sub-one-hint');
+  if (hint) hint.style.display = one ? '' : 'none';
+  const chip = s => one
+    ? `<label class="checkbox-item" onclick="toggleRadio(this)"><input type="radio" name="sub-pick" class="sub-check" value="${s}"> ${s}</label>`
+    : `<label class="checkbox-item" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`;
   // Module ที่หัวข้อย่อยแยกหน้างานอยู่ในตัว (เช่น Module 4 ครัว) — แยกหมวดให้เห็นว่าหัวข้อไหนของหน้างานไหน
   if (moduleHasSubtopicTracks(moduleId)) {
     const groups = TRACKS.map(t => ({ t, items: subs.filter(s => subtopicTrack(moduleId, s) === t.key) }))
@@ -9446,6 +9460,17 @@ function updateSubtopics() {
 }
 
 function toggleCheck(el) { setTimeout(()=>{ el.classList.toggle('checked', el.querySelector('input').checked); },0); }
+/* แบบเลือกได้อันเดียว — ต้องล้างกรอบไฮไลต์ของอันอื่นเองด้วย
+   radio จัดการเรื่องติ๊กให้แล้ว แต่คลาส checked ที่ทำให้กรอบเป็นสีต้องล้างเอง */
+function toggleRadio(el) {
+  setTimeout(() => {
+    const inp = el.querySelector('input');
+    document.querySelectorAll('.sub-check[type="radio"]').forEach(o => {
+      const box = o.closest('.checkbox-item');
+      if (box) box.classList.toggle('checked', o === inp && o.checked);
+    });
+  }, 0);
+}
 
 function viewTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
@@ -9548,9 +9573,21 @@ function openEditTraining(id) {
       </select>
     </div>
     <div class="form-full">
-      <label class="form-label">หัวข้อย่อย <span class="req">*</span></label>
+      <label class="form-label">หัวข้อย่อย <span class="req">*</span>
+        <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span></label>
       <div class="checkbox-group" id="subtopics-container">
-        ${(MODULES[t.moduleId]?.subtopics||[]).map(s=>`<label class="checkbox-item${t.subtopics.includes(s)?' checked':''}" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"${t.subtopics.includes(s)?' checked':''}> ${s}</label>`).join('')}
+        ${(() => {
+          /* ฟอร์มแก้ไขต้องบังคับหัวข้อเดียวเหมือนฟอร์มเพิ่ม ไม่งั้นแก้ทีหลังก็ติ๊กหลายหัวข้อได้อยู่ดี
+             ของเก่าที่เคยบันทึกไว้หลายหัวข้อ พอเปิดมาแก้จะเหลือหัวข้อสุดท้ายที่ติ๊กไว้
+             ตั้งใจให้เป็นแบบนั้น เพราะกฎใหม่คือหนึ่งครั้งหนึ่งหัวข้อ */
+          const one = moduleUsesSubtopicQuiz(t.moduleId);
+          return (MODULES[t.moduleId]?.subtopics||[]).map(s => {
+            const on = t.subtopics.includes(s);
+            return one
+              ? `<label class="checkbox-item${on?' checked':''}" onclick="toggleRadio(this)"><input type="radio" name="sub-pick" class="sub-check" value="${s}"${on?' checked':''}> ${s}</label>`
+              : `<label class="checkbox-item${on?' checked':''}" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"${on?' checked':''}> ${s}</label>`;
+          }).join('');
+        })()}
       </div>
     </div>`, () => {
     const date = _localToISO(document.getElementById('tr-date').value);
@@ -12146,6 +12183,10 @@ function promptQuizAfterEval(trainingId) {
   if (_quizPassedFor(trainingId)) return;                     // สอบผ่านไปแล้ว
   const attempts = _quizAttemptsFor(trainingId).length;
   if (attempts >= QUIZ_MAX_ATTEMPTS) return;                  // ทำครบโควตาแล้ว
+  /* Module ที่มีข้อสอบประจำหัวข้อย่อย — ประเมินเสร็จเข้าข้อสอบเลย ไม่ต้องถามก่อน
+     เพราะสอนหัวข้อเดียวจบในครั้งเดียว ประเมินเสร็จก็สอบหัวข้อนั้นต่อได้ทันที
+     หน้าถามคั่นกลางเป็นการกดเพิ่มอีกครั้งโดยไม่ได้ให้ทางเลือกอะไรจริง ๆ */
+  if (moduleUsesSubtopicQuiz(t.moduleId)) { closeModal(); setTimeout(() => openQuiz(trainingId), 150); return; }
   const modName = MODULES[t.moduleId]?.name || t.moduleId;
   const names = (t.traineeIds || []).map(id => getEmployee(id)?.name).filter(Boolean);
 
