@@ -552,6 +552,20 @@
   .checkbox-item:hover { border-color: var(--border2); background: var(--surface2); }
   .checkbox-item.checked { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
   .checkbox-item input { display: none; }
+  /* หัวข้อที่คนที่เลือกไว้ยังไม่เคยเรียน — กระพริบให้เห็นว่าอันไหนยังขาด
+     พอติ๊กเลือกแล้วหยุดกระพริบทันที เพราะกำลังจะสอนอันนั้นอยู่ */
+  .checkbox-item.sub-todo:not(.checked) {
+    border-color: #F59E0B; color: #92400E; font-weight: 600;
+    animation: subTodoBlink 1.25s ease-in-out infinite;
+  }
+  @keyframes subTodoBlink {
+    0%, 100% { background: var(--white); box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+    50%      { background: #FFFBEB;     box-shadow: 0 0 0 4px rgba(245,158,11,.22); }
+  }
+  /* เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ไม่ต้องกระพริบ แต่ยังต้องเห็นว่าอันไหนขาด */
+  @media (prefers-reduced-motion: reduce) {
+    .checkbox-item.sub-todo:not(.checked) { animation: none; background: #FFFBEB; }
+  }
 
   /* ==================== MODAL ==================== */
   .modal-overlay {
@@ -8340,7 +8354,8 @@ function openAddTraining() {
     </div>
     <div class="form-full">
       <label class="form-label">หัวข้อย่อย <span class="req">*</span>
-        <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span></label>
+        <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span>
+        <span id="sub-missing-hint" style="display:none;font-weight:700;color:#B45309;font-size:11.5px"></span></label>
       <div class="checkbox-group" id="subtopics-container"><span class="text-muted">กรุณาเลือก Module ก่อน</span></div>
     </div>`, () => {
     const date = _localToISO(document.getElementById('tr-date').value);
@@ -8653,6 +8668,8 @@ function updateModulesByTrainees() {
 
   if (prevVal && filtered.find(([id]) => id === prevVal)) {
     sel.value = prevVal;
+    // คนที่เลือกเปลี่ยนไป หัวข้อที่ยังขาดก็เปลี่ยนตาม ต้องวาดใหม่ ไม่ใช่ปล่อยค้างของคนเดิม
+    updateSubtopics();
   } else {
     sel.value = '';
     subtopicsContainer.innerHTML = '<span class="text-muted">กรุณาเลือก Module ก่อน</span>';
@@ -9435,9 +9452,29 @@ function updateSubtopics() {
   const one = moduleUsesSubtopicQuiz(moduleId);
   const hint = document.getElementById('sub-one-hint');
   if (hint) hint.style.display = one ? '' : 'none';
-  const chip = s => one
-    ? `<label class="checkbox-item" onclick="toggleRadio(this)"><input type="radio" name="sub-pick" class="sub-check" value="${s}"> ${s}</label>`
-    : `<label class="checkbox-item" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`;
+  /* หัวข้อที่คนที่เลือกไว้ยังไม่เคยเรียน — ทำให้กระพริบ จะได้ไม่ต้องจำเองว่าสอนอะไรไปแล้ว
+     นับว่าครบเฉพาะเมื่อ "ทุกคน" ที่เลือกไว้มีครั้งที่ประเมินแล้วของหัวข้อนั้น
+     ถ้าใช้แค่คนใดคนหนึ่งมีก็พอ สอนสองคนพร้อมกันแล้วคนหนึ่งยังขาด จะไม่ขึ้นเตือน */
+  const ids = getSelectedEmpIds();
+  const missing = new Set();
+  if (ids.length) {
+    const cov = getSubtopicCoverageMap(getBranchId(), moduleId, ids);
+    subs.forEach(s => {
+      if (ids.some(id => !(cov[id] && cov[id][s] && cov[id][s].evaluated))) missing.add(s);
+    });
+  }
+  const chip = s => {
+    const todo = missing.has(s) ? ' sub-todo' : '';
+    return one
+      ? `<label class="checkbox-item${todo}" onclick="toggleRadio(this)"><input type="radio" name="sub-pick" class="sub-check" value="${s}"> ${s}</label>`
+      : `<label class="checkbox-item${todo}" onclick="toggleCheck(this)"><input type="checkbox" class="sub-check" value="${s}"> ${s}</label>`;
+  };
+  const legend = document.getElementById('sub-missing-hint');
+  if (legend) {
+    legend.style.display = missing.size ? '' : 'none';
+    legend.textContent = missing.size
+      ? `— ยังขาด ${missing.size} หัวข้อ (ที่กระพริบ)` : '';
+  }
   // Module ที่หัวข้อย่อยแยกหน้างานอยู่ในตัว (เช่น Module 4 ครัว) — แยกหมวดให้เห็นว่าหัวข้อไหนของหน้างานไหน
   if (moduleHasSubtopicTracks(moduleId)) {
     const groups = TRACKS.map(t => ({ t, items: subs.filter(s => subtopicTrack(moduleId, s) === t.key) }))
@@ -9574,7 +9611,8 @@ function openEditTraining(id) {
     </div>
     <div class="form-full">
       <label class="form-label">หัวข้อย่อย <span class="req">*</span>
-        <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span></label>
+        <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span>
+        <span id="sub-missing-hint" style="display:none;font-weight:700;color:#B45309;font-size:11.5px"></span></label>
       <div class="checkbox-group" id="subtopics-container">
         ${(() => {
           /* ฟอร์มแก้ไขต้องบังคับหัวข้อเดียวเหมือนฟอร์มเพิ่ม ไม่งั้นแก้ทีหลังก็ติ๊กหลายหัวข้อได้อยู่ดี
