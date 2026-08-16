@@ -1425,11 +1425,22 @@
     font-size: 10.5px; font-weight: 700; color: #92400E;
     background: #FEF3C7; border-radius: 999px; padding: 1px 8px;
   }
-  /* ตัวลวงที่คนเลือกผิดมากสุด — ยกมาเป็นบรรทัดของตัวเอง ข้อความยาวแค่ไหนก็ตัดบรรทัดเอา ไม่ตัดคำทิ้ง */
-  .qw-wrong {
+  /* เฉลยกับตัวลวง — หน้าตาเดียวกัน ต่างกันแค่สี เขียวคือคำตอบที่ถูก แดงคือที่คนไปตอบแทน
+     ยกมาเป็นบรรทัดของตัวเอง ข้อความยาวแค่ไหนก็ตัดบรรทัดเอา ไม่ตัดคำทิ้ง */
+  .qw-right, .qw-wrong {
     display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-    margin: 8px 0 0 30px; padding: 7px 10px;
-    background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px;
+    margin: 8px 0 0 30px; padding: 7px 10px; border-radius: 8px;
+  }
+  .qw-right { background: #ECFDF5; border: 1px solid #A7F3D0; }
+  .qw-right-k {
+    flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fff; background: #059669;
+    border-radius: 5px; padding: 1px 7px;
+  }
+  .qw-right-t { flex: 1; min-width: 0; font-size: 12px; color: #065F46; font-weight: 600; line-height: 1.5; }
+  .qw-right-n { flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: #047857; }
+  .qw-wrong {
+    background: #FEF2F2; border: 1px solid #FECACA;
+    margin-top: 6px;
   }
   .qw-wrong-k {
     flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fff; background: #DC2626;
@@ -9309,7 +9320,15 @@ function renderQuizStatsPage() {
             <span>ตอบถูก <b style="color:${c}">${w.s.ok}</b> จาก ${w.s.n} ครั้ง</span>
             ${w.s.n < 5 ? '<span class="qw-few">ยังสอบน้อย ตัวเลขอาจแกว่ง</span>' : ''}
           </div>
-          ${opt ? `<div class="qw-wrong"><span class="qw-wrong-k">${w.pick}</span>
+          ${(() => {
+            // เฉลยต้องมาก่อนตัวลวง — อ่านแล้วเห็นว่าที่ถูกคืออะไร ก่อนจะรู้ว่าคนไปตอบอะไรแทน
+            const ansKey = w.q.ans;
+            const ansTxt = ansKey && w.q.opts ? w.q.opts[ansKey] : '';
+            return ansTxt ? `<div class="qw-right"><span class="qw-right-k">${esc(ansKey)}</span>
+              <span class="qw-right-t">${esc(ansTxt)}</span>
+              <span class="qw-right-n">เฉลย</span></div>` : '';
+          })()}
+          ${opt ? `<div class="qw-wrong"><span class="qw-wrong-k">${esc(w.pick)}</span>
             <span class="qw-wrong-t">${esc(opt)}</span>
             <span class="qw-wrong-n">ตอบผิดมาที่นี่ ${w.pickN} ครั้ง</span></div>` : ''}
         </div>`;
