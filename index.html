@@ -1400,6 +1400,44 @@
   .qs-num { font-size: 14.5px; font-weight: 800; color: var(--text); }
   .qs-bar { flex: 1; min-width: 44px; height: 7px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
   .qs-bar > div { height: 100%; }
+  /* ── การ์ดข้อที่ต้องแก้ ────────────────────────────────────────
+     ของเดิมเป็นบรรทัดเดียว ยัดชื่อ Module จำนวนครั้ง และตัวลวงไว้ต่อกันหมด
+     แล้วตัดข้อความตัวลวงที่ 34 ตัวอักษร ซึ่งมักตัดกลางคำจนอ่านไม่รู้เรื่อง
+     แยกเป็นชั้น ๆ คำถาม แถบสัดส่วน ที่มา และตัวลวง อ่านไล่ลงมาได้ */
+  .qw {
+    border: 1px solid var(--border); border-radius: 11px;
+    padding: 11px 13px; margin-bottom: 8px; background: var(--surface);
+  }
+  .qw:last-child { margin-bottom: 0; }
+  .qw-top { display: flex; align-items: flex-start; gap: 9px; }
+  .qw-n {
+    flex-shrink: 0; width: 21px; height: 21px; border-radius: 50%;
+    background: var(--surface2); color: var(--text3);
+    font-size: 11px; font-weight: 800; line-height: 21px; text-align: center;
+  }
+  .qw-q { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.5; }
+  .qw-pct { flex-shrink: 0; font-size: 17px; font-weight: 800; line-height: 1.2; }
+  .qw-bar { height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin: 8px 0 7px 30px; }
+  .qw-bar > div { height: 100%; }
+  .qw-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-left: 30px; font-size: 11.5px; color: var(--text3); }
+  .qw-dot { color: var(--border2); }
+  .qw-few {
+    font-size: 10.5px; font-weight: 700; color: #92400E;
+    background: #FEF3C7; border-radius: 999px; padding: 1px 8px;
+  }
+  /* ตัวลวงที่คนเลือกผิดมากสุด — ยกมาเป็นบรรทัดของตัวเอง ข้อความยาวแค่ไหนก็ตัดบรรทัดเอา ไม่ตัดคำทิ้ง */
+  .qw-wrong {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin: 8px 0 0 30px; padding: 7px 10px;
+    background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px;
+  }
+  .qw-wrong-k {
+    flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fff; background: #DC2626;
+    border-radius: 5px; padding: 1px 7px;
+  }
+  .qw-wrong-t { flex: 1; min-width: 0; font-size: 12px; color: #7F1D1D; line-height: 1.5; }
+  .qw-wrong-n { flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: #B91C1C; }
+
   /* รายการย่อยในกรอบข้อที่ต้องแก้ / ยังไม่ผ่าน — หน้าตาเดียวกันทั้งสองกรอบ */
   .qs-item {
     display: flex; gap: 10px; align-items: center;
@@ -9254,14 +9292,26 @@ function renderQuizStatsPage() {
         const pct = Math.round(w.pct * 100);
         const c = pct >= 50 ? '#B45309' : '#B91C1C';
         const opt = w.pick && w.q.opts ? w.q.opts[w.pick] : '';
-        return `<div class="qs-item">
-          <span class="qs-item-n">${i + 1}</span>
-          <div style="flex:1;min-width:0">
-            <div class="qs-item-t">${esc(w.q.q).replace(/^\d+[\.\s]+/, '')}</div>
-            <div class="qs-item-d">${esc(MODULES[w.mid].name)} · ถูก ${w.s.ok}/${w.s.n} ครั้ง${
-              opt ? ` · ตอบผิดไปที่ <b style="color:#B91C1C">${w.pick}. ${esc(opt).slice(0, 34)}</b> ${w.pickN} ครั้ง` : ''}</div>
+        /* ทำเป็นการ์ดแทนบรรทัดเดียว
+           ของเดิมยัดโมดูล จำนวนครั้ง และตัวลวงไว้บรรทัดเดียวกันจนอ่านไม่ทัน
+           แล้วตัดข้อความตัวลวงที่ 34 ตัวอักษร ซึ่งมักตัดกลางคำจนอ่านไม่รู้เรื่อง
+           เช่น พนักงานทุกคนไม่ทาเล็บทุกประเภท เล็ */
+        return `<div class="qw">
+          <div class="qw-top">
+            <span class="qw-n">${i + 1}</span>
+            <div class="qw-q">${esc(w.q.q).replace(/^\d+[\.\s]+/, '')}</div>
+            <span class="qw-pct" style="color:${c}">${pct}%</span>
           </div>
-          <span class="qs-pill" style="color:${c};background:${pct >= 50 ? '#FFFBEB' : '#FEE2E2'}">${pct}%</span>
+          <div class="qw-bar"><div style="width:${pct}%;background:${c}"></div></div>
+          <div class="qw-meta">
+            <span>${esc(MODULES[w.mid].name)}</span>
+            <span class="qw-dot">·</span>
+            <span>ตอบถูก <b style="color:${c}">${w.s.ok}</b> จาก ${w.s.n} ครั้ง</span>
+            ${w.s.n < 5 ? '<span class="qw-few">ยังสอบน้อย ตัวเลขอาจแกว่ง</span>' : ''}
+          </div>
+          ${opt ? `<div class="qw-wrong"><span class="qw-wrong-k">${w.pick}</span>
+            <span class="qw-wrong-t">${esc(opt)}</span>
+            <span class="qw-wrong-n">ตอบผิดมาที่นี่ ${w.pickN} ครั้ง</span></div>` : ''}
         </div>`;
       }).join('')}
     </div>
