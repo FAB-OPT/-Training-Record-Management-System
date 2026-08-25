@@ -4567,17 +4567,93 @@ const QUIZ_BANK_POOL = {
 
 // ==================== DB ====================
 let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], courseCatalog: [], chatLogs: [], cases: [], adminUsers: [] };
-try {
-  const _c = JSON.parse(localStorage.getItem('opt_db_cache') || 'null');
-  if (_c && _c.employees && _c.trainings) {
-    DB.employees = _c.employees;
-    DB.trainings = _c.trainings;
-    DB.quizResults = _c.quizResults || [];
-    DB.customQuiz = _c.customQuiz || [];
-    DB.quizMeta = _c.quizMeta || { deleted: [], disabled: [] };
-    DB.courseHistory = _c.courseHistory || [];
-  }
-} catch(_) {}
+/* ── แคช DB: ย้ายจาก localStorage → IndexedDB ───────────────────────────
+   opt_db_cache กินราว 1.5 MB จากโควตา localStorage ~10 MB ที่ทุกแอปบน
+   โดเมนนี้ใช้ร่วมกัน (hub / checklist / sales report) พอโควตาเต็มแอปอื่น
+   จะเซฟไม่ลงแบบเงียบ ๆ  ข้อมูลชุดนี้ตัวจริงอยู่บน Supabase/Sheets ที่นี่
+   เป็นแค่สำเนาไว้โชว์ก่อนโหลดเสร็จ → ย้ายไป IndexedDB ที่มีโควตาของตัวเอง
+
+   ตัวที่เหลือใน localStorage จงใจไม่ย้าย:
+     fab_session        = ตัวบอกว่าใครล็อกอินอยู่ ทุกแอปบนโดเมนอ่านร่วมกัน
+                          IndexedDB แยกกันคนละแอป ย้ายไปแล้ว SSO พัง
+     opt_hub_config_v1  = ทะเบียนสาขา/สิทธิ์ อ่านแบบ sync ตั้งแต่ตอน parse
+                          และใหญ่แค่หลัก KB ไม่คุ้มที่จะรื้อเป็น async */
+var _optIdbP = null;
+function _optIdb() {
+  if (_optIdbP) return _optIdbP;
+  _optIdbP = new Promise(function (res) {
+    var req;
+    try { req = indexedDB.open('opt_store_v1', 1); } catch (e) { return res(null); }
+    req.onupgradeneeded = function () { try { req.result.createObjectStore('kv'); } catch (e) {} };
+    req.onsuccess = function () { res(req.result); };
+    req.onerror = function () { res(null); };
+    setTimeout(function () { res(null); }, 3000);   // เบราว์เซอร์บล็อก IDB (โหมดส่วนตัว) → ไม่ค้าง
+  });
+  return _optIdbP;
+}
+function _optIdbGet(k) {
+  return _optIdb().then(function (db) {
+    if (!db) return null;
+    return new Promise(function (res) {
+      try {
+        var r = db.transaction('kv', 'readonly').objectStore('kv').get(k);
+        r.onsuccess = function () { res(r.result == null ? null : r.result); };
+        r.onerror = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+  }).catch(function () { return null; });
+}
+function _optIdbSet(k, v) {
+  return _optIdb().then(function (db) {
+    if (!db) return false;
+    return new Promise(function (res) {
+      try {
+        var tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(v, k);
+        tx.oncomplete = function () { res(true); };
+        tx.onerror = tx.onabort = function () { res(false); };
+      } catch (e) { res(false); }
+    });
+  }).catch(function () { return false; });
+}
+
+function _applyDbCache(_c) {
+  if (!_c || !_c.employees || !_c.trainings) return false;
+  DB.employees = _c.employees;
+  DB.trainings = _c.trainings;
+  DB.quizResults = _c.quizResults || [];
+  DB.customQuiz = _c.customQuiz || [];
+  DB.quizMeta = _c.quizMeta || { deleted: [], disabled: [] };
+  DB.courseHistory = _c.courseHistory || [];
+  return true;
+}
+function _dbCacheSnapshot() {
+  return { employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults,
+           customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory };
+}
+/* เขียนแคช — IDB ก่อน ถ้าเขียนไม่ได้ค่อยถอยไป localStorage แบบเดิม */
+function _saveDbCache() {
+  var snap = _dbCacheSnapshot();
+  return _optIdbSet('opt_db_cache', snap).then(function (ok) {
+    if (ok) { try { localStorage.removeItem('opt_db_cache'); } catch (_) {} }
+    else { try { localStorage.setItem('opt_db_cache', JSON.stringify(snap)); } catch (_) {} }
+    return ok;
+  }).catch(function () { return false; });
+}
+
+/* สำเนาที่ยังค้างใน localStorage (เครื่องที่ยังไม่ได้ย้าย) — อ่านทันทีเหมือนเดิม */
+var _optLsCache = null;
+try { _optLsCache = JSON.parse(localStorage.getItem('opt_db_cache') || 'null'); } catch (_) {}
+if (_optLsCache) _applyDbCache(_optLsCache);
+
+/* ยกแคชจาก IDB + ย้ายของเดิมขึ้นไปให้ครั้งแรก — initApp() รอ promise นี้ก่อนเริ่ม */
+var _optDbCacheReady = _optIdbGet('opt_db_cache').then(function (v) {
+  if (v) { _applyDbCache(v); return; }
+  if (!_optLsCache) return;
+  return _optIdbSet('opt_db_cache', _optLsCache).then(function (ok) {
+    if (ok) { try { localStorage.removeItem('opt_db_cache'); } catch (_) {} }
+  });
+}).catch(function () {});
 // cache เคสแยก (เก็บใน Sheets อย่างเดียว โหลดช้า) → โชว์จาก cache ทันที แล้วค่อยอัปเดต
 try {
   const _cc = JSON.parse(localStorage.getItem('opt_cases_cache') || 'null');
@@ -4948,7 +5024,7 @@ function _applyServerData(d) {
   if (DB.quizMeta && typeof DB.quizMeta.testMode === 'boolean') {
     _applyTestModeFromServer(DB.quizMeta.testMode);
   }
-  try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
+  _saveDbCache();
 }
 
 // Sync test-mode flag from backend (called by both _applyServerData and gsLoadFromSheets)
@@ -5050,7 +5126,7 @@ async function gsLoadFromSheets() {
       return c;
     });
   }
-  try { localStorage.setItem('opt_db_cache', JSON.stringify({employees: DB.employees, trainings: DB.trainings, quizResults: DB.quizResults, customQuiz: DB.customQuiz, quizMeta: DB.quizMeta, courseHistory: DB.courseHistory})); } catch(_) {}
+  _saveDbCache();
 }
 
 // chatLogs and cases are stored ONLY in Google Sheets (not migrated to Supabase),
@@ -15863,11 +15939,12 @@ function saveQuizMeta() {
   gsSave('quizMeta', 'singleton', DB.quizMeta);
   // ลบแถวเก่า id 'main' ที่ค้างใน Sheets ทิ้ง (ทำครั้งเดียว) กันมันมาเป็นแถวแรกแล้วบังของจริง
   if (!_quizMetaMainCleaned) { _quizMetaMainCleaned = true; try { gsDel('quizMeta', 'main'); } catch(_) {} }
-  try {
-    const c = JSON.parse(localStorage.getItem('opt_db_cache') || '{}');
+  // อัปเดตเฉพาะ quizMeta ในแคช — ไม่เขียนทับ employees/trainings ที่อาจยังโหลดไม่เสร็จ
+  _optIdbGet('opt_db_cache').then(function (c) {
+    c = c || {};
     c.quizMeta = DB.quizMeta;
-    localStorage.setItem('opt_db_cache', JSON.stringify(c));
-  } catch(_) {}
+    return _optIdbSet('opt_db_cache', c);
+  }).catch(function () {});
 }
 
 /* กรอบสรุป — ตอบคำถามเดียวว่า "เรียนหน้างานนี้แล้วได้สุ่มจากกี่ข้อ"
@@ -18477,7 +18554,17 @@ function trySsoAutoLogin() {
   return false;
 }
 
-function initApp() {
+async function initApp() {
+  /* ทาพื้นหลังหน้า login ไว้ก่อนแบบ sync — ระหว่างรอ IDB เบราว์เซอร์วาดจอได้แล้ว
+     ถ้าไม่ทาไว้จะเห็นจอขาวแวบหนึ่ง (เดิมโค้ดทั้งก้อนเป็น sync เลยไม่มีช่องให้วาด)
+     ถ้า SSO ผ่าน showApp() จะถอดคลาสนี้ออกให้เอง */
+  document.body.classList.add('on-login');
+  /* เดิมแคชอ่านจาก localStorage ได้ทันทีแบบ sync — IDB เป็น async จึงต้องรอ
+     ไม่งั้นหน้าจะเริ่มทำงานตอน DB ยังว่าง แล้วแคชโผล่มาทับทีหลัง (จอกระพริบ)
+     กันค้าง: รอไม่เกิน 1.5 วิ เลยกว่านั้นปล่อยผ่าน gsLoad() โหลดของจริงมาให้อยู่แล้ว */
+  try {
+    await Promise.race([_optDbCacheReady, new Promise(function (r) { setTimeout(r, 1500); })]);
+  } catch (_) {}
   initPinBoxes();
   // SSO: ลองทันที (สาขา + แอดมิน built-in) ก่อนแสดงหน้า login — กันกระพริบ
   try { trySsoAutoLogin(); } catch (_) {}
