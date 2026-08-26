@@ -11549,13 +11549,6 @@ function _printTrainingSession(info, list) {
     td.c{text-align:center}
     td.seq{font-weight:700;color:#1D4ED8}
     td.sig{height:34px}
-    /* ห้ามตัดบล็อกลายเซ็นคนละหน้า ไม่งั้นเส้นประอยู่ท้ายหน้าหนึ่ง ป้ายชื่อไปโผล่อีกหน้า
-       แล้วรอยต่อหน้ากระดาษจะคั่นกลางจนดูเหมือนมีกรอบทึบพาดขวาง */
-    .signrow{display:flex;gap:56px;justify-content:flex-end;margin-top:26px;page-break-inside:avoid;break-inside:avoid}
-    .signbox{text-align:center;font-size:12px;color:#374151;page-break-inside:avoid;break-inside:avoid}
-    /* ไม่ตีเส้นให้ช่องเซ็น เว้นที่ว่างไว้เฉย ๆ
-       เส้นประเดิมทำให้ดูเหมือนมีกรอบ ทั้งที่คนเซ็นก็เซ็นทับพื้นที่ว่างได้อยู่แล้ว */
-    .signline{width:200px;height:32px;margin-bottom:5px}
     .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
     .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif}
     .tbtn.primary{background:#E23B3B;color:white;border-color:#E23B3B}
@@ -11566,7 +11559,6 @@ function _printTrainingSession(info, list) {
       #root{max-width:none;border-radius:0;padding:0}
       thead{display:table-header-group}
       tr{page-break-inside:avoid;break-inside:avoid}
-      .signrow,.signbox{page-break-inside:avoid;break-inside:avoid}
       th,td{font-size:11px!important;padding:5px 7px!important}
       *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
     }
@@ -11596,10 +11588,6 @@ function _printTrainingSession(info, list) {
       </tr></thead>
       <tbody>${trs}</tbody>
     </table>
-    <div class="signrow">
-      <div class="signbox"><div class="signline"></div>วิทยากร / ผู้สอน</div>
-      <div class="signbox"><div class="signline"></div>ผู้จัดการอบรม</div>
-    </div>
   </div>`;
   const toolbar = `<div class="toolbar no-print">
     <button class="tbtn" onclick="window.close()">✕ ปิด</button>
