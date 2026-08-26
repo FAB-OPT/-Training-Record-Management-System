@@ -11528,8 +11528,11 @@ function _printTrainingSession(info, list) {
   const style = `<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
     @page { size: A4 portrait; margin: 10mm; }
-    body{font-family:'Sarabun',sans-serif;padding:18px;color:#111827;background:#F3F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    #root{max-width:860px;margin:0 auto;background:white;border-radius:10px;padding:20px 24px 26px}
+    /* พื้นหลังขาวล้วน ไม่ทำเป็นกระดาษวางบนพื้นเทา
+       เพราะขอบล่างของกระดาษจะอ่านเป็นเส้นพาดขวางใต้ช่องลายเซ็น
+       ดูเหมือนมีกรอบทั้งที่ในเอกสารไม่มีเส้นนั้นอยู่จริง */
+    body{font-family:'Sarabun',sans-serif;padding:18px;color:#111827;background:#FFFFFF;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #root{max-width:860px;margin:0 auto;background:#FFFFFF;padding:20px 24px 26px}
     .head{display:flex;align-items:flex-start;gap:18px;margin-bottom:12px}
     .head-logo{width:96px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-top:4px}
     .head-logo img{max-width:100%;max-height:66px;object-fit:contain}
