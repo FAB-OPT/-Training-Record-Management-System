@@ -7527,19 +7527,14 @@ function renderDashPosPage(bid) {
     el.innerHTML = '<p class="text-muted" style="text-align:center;padding:24px 0">ยังไม่มีข้อมูลการสอน</p>';
     return;
   }
-  // Aggregate small slices ( < 4% ) into "อื่นๆ"
+  /* แสดงทุกตำแหน่งตามจริง ไม่ยุบรวมเป็น "อื่นๆ"
+     ของเดิมยุบตำแหน่งที่มีสัดส่วนต่ำกว่า 4% ไว้ในแถวเดียว เพื่อไม่ให้โดนัทมีเสี้ยวบาง ๆ เยอะ
+     แต่แถวนั้นกดดูต่อไม่ได้และไม่บอกว่าข้างในคือตำแหน่งอะไร คนอ่านจึงเห็นตัวเลข
+     ที่ไล่ที่มาไม่ได้ ซึ่งแย่กว่าโดนัทที่มีเสี้ยวเยอะ
+     ตารางข้างขวาเลื่อนได้อยู่แล้ว จำนวนแถวมากขึ้นจึงไม่กระทบ */
   const total = entries.reduce((s,[,d]) => s + d.trained, 0);
   const PALETTE = ['#3B82F6','#EF4444','#22C55E','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1'];
-  let slices = [], others = {trained:0, evaled:0, passed:0, items:[]};
-  entries.forEach(([pos,d],i) => {
-    if (d.trained / total < 0.04 && entries.length > 6) {
-      others.trained += d.trained; others.evaled += d.evaled; others.passed += d.passed;
-      others.items.push(pos);
-    } else {
-      slices.push({pos, d, color: PALETTE[slices.length % PALETTE.length], group: d.group});
-    }
-  });
-  if (others.trained > 0) slices.push({pos:'อื่นๆ ('+others.items.length+')', d:others, color:'#9CA3AF', group:'', isOthers:true});
+  const slices = entries.map(([pos,d],i) => ({pos, d, color: PALETTE[i % PALETTE.length], group: d.group}));
 
   // Build SVG donut
   const cx=110, cy=110, R=98, r=58;
@@ -7550,7 +7545,7 @@ function renderDashPosPage(bid) {
     acc += frac;
     const endA = acc * 2*Math.PI - Math.PI/2;
     const safePos = s.pos.replace(/'/g, "\\'");
-    const handler = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
+    const handler = ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')" style="cursor:pointer"';
     const tip = '<title>'+s.pos+': '+s.d.trained+' ครั้ง</title>';
     // ตำแหน่งเดียวกินเต็มวง (100%) → arc จุดเริ่ม = จุดจบ SVG จะวาดไม่ออก ต้องวาดเป็นวงแหวนแทน
     if (frac >= 0.9999) {
@@ -7575,8 +7570,8 @@ function renderDashPosPage(bid) {
     const pr = s.d.evaled ? Math.round(s.d.passed / s.d.evaled * 100) : null;
     const prCol = pr === null ? '#9CA3AF' : pr >= 80 ? '#22C55E' : pr >= 50 ? '#F59E0B' : '#EF4444';
     const safePos = s.pos.replace(/'/g, "\\'");
-    const cursor = s.isOthers ? '' : 'cursor:pointer;';
-    const click = s.isOthers ? '' : ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')"';
+    const cursor = 'cursor:pointer;';
+    const click = ' onclick="showPositionTrainingModal(\''+bid+'\',\''+safePos+'\')"';
     return '<tr'+click+' style="'+cursor+'border-bottom:1px solid var(--border)"'
       +' onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'transparent\'">'
       + '<td style="padding:6px 4px;width:14px"><span style="display:inline-block;width:11px;height:11px;background:'+s.color+';border-radius:3px"></span></td>'
