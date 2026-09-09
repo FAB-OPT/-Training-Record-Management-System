@@ -9698,6 +9698,7 @@ function viewTraining(id) {
         <span class="badge badge-blue">${t.eval.method}</span>
       </div>
       <div style="font-size:12px;color:var(--text2)">วันที่/เวลาประเมิน: ${fmtDateTime(t.eval.evalDate)}</div>
+      ${t.eval.editedBy?`<div style="font-size:12px;color:var(--text3);margin-top:2px">แก้ไขโดย ${t.eval.editedBy} เมื่อ ${fmtDateTime(t.eval.editedAt)}</div>`:''}
       ${t.eval.note?`<div style="font-size:13px;margin-top:6px;color:var(--text)">${t.eval.note}</div>`:''}
     </div>` : isEvalDeadlinePassed(t.date) ? `<div class="warn-box">หมดระยะเวลาประเมิน (เกิน ${EVAL_DEADLINE_DAYS} วันแล้ว)</div>`
     : `<div class="info-box">รอการประเมิน · ต้องประเมินภายใน ${fmtDate(deadline.toISOString())}</div>`}
@@ -9731,6 +9732,66 @@ function deleteTraining(id) {
     gsDel('trainings', id);
     closeModal(); showPage(currentPage); notify('ลบบันทึกการสอนงานสำเร็จ');
   }, 'ลบ');
+}
+
+/* ประทับร่องรอยว่าใครแก้และแก้เมื่อไร
+   ผลประเมินถูกใช้ตัดสินการปรับระดับพนักงาน การแก้ย้อนหลังจึงต้องตามรอยได้
+   ไม่แตะ evalDate เพราะนั่นคือวันที่สาขาประเมินจริง ไม่ใช่วันที่มาแก้ทีหลัง */
+function markEvalEdited(t) {
+  if (!t) return;
+  const who = (currentUser && (currentUser.name || currentUser.nick || currentUser.code)) || 'ผู้ดูแลระบบ';
+  t.editedAt = new Date().toISOString();
+  t.editedBy = who;
+  if (t.eval) { t.eval.editedAt = t.editedAt; t.eval.editedBy = who; }
+}
+
+/* แก้ผลการประเมิน — เฉพาะแอดมิน
+   ของเดิมทำได้แค่ "ลบผล" แล้วให้สาขาประเมินใหม่ ซึ่งเสียประวัติเดิมทั้งหมด
+   และถ้าเลยกำหนด 7 วันไปแล้วสาขาก็ประเมินใหม่ไม่ได้ ผลจึงค้างว่างถาวร
+   กรอกผิดช่องเดียวไม่ควรต้องแลกด้วยการล้างทั้งรายการ */
+function openEditEval(id) {
+  const t = DB.trainings.find(x => x.id === id);
+  if (!t) return;
+  if (!isAdminRole()) { notify('เฉพาะผู้ดูแลระบบเท่านั้นที่แก้ผลการประเมินได้', 'error'); return; }
+  if (!t.eval) { notify('รายการนี้ยังไม่มีผลการประเมิน', 'error'); return; }
+  const cur = t.eval;
+  selectedEvalMethod = cur.method || '';
+  selectedEvalResult = cur.result || '';
+  const names = (t.traineeIds || []).map(x => (getEmployee(x) || {}).name).filter(Boolean).join(', ') || '—';
+  showModal('แก้ผลการประเมิน', `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:12.5px;color:var(--text2)">${MODULES[t.moduleId]?.name || t.moduleId} · ${t.branchId}</div>
+      <div style="font-size:13.5px;font-weight:700;margin-top:2px">${names}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">สอนเมื่อ ${fmtDateTime(t.date)} · ประเมินเมื่อ ${fmtDateTime(cur.evalDate)}</div>
+    </div>
+    <div class="form-full">
+      <label class="form-label">วิธีการประเมินผล <span class="req">*</span></label>
+      <div class="eval-method">${EVAL_METHODS.map(m=>`<div class="eval-method-item${m===cur.method?' selected':''}" onclick="selectEvalMethod(this,'${m.replace(/'/g,"\\'")}')"><div style="font-size:13px">${m}</div></div>`).join('')}</div>
+    </div>
+    <div class="form-full">
+      <label class="form-label">ผลการประเมิน <span class="req">*</span></label>
+      <select class="form-select" id="result-select" onchange="selectEvalResult(this.value)">
+        <option value="">เลือกผลการประเมิน</option>
+        ${EVAL_RESULTS.map(r=>`<option value="${r.value}"${r.value===cur.result?' selected':''}>${r.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-full">
+      <label class="form-label">หมายเหตุ / ข้อสังเกต</label>
+      <textarea class="form-textarea" id="eval-note" placeholder="บันทึกเพิ่มเติม...">${(cur.note||'').replace(/</g,'&lt;')}</textarea>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-top:6px">การแก้ไขจะถูกบันทึกไว้ว่าใครแก้และแก้เมื่อไร</div>
+  `, () => {
+    if (!selectedEvalMethod) { notify('กรุณาเลือกวิธีการประเมิน', 'error'); return; }
+    if (!selectedEvalResult) { notify('กรุณาเลือกผลการประเมิน', 'error'); return; }
+    t.eval = Object.assign({}, cur, {
+      method: selectedEvalMethod,
+      result: selectedEvalResult,
+      note: (document.getElementById('eval-note') || {}).value || ''
+    });
+    markEvalEdited(t);
+    gsSave('trainings', t.id, t);
+    closeModal(); showPage(currentPage); notify('แก้ผลการประเมินแล้ว');
+  }, 'บันทึกการแก้ไข');
 }
 
 function adminDeleteEval(id) {
@@ -9798,8 +9859,10 @@ function openEditTraining(id) {
     const traineeIds = getSelectedEmpIds();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     t.date=date; t.trainerName=trainer; t.moduleId=moduleId; t.subtopics=subtopics; t.traineeIds=traineeIds;
+    if(isAnyAdminRole()) markEvalEdited(t);   /* แอดมินแก้ของสาขา ต้องมีร่องรอยว่าใครแก้ */
     gsSave('trainings', t.id, t);
-    closeModal(); showPage('trainings'); notify('แก้ไขบันทึกการสอนงานสำเร็จ');
+    /* กลับหน้าที่กดมา ของเดิมเด้งไปหน้าของสาขาเสมอ แอดมินแก้เสร็จแล้วจึงหลุดออกจากหน้าที่ทำอยู่ */
+    closeModal(); showPage(currentPage); notify('แก้ไขบันทึกการสอนงานสำเร็จ');
   }, 'บันทึก');
   setTimeout(()=>{ renderEmpTags(); document.addEventListener('click', closeEmpDropdownOutside); },100);
 }
@@ -15250,7 +15313,8 @@ function renderAdminTrainings() {
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="actions" style="white-space:nowrap;text-align:right">
             <button class="btn btn-sm btn-view" onclick="viewTraining('${t.id}')">ดู</button>
-            ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
+            ${/* แก้ไขได้เฉพาะแอดมิน — สาขาแก้ได้แค่ก่อนประเมินและภายในกำหนดเหมือนเดิม */''}
+            ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditEval('${t.id}')">แก้ผล</button>`:''}<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
     </table></div>
