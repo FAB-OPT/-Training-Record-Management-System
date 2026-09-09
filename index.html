@@ -5265,8 +5265,14 @@ function _applyHubBranches(res) {
     (Array.isArray(res.users) ? res.users : []).forEach(u => { if (u && u.nick) byNick[u.nick] = u; });
     const bzmMap = b.bzmMap || {}, stMap = b.statusMap || {};
     const next = {};
+    /* ทะเบียนสาขาของฮับเก็บทุกแบรนด์ไว้ก้อนเดียว แยกด้วยรหัสขึ้นต้น
+         40xx เจ๊แดง · 50xx กับ 55xx ซานตาเฟ่ · 60xx ยามะจัง
+       ของเดิมเขียนเป็น "ข้ามเฉพาะ 40xx" ซึ่งแปลว่าแบรนด์ไหนที่เพิ่มเข้าฮับทีหลัง
+       จะไหลเข้ามาในระบบนี้เองทันที — ยามะจัง 12 สาขาโผล่มาแบบนั้น
+       เปลี่ยนเป็นระบุว่ารับเฉพาะรหัสของซานตาเฟ่ แบรนด์ใหม่จึงไม่หลุดเข้ามาอีก */
+    const SANTAFE_PREFIX = ['50', '55'];
     Object.keys(b.branches).forEach(code => {
-      if (String(code).indexOf('40') === 0) return;   // เจ๊แดงไม่อยู่ในระบบนี้
+      if (!SANTAFE_PREFIX.some(p => String(code).indexOf(p) === 0)) return;
       const nick = bzmMap[code] || '';
       const clean = _stripThaiTitle(byNick[nick] && byNick[nick].name);   // "นาย ณธวรรท ..." → "ณธวรรท ..."
       next[code] = {
