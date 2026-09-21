@@ -6826,7 +6826,7 @@ function buildBranchNav() {
     <div class="nav-section-label">เมนูหลัก</div>
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอน &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> แผน &amp; บันทึกการสอนงาน</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-divider"></div>
     <div class="nav-section-label">การจัดการข้อมูล</div>
@@ -8440,7 +8440,8 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">บันทึกการสอนงานและการประเมินผล</div>
+      <div class="page-hero-title">แผนการสอน &amp; บันทึกการสอนงาน</div>
+      <div class="page-hero-sub">วางแผนประจำเดือน แล้วบันทึกการสอนและประเมินผลในหน้าเดียวกัน</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
