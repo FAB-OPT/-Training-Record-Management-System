@@ -2713,6 +2713,45 @@ body.admin-user .btn-navy{background:var(--primary)}
 @media (max-width:760px){ .tk2-grid{grid-template-columns:1fr 1fr;gap:8px} .tk2{min-height:118px} .tk2-n{font-size:24px} }
 </style>
 <style>
+/* คำขอย้ายสาขา — ใบละแถว · เส้นทางต้นทาง → ปลายทาง */
+.xr-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;margin-bottom:12px}
+.xr-pill{background:var(--accent);color:#fff;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:800}
+.xr-list{display:flex;flex-direction:column;gap:8px}
+.xr-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(0,2.2fr) auto;gap:18px;align-items:center;
+  padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.xr-row.pending{border-color:color-mix(in srgb,var(--accent) 35%,var(--border));background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.xr-row.cancelled,.xr-row.rejected{opacity:.72}
+.xr-who{display:flex;align-items:center;gap:11px;min-width:0}
+.xr-av{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;
+  background:var(--accent-light);color:var(--accent)}
+.xr-nm{font-weight:700;font-size:14px;line-height:1.3}
+.xr-meta{font-size:12px;color:var(--text3)}
+.xr-dir{font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:2px;background:var(--surface2);color:var(--text2)}
+.xr-dir.in{background:var(--green-light);color:var(--green)}
+.xr-mid{min-width:0}
+.xr-route{display:flex;align-items:center;gap:0;min-width:0}
+.xr-b{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;
+  background:var(--surface2);border-radius:999px;padding:5px 12px;color:var(--text2)}
+.xr-b b{color:var(--text);font-variant-numeric:tabular-nums}
+.xr-b.to{background:var(--accent-light);color:var(--text);font-weight:600}
+.xr-b.to b{color:var(--accent)}
+.xr-line{flex:1 0 28px;max-width:90px;height:2px;margin:0 4px;position:relative;
+  background:repeating-linear-gradient(90deg,var(--border2) 0 5px,transparent 5px 9px)}
+.xr-line::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left:7px solid var(--accent);border-right:0}
+.xr-note{font-size:12px;color:var(--text3);margin-top:6px;overflow-wrap:anywhere}
+.xr-note b{color:var(--text2)}
+.xr-side{display:flex;align-items:center;gap:8px;justify-content:flex-end;white-space:nowrap}
+.xr-st{font-size:12px;font-weight:800;border-radius:999px;padding:4px 12px;background:var(--surface2);color:var(--text2)}
+.xr-st.pending{background:var(--yellow-light);color:var(--yellow)}
+.xr-st.approved{background:var(--green-light);color:var(--green)}
+.xr-st.rejected{background:var(--red-light);color:var(--red)}
+.xr-cancel{border:0;background:transparent;color:var(--text3);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:8px}
+.xr-cancel:hover{background:var(--red-light);color:var(--red)}
+@media (max-width:760px){
+  .xr-row{grid-template-columns:1fr;gap:10px}
+  .xr-side{justify-content:flex-start}
+  .xr-side .btn{flex:1}
+}
 /* หน้าสาขาของ admin — ผังเขต (สีจากตัวแปรของระบบ) */
 .zm-legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text2);margin:0 4px 12px}
 .zm-legend span{display:inline-flex;align-items:center;gap:7px}
@@ -15554,24 +15593,40 @@ function cancelTransferRequest(id) {
   showPage(currentPage); notify('ยกเลิกคำขอแล้ว');
 }
 
-/* คำขอของสาขานี้ (ขาออก) — แสดงบนหน้ารายชื่อพนักงาน */
+/* แถวคำขอย้าย 1 ใบ — ใช้ทั้งฝั่งสาขาและ admin
+   ซ้าย: คน (ตัวอักษรแรก · ชื่อ · ตำแหน่ง) · กลาง: เส้นทาง ต้นทาง ──→ ปลายทาง + วันที่ย้าย/เหตุผล · ขวา: สถานะหรือปุ่ม */
+function _xferRow(r, side) {
+  const st = _XFER_ST[r.status] || [r.status, ''];
+  const code = b => `<b>${_escH(b)}</b> ${_escH(String(BRANCH_MASTER[b]?.name || '').replace(b + ' ', ''))}`;
+  const dir = side.bid ? (r.fromBranch === side.bid ? '<span class="xr-dir">ขาออก</span>' : '<span class="xr-dir in">ขาเข้า</span>') : '';
+  const meta = [_escH(r.position || ''), r.empCode ? _escH(r.empCode) : ''].filter(Boolean).join(' · ');
+  const acts = side.admin
+    ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
+       <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>`
+    : `<span class="xr-st ${r.status}">${st[0]}</span>${r.status === 'pending' && r.fromBranch === side.bid
+        ? `<button class="xr-cancel" onclick="cancelTransferRequest('${r.id}')">ยกเลิกคำขอ</button>` : ''}`;
+  return `<div class="xr-row ${r.status}">
+    <div class="xr-who"><span class="xr-av">${_escH(String(r.empName || '?').trim().charAt(0))}</span>
+      <div><div class="xr-nm">${_escH(r.empName)} ${dir}</div>${meta ? `<div class="xr-meta">${meta}</div>` : ''}</div></div>
+    <div class="xr-mid">
+      <div class="xr-route"><span class="xr-b">${code(r.fromBranch)}</span><i class="xr-line"></i><span class="xr-b to">${code(r.toBranch)}</span></div>
+      <div class="xr-note">📅 ย้าย ${_escH(fmtDate(r.moveDate) || '—')}${r.reason ? ` · “${_escH(r.reason)}”` : ''}${side.admin
+        ? ` · ขอโดย ${_escH(r.requestedBy || '—')} ${_escH(fmtDate(r.requestedAt) || '')}` : ''}${r.decisionNote ? ` · <b>Admin:</b> ${_escH(r.decisionNote)}` : ''}</div>
+    </div>
+    <div class="xr-side">${acts}</div>
+  </div>`;
+}
+
+/* คำขอของสาขานี้ (ขาออก + ขาเข้า) — แสดงบนหน้ารายชื่อพนักงาน */
 function renderBranchTransferCard(bid) {
   if (!bid || bid === 'ALL') return '';
   const list = (DB.transferRequests || []).filter(r => r.fromBranch === bid || r.toBranch === bid)
-    .sort((a, b) => String(b.requestedAt).localeCompare(String(a.requestedAt))).slice(0, 8);
+    .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || String(b.requestedAt).localeCompare(String(a.requestedAt))).slice(0, 8);
   if (!list.length) return '';
-  return `<div class="card" style="margin-bottom:16px">
-    <div style="font-weight:800;font-size:15px;margin-bottom:8px">🔁 คำขอย้ายสาขา</div>
-    <div class="table-wrap"><table class="cards-on-mobile">
-      <thead><tr><th>พนักงาน</th><th>จาก → ไป</th><th>วันที่ย้าย</th><th>สถานะ</th><th></th></tr></thead>
-      <tbody>${list.map(r => `<tr>
-        <td data-label="พนักงาน"><strong>${_escH(r.empName)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(r.reason || '')}</div></td>
-        <td data-label="จาก → ไป" style="font-size:12.5px">${_escH(_bName(r.fromBranch))} → <b>${_escH(_bName(r.toBranch))}</b></td>
-        <td data-label="วันที่ย้าย" style="font-size:12.5px">${_escH(fmtDate(r.moveDate) || '—')}</td>
-        <td data-label="สถานะ">${_xferBadge(r.status)}${r.decisionNote ? `<div style="font-size:11.5px;color:var(--text3);margin-top:3px">${_escH(r.decisionNote)}</div>` : ''}</td>
-        <td data-label="actions" style="text-align:right">${r.status === 'pending' && r.fromBranch === bid ? `<button class="btn btn-sm btn-outline" onclick="cancelTransferRequest('${r.id}')">ยกเลิก</button>` : ''}</td>
-      </tr>`).join('')}</tbody>
-    </table></div>
+  const n = list.filter(r => r.status === 'pending').length;
+  return `<div class="card xr-card" style="margin-bottom:16px">
+    <div class="xr-head">🔁 คำขอย้ายสาขา ${n ? `<span class="xr-pill">รออนุมัติ ${n}</span>` : ''}</div>
+    <div class="xr-list">${list.map(r => _xferRow(r, { bid })).join('')}</div>
   </div>`;
 }
 
@@ -15582,21 +15637,9 @@ function renderAdminTransferCard() {
   const list = (DB.transferRequests || []).filter(r => r.status === 'pending' && (acc.has(r.fromBranch) || acc.has(r.toBranch)))
     .sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
   if (!list.length) return '';
-  return `<div class="card xr-admin" style="margin-bottom:16px;border-left:5px solid var(--yellow)">
-    <div style="font-weight:800;font-size:15px;margin-bottom:8px">🔁 คำขอย้ายสาขารออนุมัติ <span class="badge badge-yellow">${list.length}</span></div>
-    <div class="table-wrap"><table class="cards-on-mobile">
-      <thead><tr><th>พนักงาน</th><th>จาก → ไป</th><th>วันที่ย้าย</th><th>เหตุผล</th><th>ขอเมื่อ</th><th></th></tr></thead>
-      <tbody>${list.map(r => `<tr>
-        <td data-label="พนักงาน"><strong>${_escH(r.empName)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(r.position || '')}${r.empCode ? ' · ' + _escH(r.empCode) : ''}</div></td>
-        <td data-label="จาก → ไป" style="font-size:12.5px">${_escH(_bName(r.fromBranch))} → <b>${_escH(_bName(r.toBranch))}</b></td>
-        <td data-label="วันที่ย้าย" style="font-size:12.5px">${_escH(fmtDate(r.moveDate) || '—')}</td>
-        <td data-label="เหตุผล" style="font-size:12.5px">${_escH(r.reason || '—')}</td>
-        <td data-label="ขอเมื่อ" style="font-size:12px;color:var(--text3)">${_escH(fmtDate(r.requestedAt) || '')}<br>${_escH(r.requestedBy || '')}</td>
-        <td data-label="actions" style="text-align:right;white-space:nowrap">
-          <button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
-          <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>
-        </td></tr>`).join('')}</tbody>
-    </table></div>
+  return `<div class="card xr-card xr-admin" style="margin-bottom:16px">
+    <div class="xr-head">🔁 คำขอย้ายสาขารออนุมัติ <span class="xr-pill">${list.length}</span></div>
+    <div class="xr-list">${list.map(r => _xferRow(r, { admin: true })).join('')}</div>
   </div>`;
 }
 
