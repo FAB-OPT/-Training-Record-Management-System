@@ -6717,6 +6717,7 @@ function showWelcomeModal(subtitle) {
 const BRANCH_NAV_ITEMS = [
   { page: 'dashboard',      icon: '🏠',  label: 'หน้าหลัก' },
   { page: 'employees',      icon: '👥',  label: 'พนักงาน' },
+  { page: 'coaching-plan',  icon: '📅',  label: 'แผนสอน' },
   { page: 'trainings',      icon: '📚',  label: 'การสอน' },
   { page: 'course-history', icon: '🎓',  label: 'หลักสูตร' },
   { page: 'cases',          icon: '📨',  label: 'เคส' },
@@ -6826,7 +6827,8 @@ function buildBranchNav() {
     <div class="nav-section-label">เมนูหลัก</div>
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> แผน &amp; บันทึกการสอนงาน</div>
+    <div class="nav-item" id="nav-coaching-plan" onclick="showPage('coaching-plan')"><span class="nav-icon">📅</span> แผนการสอนงาน</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-divider"></div>
     <div class="nav-section-label">การจัดการข้อมูล</div>
@@ -6912,6 +6914,7 @@ function showPage(page) {
   const pages = {
     'dashboard': renderDashboard, 'employees': renderEmployees,
     'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
+    'coaching-plan': renderCoachingPlanPage,
     'course-history': renderCourseHistory,
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
@@ -6959,6 +6962,7 @@ function updateBottomNav(page) {
     'dashboard': 'bnav-dashboard',
     'employees': 'bnav-employees',
     'trainings': 'bnav-trainings',
+    'coaching-plan': 'bnav-coaching-plan',
     'evaluations': 'bnav-trainings',
     'course-history': 'bnav-course-history',
     'manual': 'bnav-trainings',
@@ -8440,12 +8444,11 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">แผนการสอน &amp; บันทึกการสอนงาน</div>
-      <div class="page-hero-sub">วางแผนประจำเดือน แล้วบันทึกการสอนและประเมินผลในหน้าเดียวกัน</div>
+      <div class="page-hero-title">บันทึกการสอนงานและการประเมินผล</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
-  ${renderCoachingPlanPanel(bid)}
+  ${renderPlanStrip(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -15237,6 +15240,27 @@ function renderCoachingPlanPanel(bid) {
   </div>`;
 }
 
+/* หน้าแผนการสอนงาน (เมนูของตัวเอง) */
+function renderCoachingPlanPage() {
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body"><div class="page-hero-title">แผนการสอนงาน</div></div>
+    <button class="btn btn-outline" onclick="showPage('trainings')">📚 ไปหน้าบันทึกการสอน</button>
+  </div>
+  ${renderCoachingPlanPanel(getBranchId())}`;
+}
+/* แถบสั้นบนหน้าบันทึกการสอน — ความคืบหน้าแผนเดือนนี้ กดแล้วไปหน้าแผน */
+function renderPlanStrip(bid) {
+  if (!_coachingReady || !bid || bid === 'ALL') return '';
+  const ym = _ymNow(), items = getCoachingPlan(bid, ym).items || [];
+  const done = items.filter(it => _planItemDone(bid, ym, it)).length;
+  return `<div onclick="_planMonth='${ym}';showPage('coaching-plan')" style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 16px;margin-bottom:16px;font-size:13.5px">
+    <span style="font-weight:800">📅 แผนการสอนเดือน${_ymLabel(ym)}</span>
+    <span style="color:var(--text2)">${items.length ? `สอนแล้ว <b style="color:var(--green)">${done}</b> จาก ${items.length} แผน` : 'ยังไม่ได้วางแผนเดือนนี้'}</span>
+    <span style="margin-left:auto;color:var(--accent);font-weight:700">${items.length ? 'ดูแผน' : 'วางแผน'} →</span>
+  </div>`;
+}
 function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
 
 /* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
