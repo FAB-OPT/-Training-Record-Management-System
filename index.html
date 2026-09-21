@@ -2712,6 +2712,26 @@ body.admin-user .btn-navy{background:var(--primary)}
 .tk2-done{margin:auto 14px 12px;font-size:12px;font-weight:700;color:var(--green)}
 @media (max-width:760px){ .tk2-grid{grid-template-columns:1fr 1fr;gap:8px} .tk2{min-height:118px} .tk2-n{font-size:24px} }
 </style>
+<style>
+/* ตารางสาขาของ admin — อ่านง่าย */
+.br2 td{padding-top:9px;padding-bottom:9px}
+.br2 tbody tr:hover{background:var(--surface2)}
+.br2-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.br2-code{display:inline-block;font-weight:800;font-size:12.5px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-variant-numeric:tabular-nums}
+.br2-name{font-weight:700;cursor:pointer;color:var(--text)}
+.br2-name:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.br2-mgr{font-size:13px;white-space:nowrap}
+.br2-sub{color:var(--text3);font-size:12px;font-weight:500}
+.br2-n{font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.br2-z{color:var(--text4)}
+.br2-total{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.br2-bar{display:flex;height:4px;width:56px;margin:4px auto 0;border-radius:99px;overflow:hidden;background:var(--surface2)}
+.br2-bar span{display:block;height:100%}
+.br2-empty td{color:var(--text3)}
+.br2-empty .br2-name{color:var(--text2);font-weight:600}
+.br2-del{border:1px solid transparent;background:transparent;color:var(--text3);font:600 12.5px Sarabun,sans-serif;border-radius:8px;padding:6px 10px;margin-left:2px;cursor:pointer}
+.br2-del:hover{color:var(--red);border-color:#F2C9C5;background:var(--red-light)}
+</style>
 </head>
 <body>
 
@@ -14579,15 +14599,15 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
   </div>
   <div class="card">
     <div class="table-wrap">
-      <table class="cards-on-mobile branch-table">
+      <table class="cards-on-mobile branch-table br2">
         <thead><tr>
           ${_sortHeader('id','รหัส',_branchSort,'setBranchSort')}
           ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
           ${_sortHeader('manager','ผู้จัดการเขต',_branchSort,'setBranchSort')}
           ${_sortHeader('employees','ทั้งหมด',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('mgr_team','ผจก.สาขา',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('cook','ครัว',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('service','บริการ',_branchSort,'setBranchSort','center')}
+          ${_sortHeader('mgr_team','<span class="br2-dot" style="background:#3B6FB6"></span>ผจก.สาขา',_branchSort,'setBranchSort','center')}
+          ${_sortHeader('cook','<span class="br2-dot" style="background:#C2413A"></span>ครัว',_branchSort,'setBranchSort','center')}
+          ${_sortHeader('service','<span class="br2-dot" style="background:#2F8F5B"></span>บริการ',_branchSort,'setBranchSort','center')}
           <th style="text-align:right">จัดการ</th>
         </tr></thead>
         <tbody id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</tbody>
@@ -14665,8 +14685,11 @@ function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
 function renderAdminBranches() { _adminManageTab = 'branches'; return renderAdminManage(); }
 function renderAdminEmployees() { _adminManageTab = 'employees'; return renderAdminManage(); }
 
+/* ตารางสาขา (admin) — อ่านง่าย: เลข 0 เป็นขีดจาง · ตัวเลขสีเดียว · ชื่อเล่นผู้จัดการเขตเด่น
+   แถบเล็กบอกสัดส่วน ผจก./ครัว/บริการ · ปุ่มลบเรียบ ชี้แล้วค่อยแดง */
 function renderBranchRows(entries) {
   if(!entries.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบสาขา</td></tr>';
+  const num = n => n ? `<b class="br2-n">${n}</b>` : '<span class="br2-z">–</span>';
   return entries.map(([id,b])=>{
     const emps = getBranchEmployees(id).filter(e => e.status === 'active');
     const totalEmp = emps.length;
@@ -14674,17 +14697,24 @@ function renderBranchRows(entries) {
     const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
     const service = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
     const shortName = b.name.replace(id+' ','');
-    return `<tr>
-      <td data-label="รหัส" style="font-weight:800;color:var(--primary)">${id}</td>
-      <td data-label="ชื่อ" style="cursor:pointer" onclick="adminViewBranch('${id}')" title="คลิกเพื่อดูพนักงาน"><strong style="font-weight:700">${shortName}</strong></td>
-      <td data-label="ผู้จัดการ" style="color:var(--text2);font-size:12.5px">${b.manager||'—'}</td>
-      <td data-label="พนักงานทั้งหมด" style="text-align:center;font-weight:800">${totalEmp}</td>
-      <td data-label="ทีมผู้จัดการสาขา" style="text-align:center;font-weight:700;color:var(--blue)">${mgrTeam}</td>
-      <td data-label="พนักงานครัว" style="text-align:center;font-weight:700;color:var(--red)">${cook}</td>
-      <td data-label="พนักงานบริการ" style="text-align:center;font-weight:700;color:var(--green)">${service}</td>
+    /* "นพชัย จันทร์รุ่ง (พี่นพ)" → ชื่อเล่นตัวหนา ชื่อเต็มตัวเล็ก */
+    const m = String(b.manager || '').match(/^(.*?)\s*\((.+)\)\s*$/);
+    const mgrHtml = !b.manager ? '<span class="br2-z">–</span>'
+      : m ? `<b>${m[2]}</b> <span class="br2-sub">${m[1]}</span>` : `<b>${b.manager}</b>`;
+    const pct = n => totalEmp ? (n / totalEmp * 100).toFixed(1) : 0;
+    const bar = totalEmp ? `<div class="br2-bar" title="ผจก. ${mgrTeam} · ครัว ${cook} · บริการ ${service}">
+        <span style="width:${pct(mgrTeam)}%;background:#3B6FB6"></span><span style="width:${pct(cook)}%;background:#C2413A"></span><span style="width:${pct(service)}%;background:#2F8F5B"></span></div>` : '';
+    return `<tr class="${totalEmp ? '' : 'br2-empty'}">
+      <td data-label="รหัส"><span class="br2-code">${id}</span></td>
+      <td data-label="ชื่อ" class="br2-name" onclick="adminViewBranch('${id}')" title="คลิกเพื่อดูพนักงาน">${shortName}</td>
+      <td data-label="ผู้จัดการ" class="br2-mgr">${mgrHtml}</td>
+      <td data-label="พนักงานทั้งหมด" style="text-align:center">${totalEmp ? `<b class="br2-total">${totalEmp}</b>${bar}` : '<span class="br2-sub">ยังไม่มีพนักงาน</span>'}</td>
+      <td data-label="ทีมผู้จัดการสาขา" style="text-align:center">${num(mgrTeam)}</td>
+      <td data-label="พนักงานครัว" style="text-align:center">${num(cook)}</td>
+      <td data-label="พนักงานบริการ" style="text-align:center">${num(service)}</td>
       <td data-label="actions" style="text-align:right;white-space:nowrap">
-        <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openEditBranch('${id}')">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" onclick="openDeleteBranch('${id}')">ลบ</button>
+        <button class="btn btn-sm btn-outline" onclick="openEditBranch('${id}')">แก้ไข</button>
+        <button class="br2-del" onclick="openDeleteBranch('${id}')" title="ลบสาขา">ลบ</button>
       </td>
     </tr>`;
   }).join('');
