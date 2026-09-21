@@ -4566,7 +4566,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], courseCatalog: [], chatLogs: [], cases: [], adminUsers: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], courseCatalog: [], chatLogs: [], cases: [], adminUsers: [], coachingPlans: {}, transferRequests: [] };
 /* ── แคช DB: ย้ายจาก localStorage → IndexedDB ───────────────────────────
    opt_db_cache กินราว 1.5 MB จากโควตา localStorage ~10 MB ที่ทุกแอปบน
    โดเมนนี้ใช้ร่วมกัน (hub / checklist / sales report) พอโควตาเต็มแอปอื่น
@@ -4838,6 +4838,8 @@ const _SB_TABLE = {
   trainingDrafts: 'training_drafts',
   cases:         'cases',
   chatLogs:      'chat_logs',
+  coachingPlans:    'coaching_plans',
+  transferRequests: 'transfer_requests',
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
@@ -4849,6 +4851,9 @@ const _SB_FIELD_MAP = {
   customQuiz:    { moduleId:'module_id' },
   courseHistory: { branchId:'branch_id', empId:'emp_id', empCode:'emp_code', empName:'emp_name', courseName:'course_name', batchNo:'batch_no', courseDate:'course_date' },
   branchOverrides: { branchId:'branch_id', managerName:'manager_name', branchName:'branch_name' },
+  coachingPlans:    { branchId:'branch_id', updatedBy:'updated_by', updatedAt:'updated_at' },
+  transferRequests: { empId:'emp_id', empName:'emp_name', empCode:'emp_code', fromBranch:'from_branch', toBranch:'to_branch', moveDate:'move_date',
+                      requestedBy:'requested_by', requestedAt:'requested_at', decidedBy:'decided_by', decidedAt:'decided_at', decisionNote:'decision_note' },
 };
 function _camelToSnake(s) { return s.replace(/[A-Z]/g, c => '_' + c.toLowerCase()); }
 function _snakeToCamel(s) { return s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }
@@ -4910,7 +4915,7 @@ async function _sbAll(sb, table, tweak, max) {
 async function sbLoadAll() {
   await sbAuthReady();          // รอล็อกอิน Supabase ก่อนแตะตาราง
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
-  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse, clg] = await Promise.all([
+  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse, clg, cpl, trq] = await Promise.all([
     _sbAll(sb, 'employees'),
     _sbAll(sb, 'trainings'),
     _sbAll(sb, 'quiz_results'),
@@ -4922,7 +4927,20 @@ async function sbLoadAll() {
     _sbAll(sb, 'cases'),
     // ประวัติแชต — เอาแค่ 2,000 รายการล่าสุดพอ หน้าประวัติโชว์ได้ 80 บทสนทนาอยู่แล้ว
     _sbAll(sb, 'chat_logs', q => q.order('ts', { ascending: false }), 2000),
+    _sbAll(sb, 'coaching_plans'),
+    _sbAll(sb, 'transfer_requests'),
   ]);
+  /* แผนการสอนประจำเดือน + คำขอย้ายสาขา — ตารางใหม่ (supabase-coaching-plan-transfer.sql)
+     ยังไม่ได้รัน SQL = ข้ามเงียบ ๆ แล้วหน้าจอบอกว่ายังไม่เปิดใช้งาน ไม่ให้บันทึกลงที่ไม่มีอยู่ */
+  if (cpl && !cpl.error && Array.isArray(cpl.data)) {
+    _coachingReady = true;
+    DB.coachingPlans = {};
+    cpl.data.forEach(r => { const p = _fromSb('coachingPlans', r); if (!Array.isArray(p.items)) p.items = []; DB.coachingPlans[p.id] = p; });
+  }
+  if (trq && !trq.error && Array.isArray(trq.data)) {
+    _xferReady = true;
+    DB.transferRequests = trq.data.map(r => _fromSb('transferRequests', r));
+  }
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
   }
@@ -6848,6 +6866,16 @@ function showPage(page) {
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
+  /* ของใหม่ที่ admin ต้องเห็น — แทรกหลังหัวหน้าของหน้านั้น ไม่ต้องรื้อแม่แบบเดิม */
+  if (currentUser?.type === 'admin') {
+    const extra = (page === 'admin-dashboard' || page === 'admin-manage') ? renderAdminTransferCard()
+                : page === 'admin-trainings' ? renderAdminPlanOverview() : '';
+    if (extra) {
+      const main = document.getElementById('main-content');
+      const head = main.querySelector(':scope > .page-hero, :scope > .topbar');
+      if (head) head.insertAdjacentHTML('afterend', extra); else main.insertAdjacentHTML('afterbegin', extra);
+    }
+  }
   if (currentUser && currentUser.type === 'branch') {
     document.querySelectorAll('#main-content .topbar').forEach(el => el.remove());
   }
@@ -8077,6 +8105,7 @@ function renderEmployees() {
     </div>
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
+  ${renderBranchTransferCard(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="emp-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -8129,7 +8158,10 @@ function renderEmpRows(emps) {
     <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${e.position}</td>
     <td data-label="วันเริ่มงาน" style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
     <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent)">${calcTenureShort(e.startDate)}</span></td>
-    <td data-label="actions" style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
+    <td data-label="actions" style="text-align:right;white-space:nowrap">${_isEmpEnabled(e) && currentUser?.type === 'branch' ? (
+        (DB.transferRequests || []).some(r => r.empId === e.id && r.status === 'pending')
+          ? '<span class="badge badge-yellow" style="margin-right:4px">รออนุมัติย้าย</span>'
+          : `<button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openTransferRequest('${e.id}')">ขอย้าย</button>`) : ''}<button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
 
@@ -8347,6 +8379,7 @@ function renderTrainings() {
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
+  ${renderCoachingPlanPanel(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -15030,6 +15063,373 @@ function adminAddEmpToBranch(bid) {
   });
 }
 
+// ==================== แผนการสอนงานประจำเดือน ====================
+// สาขาวางแผนก่อนว่าเดือนนี้จะสอน Module ไหนให้ใคร แยกครัว / บริการ
+// แล้วค่อยไปบันทึกการสอนตามปกติ — แผนเป็นแค่ตัวช่วยวางงาน
+// บันทึกที่ไม่ตรงแผน (สอนนอกแผน · สอนไม่ครบ · คนละวัน) ระบบไม่ฟ้องอะไรทั้งนั้น
+// แค่ขึ้นเครื่องหมาย "สอนแล้ว" ให้แผนที่มีบันทึกตรงกันในเดือนเดียวกัน
+// ตาราง coaching_plans · 1 แถว = 1 สาขา 1 เดือน (supabase-coaching-plan-transfer.sql)
+let _coachingReady = false;          // true = ตารางมีอยู่จริง บันทึกได้
+let _planMonth = null;               // YYYY-MM ที่กำลังดู
+const _TH_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const _ymNow = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const _ymShift = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const _ymLabel = ym => { const [y, m] = ym.split('-').map(Number); return _TH_MONTHS[m - 1] + ' ' + (y + 543); };
+const _ymOf = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const _planId = (bid, ym) => bid + '_' + ym;
+const _planGroup = moduleId => (MODULES[moduleId] && MODULES[moduleId].group === 'Cook') ? 'kitchen' : 'service';
+const _escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function getCoachingPlan(bid, ym) {
+  return (DB.coachingPlans || {})[_planId(bid, ym)] || { id: _planId(bid, ym), branchId: bid, month: ym, items: [] };
+}
+/* แผนข้อนี้มีบันทึกการสอนตรงกันไหม — เดือนเดียวกัน Module เดียวกัน
+   ถ้าแผนระบุคนไว้ ต้องมีคนในแผนอยู่ในบันทึกอย่างน้อย 1 คน
+   ใช้แค่ขึ้นเครื่องหมาย ไม่ใช่ตัวตัดสินอะไร */
+function _planItemDone(bid, ym, it) {
+  return (DB.trainings || []).some(t =>
+    t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+}
+
+function renderCoachingPlanPanel(bid) {
+  if (!bid || bid === 'ALL') return '';
+  if (!_planMonth) _planMonth = _ymNow();
+  const ym = _planMonth, plan = getCoachingPlan(bid, ym);
+  const items = plan.items || [];
+  const canEdit = _coachingReady && (currentUser?.type === 'branch' || isAdminRole());
+  const col = (grp, icon, label) => {
+    const list = items.filter(it => _planGroup(it.moduleId) === grp);
+    const done = list.filter(it => _planItemDone(bid, ym, it)).length;
+    return `<div class="cp-col">
+      <div class="cp-col-head">
+        <span class="cp-col-title">${icon} ${label}</span>
+        <span class="cp-col-count">${list.length ? `สอนแล้ว <b>${done}</b>/${list.length}` : 'ยังไม่มีแผน'}</span>
+        ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}')">+ เพิ่มแผน</button>` : ''}
+      </div>
+      ${list.length ? list.map(it => {
+        const m = MODULES[it.moduleId] || {};
+        const ok = _planItemDone(bid, ym, it);
+        const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
+        return `<div class="cp-item ${ok ? 'ok' : ''}">
+          <div class="cp-item-main">
+            <div class="cp-item-name">${_escH(m.name || it.moduleId)}</div>
+            <div class="cp-item-meta">
+              ${(it.subtopics || []).length ? `<span>${it.subtopics.length} หัวข้อย่อย</span>` : ''}
+              ${names.length ? `<span>👤 ${_escH(names.join(', '))}</span>` : '<span>ยังไม่ระบุคน</span>'}
+              ${it.planDate ? `<span>📅 ${_escH(fmtDate(it.planDate))}</span>` : ''}
+              ${it.note ? `<span>📝 ${_escH(it.note)}</span>` : ''}
+            </div>
+          </div>
+          <div class="cp-item-side">
+            ${ok ? '<span class="badge badge-green">✓ สอนแล้ว</span>' : ''}
+            ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
+            ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
+          </div>
+        </div>`;
+      }).join('') : `<div class="cp-empty">กด "+ เพิ่มแผน" เพื่อวางว่าเดือนนี้จะสอน Module ไหน</div>`}
+    </div>`;
+  };
+  return `
+  <style>
+    .cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+    .cp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .cp-title{font-size:16px;font-weight:800;color:var(--text);flex:1;min-width:200px}
+    .cp-title small{display:block;font-size:12px;font-weight:500;color:var(--text3);margin-top:2px}
+    .cp-month{display:flex;align-items:center;gap:6px}
+    .cp-month b{min-width:130px;text-align:center;font-size:14px}
+    .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .cp-col{background:var(--surface2);border-radius:12px;padding:12px}
+    .cp-col-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+    .cp-col-title{font-weight:800;font-size:14px;flex:1}
+    .cp-col-count{font-size:12px;color:var(--text2)}
+    .cp-col-count b{color:var(--green)}
+    .cp-item{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:8px}
+    .cp-item.ok{border-color:#BBE5C8}
+    .cp-item-main{flex:1;min-width:0}
+    .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
+    .cp-item-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text3);margin-top:3px}
+    .cp-item-side{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
+    @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} .cp-item{flex-direction:column;align-items:stretch} .cp-item-side{justify-content:flex-start} }
+  </style>
+  <div class="cp-card">
+    <div class="cp-top">
+      <div class="cp-title">📅 แผนการสอนงานประจำเดือน
+        <small>วางแผนก่อนแล้วค่อยบันทึกการสอน · บันทึกไม่ตรงแผนได้ ระบบไม่ฟ้อง</small></div>
+      <div class="cp-month">
+        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
+        <b>${_ymLabel(ym)}</b>
+        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
+      </div>
+    </div>
+    ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+      ระบบแผนการสอนยังไม่เปิดใช้งาน${isAdminRole() ? ' — ต้องรันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน' : ' — แจ้ง Admin'}</div>` : ''}
+    <div class="cp-grid">
+      ${col('kitchen', '👨‍🍳', 'ครัว')}
+      ${col('service', '🍽', 'บริการ')}
+    </div>
+  </div>`;
+}
+
+function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
+
+/* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
+function openPlanItem(grp, itemId) {
+  if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const plan = getCoachingPlan(bid, ym);
+  const it = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
+  const want = grp === 'kitchen' ? 'Cook' : 'Service';
+  const mods = Object.entries(MODULES).filter(([, m]) => m.group === want);
+  const empGrp = grp === 'kitchen' ? 'พนักงานครัว' : 'พนักงานบริการ';
+  /* คนในกลุ่มนั้นขึ้นก่อน ทีมผู้จัดการสาขาตามมา (สอนได้ทั้งสองฝั่ง) */
+  const emps = getBranchEmployees(bid).filter(_isEmpEnabled)
+    .filter(e => [empGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
+    .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
+  const sel = new Set((it && it.empIds) || []);
+  showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
+    <div class="form-full">
+      <label class="form-label">Module <span class="req">*</span></label>
+      <select class="form-select" id="cp-module" onchange="_cpSubtopics()">
+        <option value="">— เลือก Module —</option>
+        ${mods.map(([id, m]) => `<option value="${id}"${it && it.moduleId === id ? ' selected' : ''}>${_escH(m.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-full">
+      <label class="form-label">หัวข้อย่อยที่จะสอน <span style="font-weight:500;color:var(--text3)">(ไม่เลือก = ทั้ง Module)</span></label>
+      <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify((it && it.subtopics) || []).replace(/'/g, '&#39;')}'></div>
+    </div>
+    <div class="form-full">
+      <label class="form-label">พนักงานที่จะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+      <div class="checkbox-group" style="max-height:190px;overflow:auto">
+        ${emps.length ? emps.map(e => `<label class="checkbox-item"><input type="checkbox" class="cp-emp" value="${e.id}"${sel.has(e.id) ? ' checked' : ''}> ${_escH(e.name)} <span style="color:var(--text3);font-size:12px">· ${_escH(e.position || '')}</span></label>`).join('')
+          : '<span class="text-muted">ไม่มีพนักงานในกลุ่มนี้</span>'}
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่วางแผนจะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+        <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
+      <div><label class="form-label">หมายเหตุ</label>
+        <input class="form-input" id="cp-note" value="${_escH((it && it.note) || '')}" placeholder="เช่น สอนช่วงบ่ายหลังปิดรอบ"></div>
+    </div>
+    ${itemId ? `<div style="margin-top:12px"><button type="button" class="btn btn-sm btn-danger" onclick="deletePlanItem('${itemId}')">ลบแผนข้อนี้</button></div>` : ''}
+  `, () => {
+    const moduleId = document.getElementById('cp-module').value;
+    if (!moduleId) { notify('กรุณาเลือก Module', 'error'); return; }
+    const rec = {
+      id: itemId || genId('P'), moduleId,
+      subtopics: [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value),
+      empIds: [...document.querySelectorAll('.cp-emp:checked')].map(c => c.value),
+      planDate: document.getElementById('cp-date').value || '',
+      note: (document.getElementById('cp-note').value || '').trim()
+    };
+    const p = getCoachingPlan(bid, ym);
+    const items = (p.items || []).filter(x => x.id !== rec.id);
+    const at = itemId ? (p.items || []).findIndex(x => x.id === itemId) : -1;
+    if (at >= 0) items.splice(at, 0, rec); else items.push(rec);
+    _savePlan(bid, ym, items);
+    closeModal(); showPage(currentPage); notify('บันทึกแผนการสอนแล้ว');
+  }, 'บันทึกแผน');
+  _cpSubtopics();
+}
+function _cpSubtopics() {
+  const box = document.getElementById('cp-subs'); if (!box) return;
+  const m = MODULES[document.getElementById('cp-module').value];
+  let pre = []; try { pre = JSON.parse(box.dataset.sel || '[]'); } catch (_) {}
+  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
+    : '<span class="text-muted">เลือก Module ก่อน</span>';
+}
+function deletePlanItem(itemId) {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const p = getCoachingPlan(bid, ym);
+  _savePlan(bid, ym, (p.items || []).filter(x => x.id !== itemId));
+  closeModal(); showPage(currentPage); notify('ลบแผนแล้ว');
+}
+function _savePlan(bid, ym, items) {
+  const rec = { id: _planId(bid, ym), branchId: bid, month: ym, items,
+    updatedBy: currentUser?.name || currentUser?.nick || '—', updatedAt: new Date().toISOString() };
+  if (!DB.coachingPlans) DB.coachingPlans = {};
+  DB.coachingPlans[rec.id] = rec;
+  gsSave('coachingPlans', rec.id, rec);
+}
+
+/* กด "บันทึกการสอน" จากแผน → เปิดหน้าต่างบันทึกเดิม แล้วเติมคนกับ Module ให้
+   ยังแก้ได้ทุกช่อง — บันทึกจริงไม่ต้องตรงแผน */
+function startTrainingFromPlan(itemId) {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
+  openAddTraining();
+  setTimeout(() => {
+    (it.empIds || []).slice(0, 2).forEach(id => { if (document.getElementById('empopt-' + id)) toggleEmpSelection(id); });
+    const sel = document.getElementById('tr-module');
+    if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
+      sel.value = it.moduleId;
+      try { updateSubtopics(); } catch (_) {}
+      setTimeout(() => (it.subtopics || []).forEach(s => {
+        const c = [...document.querySelectorAll('.sub-check')].find(x => x.value === s);
+        if (c && !c.checked && !c.disabled) c.click();
+      }), 60);
+    }
+  }, 80);
+}
+
+/* ภาพรวมแผนทุกสาขา (หน้าบันทึกการสอนของ admin) — ดูอย่างเดียว */
+function renderAdminPlanOverview() {
+  if (!_planMonth) _planMonth = _ymNow();
+  const ym = _planMonth;
+  const bids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
+  const rows = bids.map(bid => {
+    const items = getCoachingPlan(bid, ym).items || [];
+    const k = items.filter(it => _planGroup(it.moduleId) === 'kitchen');
+    const s = items.filter(it => _planGroup(it.moduleId) === 'service');
+    const d = arr => arr.filter(it => _planItemDone(bid, ym, it)).length;
+    return { bid, name: (BRANCH_MASTER[bid].name || bid).replace(bid + ' ', ''), k: k.length, kd: d(k), s: s.length, sd: d(s) };
+  });
+  const withPlan = rows.filter(r => r.k + r.s);
+  const cell = (n, dn) => n ? `<b>${dn}</b>/${n}` : '<span style="color:var(--text4)">—</span>';
+  return `<div class="card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="flex:1;min-width:220px;font-weight:800;font-size:15px">📅 แผนการสอนงานประจำเดือน · ทุกสาขา
+        <div style="font-size:12px;font-weight:500;color:var(--text3)">มีแผน ${withPlan.length} จาก ${rows.length} สาขา · ตัวเลข = สอนแล้ว/ตามแผน</div></div>
+      <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)">‹</button>
+      <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
+      <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
+    </div>
+    ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
+    withPlan.length ? `<div class="table-wrap" style="max-height:300px;overflow:auto"><table>
+      <thead><tr><th>สาขา</th><th style="text-align:center">👨‍🍳 ครัว</th><th style="text-align:center">🍽 บริการ</th></tr></thead>
+      <tbody>${withPlan.map(r => `<tr><td><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}</td>
+        <td style="text-align:center">${cell(r.k, r.kd)}</td><td style="text-align:center">${cell(r.s, r.sd)}</td></tr>`).join('')}</tbody>
+    </table></div>` : '<div style="font-size:13px;color:var(--text3)">ยังไม่มีสาขาที่วางแผนเดือนนี้</div>'}
+  </div>`;
+}
+
+// ==================== คำขอย้ายสาขา (สาขาขอ · admin อนุมัติ) ====================
+// สาขากด "ขอย้าย" ที่รายชื่อพนักงาน → เกิดคำขอสถานะรออนุมัติ
+// admin อนุมัติ → ย้ายด้วย _moveEmployee (ตัวเดียวกับที่ admin ย้ายเอง เก็บ transferHistory)
+// ตาราง transfer_requests (supabase-coaching-plan-transfer.sql)
+let _xferReady = false;
+const _XFER_ST = { pending:['รออนุมัติ','badge-yellow'], approved:['อนุมัติแล้ว','badge-green'], rejected:['ไม่อนุมัติ','badge-red'], cancelled:['ยกเลิกแล้ว',''] };
+const _xferBadge = st => { const x = _XFER_ST[st] || [st, '']; return `<span class="badge ${x[1]}" style="white-space:nowrap">${x[0]}</span>`; };
+const _bName = bid => BRANCH_MASTER[bid] ? `${bid} ${String(BRANCH_MASTER[bid].name || '').replace(bid + ' ', '')}` : bid;
+
+function openTransferRequest(empId) {
+  if (!_xferReady) { notify('ระบบขอย้ายสาขายังไม่เปิดใช้งาน — แจ้ง Admin', 'error'); return; }
+  const e = getEmployee(empId); if (!e) return;
+  if ((DB.transferRequests || []).some(r => r.empId === empId && r.status === 'pending')) {
+    notify('พนักงานคนนี้มีคำขอย้ายที่รออนุมัติอยู่แล้ว', 'error'); return;
+  }
+  const opts = Object.keys(BRANCH_MASTER).sort().filter(b => b !== e.branchId)
+    .map(b => `<option value="${b}">${_escH(_bName(b))}</option>`).join('');
+  const today = new Date().toISOString().slice(0, 10);
+  showModal(`🔁 ขอย้ายสาขา — ${_escH(e.name)}`, `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+      สาขาปัจจุบัน <b style="color:var(--accent)">${_escH(_bName(e.branchId))}</b> · ${_escH(e.position || '—')}
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ย้ายไปสาขา <span class="req">*</span></label>
+        <select class="form-select" id="xr-to"><option value="">— เลือกสาขาปลายทาง —</option>${opts}</select></div>
+      <div><label class="form-label">วันที่ต้องการย้าย <span class="req">*</span></label>
+        <input class="form-input" type="date" id="xr-date" value="${today}"></div>
+    </div>
+    <div class="form-full"><label class="form-label">เหตุผล <span class="req">*</span></label>
+      <input class="form-input" id="xr-reason" placeholder="เช่น ย้ายตามที่อยู่ใหม่ · ช่วยสาขาเปิดใหม่"></div>
+    <div style="margin-top:10px;font-size:12.5px;color:var(--text3)">ส่งแล้ว Admin เป็นผู้อนุมัติ · ระหว่างรออนุมัติ พนักงานยังอยู่สาขาเดิม</div>
+  `, () => {
+    const to = document.getElementById('xr-to').value, date = document.getElementById('xr-date').value;
+    const reason = (document.getElementById('xr-reason').value || '').trim();
+    if (!to) { notify('กรุณาเลือกสาขาปลายทาง', 'error'); return; }
+    if (!date) { notify('กรุณาเลือกวันที่', 'error'); return; }
+    if (!reason) { notify('กรุณาใส่เหตุผล', 'error'); return; }
+    const r = { id: genId('X'), empId, empName: e.name, empCode: e.empCode || '', position: e.position || '',
+      fromBranch: e.branchId, toBranch: to, moveDate: date, reason, status: 'pending',
+      requestedBy: currentUser?.name || currentUser?.nick || e.branchId, requestedAt: new Date().toISOString() };
+    if (!DB.transferRequests) DB.transferRequests = [];
+    DB.transferRequests.push(r);
+    gsSave('transferRequests', r.id, r);
+    closeModal(); showPage(currentPage); notify('ส่งคำขอย้ายสาขาแล้ว รอ Admin อนุมัติ');
+  }, 'ส่งคำขอ');
+}
+
+function cancelTransferRequest(id) {
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r || r.status !== 'pending') return;
+  if (!confirm(`ยกเลิกคำขอย้าย ${r.empName} ?`)) return;
+  Object.assign(r, { status: 'cancelled', decidedBy: currentUser?.name || currentUser?.nick || '—', decidedAt: new Date().toISOString() });
+  gsSave('transferRequests', r.id, { ...r });
+  showPage(currentPage); notify('ยกเลิกคำขอแล้ว');
+}
+
+/* คำขอของสาขานี้ (ขาออก) — แสดงบนหน้ารายชื่อพนักงาน */
+function renderBranchTransferCard(bid) {
+  if (!bid || bid === 'ALL') return '';
+  const list = (DB.transferRequests || []).filter(r => r.fromBranch === bid || r.toBranch === bid)
+    .sort((a, b) => String(b.requestedAt).localeCompare(String(a.requestedAt))).slice(0, 8);
+  if (!list.length) return '';
+  return `<div class="card" style="margin-bottom:16px">
+    <div style="font-weight:800;font-size:15px;margin-bottom:8px">🔁 คำขอย้ายสาขา</div>
+    <div class="table-wrap"><table class="cards-on-mobile">
+      <thead><tr><th>พนักงาน</th><th>จาก → ไป</th><th>วันที่ย้าย</th><th>สถานะ</th><th></th></tr></thead>
+      <tbody>${list.map(r => `<tr>
+        <td data-label="พนักงาน"><strong>${_escH(r.empName)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(r.reason || '')}</div></td>
+        <td data-label="จาก → ไป" style="font-size:12.5px">${_escH(_bName(r.fromBranch))} → <b>${_escH(_bName(r.toBranch))}</b></td>
+        <td data-label="วันที่ย้าย" style="font-size:12.5px">${_escH(fmtDate(r.moveDate) || '—')}</td>
+        <td data-label="สถานะ">${_xferBadge(r.status)}${r.decisionNote ? `<div style="font-size:11.5px;color:var(--text3);margin-top:3px">${_escH(r.decisionNote)}</div>` : ''}</td>
+        <td data-label="actions" style="text-align:right">${r.status === 'pending' && r.fromBranch === bid ? `<button class="btn btn-sm btn-outline" onclick="cancelTransferRequest('${r.id}')">ยกเลิก</button>` : ''}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* การ์ดคำขอที่รออนุมัติ — ขึ้นบนหน้าแดชบอร์ดและหน้าจัดการของ admin */
+function renderAdminTransferCard() {
+  if (!isAdminRole() || !_xferReady) return '';
+  const acc = new Set(getAccessibleBranches());
+  const list = (DB.transferRequests || []).filter(r => r.status === 'pending' && (acc.has(r.fromBranch) || acc.has(r.toBranch)))
+    .sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+  if (!list.length) return '';
+  return `<div class="card xr-admin" style="margin-bottom:16px;border-left:5px solid var(--yellow)">
+    <div style="font-weight:800;font-size:15px;margin-bottom:8px">🔁 คำขอย้ายสาขารออนุมัติ <span class="badge badge-yellow">${list.length}</span></div>
+    <div class="table-wrap"><table class="cards-on-mobile">
+      <thead><tr><th>พนักงาน</th><th>จาก → ไป</th><th>วันที่ย้าย</th><th>เหตุผล</th><th>ขอเมื่อ</th><th></th></tr></thead>
+      <tbody>${list.map(r => `<tr>
+        <td data-label="พนักงาน"><strong>${_escH(r.empName)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(r.position || '')}${r.empCode ? ' · ' + _escH(r.empCode) : ''}</div></td>
+        <td data-label="จาก → ไป" style="font-size:12.5px">${_escH(_bName(r.fromBranch))} → <b>${_escH(_bName(r.toBranch))}</b></td>
+        <td data-label="วันที่ย้าย" style="font-size:12.5px">${_escH(fmtDate(r.moveDate) || '—')}</td>
+        <td data-label="เหตุผล" style="font-size:12.5px">${_escH(r.reason || '—')}</td>
+        <td data-label="ขอเมื่อ" style="font-size:12px;color:var(--text3)">${_escH(fmtDate(r.requestedAt) || '')}<br>${_escH(r.requestedBy || '')}</td>
+        <td data-label="actions" style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
+          <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>
+        </td></tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function decideTransferRequest(id, approve) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่อนุมัติได้', 'error'); return; }
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r || r.status !== 'pending') return;
+  const e = getEmployee(r.empId);
+  if (approve && !e) { notify('ไม่พบพนักงานคนนี้แล้ว — อาจถูกลบไป', 'error'); return; }
+  if (approve && e.branchId !== r.fromBranch) {
+    if (!confirm(`${r.empName} ย้ายไป ${e.branchId} แล้วก่อนหน้านี้ — ยังจะย้ายไป ${r.toBranch} ต่อหรือไม่?`)) return;
+  }
+  showModal(approve ? `อนุมัติย้าย ${_escH(r.empName)}` : `ไม่อนุมัติคำขอของ ${_escH(r.empName)}`, `
+    <div style="font-size:13.5px;margin-bottom:10px">${_escH(_bName(r.fromBranch))} → <b>${_escH(_bName(r.toBranch))}</b> · ${_escH(fmtDate(r.moveDate) || '')}</div>
+    <label class="form-label">หมายเหตุถึงสาขา ${approve ? '(ไม่บังคับ)' : '<span class="req">*</span>'}</label>
+    <input class="form-input" id="xr-note" placeholder="${approve ? '' : 'เช่น รอคุยกับ BZM ก่อน'}">
+  `, () => {
+    const note = (document.getElementById('xr-note').value || '').trim();
+    if (!approve && !note) { notify('กรุณาใส่เหตุผลที่ไม่อนุมัติ', 'error'); return; }
+    if (approve) _moveEmployee(r.empId, r.toBranch, r.moveDate, 'ตามคำขอสาขา: ' + (r.reason || ''));
+    Object.assign(r, { status: approve ? 'approved' : 'rejected', decisionNote: note,
+      decidedBy: currentUser?.name || currentUser?.nick || '—', decidedAt: new Date().toISOString() });
+    gsSave('transferRequests', r.id, { ...r });
+    closeModal(); showPage(currentPage);
+    notify(approve ? `ย้าย ${r.empName} ไป ${r.toBranch} แล้ว` : 'บันทึกไม่อนุมัติแล้ว');
+  }, approve ? 'ยืนยันอนุมัติ' : 'ยืนยันไม่อนุมัติ');
+}
+
 // ==================== EMPLOYEE BRANCH TRANSFER ====================
 // Moves an employee record from one branch to another while preserving:
 // - employee.id (so all training history stays linked)
@@ -15081,6 +15481,16 @@ function openTransferEmployee(empId, fromBid) {
 function _doTransferEmployee(empId, fromBid, toBid, date, reason) {
   const e = getEmployee(empId); if (!e) return;
   const oldBid = e.branchId;
+  _moveEmployee(empId, toBid, date, reason);
+  notify(`ย้าย ${e.name} จาก ${oldBid} → ${toBid} สำเร็จ`);
+  closeModal();
+  // Re-open the destination branch view so admin sees the move
+  setTimeout(() => adminViewBranch(toBid), 150);
+}
+/* ย้ายจริง (ไม่มีหน้าจอ) — ใช้ทั้งตอน admin ย้ายเอง และตอนอนุมัติคำขอของสาขา */
+function _moveEmployee(empId, toBid, date, reason) {
+  const e = getEmployee(empId); if (!e) return;
+  const oldBid = e.branchId;
   // Remove from old branch's array
   if (DB.employees[oldBid]) {
     DB.employees[oldBid] = DB.employees[oldBid].filter(x => x.id !== empId);
@@ -15101,10 +15511,6 @@ function _doTransferEmployee(empId, fromBid, toBid, date, reason) {
   DB.employees[toBid].push(e);
   // Persist
   gsSave('employees', e.id, {...e});
-  notify(`ย้าย ${e.name} จาก ${oldBid} → ${toBid} สำเร็จ`);
-  closeModal();
-  // Re-open the destination branch view so admin sees the move
-  setTimeout(() => adminViewBranch(toBid), 150);
 }
 
 function adminEditEmp(empId, bid) {
