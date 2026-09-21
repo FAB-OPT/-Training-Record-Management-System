@@ -2652,6 +2652,66 @@
     .btn:active { opacity: 0.8; transform: scale(0.97); }
   }
 </style>
+<style>
+/* ═══════════ หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ═══════════
+   โทนสว่าง พื้นเทาอมเขียวแบบกระดาษบิลครัว (#F3F4F1) ตัวหนังสือกราไฟต์ (#1D2322)
+   ส้มแบรนด์ (#FF6B1A) ใช้เฉพาะจุดที่ต้องกด · เปลี่ยนเฉพาะฝั่ง admin (body.admin-user)
+   ฝั่งสาขาใช้หน้าตาเดิมทุกอย่าง */
+body.admin-user{
+  --bg:#F3F4F1; --surface:#FFFFFF; --surface2:#ECEEE9; --surface3:#E2E5DF;
+  --border:#DCDFD8; --border2:#C4C9C1;
+  --primary:#1D2322; --primary-hover:#2A3230; --primary-light:#ECEEE9;
+  --text:#1D2322; --text2:#56605C; --text3:#838C88; --text4:#B6BDB8;
+  --green:#2F8F5B; --green-light:#E6F3EB; --yellow:#B7791F; --yellow-light:#FBF1DE;
+  --red:#C2413A; --red-light:#FBE9E7;
+  --shadow-sm:none; --shadow:0 1px 0 rgba(29,35,34,.04); --shadow-lg:0 16px 40px rgba(29,35,34,.14);
+  --ring:0 0 0 3px rgba(29,35,34,.14);
+  background:var(--bg);
+}
+body.admin-user .sidebar{background:#FFFFFF;border-right-color:var(--border)}
+body.admin-user .sidebar-header{border-bottom-color:var(--border)}
+body.admin-user .branch-info{background:var(--surface2);border-color:var(--border)}
+body.admin-user .nav-section-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.6px;text-transform:none;padding:14px 11px 5px}
+body.admin-user .nav-divider{display:none}
+body.admin-user .nav-item{color:var(--text);font-weight:600}
+body.admin-user .nav-item:hover{background:var(--surface2)}
+/* เมนูที่เลือกอยู่เป็นกราไฟต์ ไม่ใช่ส้ม — ส้มเหลือไว้ให้สิ่งที่ต้องกด */
+body.admin-user .nav-item.active{background:var(--primary);color:#FFFFFF;box-shadow:none}
+body.admin-user .nav-item.active .nav-icon{color:#FFFFFF}
+body.admin-user .nav-count{margin-left:auto;min-width:20px;text-align:center;font-size:11px;font-weight:800;line-height:18px;
+  background:var(--accent);color:#FFFFFF;border-radius:999px;padding:0 6px}
+body.admin-user .nav-item.active .nav-count{background:#FFFFFF;color:var(--accent)}
+/* หัวหน้า: ไม่เป็นการ์ดแล้ว ตัวหนังสือวางบนพื้นตรง ๆ */
+body.admin-user .page-hero{background:transparent;border:0;border-radius:0;padding:2px 2px 0;margin-bottom:16px;box-shadow:none}
+body.admin-user .page-hero::before,body.admin-user .page-hero::after{display:none}
+body.admin-user .page-hero-title{font-size:25px;letter-spacing:-.3px}
+body.admin-user .page-hero-eyebrow{color:var(--text3)}
+body.admin-user .card{border-color:var(--border);box-shadow:none;border-radius:10px}
+body.admin-user th{background:var(--surface2);color:var(--text2);text-transform:none;letter-spacing:.2px;font-size:12px}
+body.admin-user td{border-color:var(--border)}
+body.admin-user .btn-outline{border-color:var(--border2);color:var(--text)}
+body.admin-user .btn-navy{background:var(--primary)}
+/* แถบ "งานที่รอคุณ" — ใบงานเรียงบนราง แบบบิลในครัว */
+.tk2-wrap{margin-bottom:16px}
+.tk2-sec{font-size:13px;font-weight:800;color:var(--text2);margin:0 2px 8px}
+.tk2-sec span{font-weight:500;color:var(--text3);margin-left:6px}
+.tk2-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.tk2{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-height:132px}
+.tk2-top{height:5px;background:var(--primary)}
+.tk2.hot .tk2-top{background:var(--accent)}
+.tk2.zero .tk2-top{background:var(--border2)}
+.tk2-b{padding:12px 14px 6px;display:flex;flex-direction:column;gap:3px}
+.tk2-n{font-size:30px;font-weight:800;line-height:1;color:var(--text)}
+.tk2.zero .tk2-n{color:var(--text4)}
+.tk2-l{font-size:13.5px;font-weight:700;color:var(--text)}
+.tk2-s{font-size:12px;color:var(--text3)}
+.tk2-go{margin:auto 14px 12px;align-self:flex-start;border:0;border-radius:8px;padding:7px 13px;font:700 12.5px Sarabun,sans-serif;
+  background:var(--accent-light);color:var(--accent);cursor:pointer;min-height:34px}
+.tk2.hot .tk2-go{background:var(--accent);color:#FFFFFF}
+.tk2-go:hover{filter:brightness(.97)}
+.tk2-done{margin:auto 14px 12px;font-size:12px;font-weight:700;color:var(--green)}
+@media (max-width:760px){ .tk2-grid{grid-template-columns:1fr 1fr;gap:8px} .tk2{min-height:118px} .tk2-n{font-size:24px} }
+</style>
 </head>
 <body>
 
@@ -6814,11 +6874,13 @@ const NAV_SECTION = {
   'admin-reports':        'การจัดการข้อมูล',
 };
 function buildAdminNav() {
-  const items = getActiveNavItems();
+  /* จัดเมนูเป็น 4 กลุ่ม (ภาพรวม · คนและสาขา · การสอนและประเมิน · ระบบ) — เรียงตามกลุ่ม คงลำดับเดิมในกลุ่ม */
+  const items = getActiveNavItems().map((it, i) => ({ it, i }))
+    .sort((a, b) => (_navGroupOf(a.it.page) - _navGroupOf(b.it.page)) || (a.i - b.i)).map(x => x.it);
   let html = '';
   let lastSection = null;
   items.forEach(it => {
-    const sec = NAV_SECTION[it.page] || '';
+    const sec = (NAV_GROUP_V2[_navGroupOf(it.page)] || [NAV_SECTION[it.page] || ''])[0];
     if (sec && sec !== lastSection) {
       if (lastSection !== null) html += '<div class="nav-divider"></div>';
       html += `<div class="nav-section-label">${sec}</div>`;
@@ -6828,6 +6890,7 @@ function buildAdminNav() {
   });
   document.getElementById('sidebar-nav').innerHTML = html;
   buildBottomNav(items);
+  _paintNavBadges();
 }
 
 function showPage(page) {
@@ -6868,13 +6931,15 @@ function showPage(page) {
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
   /* ของใหม่ที่ admin ต้องเห็น — แทรกหลังหัวหน้าของหน้านั้น ไม่ต้องรื้อแม่แบบเดิม */
   if (currentUser?.type === 'admin') {
-    const extra = (page === 'admin-dashboard' || page === 'admin-manage') ? renderAdminTransferCard()
+    const extra = page === 'admin-dashboard' ? renderAdminTickets() + renderAdminTransferCard()
+                : page === 'admin-manage' ? renderAdminTransferCard()
                 : page === 'admin-trainings' ? renderAdminPlanOverview() : '';
     if (extra) {
       const main = document.getElementById('main-content');
       const head = main.querySelector(':scope > .page-hero, :scope > .topbar');
       if (head) head.insertAdjacentHTML('afterend', extra); else main.insertAdjacentHTML('afterbegin', extra);
     }
+    _paintNavBadges();
   }
   if (currentUser && currentUser.type === 'branch') {
     document.querySelectorAll('#main-content .topbar').forEach(el => el.remove());
@@ -15428,6 +15493,76 @@ function decideTransferRequest(id, approve) {
     closeModal(); showPage(currentPage);
     notify(approve ? `ย้าย ${r.empName} ไป ${r.toBranch} แล้ว` : 'บันทึกไม่อนุมัติแล้ว');
   }, approve ? 'ยืนยันอนุมัติ' : 'ยืนยันไม่อนุมัติ');
+}
+
+// ==================== หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ====================
+// โทนสว่าง พื้นเทาอมเขียวแบบกระดาษบิลครัว ตัวหนังสือกราไฟต์ ส้มใช้เฉพาะจุดที่ต้องกด
+// สีทั้งหมดอยู่ที่ CSS (body.admin-user) · ตรงนี้คือโครง: เมนู 4 กลุ่ม + ตัวเลขงานค้าง
+// + แถบ "งานที่รอคุณ" บนแดชบอร์ด · ฝั่งสาขาไม่เปลี่ยน
+const NAV_GROUP_V2 = [
+  ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
+  ['คนและสาขา',          ['admin-manage', 'exec-leaderboard', 'admin-users']],
+  ['การสอนและประเมิน',   ['admin-trainings', 'admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
+  ['ระบบ',              ['admin-cases', 'admin-reports', 'admin-chat-logs']],
+];
+const _navGroupOf = page => { const i = NAV_GROUP_V2.findIndex(g => g[1].includes(page)); return i < 0 ? NAV_GROUP_V2.length : i; };
+
+/* งานค้างที่ admin ต้องลงมือ — ใช้ทั้งตัวเลขที่เมนูและแถบบนแดชบอร์ด */
+function _adminWork() {
+  const acc = new Set(getAccessibleBranches());
+  const trs = (DB.trainings || []).filter(t => acc.has(t.branchId) && !t.eval);
+  const soon = Date.now() + 3 * 86400000;
+  const pending = trs.filter(t => !isEvalDeadlinePassed(t.date));
+  const dueSoon = pending.filter(t => { const d = new Date(t.date); d.setDate(d.getDate() + EVAL_DEADLINE_DAYS); return d.getTime() <= soon; });
+  const ym = _ymNow();
+  const expired = trs.filter(t => isEvalDeadlinePassed(t.date) && _ymOf(t.date) >= _ymShift(ym, -1));
+  const xfers = isAdminRole() ? (DB.transferRequests || []).filter(r => r.status === 'pending' && (acc.has(r.fromBranch) || acc.has(r.toBranch))) : [];
+  const cases = (DB.cases || []).filter(c => (c.status === 'open' || c.status === 'in_progress') && (!c.branchId || acc.has(c.branchId) || acc.has(String(c.branchId))));
+  return { pending, dueSoon, expired, xfers, cases, casesNew: cases.filter(c => c.status === 'open') };
+}
+
+/* ตัวเลขที่เมนู — วาดใหม่ทุกครั้งที่เปลี่ยนหน้า (ข้อมูลอาจเปลี่ยนระหว่างนั้น) */
+function _paintNavBadges() {
+  if (currentUser?.type !== 'admin') return;
+  let w; try { w = _adminWork(); } catch (_) { return; }
+  /* เมนูเคสมีป้าย "ยังไม่อ่าน" ของเดิมอยู่แล้ว (refreshCaseBadge) — ไม่ซ้อนตัวเลขลงไปอีก */
+  const n = {
+    'admin-manage':    w.xfers.length,
+    'admin-trainings': w.pending.length,
+  };
+  n['admin-dashboard'] = w.xfers.length + w.pending.length + w.expired.length + w.cases.length;
+  document.querySelectorAll('#sidebar-nav .nav-item').forEach(el => {
+    const page = (el.id || '').replace('nav-', '');
+    let b = el.querySelector('.nav-count');
+    const v = n[page] || 0;
+    if (!v) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('span'); b.className = 'nav-count'; el.appendChild(b); }
+    b.textContent = v > 99 ? '99+' : v;
+  });
+}
+
+function renderAdminTickets() {
+  const w = _adminWork();
+  const oldest = w.xfers.length ? Math.max(0, Math.floor((Date.now() - new Date(w.xfers.map(r => r.requestedAt).sort()[0]).getTime()) / 86400000)) : 0;
+  const expBranches = [...new Set(w.expired.map(t => t.branchId))];
+  const total = w.xfers.length + w.pending.length + w.expired.length + w.cases.length;
+  const tk = (hot, n, label, sub, btn, act) => `<div class="tk2 ${hot && n ? 'hot' : ''} ${n ? '' : 'zero'}">
+      <div class="tk2-top"></div>
+      <div class="tk2-b"><div class="tk2-n">${n}</div><div class="tk2-l">${label}</div><div class="tk2-s">${sub}</div></div>
+      ${n ? `<button class="tk2-go" onclick="${act}">${btn}</button>` : '<div class="tk2-done">✓ เคลียร์แล้ว</div>'}
+    </div>`;
+  return `<div class="tk2-wrap">
+    <div class="tk2-sec">งานที่รอคุณ <span>${total ? total + ' รายการ' : 'ไม่มีงานค้าง'}</span></div>
+    <div class="tk2-grid">
+      ${isAdminRole() ? tk(true, w.xfers.length, 'คำขอย้ายสาขา', w.xfers.length ? `เก่าสุด ${oldest} วัน` : 'ไม่มีคำขอใหม่', 'อนุมัติ',
+          "document.querySelector('.xr-admin')&&document.querySelector('.xr-admin').scrollIntoView({behavior:'smooth',block:'start'})") : ''}
+      ${tk(false, w.pending.length, 'รอประเมินผล', w.dueSoon.length ? `ใกล้หมดเวลา ${w.dueSoon.length} รายการ` : 'ยังอยู่ในเวลา', 'ดูรายการ',
+          "_adminTrainFilter='pending';showPage('admin-trainings')")}
+      ${tk(false, w.expired.length, 'หมดเวลาประเมิน', w.expired.length ? _escH(expBranches.slice(0, 3).join(' · ') + (expBranches.length > 3 ? ` และอีก ${expBranches.length - 3}` : '')) : '2 เดือนล่าสุด', 'ตามสาขา',
+          "_adminTrainFilter='expired';showPage('admin-trainings')")}
+      ${tk(false, w.cases.length, 'เคสจากสาขา', w.casesNew.length ? `ยังไม่ตอบ ${w.casesNew.length} เคส` : 'ตอบครบแล้ว', 'เปิดเคส', "showPage('admin-cases')")}
+    </div>
+  </div>`;
 }
 
 // ==================== EMPLOYEE BRANCH TRANSFER ====================
