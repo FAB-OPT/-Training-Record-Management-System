@@ -2713,18 +2713,45 @@ body.admin-user .btn-navy{background:var(--primary)}
 @media (max-width:760px){ .tk2-grid{grid-template-columns:1fr 1fr;gap:8px} .tk2{min-height:118px} .tk2-n{font-size:24px} }
 </style>
 <style>
-/* ตารางสาขาของ admin — แบบเรียบ */
-.br2 td{padding-top:10px;padding-bottom:10px}
-.br2 tbody tr:hover{background:var(--surface2)}
-.br2-code{font-weight:700;color:var(--text2);font-variant-numeric:tabular-nums}
-.br2-name{font-weight:600;cursor:pointer;color:var(--text)}
-.br2-name:hover{text-decoration:underline;text-underline-offset:3px}
-.br2-mgr{color:var(--text2)}
-.br2-n{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
-.br2-z{color:var(--text4);font-variant-numeric:tabular-nums}
-.br2-act{border:0;background:transparent;color:var(--text2);font:600 13px Sarabun,sans-serif;padding:6px 8px;border-radius:6px;cursor:pointer}
-.br2-act:hover{background:var(--surface2);color:var(--text)}
-.br2-del:hover{background:var(--red-light);color:var(--red)}
+/* หน้าสาขาของ admin — การ์ดจัดกลุ่มตามโซน */
+.bc-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+.bc-chip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--border);background:var(--surface);
+  border-radius:12px;padding:8px 14px;cursor:pointer;font-family:inherit;min-height:44px;transition:.15s}
+.bc-chip b{font-size:14px;color:var(--text)}
+.bc-chip span{font-size:11.5px;color:var(--text3);font-weight:600}
+.bc-chip:hover{border-color:var(--primary);transform:translateY(-1px)}
+.bc-zone{margin-bottom:22px}
+.bc-zone-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;padding:0 2px 10px;margin-bottom:12px;border-bottom:2px solid var(--primary)}
+.bc-zone-name{font-size:21px;font-weight:800;letter-spacing:-.2px;line-height:1.1;color:var(--text)}
+.bc-zone-name small{display:block;font-size:12px;font-weight:600;color:var(--text3);letter-spacing:0;margin-top:3px}
+.bc-zone-stats{display:flex;gap:14px;margin-left:auto;font-size:13px;color:var(--text2);flex-wrap:wrap}
+.bc-zone-stats b{font-size:16px;color:var(--text);font-variant-numeric:tabular-nums}
+.bc-zone-stats .muted{color:var(--text3)}
+.bc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.bc-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 13px;cursor:pointer;
+  display:flex;flex-direction:column;gap:4px;min-height:132px;transition:.15s;position:relative}
+.bc-card:hover{border-color:var(--primary);box-shadow:0 8px 20px rgba(29,35,34,.08);transform:translateY(-2px)}
+.bc-card.empty{background:transparent;border-style:dashed;border-color:var(--border2);min-height:96px}
+.bc-card.empty .bc-name{color:var(--text3)}
+.bc-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.bc-code{font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+.bc-card.empty .bc-code{color:var(--text3)}
+.bc-acts{display:flex;gap:2px;opacity:0;transition:.15s}
+.bc-card:hover .bc-acts{opacity:1}
+.bc-acts button{border:0;background:transparent;font:600 12px Sarabun,sans-serif;color:var(--text2);padding:4px 7px;border-radius:6px;cursor:pointer}
+.bc-acts button:hover{background:var(--surface2);color:var(--text)}
+.bc-acts button.del:hover{background:var(--red-light);color:var(--red)}
+.bc-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.3}
+.bc-total{margin-top:auto;font-size:13px;color:var(--text2);font-weight:600}
+.bc-total b{font-size:26px;font-weight:800;color:var(--text);letter-spacing:-.5px;font-variant-numeric:tabular-nums;margin-right:2px}
+.bc-bar{display:flex;height:5px;border-radius:99px;overflow:hidden;background:var(--surface2)}
+.bc-bar span{display:block;height:100%}
+.bc-split{display:flex;gap:10px;font-size:11.5px;color:var(--text2);font-weight:600;flex-wrap:wrap;margin-top:2px}
+.bc-split i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.bc-none{margin-top:auto;font-size:12.5px;color:var(--text3);font-weight:600}
+/* มือถือ: ปุ่มแก้ไข/ลบเห็นตลอด (ไม่มีการชี้เมาส์) · การ์ด 2 คอลัมน์ */
+@media (hover:none){ .bc-acts{opacity:1} }
+@media (max-width:760px){ .bc-grid{grid-template-columns:1fr 1fr;gap:8px} .bc-code{font-size:19px} .bc-total b{font-size:22px} .bc-zone-stats{margin-left:0} }
 </style>
 </head>
 <body>
@@ -14584,30 +14611,19 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
         ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
       </div>
-      <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:240px">
+      <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:220px">
         <option value="">— ทุกผู้จัดการเขต —</option>
         ${mgrOptions}
+      </select>
+      <select class="form-select" id="branch-sort" onchange="_bcSort=this.value;filterBranches()" style="width:190px">
+        <option value="id"${_bcSort==='id'?' selected':''}>เรียงตามรหัสสาขา</option>
+        <option value="most"${_bcSort==='most'?' selected':''}>พนักงานมาก → น้อย</option>
+        <option value="least"${_bcSort==='least'?' selected':''}>พนักงานน้อย → มาก</option>
       </select>
       <input class="search-input" id="branch-search" placeholder="ค้นหารหัส / ชื่อสาขา..." oninput="filterBranches()" style="flex:1;min-width:180px;margin-left:auto">
     </div>
   </div>
-  <div class="card">
-    <div class="table-wrap">
-      <table class="cards-on-mobile branch-table br2">
-        <thead><tr>
-          ${_sortHeader('id','รหัส',_branchSort,'setBranchSort')}
-          ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
-          ${_sortHeader('manager','ผู้จัดการเขต',_branchSort,'setBranchSort')}
-          ${_sortHeader('employees','ทั้งหมด',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('mgr_team','ผจก.สาขา',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('cook','ครัว',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('service','บริการ',_branchSort,'setBranchSort','center')}
-          <th style="text-align:right">จัดการ</th>
-        </tr></thead>
-        <tbody id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</tbody>
-      </table>
-    </div>
-  </div>`;
+  <div id="branches-grid">${renderBranchCards(Object.entries(BRANCH_MASTER))}</div>`;
 }
 
 let _adminEmpSort = { key: 'name', dir: 'asc' };
@@ -14679,43 +14695,67 @@ function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
 function renderAdminBranches() { _adminManageTab = 'branches'; return renderAdminManage(); }
 function renderAdminEmployees() { _adminManageTab = 'employees'; return renderAdminManage(); }
 
-/* ตารางสาขา (admin) — แบบเรียบ: ตัวเลขธรรมดา 0 เป็นสีเทา · ผู้จัดการเขตเหลือชื่อเล่น (ชี้แล้วเห็นชื่อเต็ม) */
-function renderBranchRows(entries) {
-  if(!entries.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบสาขา</td></tr>';
-  const num = n => n ? `<span class="br2-n">${n}</span>` : '<span class="br2-z">0</span>';
-  return entries.map(([id,b])=>{
-    const emps = getBranchEmployees(id).filter(e => e.status === 'active');
-    const totalEmp = emps.length;
-    const mgrTeam = emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา').length;
-    const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
-    const service = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
-    const shortName = b.name.replace(id+' ','');
-    const m = String(b.manager || '').match(/^(.*?)\s*\((.+)\)\s*$/);
-    const mgr = !b.manager ? '—' : `<span title="${String(b.manager).replace(/"/g,'&quot;')}">${m ? m[2] : b.manager}</span>`;
-    return `<tr>
-      <td data-label="รหัส" class="br2-code">${id}</td>
-      <td data-label="ชื่อ" class="br2-name" onclick="adminViewBranch('${id}')" title="คลิกเพื่อดูพนักงาน">${shortName}</td>
-      <td data-label="ผู้จัดการ" class="br2-mgr">${mgr}</td>
-      <td data-label="พนักงานทั้งหมด" style="text-align:center">${num(totalEmp)}</td>
-      <td data-label="ทีมผู้จัดการสาขา" style="text-align:center">${num(mgrTeam)}</td>
-      <td data-label="พนักงานครัว" style="text-align:center">${num(cook)}</td>
-      <td data-label="พนักงานบริการ" style="text-align:center">${num(service)}</td>
-      <td data-label="actions" style="text-align:right;white-space:nowrap">
-        <button class="br2-act" onclick="openEditBranch('${id}')">แก้ไข</button>
-        <button class="br2-act br2-del" onclick="openDeleteBranch('${id}')">ลบ</button>
-      </td>
-    </tr>`;
+/* หน้าสาขาของ admin — การ์ดจัดกลุ่มตามโซน BZM
+   แถบชิปบนสุดกดกรองเขตได้ · หัวแต่ละเขตบอกจำนวนสาขา/คน · การ์ดสาขา: รหัสตัวใหญ่ จำนวนคนเด่น
+   แถบสัดส่วน ผจก./ครัว/บริการ · สาขาที่ยังไม่มีคนเป็นการ์ดเส้นประจาง ๆ · กดการ์ด = ดูพนักงาน */
+let _bcSort = 'id';
+const _bcNick = mgr => { const m = String(mgr || '').match(/^(.*?)\s*\((.+)\)\s*$/); return m ? { nick: m[2], full: m[1] } : { nick: mgr || 'ไม่ระบุเขต', full: '' }; };
+function _bcStats(id) {
+  const emps = getBranchEmployees(id).filter(e => e.status === 'active');
+  const g = x => emps.filter(e => getPositionGroup(e.position) === x).length;
+  return { total: emps.length, mgr: g('ทีมผู้จัดการสาขา'), cook: g('พนักงานครัว'), svc: g('พนักงานบริการ') };
+}
+function renderBranchCards(entries) {
+  if (!entries.length) return '<div class="card" style="text-align:center;color:var(--text3);padding:34px">🔍 ไม่พบสาขา</div>';
+  const zones = {};
+  entries.forEach(([id, b]) => { const k = b.manager || ''; (zones[k] = zones[k] || []).push([id, b, _bcStats(id)]); });
+  const order = Object.keys(zones).sort((x, y) => _bcNick(x).nick.localeCompare(_bcNick(y).nick, 'th'));
+  const sortList = list => list.sort((x, y) =>
+    _bcSort === 'most' ? (y[2].total - x[2].total) || x[0].localeCompare(y[0]) :
+    _bcSort === 'least' ? (x[2].total - y[2].total) || x[0].localeCompare(y[0]) : x[0].localeCompare(y[0]));
+  const allMgr = !(document.getElementById('branch-mgr-filter') || {}).value;
+  const chips = allMgr && order.length > 1 ? `<div class="bc-chips">${order.map(k => {
+      const n = _bcNick(k), list = zones[k], people = list.reduce((a, r) => a + r[2].total, 0);
+      return `<button class="bc-chip" onclick="_bcPickZone('${String(k).replace(/'/g, "\\'")}')"><b>${n.nick}</b><span>${list.length} สาขา · ${people} คน</span></button>`;
+    }).join('')}</div>` : '';
+  const pct = (n, t) => t ? (n / t * 100).toFixed(1) : 0;
+  return chips + order.map(k => {
+    const n = _bcNick(k), list = sortList(zones[k]);
+    const people = list.reduce((a, r) => a + r[2].total, 0), empty = list.filter(r => !r[2].total).length;
+    return `<section class="bc-zone">
+      <div class="bc-zone-head">
+        <div class="bc-zone-name">${n.nick}${n.full ? `<small>${n.full}</small>` : ''}</div>
+        <div class="bc-zone-stats"><span><b>${list.length}</b> สาขา</span><span><b>${people}</b> คน</span>${empty ? `<span class="muted">ยังไม่มีคน ${empty} สาขา</span>` : ''}</div>
+      </div>
+      <div class="bc-grid">${list.map(([id, b, st]) => `
+        <div class="bc-card ${st.total ? '' : 'empty'}" onclick="adminViewBranch('${id}')" title="กดเพื่อดูพนักงาน">
+          <div class="bc-top"><span class="bc-code">${id}</span>
+            <span class="bc-acts" onclick="event.stopPropagation()">
+              <button onclick="openEditBranch('${id}')">แก้ไข</button><button class="del" onclick="openDeleteBranch('${id}')">ลบ</button>
+            </span></div>
+          <div class="bc-name">${b.name.replace(id + ' ', '')}</div>
+          ${st.total ? `
+            <div class="bc-total"><b>${st.total}</b> คน</div>
+            <div class="bc-bar"><span style="width:${pct(st.mgr, st.total)}%;background:#3B6FB6"></span><span style="width:${pct(st.cook, st.total)}%;background:#C2413A"></span><span style="width:${pct(st.svc, st.total)}%;background:#2F8F5B"></span></div>
+            <div class="bc-split"><span><i style="background:#3B6FB6"></i>ผจก. ${st.mgr}</span><span><i style="background:#C2413A"></i>ครัว ${st.cook}</span><span><i style="background:#2F8F5B"></i>บริการ ${st.svc}</span></div>`
+          : `<div class="bc-none">ยังไม่มีพนักงาน</div>`}
+        </div>`).join('')}
+      </div>
+    </section>`;
   }).join('');
 }
-
+function _bcPickZone(mgr) {
+  const sel = document.getElementById('branch-mgr-filter');
+  if (sel) { sel.value = mgr; filterBranches(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+}
 function filterBranches() {
   const q = (document.getElementById('branch-search')?.value||'').toLowerCase();
   const mgr = document.getElementById('branch-mgr-filter')?.value||'';
   let entries = Object.entries(BRANCH_MASTER);
   if(q) entries = entries.filter(([id,b])=>id.includes(q)||b.name.toLowerCase().includes(q));
   if(mgr) entries = entries.filter(([id,b])=>b.manager===mgr);
-  const tbody = document.getElementById('branches-tbody');
-  if(tbody) tbody.innerHTML = renderBranchRows(_sortBranchEntries(entries));
+  const grid = document.getElementById('branches-grid');
+  if(grid) grid.innerHTML = renderBranchCards(entries);
 }
 
 function openAddBranch() {
