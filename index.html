@@ -2651,6 +2651,23 @@
     .branch-card:active { transform: scale(0.98); }
     .btn:active { opacity: 0.8; transform: scale(0.97); }
   }
+/* ใบรายชื่อ: อายุงาน + หน้าต่างเลือกสาขาละ 1 คน */
+.ts-ten{flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-light);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.ts-one-ov{position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.ts-one{background:var(--surface);border-radius:16px;width:min(520px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden}
+.ts-one-hd{padding:18px 20px 12px;border-bottom:1px solid var(--border)}
+.ts-one-hd b{display:block;font-size:17px;color:var(--text)}
+.ts-one-hd span{display:block;font-size:13px;color:var(--text2);margin-top:3px;line-height:1.5}
+.ts-one-bd{padding:12px 20px;overflow:auto}
+.ts-one-br{margin-bottom:12px}
+.ts-one-bn{font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px}
+.ts-one-bn em{font-style:normal;font-weight:700;color:var(--accent);margin-left:4px}
+.ts-one-p{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer}
+.ts-one-p:has(input:checked){border-color:var(--accent);background:var(--accent-light)}
+.ts-one-p>span:nth-child(2){flex:1;min-width:0}
+.ts-one-p b{display:block;font-size:13.5px;color:var(--text)}
+.ts-one-p small{display:block;font-size:11.5px;color:var(--text3)}
+.ts-one-ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -11434,9 +11451,10 @@ function _openTsModal(course, draft) {
             <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name}</div>
             <div style="font-size:11.5px;color:var(--text3)">${e.empCode?e.empCode+' · ':''}${e.position||'-'} · ${brName(e.branchId)}</div>
           </div>
+          <span class="ts-ten" title="อายุงาน">${_tsTenure(e)}</span>
         </label>`).join('')}
     </div>
-  `, () => {
+  `, () => { _tsOnePerBranch(() => {
     const courseV = document.getElementById('ts-course').value.trim();
     const date = document.getElementById('ts-date').value;
     if (!courseV || !date) { notify('กรอกหลักสูตร + วันที่อบรม', 'error'); return; }
@@ -11457,7 +11475,7 @@ function _openTsModal(course, draft) {
     closeModal();
     _tsArchiveIssued(info, list);   // เก็บเป็นประวัติก่อน แล้วค่อยเปิด PDF
     _printTrainingSession(info, list);
-  }, _tsIssuedAt ? 'บันทึก + เปิด PDF ใหม่' : 'ออกใบรายชื่อ PDF');
+  }); }, _tsIssuedAt ? 'บันทึก + เปิด PDF ใหม่' : 'ออกใบรายชื่อ PDF');
   /* ปุ่มซ้าย — แทรกเพิ่มในแถบล่างของ modal (showModal รองรับแค่ 2 ปุ่ม)
      ตอนแก้ใบที่ออกแล้วต้องมีทางบันทึกโดยไม่เปิด PDF ซ้ำ แค่แก้คำผิดไม่ควรต้องสั่งพิมพ์ใหม่ */
   const footer = document.querySelector('#modal-overlay .modal-footer');
@@ -11466,7 +11484,8 @@ function _openTsModal(course, draft) {
   _tsUpd();
 }
 /* เก็บสิ่งที่กรอกไว้เป็นแบบร่าง — ไม่บังคับกรอกครบ ขอแค่มีรายชื่อที่ติ๊กไว้ */
-async function _tsSaveDraft() {
+function _tsSaveDraft() { _tsOnePerBranch(_tsSaveDraftGo); }
+async function _tsSaveDraftGo() {
   const g = id => (document.getElementById(id) || {}).value || '';
   const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
   const people = _tsPeople.filter(e => ids.has(e.id)).map(_tsPerson);
@@ -11579,9 +11598,61 @@ function _tpRunMore() {
         <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}${dup ? ' <span style="font-size:11px;color:var(--text3);font-weight:700">· อยู่ในใบแล้ว</span>' : ''}</div>
         <div style="font-size:11.5px;color:var(--text3)">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div>
       </div>
+      <span class="ts-ten" title="อายุงาน">${_tsTenure(e)}</span>
     </label>`;
   }).join('');
   _tpUpd();
+}
+/* อายุงานของคนในใบ · คนในแบบร่างเก็บไว้แค่ชื่อ/ตำแหน่ง เลยต้องไปหยิบวันเริ่มงานจากทะเบียน */
+function _tsTenure(e) {
+  const cur = (DB.employees[e.branchId] || []).find(x => x.id === e.id) || e;
+  const t = calcTenureShort(cur.startDate || e.startDate);
+  return t === '—' ? '<span style="color:var(--text3)">อายุงาน —</span>' : 'อายุงาน ' + t;
+}
+/* ใบรายชื่อ 1 ใบ ส่งได้สาขาละ 1 คน
+   ถ้าติ๊กไว้เกินในสาขาไหน เด้งหน้าต่างให้เลือกคนเดียวของสาขานั้นก่อน แล้วค่อยทำต่อ (ออกใบ / บันทึกร่าง)
+   หน้าต่างนี้ซ้อนบนฟอร์มเดิม (showModal มีชั้นเดียว เปิดทับแล้วของที่กรอกไว้หาย) */
+function _tsOnePerBranch(next) {
+  const checked = Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value);
+  const people = _tsPeople.filter(e => checked.indexOf(e.id) >= 0);
+  const by = {};
+  people.forEach(e => { (by[e.branchId || '—'] = by[e.branchId || '—'] || []).push(e); });
+  const over = Object.keys(by).filter(b => by[b].length > 1).sort();
+  if (!over.length) return next();
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const esc = x => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const tenMonths = e => {   // ไว้เลือกคนอายุงานมากสุดเป็นค่าตั้งต้น
+    const cur = (DB.employees[e.branchId] || []).find(x => x.id === e.id) || e;
+    const d = new Date(cur.startDate || e.startDate || ''); return isNaN(d) ? -1 : -d.getTime();
+  };
+  let ov = document.getElementById('ts-one-ov');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'ts-one-ov';
+  ov.className = 'ts-one-ov';
+  ov.innerHTML = `<div class="ts-one">
+    <div class="ts-one-hd"><b>สาขาละ 1 คน</b><span>มี ${over.length} สาขาที่เลือกไว้มากกว่า 1 คน · เลือกคนที่จะส่งเข้าอบรมสาขาละคน</span></div>
+    <div class="ts-one-bd">${over.map(b => {
+      const list = by[b].slice().sort((x, y) => tenMonths(y) - tenMonths(x));
+      return `<div class="ts-one-br"><div class="ts-one-bn">${esc(brName(b))} <em>${by[b].length} คน</em></div>
+        ${list.map((e, i) => `<label class="ts-one-p"><input type="radio" name="one-${esc(b)}" value="${esc(e.id)}"${i === 0 ? ' checked' : ''}>
+          <span><b>${esc(e.name)}</b><small>${e.empCode ? esc(e.empCode) + ' · ' : ''}${esc(e.position || '-')}</small></span>
+          <span class="ts-ten">${_tsTenure(e)}</span></label>`).join('')}</div>`;
+    }).join('')}</div>
+    <div class="ts-one-ft"><button class="btn btn-outline" id="ts-one-no">กลับไปแก้เอง</button><button class="btn btn-accent" id="ts-one-ok">ใช้คนที่เลือก · ทำต่อ</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#ts-one-no').onclick = () => ov.remove();
+  ov.querySelector('#ts-one-ok').onclick = () => {
+    over.forEach(b => {
+      const keep = (ov.querySelector(`input[name="one-${CSS.escape(b)}"]:checked`) || {}).value;
+      by[b].forEach(e => { if (e.id !== keep) {
+        const c = document.querySelector(`.ts-chk[value="${CSS.escape(e.id)}"]`); if (c) c.checked = false; } });
+    });
+    _tsUpd();
+    ov.remove();
+    next();
+  };
 }
 function _tsToggleAll(on) { document.querySelectorAll('.ts-chk').forEach(c => c.checked = on); _tsUpd(); }
 function _tsUpd() {
