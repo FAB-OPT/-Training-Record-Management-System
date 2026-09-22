@@ -2653,6 +2653,15 @@
   }
 /* ใบรายชื่อ: อายุงาน + หน้าต่างเลือกสาขาละ 1 คน */
 .ts-ten{flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-light);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.cov-pk-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px 6px 8px;position:sticky;top:0;background:var(--white);z-index:2;font-size:12.5px;font-weight:800}
+.cov-pk-hd label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.cov-pk-hd #cov-pk-n{font-weight:700;color:var(--text2)}
+.cov-pk{display:flex;gap:10px;align-items:center;padding:7px 10px 7px 8px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer}
+.cov-pk:has(input:not(:checked)){opacity:.55}
+.cov-pk-code{color:var(--text3);min-width:64px}
+.cov-pk-nm{flex:1;min-width:0}
+.cov-pk-nm b{display:block}
+.cov-pk-nm small{display:block;color:var(--text3);font-size:11.5px}
 .ts-one-ov{position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px}
 .ts-one{background:var(--surface);border-radius:16px;width:min(520px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden}
 .ts-one-hd{padding:18px 20px 12px;border-bottom:1px solid var(--border)}
@@ -10459,6 +10468,37 @@ function _covScopeLabel() {
   const pre = _covMulti('cov-prereq');
   return { br, conds, prereq: pre.length ? pre.join(' + ') : '' };
 }
+/* ชนรายชื่อ: คนที่ยังไม่ผ่านติ๊กเลือกทีละคนได้ — ตั้งต้นติ๊กทุกคน
+   จำคนที่เอาติ๊กออก (ไม่ใช่คนที่ติ๊ก) กรองเงื่อนไขใหม่แล้วคนใหม่ที่โผล่มาจะติ๊กไว้ให้เอง
+   ใช้กับทั้ง "ส่งออก PDF" และ "จัดอบรมให้ … คน" */
+let _covOff = new Set();
+const _covPicked = r => r.notPassed.filter(e => !_covOff.has(e.id));
+function _covPickList(arr) {
+  if (!arr.length) return '';
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const n = arr.filter(e => !_covOff.has(e.id)).length;
+  return `<div style="margin-bottom:10px">
+    <div class="cov-pk-hd"><label><input type="checkbox" id="cov-pk-all" ${n === arr.length ? 'checked' : ''} onchange="_covPickAll(this.checked)">
+      <span style="color:#DC2626">❌ ยังไม่ผ่าน (${arr.length})</span></label>
+      <span id="cov-pk-n">เลือก ${n}/${arr.length} คน</span></div>` +
+    arr.map(e => `<label class="cov-pk">
+      <input type="checkbox" class="cov-pk-chk" value="${e.id}" ${_covOff.has(e.id) ? '' : 'checked'} onchange="_covPickOne(this)">
+      <span class="cov-pk-code">${e.empCode || '—'}</span>
+      <span class="cov-pk-nm"><b>${e.name}</b><small>${e.position || '-'} · ${brName(e.branchId)}</small></span>
+      <span class="ts-ten">${_tsTenure(e)}</span>
+    </label>`).join('') + `</div>`;
+}
+function _covPickSync() {
+  const all = document.querySelectorAll('.cov-pk-chk'), on = document.querySelectorAll('.cov-pk-chk:checked').length;
+  const n = document.getElementById('cov-pk-n'); if (n) n.textContent = `เลือก ${on}/${all.length} คน`;
+  const a = document.getElementById('cov-pk-all'); if (a) a.checked = all.length > 0 && on === all.length;
+  _covSyncPlanBtn(on);
+}
+window._covPickOne = function(c){ if (c.checked) _covOff.delete(c.value); else _covOff.add(c.value); _covPickSync(); };
+window._covPickAll = function(on){
+  document.querySelectorAll('.cov-pk-chk').forEach(c => { c.checked = on; if (on) _covOff.delete(c.value); else _covOff.add(c.value); });
+  _covPickSync();
+};
 function _covList(title, arr, color) {
   if (!arr.length) return '';
   return `<div style="margin-bottom:10px"><div style="font-size:12.5px;font-weight:800;color:${color};padding:6px 0 4px;position:sticky;top:0;background:var(--white);z-index:2">${title} (${arr.length})</div>` +
@@ -10483,11 +10523,11 @@ function _covRun() {
       <div style="flex:1;min-width:92px;padding:10px;background:#FEF2F2;border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:#DC2626">${r.notPassed.length}</div><div style="font-size:11px;color:var(--text3)">ยังไม่ผ่าน</div></div>
     </div>
     <div style="max-height:34vh;overflow:auto">
-      ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626')}
+      ${_covPickList(r.notPassed)}
       ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
       ${r.emps.length ? '' : '<p class="text-muted" style="text-align:center;padding:14px">ไม่มีพนักงานตามเงื่อนไขที่เลือก</p>'}
     </div>`;
-  _covSyncPlanBtn(r.notPassed.length);
+  _covSyncPlanBtn(_covPicked(r).length);
 }
 /* ปุ่ม "จัดอบรมให้ N คน" อยู่แถวเดียวกับ ยกเลิก / ส่งออก PDF ที่ท้าย modal
    — showModal รองรับแค่ 2 ปุ่ม เลยแทรกเพิ่มเองแล้วอัปเดตตัวเลขทุกครั้งที่กรองใหม่ */
@@ -10501,7 +10541,7 @@ function _covSyncPlanBtn(n) {
       '<button class="btn btn-plan" id="cov-plan-btn" style="margin-right:auto" onclick="openTrainingSessionForm()"></button>');
     b = document.getElementById('cov-plan-btn');
   }
-  b.textContent = `📋 จัดอบรมให้ ${n} คนที่ยังไม่ผ่าน →`;
+  b.textContent = `📋 จัดอบรมให้ ${n} คนที่เลือก →`;
 }
 function openCourseCoverage() {
   const list = DB.courseHistory || [];
@@ -10510,6 +10550,7 @@ function openCourseCoverage() {
   const itCourse = courses.map(c => ({ v: c, label: c }));
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   _covRowSeq = 0; _covRowIds = [1]; _covRowSeq = 1;   // เริ่มด้วยเงื่อนไข 1 ชุด
+  _covOff = new Set();   // เปิดใหม่ = ติ๊กทุกคนอีกครั้ง
   showModal('🔀 ชนรายชื่อ · ใครผ่าน / ยังไม่ผ่านหลักสูตร', `
     <div class="form-row">
       <div><label class="form-label">หลักสูตร <span class="req">*</span> <span style="font-weight:500;color:var(--text3);font-size:11px">— หลายอัน = ต้องผ่านครบ</span></label>
@@ -10535,7 +10576,7 @@ function openCourseCoverage() {
     const r = _covCompute();
     if (!r.emps.length) { notify('ไม่มีพนักงานตามเงื่อนไขที่เลือก', 'error'); return; }
     /* คนที่ยังไม่ผ่าน = คนที่จะส่งเข้าอบรม จึงต้องเหลือสาขาละ 1 คน · คนที่ผ่านแล้วแสดงครบตามเดิม */
-    _onePerBranchPick(r.notPassed, list => { r.notPassed = list; _printCourseCoverage(r); });
+    _onePerBranchPick(_covPicked(r), list => { r.notPassed = list; _printCourseCoverage(r); });
   }, 'ส่งออก PDF');
   ['cov-course', 'cov-branch', 'cov-prereq', 'cov-pos-1', 'cov-ten-1'].forEach(_mselSync);
   const mb = document.querySelector('#modal-overlay .modal');   // กรอบนิ่ง ไม่ยืดหดตามการเลือก
@@ -11330,9 +11371,10 @@ function openTrainingSessionForm() {
   const r = _covCompute();
   if (!r.course) { notify('เลือกหลักสูตรก่อน', 'error'); return; }
   if (!r.notPassed.length) { notify('ไม่มีคนที่ยังไม่ผ่าน', 'error'); return; }
+  if (!_covPicked(r).length) { notify('ยังไม่ได้ติ๊กเลือกคนที่จะส่งอบรม', 'error'); return; }
   const course = r.course;
   /* สาขาละ 1 คน — เลือกตั้งแต่ตรงนี้ ใบรายชื่อจะได้มีแต่คนที่ส่งจริง */
-  _onePerBranchPick(r.notPassed, list => {
+  _onePerBranchPick(_covPicked(r), list => {
     _tsPeople = list;   // snapshot ก่อนปิด modal ชนรายชื่อ
     _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่ (ไม่ทับร่าง/ใบที่เปิดค้างไว้ก่อนหน้า)
     closeModal();
