@@ -2653,6 +2653,16 @@
   }
 /* ใบรายชื่อ: อายุงาน + หน้าต่างเลือกสาขาละ 1 คน */
 .ts-ten{flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-light);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.cov-opt{display:flex;gap:10px;align-items:flex-start;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);cursor:pointer}
+.cov-opt input{margin-top:3px}
+.cov-opt b{display:block;font-size:12.5px}
+.cov-opt small{display:block;font-size:11.5px;color:var(--text3)}
+.cov-opt i{font-style:normal;font-weight:700;color:var(--accent)}
+.cov-dup{margin:4px 0 10px;border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:12.5px;background:var(--surface2)}
+.cov-dup summary{cursor:pointer;font-weight:700;color:var(--text2)}
+.cov-dup div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--border)}
+.cov-dup div:first-of-type{margin-top:6px}
+.cov-dup span{color:var(--text3);font-size:11.5px;text-align:right}
 .cov-pk-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px 6px 8px;position:sticky;top:0;background:var(--white);z-index:2;font-size:12.5px;font-weight:800}
 .cov-pk-hd label{display:flex;align-items:center;gap:8px;cursor:pointer}
 .cov-pk-hd #cov-pk-n{font-weight:700;color:var(--text2)}
@@ -10443,14 +10453,32 @@ function _covTargets() {
     .filter(e => { if (seen[e.id]) return false; seen[e.id] = true; return true; })   // กันซ้ำถ้าเข้าหลายชุด
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
 }
+let _covSheets = null;   // null = กำลังโหลด
+/* คนที่อยู่ในใบรายชื่อของหลักสูตรที่เลือก และยังไม่ได้เช็คชื่อ → ชื่อใบ (ใช้บอกว่าอยู่ใบไหน) */
+function _covInSheets(courses) {
+  const out = {};
+  (_covSheets || []).filter(d => courses.indexOf(String(d.course || '').trim()) >= 0).forEach(d => {
+    const label = (d.course || '') + (d.batch ? ' รุ่น ' + d.batch : '') + (d.issuedAt ? '' : ' (ร่าง)');
+    (d.people || []).forEach(p => { if (p.attended) return;
+      [p.id, p.empCode ? 'code:' + p.empCode : ''].filter(Boolean).forEach(k => { if (!out[k]) out[k] = label; }); });
+  });
+  return out;
+}
 function _covCompute() {
   const courses = _covMulti('cov-course');
   const emps = _covTargets();
   // เลือกหลายหลักสูตร = ต้องผ่าน "ครบทุกหลักสูตร" ถึงนับว่าผ่าน
   const sets = courses.map(c => _covPassed(c));
   const ok = e => sets.length > 0 && sets.every(pp => _covHasPassed(e, pp));
-  const passed = emps.filter(ok), notPassed = emps.filter(e => !ok(e));
-  return { courses, course: courses.join(' + '), emps, passed, notPassed,
+  const passed = emps.filter(ok);
+  let notPassed = emps.filter(e => !ok(e));
+  /* คนที่อยู่ในใบรายชื่อที่ทำไว้แล้วแต่ยังไม่ได้เช็คชื่อ — ติ๊กตัวเลือกไว้ = ตัดออก ไม่ให้จัดซ้ำ */
+  const inMap = _covInSheets(courses);
+  const sheetOf = e => inMap[e.id] || (e.empCode ? inMap['code:' + e.empCode] : '');
+  const inSheet = notPassed.filter(sheetOf);
+  const nodup = !!(document.getElementById('cov-nodup') || {}).checked;
+  if (nodup) notPassed = notPassed.filter(e => !sheetOf(e));
+  return { courses, course: courses.join(' + '), emps, passed, notPassed, inSheet, nodup, sheetOf,
            pct: emps.length ? Math.round(passed.length / emps.length * 100) : 0 };
 }
 function _covScopeLabel() {
@@ -10527,6 +10555,11 @@ function _covRun() {
       ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
       ${r.emps.length ? '' : '<p class="text-muted" style="text-align:center;padding:14px">ไม่มีพนักงานตามเงื่อนไขที่เลือก</p>'}
     </div>`;
+  const nEl = document.getElementById('cov-nodup-n');
+  if (nEl) nEl.textContent = _covSheets == null ? '· กำลังโหลดใบรายชื่อ…'
+    : r.inSheet.length ? `· มี ${r.inSheet.length} คน${r.nodup ? ' ตัดออกแล้ว' : ''}` : '· ไม่มีใครซ้ำ';
+  if (r.nodup && r.inSheet.length && box.firstElementChild) box.firstElementChild.insertAdjacentHTML('afterend', `<details class="cov-dup"><summary>ตัดออก ${r.inSheet.length} คน ที่อยู่ในใบรายชื่อที่ทำไว้แล้ว</summary>
+    ${r.inSheet.map(e => `<div><b>${e.name}</b><span>${r.sheetOf(e)}</span></div>`).join('')}</details>`);
   _covSyncPlanBtn(_covPicked(r).length);
 }
 /* ปุ่ม "จัดอบรมให้ N คน" อยู่แถวเดียวกับ ยกเลิก / ส่งออก PDF ที่ท้าย modal
@@ -10551,6 +10584,10 @@ function openCourseCoverage() {
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   _covRowSeq = 0; _covRowIds = [1]; _covRowSeq = 1;   // เริ่มด้วยเงื่อนไข 1 ชุด
   _covOff = new Set();   // เปิดใหม่ = ติ๊กทุกคนอีกครั้ง
+  /* ใบรายชื่อที่ทำไว้แล้ว — ดึงครั้งเดียวตอนเปิด ใช้กับตัวเลือก "ไม่เอาคนที่อยู่ในใบรายชื่อที่ทำไว้แล้ว" */
+  _covSheets = null;
+  _tpFetchDrafts().then(rows => { _covSheets = rows; if (document.getElementById('cov-result')) _covRun(); })
+    .catch(() => { _covSheets = []; });
   showModal('🔀 ชนรายชื่อ · ใครผ่าน / ยังไม่ผ่านหลักสูตร', `
     <div class="form-row">
       <div><label class="form-label">หลักสูตร <span class="req">*</span> <span style="font-weight:500;color:var(--text3);font-size:11px">— หลายอัน = ต้องผ่านครบ</span></label>
@@ -10568,6 +10605,8 @@ function openCourseCoverage() {
         <label class="form-label" style="font-size:11px;margin-bottom:3px">ต้องผ่านหลักสูตรนี้มาก่อน <span style="font-weight:500;color:var(--text3)">— ไม่ระบุ = ไม่กรอง · ใช้หา "ผ่าน A แล้ว แต่ยังไม่ผ่าน B"</span></label>
         ${_mselHTML('cov-prereq', itCourse, { onChange: '_covRun', noneText: '— ไม่ระบุ —' })}
       </div>
+      <label class="cov-opt"><input type="checkbox" id="cov-nodup" onchange="_covRun()">
+        <span><b>ไม่เอาคนที่อยู่ในใบรายชื่อที่ทำไว้แล้ว</b><small>ใบของหลักสูตรนี้ ทั้งแบบร่างและที่ออกใบแล้ว · เฉพาะคนที่ยังไม่ได้เช็คชื่อ <i id="cov-nodup-n"></i></small></span></label>
     </div>
     <div id="cov-result" style="min-height:220px"></div>
   `, () => {
