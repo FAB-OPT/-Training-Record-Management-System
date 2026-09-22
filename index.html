@@ -10534,7 +10534,8 @@ function openCourseCoverage() {
     if (miss.length) { notify('ยังไม่ได้เลือก: ' + miss.join(' · '), 'error'); return; }
     const r = _covCompute();
     if (!r.emps.length) { notify('ไม่มีพนักงานตามเงื่อนไขที่เลือก', 'error'); return; }
-    _printCourseCoverage(r);
+    /* คนที่ยังไม่ผ่าน = คนที่จะส่งเข้าอบรม จึงต้องเหลือสาขาละ 1 คน · คนที่ผ่านแล้วแสดงครบตามเดิม */
+    _onePerBranchPick(r.notPassed, list => { r.notPassed = list; _printCourseCoverage(r); });
   }, 'ส่งออก PDF');
   ['cov-course', 'cov-branch', 'cov-prereq', 'cov-pos-1', 'cov-ten-1'].forEach(_mselSync);
   const mb = document.querySelector('#modal-overlay .modal');   // กรอบนิ่ง ไม่ยืดหดตามการเลือก
@@ -11329,11 +11330,14 @@ function openTrainingSessionForm() {
   const r = _covCompute();
   if (!r.course) { notify('เลือกหลักสูตรก่อน', 'error'); return; }
   if (!r.notPassed.length) { notify('ไม่มีคนที่ยังไม่ผ่าน', 'error'); return; }
-  _tsPeople = r.notPassed.slice();   // snapshot ก่อนปิด modal ชนรายชื่อ
-  _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่ (ไม่ทับร่าง/ใบที่เปิดค้างไว้ก่อนหน้า)
   const course = r.course;
-  closeModal();
-  setTimeout(() => _openTsModal(course), 60);
+  /* สาขาละ 1 คน — เลือกตั้งแต่ตรงนี้ ใบรายชื่อจะได้มีแต่คนที่ส่งจริง */
+  _onePerBranchPick(r.notPassed, list => {
+    _tsPeople = list;   // snapshot ก่อนปิด modal ชนรายชื่อ
+    _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่ (ไม่ทับร่าง/ใบที่เปิดค้างไว้ก่อนหน้า)
+    closeModal();
+    setTimeout(() => _openTsModal(course), 60);
+  });
 }
 /* ══════════ ทะเบียนบริษัทในเครือ ══════════
    ใช้เลือกว่าใบรายชื่อผู้เข้าอบรมจะออกในนามบริษัทไหน
@@ -11612,18 +11616,20 @@ function _tsTenure(e) {
 /* ใบรายชื่อ 1 ใบ ส่งได้สาขาละ 1 คน
    ถ้าติ๊กไว้เกินในสาขาไหน เด้งหน้าต่างให้เลือกคนเดียวของสาขานั้นก่อน แล้วค่อยทำต่อ (ออกใบ / บันทึกร่าง)
    หน้าต่างนี้ซ้อนบนฟอร์มเดิม (showModal มีชั้นเดียว เปิดทับแล้วของที่กรอกไว้หาย) */
-function _tsOnePerBranch(next) {
-  const checked = Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value);
-  const people = _tsPeople.filter(e => checked.indexOf(e.id) >= 0);
+/* สาขาละ 1 คน — ตัวกลาง
+   people = รายชื่อ · next(list) = ทำต่อด้วยรายชื่อที่เหลือสาขาละคน
+   ถ้าไม่มีสาขาไหนเกิน ทำต่อทันที · ถ้าเกิน เด้งหน้าต่างให้เลือก (ตั้งต้น = อายุงานมากสุด)
+   หน้าต่างซ้อนบนของเดิม ไม่ปิด modal ที่เปิดอยู่ (showModal มีชั้นเดียว) */
+function _onePerBranchPick(people, next) {
   const by = {};
   people.forEach(e => { (by[e.branchId || '—'] = by[e.branchId || '—'] || []).push(e); });
   const over = Object.keys(by).filter(b => by[b].length > 1).sort();
-  if (!over.length) return next();
+  if (!over.length) return next(people.slice());
   const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   const esc = x => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  const tenMonths = e => {   // ไว้เลือกคนอายุงานมากสุดเป็นค่าตั้งต้น
+  const since = e => {
     const cur = (DB.employees[e.branchId] || []).find(x => x.id === e.id) || e;
-    const d = new Date(cur.startDate || e.startDate || ''); return isNaN(d) ? -1 : -d.getTime();
+    const d = new Date(cur.startDate || e.startDate || ''); return isNaN(d) ? 9e15 : d.getTime();
   };
   let ov = document.getElementById('ts-one-ov');
   if (ov) ov.remove();
@@ -11631,28 +11637,37 @@ function _tsOnePerBranch(next) {
   ov.id = 'ts-one-ov';
   ov.className = 'ts-one-ov';
   ov.innerHTML = `<div class="ts-one">
-    <div class="ts-one-hd"><b>สาขาละ 1 คน</b><span>มี ${over.length} สาขาที่เลือกไว้มากกว่า 1 คน · เลือกคนที่จะส่งเข้าอบรมสาขาละคน</span></div>
+    <div class="ts-one-hd"><b>สาขาละ 1 คน</b><span>มี ${over.length} สาขาที่มีรายชื่อมากกว่า 1 คน · เลือกคนที่จะส่งเข้าอบรมสาขาละคน</span></div>
     <div class="ts-one-bd">${over.map(b => {
-      const list = by[b].slice().sort((x, y) => tenMonths(y) - tenMonths(x));
+      const list = by[b].slice().sort((x, y) => since(x) - since(y));
       return `<div class="ts-one-br"><div class="ts-one-bn">${esc(brName(b))} <em>${by[b].length} คน</em></div>
-        ${list.map((e, i) => `<label class="ts-one-p"><input type="radio" name="one-${esc(b)}" value="${esc(e.id)}"${i === 0 ? ' checked' : ''}>
+        ${list.map((e, k) => `<label class="ts-one-p"><input type="radio" name="one-${esc(b)}" value="${esc(e.id)}"${k === 0 ? ' checked' : ''}>
           <span><b>${esc(e.name)}</b><small>${e.empCode ? esc(e.empCode) + ' · ' : ''}${esc(e.position || '-')}</small></span>
           <span class="ts-ten">${_tsTenure(e)}</span></label>`).join('')}</div>`;
     }).join('')}</div>
-    <div class="ts-one-ft"><button class="btn btn-outline" id="ts-one-no">กลับไปแก้เอง</button><button class="btn btn-accent" id="ts-one-ok">ใช้คนที่เลือก · ทำต่อ</button></div>
+    <div class="ts-one-ft"><button class="btn btn-outline" id="ts-one-no">ยกเลิก</button><button class="btn btn-accent" id="ts-one-ok">ใช้คนที่เลือก · ทำต่อ</button></div>
   </div>`;
   document.body.appendChild(ov);
   ov.querySelector('#ts-one-no').onclick = () => ov.remove();
   ov.querySelector('#ts-one-ok').onclick = () => {
+    const drop = new Set();
     over.forEach(b => {
       const keep = (ov.querySelector(`input[name="one-${CSS.escape(b)}"]:checked`) || {}).value;
-      by[b].forEach(e => { if (e.id !== keep) {
-        const c = document.querySelector(`.ts-chk[value="${CSS.escape(e.id)}"]`); if (c) c.checked = false; } });
+      by[b].forEach(e => { if (e.id !== keep) drop.add(e.id); });
     });
-    _tsUpd();
     ov.remove();
-    next();
+    next(people.filter(e => !drop.has(e.id)));
   };
+}
+/* ในฟอร์มใบรายชื่อ: เลือกแล้วเอาติ๊กคนที่ไม่ได้เลือกออก แล้วค่อยออกใบ/บันทึกร่าง */
+function _tsOnePerBranch(next) {
+  const checked = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
+  _onePerBranchPick(_tsPeople.filter(e => checked.has(e.id)), list => {
+    const keep = new Set(list.map(e => e.id));
+    document.querySelectorAll('.ts-chk:checked').forEach(c => { if (!keep.has(c.value)) c.checked = false; });
+    _tsUpd();
+    next();
+  });
 }
 function _tsToggleAll(on) { document.querySelectorAll('.ts-chk').forEach(c => c.checked = on); _tsUpd(); }
 function _tsUpd() {
