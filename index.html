@@ -6297,6 +6297,13 @@ function _chatPickSections(q) {
   return sec;
 }
 
+/* พาร์ทไทม์ดูจาก "P/T" ท้ายชื่อตำแหน่ง เช่น "Cook Basic P/T" / "Service Basic P/T"
+   ระบบไม่มีคอลัมน์ประเภทการจ้าง อันนี้คือทางเดียวที่แยกได้
+   เผื่อท้ายชื่อคนไว้ด้วย บางสาขาพิมพ์ต่อท้ายชื่อแทนตำแหน่ง */
+function isPartTimeEmp(e) {
+  const t = String((e && (e.position || e.pos)) || '') + ' ' + String((e && e.name) || '');
+  return /(^|[\s(\[-])p\s*[\/.]?\s*t\.?\s*[)\]]?(\s|$)/i.test(t);
+}
 function _chatBuildContext(question) {
   const sec = _chatPickSections(question);
   const access = (typeof getAccessibleBranches === 'function' ? getAccessibleBranches() : Object.keys(BRANCH_MASTER || {}));
@@ -6381,12 +6388,20 @@ function _chatBuildContext(question) {
   const posLines = Object.entries(perPos).sort((a,b) => b[1].total - a[1].total)
     .map(([p, s]) => `- ${p}: ${s.total} คน (ถูกสอน ${s.trained})`).join('\n');
 
+  /* พาร์ทไทม์ดูจากชื่อที่ลงท้าย "P/T" (ระบบไม่มีคอลัมน์ประเภทการจ้าง)
+     นับไว้ให้ในสรุปภาพรวมเลย ไม่งั้นถูกถามว่ามีพาร์ทไทม์กี่คนแล้วต้องไปขอรายชื่อจากผู้ใช้ */
+  const partTimeCount = emps.filter(isPartTimeName).length;
+
   // ===== Per-branch summary =====
   const perBranch = {};
   access.forEach(bid => {
-    perBranch[bid] = { name: BRANCH_MASTER[bid]?.name||bid, mgr: BRANCH_MASTER[bid]?.manager||'', emps:0, sessions:0, eval:0, pass:0 };
+    perBranch[bid] = { name: BRANCH_MASTER[bid]?.name||bid, mgr: BRANCH_MASTER[bid]?.manager||'', emps:0, pt:0, sessions:0, eval:0, pass:0 };
   });
-  emps.forEach(e => { if (perBranch[e.branchId]) perBranch[e.branchId].emps++; });
+  emps.forEach(e => {
+    const p = perBranch[e.branchId]; if (!p) return;
+    p.emps++;
+    if (isPartTimeEmp(e)) p.pt++;
+  });
   trains.forEach(t => {
     const p = perBranch[t.branchId]; if (!p) return;
     p.sessions++;
@@ -6397,7 +6412,7 @@ function _chatBuildContext(question) {
     .sort((a,b) => b[1].sessions - a[1].sessions)
     .map(([bid,p]) => {
       const passRate = p.eval ? Math.round(p.pass/p.eval*100) : null;
-      return `- ${bid} ${p.name.replace(bid+' ','')}: พนง.${p.emps} · สอน${p.sessions} · ประเมิน${p.eval}/ผ่าน${p.pass}${passRate!=null?` (${passRate}%)`:''}`;
+      return `- ${bid} ${p.name.replace(bid+' ','')}: พนง.${p.emps}${p.pt?` (พาร์ทไทม์ ${p.pt})`:''} · สอน${p.sessions} · ประเมิน${p.eval}/ผ่าน${p.pass}${passRate!=null?` (${passRate}%)`:''}`;
     }).join('\n');
 
   // ===== Trainer leaderboard =====
@@ -6444,6 +6459,7 @@ function _chatBuildContext(question) {
     `${userInfo}\nวันที่ปัจจุบัน: ${fmtDate(today.toISOString())}`,
     `═══ สรุปภาพรวม ═══
 - พนักงานเปิดใช้งาน: ${emps.length} คน (ถูกสอนแล้ว ${trainedEmps.length} · ยังไม่ถูกสอน ${untrainedEmps.length})
+- ประเภทการจ้าง: ประจำ ${emps.length - partTimeCount} คน · พาร์ทไทม์ ${partTimeCount} คน (พาร์ทไทม์ = ตำแหน่งลงท้าย "P/T")
 - บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)`,
   ];
   const add = (on, title, body) => { if (on) parts.push(`═══ ${title} ═══\n${body}`); };
@@ -6576,11 +6592,11 @@ ${EVAL_RESULTS.map(r => `  - ${r.label}${isEvalPass(r.value) ? '  → ผ่า�
 
 **สถานะพนักงาน** มี 2 แบบ: active (เปิดใช้งาน) / resigned (ปิดใช้งาน — ลาออก/พักงาน/ย้าย)
 
-**ประจำ vs พาร์ทไทม์ — ดูที่ท้ายชื่อ** (ระบบไม่มีคอลัมน์แยก ใช้วิธีนี้วิธีเดียว)
-• ชื่อที่ **ไม่มี "P/T"** ต่อท้าย = พนักงานประจำ
-• ชื่อที่ **มี "P/T"** ต่อท้าย = พนักงานพาร์ทไทม์ เช่น "สมชาย ใจดี P/T"
-• ถามว่า "พาร์ทไทม์มีกี่คน / ใครเป็นพาร์ทไทม์" → นับจากชื่อที่ลงท้ายด้วย P/T
-• ห้ามตัด "P/T" ออกตอนพิมพ์ชื่อ และห้ามเติมเองถ้าต้นฉบับไม่มี — คนละสถานะการจ้างกัน
+**ประจำ vs พาร์ทไทม์ — ดูที่ท้ายชื่อตำแหน่ง** (ระบบไม่มีคอลัมน์แยก ใช้วิธีนี้วิธีเดียว)
+• ตำแหน่งที่ **ลงท้ายด้วย "P/T"** = พาร์ทไทม์ เช่น "Cook Basic P/T" · "Service Basic P/T"
+• ตำแหน่งเดียวกันที่ **ไม่มี "P/T"** = พนักงานประจำ เช่น "Cook Basic"
+• จำนวนรวมอยู่ในสรุปภาพรวมบรรทัด "ประเภทการจ้าง" แล้ว — ตอบตัวเลขได้เลย
+• ห้ามตัด "P/T" ออกตอนพิมพ์ชื่อตำแหน่ง และห้ามเติมเองถ้าต้นฉบับไม่มี — คนละสถานะการจ้างกัน
 
 **หลักสูตร (คนละเรื่องกับ Module การสอนงาน)**
 • "Module" = การสอนงานหน้างานรายคน มีหัวข้อย่อย ประเมิน และข้อสอบในระบบ
@@ -6629,6 +6645,8 @@ ${((currentUser?.type === 'branch' ? BRANCH_NAV_ITEMS : (typeof getActiveNavItem
 - "Module ไหนผ่าน/ไม่ผ่าน" → "สถิติแยกตาม Module"
 - "ผู้สอนเยอะสุด" → "ผู้สอน (Top 10)"
 - "ตำแหน่ง X กี่คน" → "จำนวนแยกตามตำแหน่ง"
+- "พาร์ทไทม์/พนักงานประจำ กี่คน" → สรุปภาพรวม บรรทัด "ประเภทการจ้าง" (แยกรายสาขาดูที่ section "สาขา")
+  → ตอบตัวเลขออกมาเลย **ห้ามขอรายชื่อพนักงานจากผู้ใช้** ระบบนับมาให้แล้ว
 - "วิธีเพิ่มพนักงาน" → "รายชื่อพนักงาน → + เพิ่มพนักงาน → กรอกรหัส/ชื่อ/ตำแหน่ง/วันเริ่มงาน → บันทึก"
 - "วิธีบันทึกการสอน" → "บันทึกการสอน → + บันทึกการสอนงาน → เลือก Module/หัวข้อ/พนักงาน/ผู้สอน → บันทึก"
 - "วิธีประเมิน" → "บันทึกการสอน → หา session สถานะ 'รอประเมิน' → กดปุ่ม 'ประเมิน' → เลือกวิธี + ผล → บันทึก"
