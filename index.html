@@ -1307,6 +1307,20 @@
   .ab-br.skip .ab-x { background: rgba(107,114,128,.14); color: var(--text2); }
   .ab-br.skip .ab-x:hover { background: var(--text2); color: #fff; }
   .ab-legend { font-size: 11.5px; color: var(--text3); font-weight: 700; margin: 9px 0 5px; }
+  /* ── ชนกับสิทธิ์เข้าระบบของฮับ (เฉพาะหลักสูตรที่ผูกกับระบบไว้) ── */
+  .ab-x2 { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--border); }
+  .ab-x2-t { font-size: 12px; font-weight: 800; color: var(--text2); margin-bottom: 8px; }
+  .ab-x2-t span { font-weight: 600; color: var(--text3); }
+  .ab-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+  .ab-cell { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface2); }
+  .ab-cell b { display: block; font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .ab-cell span { display: block; font-size: 11.5px; color: var(--text3); font-weight: 700; margin-top: 2px; }
+  .ab-cell.warn { background: #FFFBEB; border-color: #FDE68A; }
+  .ab-cell.warn b { color: #B45309; }
+  .ab-cell.info { background: #EFF6FF; border-color: #BFDBFE; }
+  .ab-cell.info b { color: #1D4ED8; }
+  .ab-cell.ok b { color: #166534; }
+  .ab-br.noacc { color: #B45309; background: #FFFBEB; border-color: #FDE68A; padding: 3px 10px; }
   .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
              border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
   .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
@@ -5313,6 +5327,7 @@ function getHubConfig() {
         if (JSON.stringify(res) === JSON.stringify(cached)) return;
         _applyHubBranches(res);
         _applyHubTrPerms(res);
+        _applyHubSystems(res);
         try { if (currentUser && currentPage) showPage(currentPage); } catch (_) {}
         console.log('[hub] อัปเดต config ใหม่จาก HUB แล้ว');
       })
@@ -5324,8 +5339,15 @@ function getHubConfig() {
   return _hubCfgPromise;
 }
 
+/* ระบบทั้งหมดในฮับ (พร้อมสิทธิ์รายสาขาของแต่ละระบบ) — ฮับส่งมาพร้อม config ก้อนเดียวกับทะเบียนสาขา */
+let _hubSystems = [];
+function _applyHubSystems(res) {
+  if (res && res.ok && Array.isArray(res.systems)) _hubSystems = res.systems;
+  return _hubSystems;
+}
 async function loadBranchesFromHub() {
   const res = await getHubConfig();
+  _applyHubSystems(res);
   return _applyHubBranches(res);
 }
 function _applyHubBranches(res) {
@@ -10878,10 +10900,32 @@ function _tpAllBranchCard() {
           <div class="ab-brs">${g.planned.map(b => `<span class="ab-br plan">${esc(brName(b))}</span>`).join('')}</div>` : ''}
         ${g.skipped.length ? `<div class="ab-legend">ยกเว้นไว้ — กด ↺ เพื่อเอากลับมานับ</div>
           <div class="ab-brs">${g.skipped.map(b => chip(b, ' skip', '↺', '_abUnskip', 'เอากลับมานับว่าต้องอบรม')).join('')}</div>` : ''}
+        ${_abCrossHTML(x.n)}
       </div>`;
     }).join('')}
   </div>`;
 }
+/* กล่อง "ชนกับสิทธิ์เข้าระบบ" — ขึ้นเฉพาะหลักสูตรที่ผูกกับระบบในฮับไว้ */
+function _abCrossHTML(name) {
+  const c = courseAccessCross(name);
+  if (!c) return '';
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
+  const brs = (arr, cls) => `<div class="ab-brs" style="margin-top:6px">${
+    arr.map(b => `<span class="ab-br ${cls}">${esc(brName(b))}</span>`).join('')}</div>`;
+  return `<div class="ab-x2">
+    <div class="ab-x2-t">ชนกับสิทธิ์เข้าระบบ “${esc(c.sys.name || 'ระบบ')}” ในฮับ <span>— เปลี่ยนสิทธิ์ได้ที่ฮับ → ตั้งค่าประกาศระบบ → สิทธิ์สาขา</span></div>
+    <div class="ab-cells">
+      <div class="ab-cell ok"><b>${c.both.length}</b><span>อบรมแล้ว + เปิดสิทธิ์แล้ว</span></div>
+      <div class="ab-cell warn"><b>${c.accessNoTrain.length}</b><span>เปิดสิทธิ์แล้ว แต่ยังไม่อบรม</span></div>
+      <div class="ab-cell info"><b>${c.trainNoAccess.length}</b><span>อบรมแล้ว แต่ยังไม่เปิดสิทธิ์</span></div>
+      <div class="ab-cell"><b>${c.neither.length}</b><span>ยังไม่อบรม และยังไม่เปิดสิทธิ์</span></div>
+    </div>
+    ${c.accessNoTrain.length ? `<div class="ab-legend" style="margin-top:9px">เปิดสิทธิ์ให้ใช้ระบบแล้วแต่ยังไม่ได้อบรม — ควรจัดให้ก่อนใคร</div>${brs(c.accessNoTrain, 'noacc')}` : ''}
+    ${c.trainNoAccess.length ? `<div class="ab-legend">อบรมแล้วแต่ยังเข้าระบบไม่ได้ — ไปเปิดสิทธิ์ให้ที่ฮับ</div>${brs(c.trainNoAccess, 'plan')}` : ''}
+  </div>`;
+}
+
 /* วาดการ์ดใหม่อย่างเดียว ไม่ต้องวาดทั้งหน้า — ใช้ตอนใบรายชื่อโหลดเสร็จและตอนกดยกเว้น */
 function _abPaint() {
   const box = document.getElementById('tp-allbranch');
@@ -11049,6 +11093,48 @@ function courseIsAllBranch(name) {
   const e = _catalogEntry(name);
   return !!(e && e.allBranches);
 }
+/* หลักสูตรที่ผูกกับ "สิทธิ์เข้าระบบ" ของฮับ — ตอนนี้มีตัวเดียว
+   หลักสูตรสอนใช้ระบบ ต้องดูคู่กับว่าสาขานั้นเปิดสิทธิ์เข้าระบบให้หรือยัง
+   (เปิดสิทธิ์แต่ไม่ได้อบรม = ใช้มั่ว · อบรมแล้วไม่เปิดสิทธิ์ = อบรมไปเปล่า ๆ) */
+const COURSE_SYSTEM_LINK = { 'การใช้งานระบบ training record system': 'training-record' };
+function courseLinkedSystem(name) {
+  const key = String(name || '').trim().toLowerCase();
+  let id = COURSE_SYSTEM_LINK[key];
+  if (!id && /training\s*record/i.test(key)) id = 'training-record';   // ชื่อหลักสูตรเพี้ยนไปบ้างก็ยังจับได้
+  if (!id) return null;
+  return (_hubSystems || []).find(x => String(x.id) === id) || null;
+}
+/* สาขาไหนเปิดสิทธิ์เข้าระบบนั้นแล้วบ้าง — กติกาเดียวกับฮับ:
+   ปิดทุกสาขา = ไม่มีใครเห็น · ไม่ได้ระบุสาขา = ทุกสาขาเห็น · ระบุไว้ = เฉพาะที่ระบุ */
+function systemBranchAccess(sys) {
+  const open = openBranchIds();
+  if (!sys) return null;
+  if (sys.hideFromAllBranches) return new Set();
+  const list = Array.isArray(sys.visibleBranches) ? sys.visibleBranches.map(String) : [];
+  if (!list.length) return new Set(open);
+  return new Set(list);
+}
+/* ตารางชน 2 ทาง: อบรมแล้วหรือยัง × เปิดสิทธิ์หรือยัง */
+function courseAccessCross(name) {
+  const sys = courseLinkedSystem(name);
+  if (!sys) return null;
+  const acc = systemBranchAccess(sys);
+  const n = String(name || '').trim();
+  const skip = new Set(courseSkipBranches(n));
+  const trained = new Set((DB.courseHistory || [])
+    .filter(c => (c.courseName || '').trim() === n)
+    .map(c => String(c.branchId || '').trim()).filter(Boolean));
+  const out = { sys, both: [], accessNoTrain: [], trainNoAccess: [], neither: [] };
+  openBranchIds().filter(b => !skip.has(b)).forEach(b => {
+    const t = trained.has(b), a = acc.has(b);
+    if (t && a) out.both.push(b);
+    else if (a) out.accessNoTrain.push(b);
+    else if (t) out.trainNoAccess.push(b);
+    else out.neither.push(b);
+  });
+  return out;
+}
+
 /* สาขาที่ยกเว้นไว้ของหลักสูตรนี้ — ไม่นับว่าค้าง */
 function courseSkipBranches(name) {
   const e = _catalogEntry(name);
