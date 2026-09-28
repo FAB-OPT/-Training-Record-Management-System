@@ -6390,7 +6390,7 @@ function _chatBuildContext(question) {
 
   /* พาร์ทไทม์ดูจากชื่อที่ลงท้าย "P/T" (ระบบไม่มีคอลัมน์ประเภทการจ้าง)
      นับไว้ให้ในสรุปภาพรวมเลย ไม่งั้นถูกถามว่ามีพาร์ทไทม์กี่คนแล้วต้องไปขอรายชื่อจากผู้ใช้ */
-  const partTimeCount = emps.filter(isPartTimeName).length;
+  const partTimeCount = emps.filter(isPartTimeEmp).length;
 
   // ===== Per-branch summary =====
   const perBranch = {};
