@@ -1296,8 +1296,17 @@
   .ab-bar i { display: block; height: 100%; border-radius: 99px; background: var(--green); }
   .ab-bar i.warn { background: #F59E0B; }
   .ab-brs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .ab-br { font-size: 11.5px; font-weight: 700; color: #92400E; background: #FEF3C7;
-           border: 1px solid #FDE68A; border-radius: 999px; padding: 3px 10px; }
+  .ab-br { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700;
+           color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 999px; padding: 3px 4px 3px 10px; }
+  /* ปุ่มยกเว้นติดอยู่ในชิปเลย — สาขาที่ผู้จัดการคนเดียวกันดูแลสองสาขา กดครั้งเดียวจบ */
+  .ab-x { border: 0; background: rgba(146,64,14,.12); color: #92400E; font-family: inherit; font-size: 11px;
+          font-weight: 800; line-height: 1; border-radius: 999px; padding: 3px 6px; cursor: pointer; }
+  .ab-x:hover { background: #92400E; color: #fff; }
+  .ab-br.plan { color: #1D4ED8; background: #EFF6FF; border-color: #BFDBFE; padding: 3px 10px; }
+  .ab-br.skip { color: var(--text3); background: var(--surface2); border-color: var(--border); }
+  .ab-br.skip .ab-x { background: rgba(107,114,128,.14); color: var(--text2); }
+  .ab-br.skip .ab-x:hover { background: var(--text2); color: #fff; }
+  .ab-legend { font-size: 11.5px; color: var(--text3); font-weight: 700; margin: 9px 0 5px; }
   .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
              border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
   .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
@@ -10769,7 +10778,7 @@ function renderTrainingPlan() {
     <div id="tw-list"><p class="text-muted" style="text-align:center;padding:22px;font-size:13px">กำลังโหลด…</p></div>
   </div>
 
-  ${_tpAllBranchCard()}
+  <div id="tp-allbranch">${_tpAllBranchCard()}</div>
 
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
@@ -10834,7 +10843,6 @@ function _tpAllBranchCard() {
   const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
   const names = allCourseNames().filter(courseIsAllBranch);
   if (!names.length) return '';
-  const SHOW = 12;
   const items = names.map(n => ({ n, g: courseBranchGap(n) }))
     .sort((a, b) => b.g.missing.length - a.g.missing.length || a.n.localeCompare(b.n, 'th'));
   const gone = items.filter(x => !x.g.missing.length).length;
@@ -10848,8 +10856,10 @@ function _tpAllBranchCard() {
       <div style="font-size:12px;color:var(--text3)">ครบแล้ว ${gone} / ${items.length} หลักสูตร</div>
     </div>
     ${items.map(x => {
-      const miss = x.g.missing;
-      const pct = x.g.total ? Math.round(x.g.done / x.g.total * 100) : 0;
+      const g = x.g, miss = g.missing;
+      const pct = g.total ? Math.round(g.done / g.total * 100) : 0;
+      const chip = (b, cls, ic, fn, tip) =>
+        `<span class="ab-br${cls}">${esc(brName(b))}<button class="ab-x" title="${tip}" onclick="${fn}('${js(x.n)}','${js(b)}')">${ic}</button></span>`;
       return `<div class="ab-item">
         <div class="ab-top">
           <div class="ab-name">${esc(x.n)}</div>
@@ -10859,15 +10869,56 @@ function _tpAllBranchCard() {
             : '<span class="cc-gap full">ครบทุกสาขาแล้ว</span>'}
         </div>
         <div class="ab-bar"><i class="${miss.length ? 'warn' : ''}" style="width:${pct}%"></i></div>
-        <div style="font-size:11.5px;color:var(--text3);margin-bottom:${miss.length ? '7px' : '0'}">อบรมแล้ว ${x.g.done} จาก ${x.g.total} สาขา (${pct}%)</div>
-        ${miss.length ? `<div class="ab-brs" id="ab-${esc(x.n.replace(/[^a-zA-Z0-9ก-๙]/g, ''))}">
-          ${miss.slice(0, SHOW).map(b => `<span class="ab-br">${esc(brName(b))}</span>`).join('')}
-          ${miss.length > SHOW ? `<button class="ab-more" onclick="this.parentElement.innerHTML='${js(miss.map(b => '<span class=\'ab-br\'>' + esc(brName(b)) + '</span>').join(''))}'">+ อีก ${miss.length - SHOW} สาขา</button>` : ''}
-        </div>` : ''}
+        <div style="font-size:11.5px;color:var(--text3)">อบรมแล้ว ${g.done} จาก ${g.total} สาขา (${pct}%)${
+          g.planned.length ? ' · ทำใบรายชื่อแล้วรอผล ' + g.planned.length + ' สาขา' : ''}${
+          g.skipped.length ? ' · ยกเว้น ' + g.skipped.length + ' สาขา' : ''}</div>
+        ${miss.length ? `<div class="ab-legend">ยังไม่ได้ทำอะไรเลย — กด ✕ ที่สาขาเพื่อยกเว้น (เช่น ผู้จัดการคนเดียวกันกับอีกสาขา)</div>
+          <div class="ab-brs">${miss.map(b => chip(b, '', '✕', '_abSkip', 'ยกเว้นสาขานี้ ไม่ต้องนับว่าค้าง')).join('')}</div>` : ''}
+        ${g.planned.length ? `<div class="ab-legend">ทำใบรายชื่อไว้แล้ว รอผลเข้าระบบ</div>
+          <div class="ab-brs">${g.planned.map(b => `<span class="ab-br plan">${esc(brName(b))}</span>`).join('')}</div>` : ''}
+        ${g.skipped.length ? `<div class="ab-legend">ยกเว้นไว้ — กด ↺ เพื่อเอากลับมานับ</div>
+          <div class="ab-brs">${g.skipped.map(b => chip(b, ' skip', '↺', '_abUnskip', 'เอากลับมานับว่าต้องอบรม')).join('')}</div>` : ''}
       </div>`;
     }).join('')}
   </div>`;
 }
+/* วาดการ์ดใหม่อย่างเดียว ไม่ต้องวาดทั้งหน้า — ใช้ตอนใบรายชื่อโหลดเสร็จและตอนกดยกเว้น */
+function _abPaint() {
+  const box = document.getElementById('tp-allbranch');
+  if (box) box.innerHTML = _tpAllBranchCard();
+}
+/* ยกเว้น / เอากลับมานับ — เก็บที่ทะเบียนหลักสูตร แอดมินคนอื่นเห็นตรงกัน */
+async function _abSetSkip(name, branchId, on) {
+  const n = String(name || '').trim();
+  const cur = _catalogEntry(n);
+  const list = new Set(courseSkipBranches(n));
+  if (on) list.add(String(branchId)); else list.delete(String(branchId));
+  const skipBranches = [...list];
+  const rec = cur
+    ? Object.assign({}, cur, { skipBranches })
+    : { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: n,
+        createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+        createdAt: new Date().toISOString(), allBranches: true, skipBranches };
+  try {
+    const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+    const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
+    if (res.error) throw res.error;
+    if (cur) cur.skipBranches = skipBranches;
+    else (DB.courseCatalog = DB.courseCatalog || []).push(rec);
+    const nm = (BRANCH_MASTER[branchId] && BRANCH_MASTER[branchId].name) || branchId;
+    notify(on ? 'ยกเว้น ' + nm + ' แล้ว' : 'เอา ' + nm + ' กลับมานับแล้ว');
+    _abPaint();
+    if (currentPage === 'admin-training-plan') { const t = document.getElementById('cc-table'); if (t) showPage('admin-training-plan'); }
+  } catch (e) {
+    const m = String((e && e.message) || e);
+    notify(/skip_branches/.test(m)
+      ? 'ยังไม่ได้เพิ่มคอลัมน์ในฐานข้อมูล — รันไฟล์ supabase-course-skip-branch.sql ก่อน'
+      : 'บันทึกไม่สำเร็จ — ' + m, 'error');
+  }
+}
+function _abSkip(name, branchId)  { _abSetSkip(name, branchId, true); }
+function _abUnskip(name, branchId){ _abSetSkip(name, branchId, false); }
+
 /* คัดลอกรายชื่อสาขาที่ยังไม่อบรม — เอาไปวางในไลน์กลุ่มได้เลย */
 function _abCopy(name) {
   const g = courseBranchGap(name);
@@ -10998,16 +11049,42 @@ function courseIsAllBranch(name) {
   const e = _catalogEntry(name);
   return !!(e && e.allBranches);
 }
+/* สาขาที่ยกเว้นไว้ของหลักสูตรนี้ — ไม่นับว่าค้าง */
+function courseSkipBranches(name) {
+  const e = _catalogEntry(name);
+  const v = e && e.skipBranches;
+  return Array.isArray(v) ? v.map(String) : [];
+}
+/* สาขาที่มีชื่ออยู่ในใบรายชื่อผู้เข้าอบรมของหลักสูตรนี้แล้ว (ทั้งแบบร่างและใบที่ออกแล้ว)
+   = จัดไปแล้ว รอผลเข้าระบบ ไม่ควรนับรวมกับสาขาที่ยังไม่ได้ทำอะไรเลย */
+function courseRosterBranches(name) {
+  const n = String(name || '').trim();
+  const all = [].concat(typeof _tpDrafts !== 'undefined' ? _tpDrafts || [] : [],
+                        typeof _rhRows   !== 'undefined' ? _rhRows   || [] : []);
+  const out = new Set();
+  all.forEach(d => {
+    if (String(d.course || '').trim() !== n) return;
+    (d.people || []).forEach(p => { const b = String((p && p.branchId) || '').trim(); if (b) out.add(b); });
+  });
+  return out;
+}
 /* สาขาไหนยังไม่มีใครผ่านหลักสูตรนี้ — นับเฉพาะสาขาที่ยังเปิดอยู่
-   (สาขาปิดแล้วไม่ต้องตามให้เสียเวลา ทะเบียนสาขาของฮับเป็นตัวบอกว่าใครปิด) */
+   (สาขาปิดแล้วไม่ต้องตามให้เสียเวลา ทะเบียนสาขาของฮับเป็นตัวบอกว่าใครปิด)
+   หักสองอย่างออกก่อน: สาขาที่ยกเว้นไว้ · สาขาที่ทำใบรายชื่อไปแล้วรอผล */
 function courseBranchGap(name) {
   const n = String(name || '').trim();
+  const skip = new Set(courseSkipBranches(n));
   const open = openBranchIds();
+  const target = open.filter(b => !skip.has(b));
   const done = new Set((DB.courseHistory || [])
     .filter(c => (c.courseName || '').trim() === n)
     .map(c => String(c.branchId || '').trim()).filter(Boolean));
-  const missing = open.filter(b => !done.has(b));
-  return { total: open.length, done: open.length - missing.length, missing };
+  const roster = courseRosterBranches(n);
+  const left = target.filter(b => !done.has(b));
+  const planned = left.filter(b => roster.has(b));
+  const missing = left.filter(b => !roster.has(b));
+  return { total: target.length, done: target.length - left.length, planned, missing,
+           skipped: open.filter(b => skip.has(b)) };
 }
 function _catalogEntry(name) {
   const n = String(name || '').trim();
@@ -11171,6 +11248,7 @@ async function _tpRenderAll() {
   _rhRows = rows.filter(d => d.issuedAt)
     .sort((a, b) => String(b.issuedAt || '').localeCompare(String(a.issuedAt || '')));
   _twPaint();
+  _abPaint();   /* ใบรายชื่อเพิ่งมาถึง — การ์ดสาขาที่ค้างต้องหักใบที่ทำไว้แล้วออก */
 }
 function _twError(e) {
   const box = document.getElementById('tw-list');
