@@ -242,11 +242,20 @@ function _chatViaGemini(req, apiKey) {
       };
     });
 
-    const payload = JSON.stringify({
-      system_instruction: { parts: [{ text: system }] },
-      contents: contents,
-      generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
-    });
+    /* thinkingBudget: 0 = ไม่ต้องคิดก่อนตอบ
+       Gemini 2.5/3.x เปิดโหมดคิดไว้เป็นค่าเริ่มต้น คำถามง่าย ๆ ก็เสียเวลาไปหลายวินาที
+       และกินโควตา token คำตอบจนบางทีตอบไม่ทันจบ — งานนี้เป็นการตอบจากข้อมูลที่ให้ไปแล้ว
+       ไม่ต้องใช้การคิดหลายชั้น (วัดเมื่อ 28 ก.ย. 69: ถาม "1+1" ใช้เวลา 40 วินาที) */
+    function _payload(withThinkOff) {
+      const gc = { maxOutputTokens: 1024, temperature: 0.7 };
+      if (withThinkOff) gc.thinkingConfig = { thinkingBudget: 0 };
+      return JSON.stringify({
+        system_instruction: { parts: [{ text: system }] },
+        contents: contents,
+        generationConfig: gc
+      });
+    }
+    var payload = _payload(true);
 
     /* ไล่ลองทีละรุ่นจากบนลงล่าง — ตกลงตัวถัดไปเมื่อโควตาเต็มหรือหารุ่นไม่เจอ
        Google ปิดรุ่นเก่าเป็นระยะ ต้องคอยตัดตัวที่ตายแล้วออก ไม่งั้นจะเสียเวลา
@@ -261,17 +270,24 @@ function _chatViaGemini(req, apiKey) {
          3.5-flash-lite  $0.30 / $2.50   เท่ากับ 2.5-flash แต่ใหม่กว่าหนึ่งรุ่น
          3.1-flash-lite  $0.25 / $1.50   ถูกกว่าและใหม่กว่า 2.5-flash
          2.5-flash       $0.30 / $2.50   ของเดิม เก็บไว้เผื่อรุ่นใหม่มีปัญหา */
-    const models = [
+    var models = [
+      'gemini-2.5-flash',        /* ตัวที่ตอบได้จริงกับ key ปัจจุบัน (ตรวจ 28 ก.ย. 69) */
+      'gemini-flash-latest',
       'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',
-      'gemini-2.5-flash',
-      'gemini-flash-latest',
     ];
+    /* จำรุ่นที่ตอบได้ล่าสุดไว้ แล้วเริ่มจากตัวนั้นก่อน
+       เดิมไล่จากบนลงล่างทุกครั้ง สองรุ่นแรกเรียกไม่ติดก็เสียเวลาไปเปล่า ๆ ทุกคำถาม */
+    var props2 = PropertiesService.getScriptProperties();
+    var lastOk = props2.getProperty('GEMINI_LAST_OK');
+    if (lastOk && models.indexOf(lastOk) > 0) {
+      models = [lastOk].concat(models.filter(function(m){ return m !== lastOk; }));
+    }
     var resp, code, body;
     var lastErr = '';
     outer: for (var mi = 0; mi < models.length; mi++) {
       const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[mi] + ':generateContent?key=' + apiKey;
-      for (var attempt = 0; attempt < 3; attempt++) {
+      for (var attempt = 0; attempt < 2; attempt++) {
         resp = UrlFetchApp.fetch(url, {
           method: 'post',
           contentType: 'application/json',
@@ -281,9 +297,15 @@ function _chatViaGemini(req, apiKey) {
         code = resp.getResponseCode();
         body = resp.getContentText();
         if (code === 200) break outer;
+        /* รุ่นเก่าบางตัวไม่รู้จัก thinkingConfig แล้วตอบ 400 — ลองใหม่แบบไม่ใส่ให้อัตโนมัติ
+           ไม่งั้นจะหยุดทั้งหมดเพราะ 400 ถือเป็น error ที่ลองต่อไปก็ไม่มีประโยชน์ */
+        if (code === 400 && payload.indexOf('thinkingConfig') >= 0 && /think/i.test(body)) {
+          payload = _payload(false);
+          continue;
+        }
         // Retry on transient errors
         if (code === 429 || code === 503) {
-          if (attempt < 2) { Utilities.sleep(1500 * (attempt + 1)); continue; }
+          if (attempt < 1) { Utilities.sleep(800); continue; }
           lastErr = code + ' (' + models[mi] + ')';
           break; // exhausted retries on this model; try next one
         }
@@ -317,6 +339,8 @@ function _chatViaGemini(req, apiKey) {
       const blockReason = cand && cand.finishReason;
       return { error: 'Gemini ไม่ได้ตอบกลับ' + (blockReason ? ' (' + blockReason + ')' : '') };
     }
+    // จำไว้ว่ารุ่นไหนตอบได้ รอบหน้าจะได้เริ่มจากตัวนี้เลย
+    try { if (mi > 0 || lastOk !== models[mi]) props2.setProperty('GEMINI_LAST_OK', models[mi]); } catch (e) {}
     // ส่งชื่อรุ่นที่ตอบจริงกลับไปด้วย — ไว้ตรวจว่าใช้รุ่นที่ตั้งใจหรือตกไปตัวสำรอง
     // (หน้าเว็บไม่ได้ใช้ฟิลด์นี้ แต่ดูได้จาก Network tab / สคริปต์ทดสอบ)
     return { reply: text, model: models[mi], tried: mi + 1 };
