@@ -1272,9 +1272,35 @@
   /* ── ทะเบียนหลักสูตรแบบตาราง ─────────────────────────────────── */
   .cc-table { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
   .cc-head, .cc-row {
-    display: grid; grid-template-columns: 1fr 96px 160px;
+    display: grid; grid-template-columns: 1fr 104px 96px 160px;
     gap: 10px; align-items: center; padding: 9px 14px;
   }
+  @media (max-width: 720px) {
+    .cc-head, .cc-row { grid-template-columns: 1fr 74px 72px; }
+    .cc-head > :nth-child(4), .cc-row > .cc-act { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+  /* ติ๊ก "ต้องอบรมทุกสาขา" — ติ๊กที่ตารางได้เลย ไม่ต้องเปิดหน้าต่างแก้ */
+  .cc-all { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .cc-all input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+  .cc-all.on ~ .cc-act { }
+  .cc-gap { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .cc-gap.miss { background: #FEF3C7; color: #92400E; }
+  .cc-gap.full { background: #DCFCE7; color: #166534; }
+
+  /* ── การ์ด "สาขาที่ยังไม่ได้อบรม" ในหน้าจัดอบรม ─────────────── */
+  .ab-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .ab-item:last-child { margin-bottom: 0; }
+  .ab-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ab-name { font-size: 13.5px; font-weight: 800; color: var(--text); min-width: 0; flex: 1; }
+  .ab-bar { height: 7px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin: 9px 0 8px; }
+  .ab-bar i { display: block; height: 100%; border-radius: 99px; background: var(--green); }
+  .ab-bar i.warn { background: #F59E0B; }
+  .ab-brs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-br { font-size: 11.5px; font-weight: 700; color: #92400E; background: #FEF3C7;
+           border: 1px solid #FDE68A; border-radius: 999px; padding: 3px 10px; }
+  .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
+             border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
+  .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
   .cc-head {
     background: var(--surface2); font-size: 11.5px; font-weight: 800;
     color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
@@ -10743,6 +10769,8 @@ function renderTrainingPlan() {
     <div id="tw-list"><p class="text-muted" style="text-align:center;padding:22px;font-size:13px">กำลังโหลด…</p></div>
   </div>
 
+  ${_tpAllBranchCard()}
+
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
   <div class="card" style="margin-top:14px">
@@ -10762,17 +10790,25 @@ function renderTrainingPlan() {
       const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
       const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       // เรียงคนผ่านมากไปน้อย — หลักสูตรที่ใช้จริงอยู่บน ตัวที่ยังไม่มีใครผ่านอยู่ล่างให้เห็นชัด
-      const rows = names.map(n => ({ n, used: courseUseCount(n), inCat: !!_catalogEntry(n) }))
+      const rows = names.map(n => ({ n, used: courseUseCount(n), inCat: !!_catalogEntry(n),
+                                     all: courseIsAllBranch(n), gap: courseBranchGap(n) }))
         .sort((a, b) => b.used - a.used || a.n.localeCompare(b.n, 'th'));
       return `<div class="cc-table" id="cc-table">
         <div class="cc-head">
-          <div>หลักสูตร</div><div style="text-align:right">ผ่านแล้ว</div><div style="text-align:right">จัดการ</div>
+          <div>หลักสูตร</div><div style="text-align:center">ทุกสาขา</div><div style="text-align:right">ผ่านแล้ว</div><div style="text-align:right">จัดการ</div>
         </div>
         ${rows.map(r => `<div class="cc-row" data-name="${esc(r.n.toLowerCase())}">
           <div class="cc-name">
             <span class="cc-dot${r.used ? '' : ' zero'}"></span>
             <span title="${esc(r.n)}">${esc(r.n)}</span>
             ${r.inCat ? '' : '<span class="cc-src" title="ชื่อนี้มาจากประวัติอบรมเก่า ยังไม่ได้เพิ่มเข้าทะเบียน">ประวัติ</span>'}
+            ${r.all ? (r.gap.missing.length
+              ? `<span class="cc-gap miss" title="สาขาที่ยังไม่มีใครผ่าน: ${esc(r.gap.missing.map(b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b).join(', '))}">ขาด ${r.gap.missing.length} สาขา</span>`
+              : '<span class="cc-gap full">ครบทุกสาขา</span>') : ''}
+          </div>
+          <div class="cc-all">
+            <input type="checkbox" ${r.all ? 'checked' : ''} onchange="toggleCourseAllBranch('${js(r.n)}', this)"
+              title="ติ๊ก = หลักสูตรนี้ต้องอบรมทุกสาขาอย่างน้อย 1 คน">
           </div>
           <div class="cc-num${r.used ? '' : ' zero'}">${r.used > 0
             ? `<button class="cc-who" onclick="showCoursePassers('${js(r.n)}')" title="กดดูรายชื่อคนที่ผ่านหลักสูตรนี้">${r.used}<span> คน</span></button>`
@@ -10787,6 +10823,89 @@ function renderTrainingPlan() {
       </div>`;
     })()}
   </div>`;
+}
+
+/* ══════════ ข้อสังเกต: หลักสูตรที่ต้องอบรมทุกสาขา ══════════
+   ติ๊กหลักสูตรไว้แล้ว หน้าจัดอบรมจะคอยบอกว่าเหลือสาขาไหนที่ยังไม่มีใครผ่าน
+   จะได้รู้ว่าต้องจัดรุ่นต่อไปให้ใคร โดยไม่ต้องไปไล่ชนรายชื่อทีละหลักสูตร */
+function _tpAllBranchCard() {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
+  const names = allCourseNames().filter(courseIsAllBranch);
+  if (!names.length) return '';
+  const SHOW = 12;
+  const items = names.map(n => ({ n, g: courseBranchGap(n) }))
+    .sort((a, b) => b.g.missing.length - a.g.missing.length || a.n.localeCompare(b.n, 'th'));
+  const gone = items.filter(x => !x.g.missing.length).length;
+  return `
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">🏁 สาขาที่ยังไม่ได้อบรม</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${items.length} หลักสูตรที่ต้องครบทุกสาขา</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">ครบแล้ว ${gone} / ${items.length} หลักสูตร</div>
+    </div>
+    ${items.map(x => {
+      const miss = x.g.missing;
+      const pct = x.g.total ? Math.round(x.g.done / x.g.total * 100) : 0;
+      return `<div class="ab-item">
+        <div class="ab-top">
+          <div class="ab-name">${esc(x.n)}</div>
+          ${miss.length
+            ? `<span class="cc-gap miss">ยังขาด ${miss.length} สาขา</span>
+               <button class="btn btn-sm btn-outline" onclick="_abCopy('${js(x.n)}')">คัดลอกรายชื่อสาขา</button>`
+            : '<span class="cc-gap full">ครบทุกสาขาแล้ว</span>'}
+        </div>
+        <div class="ab-bar"><i class="${miss.length ? 'warn' : ''}" style="width:${pct}%"></i></div>
+        <div style="font-size:11.5px;color:var(--text3);margin-bottom:${miss.length ? '7px' : '0'}">อบรมแล้ว ${x.g.done} จาก ${x.g.total} สาขา (${pct}%)</div>
+        ${miss.length ? `<div class="ab-brs" id="ab-${esc(x.n.replace(/[^a-zA-Z0-9ก-๙]/g, ''))}">
+          ${miss.slice(0, SHOW).map(b => `<span class="ab-br">${esc(brName(b))}</span>`).join('')}
+          ${miss.length > SHOW ? `<button class="ab-more" onclick="this.parentElement.innerHTML='${js(miss.map(b => '<span class=\'ab-br\'>' + esc(brName(b)) + '</span>').join(''))}'">+ อีก ${miss.length - SHOW} สาขา</button>` : ''}
+        </div>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+/* คัดลอกรายชื่อสาขาที่ยังไม่อบรม — เอาไปวางในไลน์กลุ่มได้เลย */
+function _abCopy(name) {
+  const g = courseBranchGap(name);
+  const txt = String(name) + ' — ยังไม่มีใครอบรม ' + g.missing.length + ' สาขา\n' +
+    g.missing.map(b => '• ' + ((BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b)).join('\n');
+  navigator.clipboard.writeText(txt)
+    .then(() => notify('คัดลอกแล้ว ' + g.missing.length + ' สาขา'))
+    .catch(() => notify('คัดลอกไม่สำเร็จ', 'error'));
+}
+/* ติ๊ก/เอาติ๊กออก "ต้องอบรมทุกสาขา" — หลักสูตรที่ยังไม่อยู่ในทะเบียน (ชื่อมาจากประวัติ)
+   จะถูกเพิ่มเข้าทะเบียนให้อัตโนมัติ ไม่งั้นไม่มีที่เก็บค่านี้ */
+async function toggleCourseAllBranch(name, el) {
+  const n = String(name || '').trim();
+  const on = !!(el && el.checked);
+  const cur = _catalogEntry(n);
+  const rec = cur
+    ? Object.assign({}, cur, { allBranches: on })
+    : { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: n,
+        createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+        createdAt: new Date().toISOString(), allBranches: on };
+  try {
+    const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+    const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
+    if (res.error) throw res.error;
+    if (cur) Object.assign(cur, { allBranches: on });
+    else (DB.courseCatalog = DB.courseCatalog || []).push(rec);
+    const g = courseBranchGap(n);
+    notify(on ? (g.missing.length ? 'ติ๊กแล้ว · ยังขาด ' + g.missing.length + ' สาขา' : 'ติ๊กแล้ว · ครบทุกสาขาแล้ว')
+              : 'เอาติ๊กออกแล้ว');
+    if (currentPage === 'admin-training-plan') showPage('admin-training-plan');
+  } catch (e) {
+    if (el) el.checked = !on;
+    /* คอลัมน์ยังไม่มี = ยังไม่ได้รันไฟล์ SQL — บอกให้รู้ว่าต้องทำอะไร ไม่ใช่ error ดิบ ๆ */
+    const m = String((e && e.message) || e);
+    notify(/all_branches/.test(m)
+      ? 'ยังไม่ได้เพิ่มคอลัมน์ในฐานข้อมูล — รันไฟล์ supabase-course-allbranch.sql ก่อน'
+      : 'บันทึกไม่สำเร็จ — ' + m, 'error');
+  }
 }
 
 /* กดตัวเลข "N คน" ในทะเบียนหลักสูตร → ดูว่าใครผ่านหลักสูตรนี้บ้าง
@@ -10874,6 +10993,22 @@ function courseUseCount(name) {
   const n = String(name || '').trim();
   return (DB.courseHistory || []).filter(c => (c.courseName || '').trim() === n).length;
 }
+/* หลักสูตรนี้ติ๊ก "ต้องอบรมทุกสาขาอย่างน้อย 1 คน" ไว้ไหม */
+function courseIsAllBranch(name) {
+  const e = _catalogEntry(name);
+  return !!(e && e.allBranches);
+}
+/* สาขาไหนยังไม่มีใครผ่านหลักสูตรนี้ — นับเฉพาะสาขาที่ยังเปิดอยู่
+   (สาขาปิดแล้วไม่ต้องตามให้เสียเวลา ทะเบียนสาขาของฮับเป็นตัวบอกว่าใครปิด) */
+function courseBranchGap(name) {
+  const n = String(name || '').trim();
+  const open = openBranchIds();
+  const done = new Set((DB.courseHistory || [])
+    .filter(c => (c.courseName || '').trim() === n)
+    .map(c => String(c.branchId || '').trim()).filter(Boolean));
+  const missing = open.filter(b => !done.has(b));
+  return { total: open.length, done: open.length - missing.length, missing };
+}
 function _catalogEntry(name) {
   const n = String(name || '').trim();
   return (DB.courseCatalog || []).find(c => (c.name || '').trim() === n) || null;
@@ -10886,15 +11021,21 @@ function addCourseName() {
       <label class="form-label">ชื่อหลักสูตร <span class="req">*</span></label>
       <input class="form-input" id="cc-name" placeholder="เช่น Admin Operations Level 3" maxlength="120">
       <div style="font-size:11.5px;color:var(--text3);margin-top:5px">เพิ่มแล้วจะเลือกได้ทันทีในชนรายชื่อและฟอร์มจัดอบรม แม้ยังไม่มีใครผ่าน</div>
-    </div>`, async () => {
+    </div>
+    <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:11px 12px">
+      <input type="checkbox" id="cc-allbr" style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px">
+      <span><b style="font-size:13px">ต้องอบรมทุกสาขาอย่างน้อย 1 คน</b>
+        <small style="display:block;font-size:11.5px;color:var(--text3);margin-top:2px">หน้าจัดอบรมจะคอยบอกว่าเหลือสาขาไหนที่ยังไม่มีใครผ่าน</small></span>
+    </label>`, async () => {
     const name = (document.getElementById('cc-name').value || '').trim();
     if (!name) { notify('กรุณากรอกชื่อหลักสูตร', 'error'); return; }
     if (allCourseNames().some(c => c.toLowerCase() === name.toLowerCase())) {
       notify('มีหลักสูตรชื่อนี้อยู่แล้ว', 'error'); return;
     }
+    const allBr = !!(document.getElementById('cc-allbr') || {}).checked;
     const rec = { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name,
                   createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
-                  createdAt: new Date().toISOString() };
+                  createdAt: new Date().toISOString(), allBranches: allBr };
     try {
       const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
       const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
