@@ -1287,40 +1287,46 @@
   .cc-gap.miss { background: #FEF3C7; color: #92400E; }
   .cc-gap.full { background: #DCFCE7; color: #166534; }
 
-  /* ── การ์ด "สาขาที่ยังไม่ได้อบรม" ในหน้าจัดอบรม ─────────────── */
-  .ab-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  /* ── การ์ด "สาขาที่ยังไม่ได้อบรม" ในหน้าจัดอบรม ───────────────
+     เดิมโชว์สองมุมมองซ้อนกัน (กลุ่มสาขา + ตารางชนสิทธิ์ 4 ช่อง) สาขาเดียวโผล่หลายที่
+     อ่านแล้วไม่รู้ว่าต้องทำอะไรก่อน · ตอนนี้เหลือรายการเดียว เรียงตามความเร่งด่วน
+     แต่ละสาขาอยู่กลุ่มเดียวเท่านั้น */
+  .ab-item { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
   .ab-item:last-child { margin-bottom: 0; }
   .ab-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .ab-name { font-size: 13.5px; font-weight: 800; color: var(--text); min-width: 0; flex: 1; }
-  .ab-bar { height: 7px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin: 9px 0 8px; }
+  .ab-name { font-size: 14px; font-weight: 800; color: var(--text); min-width: 0; flex: 1; }
+  .ab-score { font-size: 12.5px; font-weight: 800; color: var(--text2); white-space: nowrap; }
+  .ab-bar { height: 7px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin: 9px 0 4px; }
   .ab-bar i { display: block; height: 100%; border-radius: 99px; background: var(--green); }
   .ab-bar i.warn { background: #F59E0B; }
-  .ab-brs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-sum { font-size: 11.5px; color: var(--text3); }
+  .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
+
+  /* กลุ่มงานที่ต้องทำ — หัวข้อบอกจำนวน + เหตุผลบรรทัดเดียว */
+  .ab-g { border-left: 3px solid var(--border2); padding: 2px 0 2px 11px; margin-top: 12px; }
+  .ab-g.hot { border-left-color: #EF4444; }
+  .ab-g.plan { border-left-color: #3B82F6; }
+  .ab-g.wait { border-left-color: #F59E0B; }
+  .ab-g.perm { border-left-color: #8B5CF6; }
+  .ab-g-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .ab-g-h b { font-size: 13px; font-weight: 800; color: var(--text); }
+  .ab-g-h em { font-style: normal; font-size: 11.5px; color: var(--text3); font-weight: 600; }
+  .ab-g-h .n { font-size: 13px; font-weight: 800; }
+  .ab-g.hot .n { color: #B91C1C; }
+  .ab-g.plan .n { color: #1D4ED8; }
+  .ab-g.wait .n { color: #B45309; }
+  .ab-g.perm .n { color: #6D28D9; }
+  .ab-brs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
   .ab-br { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700;
-           color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 999px; padding: 3px 4px 3px 10px; }
+           color: var(--text2); background: var(--surface2); border: 1px solid var(--border);
+           border-radius: 999px; padding: 3px 4px 3px 10px; }
+  .ab-br.plain { padding: 3px 10px; }
   /* ปุ่มยกเว้นติดอยู่ในชิปเลย — สาขาที่ผู้จัดการคนเดียวกันดูแลสองสาขา กดครั้งเดียวจบ */
-  .ab-x { border: 0; background: rgba(146,64,14,.12); color: #92400E; font-family: inherit; font-size: 11px;
+  .ab-x { border: 0; background: rgba(107,114,128,.14); color: var(--text2); font-family: inherit; font-size: 11px;
           font-weight: 800; line-height: 1; border-radius: 999px; padding: 3px 6px; cursor: pointer; }
-  .ab-x:hover { background: #92400E; color: #fff; }
-  .ab-br.plan { color: #1D4ED8; background: #EFF6FF; border-color: #BFDBFE; padding: 3px 10px; }
-  .ab-br.skip { color: var(--text3); background: var(--surface2); border-color: var(--border); }
-  .ab-br.skip .ab-x { background: rgba(107,114,128,.14); color: var(--text2); }
-  .ab-br.skip .ab-x:hover { background: var(--text2); color: #fff; }
-  .ab-legend { font-size: 11.5px; color: var(--text3); font-weight: 700; margin: 9px 0 5px; }
-  /* ── ชนกับสิทธิ์เข้าระบบของฮับ (เฉพาะหลักสูตรที่ผูกกับระบบไว้) ── */
-  .ab-x2 { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--border); }
-  .ab-x2-t { font-size: 12px; font-weight: 800; color: var(--text2); margin-bottom: 8px; }
-  .ab-x2-t span { font-weight: 600; color: var(--text3); }
-  .ab-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
-  .ab-cell { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface2); }
-  .ab-cell b { display: block; font-size: 18px; font-weight: 800; line-height: 1.2; }
-  .ab-cell span { display: block; font-size: 11.5px; color: var(--text3); font-weight: 700; margin-top: 2px; }
-  .ab-cell.warn { background: #FFFBEB; border-color: #FDE68A; }
-  .ab-cell.warn b { color: #B45309; }
-  .ab-cell.info { background: #EFF6FF; border-color: #BFDBFE; }
-  .ab-cell.info b { color: #1D4ED8; }
-  .ab-cell.ok b { color: #166534; }
-  .ab-br.noacc { color: #B45309; background: #FFFBEB; border-color: #FDE68A; padding: 3px 10px; }
+  .ab-x:hover { background: var(--text2); color: #fff; }
+  .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
+             border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
   .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
              border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
   .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
@@ -10822,19 +10828,20 @@ function renderTrainingPlan() {
       const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       // เรียงคนผ่านมากไปน้อย — หลักสูตรที่ใช้จริงอยู่บน ตัวที่ยังไม่มีใครผ่านอยู่ล่างให้เห็นชัด
       const rows = names.map(n => ({ n, used: courseUseCount(n), inCat: !!_catalogEntry(n),
-                                     all: courseIsAllBranch(n), gap: courseBranchGap(n) }))
+                                     all: courseIsAllBranch(n), gap: (function(){ const t = courseTodo(n);
+                                       return { missing: t.urgent.concat(t.queue) }; })() }))
         .sort((a, b) => b.used - a.used || a.n.localeCompare(b.n, 'th'));
       return `<div class="cc-table" id="cc-table">
         <div class="cc-head">
           <div>หลักสูตร</div><div style="text-align:center">ทุกสาขา</div><div style="text-align:right">ผ่านแล้ว</div><div style="text-align:right">จัดการ</div>
         </div>
-        ${rows.map(r => `<div class="cc-row" data-name="${esc(r.n.toLowerCase())}">
+        ${rows.map(r => `<div class="cc-row" data-name="${esc(r.n.toLowerCase())}" data-cname="${esc(r.n)}">
           <div class="cc-name">
             <span class="cc-dot${r.used ? '' : ' zero'}"></span>
             <span title="${esc(r.n)}">${esc(r.n)}</span>
             ${r.inCat ? '' : '<span class="cc-src" title="ชื่อนี้มาจากประวัติอบรมเก่า ยังไม่ได้เพิ่มเข้าทะเบียน">ประวัติ</span>'}
             ${r.all ? (r.gap.missing.length
-              ? `<span class="cc-gap miss" title="สาขาที่ยังไม่มีใครผ่าน: ${esc(r.gap.missing.map(b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b).join(', '))}">ขาด ${r.gap.missing.length} สาขา</span>`
+              ? `<span class="cc-gap miss" title="สาขาที่ยังต้องจัดอบรม: ${esc(r.gap.missing.map(b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b).join(', '))}">ต้องจัดอีก ${r.gap.missing.length} สาขา</span>`
               : '<span class="cc-gap full">ครบทุกสาขา</span>') : ''}
           </div>
           <div class="cc-all">
@@ -10865,71 +10872,108 @@ function _tpAllBranchCard() {
   const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
   const names = allCourseNames().filter(courseIsAllBranch);
   if (!names.length) return '';
-  const items = names.map(n => ({ n, g: courseBranchGap(n) }))
-    .sort((a, b) => b.g.missing.length - a.g.missing.length || a.n.localeCompare(b.n, 'th'));
-  const gone = items.filter(x => !x.g.missing.length).length;
+  const items = names.map(n => ({ n, t: courseTodo(n) }))
+    .sort((a, b) => b.t.todo - a.t.todo || a.n.localeCompare(b.n, 'th'));
+  const gone = items.filter(x => !x.t.todo).length;
+
+  /* กลุ่มงาน 1 กลุ่ม: หัวข้อ + เหตุผล + ชิปสาขา (ยกเว้นได้ถ้าเป็นกลุ่มที่ยังไม่ได้เริ่ม) */
+  const group = (course, cls, title, why, list, act) => {
+    if (!list.length) return '';
+    return `<div class="ab-g ${cls}">
+      <div class="ab-g-h"><b>${title}</b><span class="n">${list.length} สาขา</span><em>${why}</em></div>
+      <div class="ab-brs">${list.map(b => act
+        ? `<span class="ab-br">${esc(brName(b))}<button class="ab-x" title="${act.tip}" onclick="${act.fn}('${js(course)}','${js(b)}')">${act.ic}</button></span>`
+        : `<span class="ab-br plain">${esc(brName(b))}</span>`).join('')}</div>
+    </div>`;
+  };
+
   return `
   <div class="card" style="margin-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px;min-width:0">
-        <div style="font-weight:800;font-size:15px;color:var(--text)">🏁 สาขาที่ยังไม่ได้อบรม</div>
-        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${items.length} หลักสูตรที่ต้องครบทุกสาขา</span>
+        <div style="font-weight:800;font-size:15px;color:var(--text)">🏁 หลักสูตรที่ต้องอบรมทุกสาขา</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${items.length} หลักสูตร</span>
       </div>
       <div style="font-size:12px;color:var(--text3)">ครบแล้ว ${gone} / ${items.length} หลักสูตร</div>
     </div>
     ${items.map(x => {
-      const g = x.g, miss = g.missing;
-      const pct = g.total ? Math.round(g.done / g.total * 100) : 0;
-      const chip = (b, cls, ic, fn, tip) =>
-        `<span class="ab-br${cls}">${esc(brName(b))}<button class="ab-x" title="${tip}" onclick="${fn}('${js(x.n)}','${js(b)}')">${ic}</button></span>`;
+      const t = x.t;
+      const pct = t.target ? Math.round(t.done / t.target * 100) : 0;
       return `<div class="ab-item">
         <div class="ab-top">
           <div class="ab-name">${esc(x.n)}</div>
-          ${miss.length
-            ? `<span class="cc-gap miss">ยังขาด ${miss.length} สาขา</span>
-               <button class="btn btn-sm btn-outline" onclick="_abCopy('${js(x.n)}')">คัดลอกรายชื่อสาขา</button>`
+          ${t.todo
+            ? `<span class="ab-score">อบรมแล้ว ${t.done} / ${t.target} สาขา</span>
+               <span class="cc-gap miss">ต้องจัดอีก ${t.todo} สาขา</span>
+               <button class="btn btn-sm btn-outline" onclick="_abCopy('${js(x.n)}')">คัดลอกรายชื่อ</button>`
             : '<span class="cc-gap full">ครบทุกสาขาแล้ว</span>'}
         </div>
-        <div class="ab-bar"><i class="${miss.length ? 'warn' : ''}" style="width:${pct}%"></i></div>
-        <div style="font-size:11.5px;color:var(--text3)">อบรมแล้ว ${g.done} จาก ${g.total} สาขา (${pct}%)${
-          g.planned.length ? ' · ทำใบรายชื่อแล้วรอผล ' + g.planned.length + ' สาขา' : ''}${
-          g.skipped.length ? ' · ยกเว้น ' + g.skipped.length + ' สาขา' : ''}</div>
-        ${miss.length ? `<div class="ab-legend">ยังไม่ได้ทำอะไรเลย — กด ✕ ที่สาขาเพื่อยกเว้น (เช่น ผู้จัดการคนเดียวกันกับอีกสาขา)</div>
-          <div class="ab-brs">${miss.map(b => chip(b, '', '✕', '_abSkip', 'ยกเว้นสาขานี้ ไม่ต้องนับว่าค้าง')).join('')}</div>` : ''}
-        ${g.planned.length ? `<div class="ab-legend">ทำใบรายชื่อไว้แล้ว รอผลเข้าระบบ</div>
-          <div class="ab-brs">${g.planned.map(b => `<span class="ab-br plan">${esc(brName(b))}</span>`).join('')}</div>` : ''}
-        ${g.skipped.length ? `<div class="ab-legend">ยกเว้นไว้ — กด ↺ เพื่อเอากลับมานับ</div>
-          <div class="ab-brs">${g.skipped.map(b => chip(b, ' skip', '↺', '_abUnskip', 'เอากลับมานับว่าต้องอบรม')).join('')}</div>` : ''}
-        ${_abCrossHTML(x.n)}
+        <div class="ab-bar"><i class="${t.todo ? 'warn' : ''}" style="width:${pct}%"></i></div>
+        <div class="ab-sum">${pct}% ของสาขาที่ต้องอบรม${t.skipped.length ? ' · ยกเว้นไว้ ' + t.skipped.length + ' สาขา' : ''}${
+          t.sysName ? ' · ชนกับสิทธิ์เข้าระบบ “' + esc(t.sysName) + '” แล้ว' : ''}</div>
+
+        ${group(x.n, 'hot', '① ต้องจัดก่อน', 'เปิดสิทธิ์ให้ใช้ระบบแล้ว แต่ยังไม่ได้อบรม', t.urgent,
+                { fn:'_abSkip', ic:'✕', tip:'ยกเว้นสาขานี้' })}
+        ${group(x.n, 'wait', '② ยังไม่ได้เริ่ม', 'ยังไม่อบรมและยังไม่มีใบรายชื่อ', t.queue,
+                { fn:'_abSkip', ic:'✕', tip:'ยกเว้นสาขานี้' })}
+        ${group(x.n, 'plan', '③ ทำใบรายชื่อแล้ว', 'รอวันอบรม / รอผลเข้าระบบ — ไม่ต้องทำอะไร', t.waiting, null)}
+        ${group(x.n, 'perm', '④ ไปเปิดสิทธิ์ให้ที่ฮับ', 'อบรมแล้วแต่ยังเข้าระบบไม่ได้', t.noAccess, null)}
+        ${t.skipped.length ? `<div class="ab-g"><div class="ab-g-h"><b>ยกเว้นไว้</b><span class="n">${t.skipped.length} สาขา</span><em>กด ↺ เพื่อเอากลับมานับ</em></div>
+          <div class="ab-brs">${t.skipped.map(b => `<span class="ab-br">${esc(brName(b))}<button class="ab-x" title="เอากลับมานับ" onclick="_abUnskip('${js(x.n)}','${js(b)}')">↺</button></span>`).join('')}</div></div>` : ''}
       </div>`;
     }).join('')}
   </div>`;
 }
-/* กล่อง "ชนกับสิทธิ์เข้าระบบ" — ขึ้นเฉพาะหลักสูตรที่ผูกกับระบบในฮับไว้ */
-function _abCrossHTML(name) {
-  const c = courseAccessCross(name);
-  if (!c) return '';
-  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
-  const brs = (arr, cls) => `<div class="ab-brs" style="margin-top:6px">${
-    arr.map(b => `<span class="ab-br ${cls}">${esc(brName(b))}</span>`).join('')}</div>`;
-  return `<div class="ab-x2">
-    <div class="ab-x2-t">ชนกับสิทธิ์เข้าระบบ “${esc(c.sys.name || 'ระบบ')}” ในฮับ <span>— เปลี่ยนสิทธิ์ได้ที่ฮับ → ตั้งค่าประกาศระบบ → สิทธิ์สาขา</span></div>
-    <div class="ab-cells">
-      <div class="ab-cell ok"><b>${c.both.length}</b><span>อบรมแล้ว + เปิดสิทธิ์แล้ว</span></div>
-      <div class="ab-cell warn"><b>${c.accessNoTrain.length}</b><span>เปิดสิทธิ์แล้ว แต่ยังไม่อบรม</span></div>
-      <div class="ab-cell info"><b>${c.trainNoAccess.length}</b><span>อบรมแล้ว แต่ยังไม่เปิดสิทธิ์</span></div>
-      <div class="ab-cell"><b>${c.neither.length}</b><span>ยังไม่อบรม และยังไม่เปิดสิทธิ์</span></div>
-    </div>
-    ${c.accessNoTrain.length ? `<div class="ab-legend" style="margin-top:9px">เปิดสิทธิ์ให้ใช้ระบบแล้วแต่ยังไม่ได้อบรม — ควรจัดให้ก่อนใคร</div>${brs(c.accessNoTrain, 'noacc')}` : ''}
-    ${c.trainNoAccess.length ? `<div class="ab-legend">อบรมแล้วแต่ยังเข้าระบบไม่ได้ — ไปเปิดสิทธิ์ให้ที่ฮับ</div>${brs(c.trainNoAccess, 'plan')}` : ''}
-  </div>`;
+
+/* แบ่งสาขาเป็นกลุ่มงานที่ไม่ทับกัน — สาขาหนึ่งอยู่ได้กลุ่มเดียว เรียงตามความเร่งด่วน
+   ① เปิดสิทธิ์แล้วแต่ยังไม่อบรม → ② ยังไม่ได้เริ่ม → ③ ทำใบแล้วรอผล → ④ อบรมแล้วแต่ยังไม่เปิดสิทธิ์ */
+function courseTodo(name) {
+  const n = String(name || '').trim();
+  const skip = new Set(courseSkipBranches(n));
+  const open = openBranchIds();
+  const target = open.filter(b => !skip.has(b));
+  const trained = new Set((DB.courseHistory || [])
+    .filter(c => (c.courseName || '').trim() === n)
+    .map(c => String(c.branchId || '').trim()).filter(Boolean));
+  const roster = courseRosterBranches(n);
+  const sys = courseLinkedSystem(n);
+  const acc = sys ? systemBranchAccess(sys) : null;
+  const out = { target: target.length, done: 0, urgent: [], queue: [], waiting: [], noAccess: [],
+                skipped: open.filter(b => skip.has(b)), sysName: sys ? (sys.name || '') : '' };
+  target.forEach(b => {
+    const t = trained.has(b);
+    if (t) {
+      out.done++;
+      if (acc && !acc.has(b)) out.noAccess.push(b);
+      return;
+    }
+    if (roster.has(b)) out.waiting.push(b);
+    else if (acc && acc.has(b)) out.urgent.push(b);
+    else out.queue.push(b);
+  });
+  /* "ต้องจัดอีกกี่สาขา" = คนที่ยังไม่มีใครทำอะไรให้ (ไม่รวมที่ทำใบไว้แล้ว) */
+  out.todo = out.urgent.length + out.queue.length;
+  return out;
 }
 
 /* วาดการ์ดใหม่อย่างเดียว ไม่ต้องวาดทั้งหน้า — ใช้ตอนใบรายชื่อโหลดเสร็จและตอนกดยกเว้น */
 function _abPaint() {
   const box = document.getElementById('tp-allbranch');
   if (box) box.innerHTML = _tpAllBranchCard();
+  _abPaintBadges();
+}
+/* ป้าย "ต้องจัดอีก N สาขา" ในทะเบียนหลักสูตร — คิดจากชุดเดียวกับการ์ด
+   (ตอนวาดตารางครั้งแรก ใบรายชื่อยังโหลดไม่เสร็จ ตัวเลขจะเกินจริง) */
+function _abPaintBadges() {
+  document.querySelectorAll('#cc-table .cc-row').forEach(row => {
+    const name = row.getAttribute('data-cname') || '';
+    if (!name || !courseIsAllBranch(name)) return;
+    const t = courseTodo(name);
+    const el = row.querySelector('.cc-gap');
+    if (!el) return;
+    el.className = 'cc-gap ' + (t.todo ? 'miss' : 'full');
+    el.textContent = t.todo ? 'ต้องจัดอีก ' + t.todo + ' สาขา' : 'ครบทุกสาขา';
+  });
 }
 /* ยกเว้น / เอากลับมานับ — เก็บที่ทะเบียนหลักสูตร แอดมินคนอื่นเห็นตรงกัน */
 async function _abSetSkip(name, branchId, on) {
@@ -10965,11 +11009,13 @@ function _abUnskip(name, branchId){ _abSetSkip(name, branchId, false); }
 
 /* คัดลอกรายชื่อสาขาที่ยังไม่อบรม — เอาไปวางในไลน์กลุ่มได้เลย */
 function _abCopy(name) {
-  const g = courseBranchGap(name);
-  const txt = String(name) + ' — ยังไม่มีใครอบรม ' + g.missing.length + ' สาขา\n' +
-    g.missing.map(b => '• ' + ((BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b)).join('\n');
+  const t = courseTodo(name);
+  const list = t.urgent.concat(t.queue);
+  const txt = String(name) + ' — ยังต้องจัดอบรม ' + list.length + ' สาขา\n' +
+    list.map(b => '• ' + ((BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b) +
+      (t.urgent.indexOf(b) >= 0 ? '  (เปิดสิทธิ์ใช้ระบบแล้ว)' : '')).join('\n');
   navigator.clipboard.writeText(txt)
-    .then(() => notify('คัดลอกแล้ว ' + g.missing.length + ' สาขา'))
+    .then(() => notify('คัดลอกแล้ว ' + list.length + ' สาขา'))
     .catch(() => notify('คัดลอกไม่สำเร็จ', 'error'));
 }
 /* ติ๊ก/เอาติ๊กออก "ต้องอบรมทุกสาขา" — หลักสูตรที่ยังไม่อยู่ในทะเบียน (ชื่อมาจากประวัติ)
