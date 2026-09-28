@@ -21,8 +21,12 @@ function keepWarm() {
   return 1;
 }
 
+const GS_VERSION = 'chat-speed-2026-09-28';   /* อัปเดตทุกครั้งที่แก้ไฟล์นี้ ใช้ตรวจว่า deploy ตัวใหม่แล้วหรือยัง */
+
 function doGet(e) {
   const action = (e.parameter && e.parameter.action) || 'load';
+
+  if (action === 'version') return respond({ version: GS_VERSION });
 
   if (action === 'load') {
     // ผูก Spreadsheet เฉพาะตอนต้องใช้จริง — เดิมผูกทุกครั้งแม้แต่คำขอที่ไม่แตะชีตเลย
@@ -50,6 +54,9 @@ function doPost(e) {
   // AI proxy — keep API key server-side (Script Properties → ANTHROPIC_API_KEY)
   if (data.action === 'ai_quiz') {
     return respond(generateAiQuiz(data));
+  }
+  if (data.action === 'version') {
+    return respond({ version: GS_VERSION });
   }
   if (data.action === 'chat') {
     return respond(chatWithClaude(data));
