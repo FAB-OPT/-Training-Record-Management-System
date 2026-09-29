@@ -65,7 +65,7 @@
       linear-gradient(135deg, #F8FBFF 0%, #FFF8F8 100%);
     background-attachment: fixed;
   }
-  #login-screen {
+  #login-screen, #maintenance-screen {
     min-height: 100dvh; display: flex; align-items: center; justify-content: center;
     padding: 24px;
     font-family: 'Sarabun', sans-serif;
@@ -119,6 +119,10 @@
   .login-footer {
     text-align: center; font-size: 12px; color: var(--text3); margin-top: 14px;
   }
+  /* หน้าปิดปรับปรุงชั่วคราว — ใช้กรอบการ์ดเดียวกับหน้า login เพื่อให้เข้าธีม */
+  .maint-ic { font-size: 52px; text-align: center; margin: 0 0 4px; }
+  .maint-body { padding: 0 32px 34px; text-align: center; color: var(--text2); font-size: 14.5px; line-height: 1.75; }
+  .maint-body b { color: var(--text); }
   .login-eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 16px; border-radius: 999px;
@@ -3138,6 +3142,21 @@ body.admin-user .btn-navy{background:var(--primary)}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
     </button>
   </form>
+</div>
+
+<!-- ปิดปรับปรุงระบบชั่วคราว — เปิด/ปิดด้วย MAINTENANCE_MODE ด้านล่างไฟล์นี้ (ก่อน initApp()) -->
+<div id="maintenance-screen" style="display:none">
+  <div class="login-card">
+    <div style="padding:40px 32px 0">
+      <div class="maint-ic">🛠️</div>
+      <h2 class="login-title">ปิดปรับปรุงระบบชั่วคราว</h2>
+      <p class="login-subtitle">ระบบบันทึกการสอนงาน</p>
+    </div>
+    <div class="maint-body">
+      กำลังอัปเดตฟีเจอร์ใหม่อยู่ครับ ขออภัยในความไม่สะดวก<br>
+      <b>กลับมาเปิดใช้งานตามปกติเร็ว ๆ นี้</b>
+    </div>
+  </div>
 </div>
 
 <!-- LOGIN -->
@@ -20534,7 +20553,17 @@ function trySsoAutoLogin() {
   return false;
 }
 
+/* ปิดระบบชั่วคราวเพื่ออัปเดต — true = ทุกคนเห็นแต่หน้า "ปิดปรับปรุงระบบชั่วคราว" แทนหน้า login
+   ปิดกั้นตั้งแต่ก่อนแตะ SSO/Supabase เลย ไม่มีทางเห็นข้อมูลหลุดออกมาระหว่างปิดปรับปรุง
+   เสร็จแล้วเปลี่ยนกลับเป็น false แล้ว deploy ใหม่อีกครั้ง */
+const MAINTENANCE_MODE = true;
 async function initApp() {
+  if (MAINTENANCE_MODE) {
+    document.body.classList.remove('on-login');
+    const ms = document.getElementById('maintenance-screen');
+    if (ms) ms.style.display = 'flex';
+    return;
+  }
   /* ทาพื้นหลังหน้า login ไว้ก่อนแบบ sync — ระหว่างรอ IDB เบราว์เซอร์วาดจอได้แล้ว
      ถ้าไม่ทาไว้จะเห็นจอขาวแวบหนึ่ง (เดิมโค้ดทั้งก้อนเป็น sync เลยไม่มีช่องให้วาด)
      ถ้า SSO ผ่าน showApp() จะถอดคลาสนี้ออกให้เอง */
