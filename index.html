@@ -1272,9 +1272,64 @@
   /* ── ทะเบียนหลักสูตรแบบตาราง ─────────────────────────────────── */
   .cc-table { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
   .cc-head, .cc-row {
-    display: grid; grid-template-columns: 1fr 96px 160px;
+    display: grid; grid-template-columns: 1fr 104px 96px 160px;
     gap: 10px; align-items: center; padding: 9px 14px;
   }
+  @media (max-width: 720px) {
+    .cc-head, .cc-row { grid-template-columns: 1fr 74px 72px; }
+    .cc-head > :nth-child(4), .cc-row > .cc-act { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+  /* ติ๊ก "ต้องอบรมทุกสาขา" — ติ๊กที่ตารางได้เลย ไม่ต้องเปิดหน้าต่างแก้ */
+  .cc-all { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .cc-all input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+  .cc-all.on ~ .cc-act { }
+  .cc-gap { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .cc-gap.miss { background: #FEF3C7; color: #92400E; }
+  .cc-gap.full { background: #DCFCE7; color: #166534; }
+
+  /* ── การ์ด "สาขาที่ยังไม่ได้อบรม" ในหน้าจัดอบรม ───────────────
+     เดิมโชว์สองมุมมองซ้อนกัน (กลุ่มสาขา + ตารางชนสิทธิ์ 4 ช่อง) สาขาเดียวโผล่หลายที่
+     อ่านแล้วไม่รู้ว่าต้องทำอะไรก่อน · ตอนนี้เหลือรายการเดียว เรียงตามความเร่งด่วน
+     แต่ละสาขาอยู่กลุ่มเดียวเท่านั้น */
+  .ab-item { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
+  .ab-item:last-child { margin-bottom: 0; }
+  .ab-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ab-name { font-size: 14px; font-weight: 800; color: var(--text); min-width: 0; flex: 1; }
+  .ab-score { font-size: 12.5px; font-weight: 800; color: var(--text2); white-space: nowrap; }
+  .ab-bar { height: 7px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin: 9px 0 4px; }
+  .ab-bar i { display: block; height: 100%; border-radius: 99px; background: var(--green); }
+  .ab-bar i.warn { background: #F59E0B; }
+  .ab-sum { font-size: 11.5px; color: var(--text3); }
+  .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
+
+  /* กลุ่มงานที่ต้องทำ — หัวข้อบอกจำนวน + เหตุผลบรรทัดเดียว */
+  .ab-g { border-left: 3px solid var(--border2); padding: 2px 0 2px 11px; margin-top: 12px; }
+  .ab-g.hot { border-left-color: #EF4444; }
+  .ab-g.plan { border-left-color: #3B82F6; }
+  .ab-g.wait { border-left-color: #F59E0B; }
+  .ab-g.perm { border-left-color: #8B5CF6; }
+  .ab-g-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .ab-g-h b { font-size: 13px; font-weight: 800; color: var(--text); }
+  .ab-g-h em { font-style: normal; font-size: 11.5px; color: var(--text3); font-weight: 600; }
+  .ab-g-h .n { font-size: 13px; font-weight: 800; }
+  .ab-g.hot .n { color: #B91C1C; }
+  .ab-g.plan .n { color: #1D4ED8; }
+  .ab-g.wait .n { color: #B45309; }
+  .ab-g.perm .n { color: #6D28D9; }
+  .ab-brs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .ab-br { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700;
+           color: var(--text2); background: var(--surface2); border: 1px solid var(--border);
+           border-radius: 999px; padding: 3px 4px 3px 10px; }
+  .ab-br.plain { padding: 3px 10px; }
+  /* ปุ่มยกเว้นติดอยู่ในชิปเลย — สาขาที่ผู้จัดการคนเดียวกันดูแลสองสาขา กดครั้งเดียวจบ */
+  .ab-x { border: 0; background: rgba(107,114,128,.14); color: var(--text2); font-family: inherit; font-size: 11px;
+          font-weight: 800; line-height: 1; border-radius: 999px; padding: 3px 6px; cursor: pointer; }
+  .ab-x:hover { background: var(--text2); color: #fff; }
+  .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
+             border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
+  .ab-more { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface2);
+             border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
+  .ab-ok { font-size: 12.5px; font-weight: 700; color: #166534; }
   .cc-head {
     background: var(--surface2); font-size: 11.5px; font-weight: 800;
     color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
@@ -2651,6 +2706,42 @@
     .branch-card:active { transform: scale(0.98); }
     .btn:active { opacity: 0.8; transform: scale(0.97); }
   }
+/* ใบรายชื่อ: อายุงาน + หน้าต่างเลือกสาขาละ 1 คน */
+.ts-ten{flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-light);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.cov-opt{display:flex;gap:10px;align-items:flex-start;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);cursor:pointer}
+.cov-opt input{margin-top:3px}
+.cov-opt b{display:block;font-size:12.5px}
+.cov-opt small{display:block;font-size:11.5px;color:var(--text3)}
+.cov-opt i{font-style:normal;font-weight:700;color:var(--accent)}
+.cov-dup{margin:4px 0 10px;border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:12.5px;background:var(--surface2)}
+.cov-dup summary{cursor:pointer;font-weight:700;color:var(--text2)}
+.cov-dup div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--border)}
+.cov-dup div:first-of-type{margin-top:6px}
+.cov-dup span{color:var(--text3);font-size:11.5px;text-align:right}
+.cov-pk-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px 6px 8px;position:sticky;top:0;background:var(--white);z-index:2;font-size:12.5px;font-weight:800}
+.cov-pk-hd label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.cov-pk-hd #cov-pk-n{font-weight:700;color:var(--text2)}
+.cov-pk{display:flex;gap:10px;align-items:center;padding:7px 10px 7px 8px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer}
+.cov-pk:has(input:not(:checked)){opacity:.55}
+.cov-pk-code{color:var(--text3);min-width:64px}
+.cov-pk-nm{flex:1;min-width:0}
+.cov-pk-nm b{display:block}
+.cov-pk-nm small{display:block;color:var(--text3);font-size:11.5px}
+.ts-one-ov{position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.ts-one{background:var(--surface);border-radius:16px;width:min(520px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden}
+.ts-one-hd{padding:18px 20px 12px;border-bottom:1px solid var(--border)}
+.ts-one-hd b{display:block;font-size:17px;color:var(--text)}
+.ts-one-hd span{display:block;font-size:13px;color:var(--text2);margin-top:3px;line-height:1.5}
+.ts-one-bd{padding:12px 20px;overflow:auto}
+.ts-one-br{margin-bottom:12px}
+.ts-one-bn{font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px}
+.ts-one-bn em{font-style:normal;font-weight:700;color:var(--accent);margin-left:4px}
+.ts-one-p{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer}
+.ts-one-p:has(input:checked){border-color:var(--accent);background:var(--accent-light)}
+.ts-one-p>span:nth-child(2){flex:1;min-width:0}
+.ts-one-p b{display:block;font-size:13.5px;color:var(--text)}
+.ts-one-p small{display:block;font-size:11.5px;color:var(--text3)}
+.ts-one-ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--border)}
 </style>
 <style>
 /* ═══════════ หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ═══════════
@@ -5394,6 +5485,7 @@ function getHubConfig() {
         if (JSON.stringify(res) === JSON.stringify(cached)) return;
         _applyHubBranches(res);
         _applyHubTrPerms(res);
+        _applyHubSystems(res);
         try { if (currentUser && currentPage) showPage(currentPage); } catch (_) {}
         console.log('[hub] อัปเดต config ใหม่จาก HUB แล้ว');
       })
@@ -5405,8 +5497,15 @@ function getHubConfig() {
   return _hubCfgPromise;
 }
 
+/* ระบบทั้งหมดในฮับ (พร้อมสิทธิ์รายสาขาของแต่ละระบบ) — ฮับส่งมาพร้อม config ก้อนเดียวกับทะเบียนสาขา */
+let _hubSystems = [];
+function _applyHubSystems(res) {
+  if (res && res.ok && Array.isArray(res.systems)) _hubSystems = res.systems;
+  return _hubSystems;
+}
 async function loadBranchesFromHub() {
   const res = await getHubConfig();
+  _applyHubSystems(res);
   return _applyHubBranches(res);
 }
 function _applyHubBranches(res) {
@@ -6112,6 +6211,14 @@ function _chatUserMeta() {
   };
 }
 
+/* บทสนทนาที่น้องแฮปปี้ตอบไม่ได้แล้วขอข้อมูลเพิ่ม = จุดที่ชุดความรู้ยังขาด
+   ดูจากตัวคำตอบตอนแสดงผล ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล (ประวัติเก่าจึงย้อนดูได้ด้วย)
+   แยกจาก err ซึ่งหมายถึงเรียก AI ไม่สำเร็จ คนละเรื่องกัน */
+function _chatLogNeedsInfo(m) {
+  if (!m || m.role !== 'bot' || m.err) return false;
+  const t = String(m.content || '');
+  return /ขอ[^\n]{0,40}(ด้วยค่ะ|ด้วยนะ|มาด้วย|หน่อยค่ะ|เพิ่มหน่อย)|(ระบุ|บอก|ช่วยบอก)[^\n]{0,25}(ด้วย|มาด้วย|หน่อย)|ยังตอบไม่ได้|ตอบไม่ได้ค่ะ|ไม่มีในระบบนี้|ระบบ[^\n]{0,20}ไม่ได้เก็บ|หมายถึง[^\n]{0,25}คะ/.test(t);
+}
 function _chatLogMessage(role, content, isErr) {
   if (!_chatSessionId) _chatSessionId = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
   const meta = _chatUserMeta();
@@ -6342,6 +6449,13 @@ function _chatPickSections(q) {
   return sec;
 }
 
+/* พาร์ทไทม์ดูจาก "P/T" ท้ายชื่อตำแหน่ง เช่น "Cook Basic P/T" / "Service Basic P/T"
+   ระบบไม่มีคอลัมน์ประเภทการจ้าง อันนี้คือทางเดียวที่แยกได้
+   เผื่อท้ายชื่อคนไว้ด้วย บางสาขาพิมพ์ต่อท้ายชื่อแทนตำแหน่ง */
+function isPartTimeEmp(e) {
+  const t = String((e && (e.position || e.pos)) || '') + ' ' + String((e && e.name) || '');
+  return /(^|[\s(\[-])p\s*[\/.]?\s*t\.?\s*[)\]]?(\s|$)/i.test(t);
+}
 function _chatBuildContext(question) {
   const sec = _chatPickSections(question);
   const access = (typeof getAccessibleBranches === 'function' ? getAccessibleBranches() : Object.keys(BRANCH_MASTER || {}));
@@ -6426,12 +6540,20 @@ function _chatBuildContext(question) {
   const posLines = Object.entries(perPos).sort((a,b) => b[1].total - a[1].total)
     .map(([p, s]) => `- ${p}: ${s.total} คน (ถูกสอน ${s.trained})`).join('\n');
 
+  /* พาร์ทไทม์ดูจากชื่อที่ลงท้าย "P/T" (ระบบไม่มีคอลัมน์ประเภทการจ้าง)
+     นับไว้ให้ในสรุปภาพรวมเลย ไม่งั้นถูกถามว่ามีพาร์ทไทม์กี่คนแล้วต้องไปขอรายชื่อจากผู้ใช้ */
+  const partTimeCount = emps.filter(isPartTimeEmp).length;
+
   // ===== Per-branch summary =====
   const perBranch = {};
   access.forEach(bid => {
-    perBranch[bid] = { name: BRANCH_MASTER[bid]?.name||bid, mgr: BRANCH_MASTER[bid]?.manager||'', emps:0, sessions:0, eval:0, pass:0 };
+    perBranch[bid] = { name: BRANCH_MASTER[bid]?.name||bid, mgr: BRANCH_MASTER[bid]?.manager||'', emps:0, pt:0, sessions:0, eval:0, pass:0 };
   });
-  emps.forEach(e => { if (perBranch[e.branchId]) perBranch[e.branchId].emps++; });
+  emps.forEach(e => {
+    const p = perBranch[e.branchId]; if (!p) return;
+    p.emps++;
+    if (isPartTimeEmp(e)) p.pt++;
+  });
   trains.forEach(t => {
     const p = perBranch[t.branchId]; if (!p) return;
     p.sessions++;
@@ -6442,7 +6564,7 @@ function _chatBuildContext(question) {
     .sort((a,b) => b[1].sessions - a[1].sessions)
     .map(([bid,p]) => {
       const passRate = p.eval ? Math.round(p.pass/p.eval*100) : null;
-      return `- ${bid} ${p.name.replace(bid+' ','')}: พนง.${p.emps} · สอน${p.sessions} · ประเมิน${p.eval}/ผ่าน${p.pass}${passRate!=null?` (${passRate}%)`:''}`;
+      return `- ${bid} ${p.name.replace(bid+' ','')}: พนง.${p.emps}${p.pt?` (พาร์ทไทม์ ${p.pt})`:''} · สอน${p.sessions} · ประเมิน${p.eval}/ผ่าน${p.pass}${passRate!=null?` (${passRate}%)`:''}`;
     }).join('\n');
 
   // ===== Trainer leaderboard =====
@@ -6489,6 +6611,7 @@ function _chatBuildContext(question) {
     `${userInfo}\nวันที่ปัจจุบัน: ${fmtDate(today.toISOString())}`,
     `═══ สรุปภาพรวม ═══
 - พนักงานเปิดใช้งาน: ${emps.length} คน (ถูกสอนแล้ว ${trainedEmps.length} · ยังไม่ถูกสอน ${untrainedEmps.length})
+- ประเภทการจ้าง: ประจำ ${emps.length - partTimeCount} คน · พาร์ทไทม์ ${partTimeCount} คน (พาร์ทไทม์ = ตำแหน่งลงท้าย "P/T")
 - บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)`,
   ];
   const add = (on, title, body) => { if (on) parts.push(`═══ ${title} ═══\n${body}`); };
@@ -6583,7 +6706,8 @@ function _chatSystemPrompt() {
 1. **ตอบทันที** — ไม่ทักทาย ไม่เกริ่น ไม่ทวนคำถาม ไม่บอก "น้องแฮปปี้เข้าใจว่า..."
 2. **ตอบสั้นที่สุดที่ตอบได้** — คำถามนับตัวเลข → ตอบ 1-2 บรรทัด · คำถามวิธีทำ → bullet ครบใน 5 บรรทัด
 3. **ดึงข้อมูลจริงจาก context ด้านล่าง** — ห้ามแต่งตัวเลข ชื่อ หรือสาขา
-4. **อย่าถามกลับ** ถ้ายังไม่จำเป็น — ลองตีความและตอบเลย ถ้าไม่ตรงผู้ใช้จะถามใหม่เอง
+4. **อย่าถามกลับถ้าเดาเจตนาได้** — ลองตีความและตอบเลย ถ้าไม่ตรงผู้ใช้จะถามใหม่เอง
+   แต่ถ้าข้อมูลไม่พอจริง ๆ ให้ขอสิ่งที่ขาด (ดูหัวข้อ "เมื่อตอบไม่ได้" ด้านล่าง) — ห้ามเดาคำตอบเด็ดขาด
 5. **อย่าแนะนำให้ติดต่อ Admin/Kantapon** เว้นแต่เรื่องนั้นทำในระบบไม่ได้จริงๆ (เช่น ขอแก้ข้อมูลย้อนหลังที่ถูก lock)
 6. ห้ามขึ้นต้นด้วย "สวัสดีค่ะ" / "ขอบคุณค่ะ" / "ยินดีค่ะ" — เริ่มที่คำตอบเลย
 7. ใช้ emoji เท่าที่จำเป็น (0-1 ตัวต่อข้อความ) ไม่ใส่ทุกบรรทัด
@@ -6619,6 +6743,22 @@ ${EVAL_RESULTS.map(r => `  - ${r.label}${isEvalPass(r.value) ? '  → ผ่า�
 **สถานะการสอน** มี 3 แบบ: รอประเมิน / ประเมินแล้ว (ผ่าน หรือ ไม่ผ่าน) / หมดเวลาประเมิน (เกิน ${EVAL_DEADLINE_DAYS} วัน)
 
 **สถานะพนักงาน** มี 2 แบบ: active (เปิดใช้งาน) / resigned (ปิดใช้งาน — ลาออก/พักงาน/ย้าย)
+
+**ประจำ vs พาร์ทไทม์ — ดูที่ท้ายชื่อตำแหน่ง** (ระบบไม่มีคอลัมน์แยก ใช้วิธีนี้วิธีเดียว)
+• ตำแหน่งที่ **ลงท้ายด้วย "P/T"** = พาร์ทไทม์ เช่น "Cook Basic P/T" · "Service Basic P/T"
+• ตำแหน่งเดียวกันที่ **ไม่มี "P/T"** = พนักงานประจำ เช่น "Cook Basic"
+• จำนวนรวมอยู่ในสรุปภาพรวมบรรทัด "ประเภทการจ้าง" แล้ว — ตอบตัวเลขได้เลย
+• ห้ามตัด "P/T" ออกตอนพิมพ์ชื่อตำแหน่ง และห้ามเติมเองถ้าต้นฉบับไม่มี — คนละสถานะการจ้างกัน
+
+**หลักสูตร (คนละเรื่องกับ Module การสอนงาน)**
+• "Module" = การสอนงานหน้างานรายคน มีหัวข้อย่อย ประเมิน และข้อสอบในระบบ
+• "หลักสูตร" = การอบรมเป็นรุ่น (เข้าห้องอบรม) เก็บไว้ที่ 🎓 ประวัติการอบรมหลักสูตร — ใครผ่านหลักสูตรอะไร รุ่นไหน วันที่เท่าไร
+• ทะเบียนหลักสูตรคือรายชื่อหลักสูตรทั้งหมดที่ใช้ได้ · ชื่อที่ติดป้าย "ประวัติ" คือชื่อที่มาจากประวัติเก่า ยังไม่ได้เพิ่มเข้าทะเบียน
+
+**สถิติข้อสอบ (📊 สถิติข้อสอบ — แอดมินเท่านั้น)** ดูผลการทำข้อสอบรวม แยกตาม Module และรายข้อ
+
+**ประวัติแชตบอท (💬 แชตบอท — แอดมินเท่านั้น)** แอดมินเห็นทุกบทสนทนาที่คุยกับน้องแฮปปี้ ใช้ดูว่าตอบพลาดตรงไหน
+→ ผู้ใช้กดล้างหน้าจอได้ แต่ระบบยังเก็บบันทึกไว้ ถ้าถูกถามให้ตอบตรง ๆ แบบนี้ ไม่ต้องปิดบัง
 
 **สิทธิ์ตาม role:**
 • Branch — สาขาตัวเอง · บันทึก/แก้ไข/ประเมินได้
@@ -6657,6 +6797,8 @@ ${((currentUser?.type === 'branch' ? BRANCH_NAV_ITEMS : (typeof getActiveNavItem
 - "Module ไหนผ่าน/ไม่ผ่าน" → "สถิติแยกตาม Module"
 - "ผู้สอนเยอะสุด" → "ผู้สอน (Top 10)"
 - "ตำแหน่ง X กี่คน" → "จำนวนแยกตามตำแหน่ง"
+- "พาร์ทไทม์/พนักงานประจำ กี่คน" → สรุปภาพรวม บรรทัด "ประเภทการจ้าง" (แยกรายสาขาดูที่ section "สาขา")
+  → ตอบตัวเลขออกมาเลย **ห้ามขอรายชื่อพนักงานจากผู้ใช้** ระบบนับมาให้แล้ว
 - "วิธีเพิ่มพนักงาน" → "รายชื่อพนักงาน → + เพิ่มพนักงาน → กรอกรหัส/ชื่อ/ตำแหน่ง/วันเริ่มงาน → บันทึก"
 - "วิธีบันทึกการสอน" → "บันทึกการสอน → + บันทึกการสอนงาน → เลือก Module/หัวข้อ/พนักงาน/ผู้สอน → บันทึก"
 - "วิธีประเมิน" → "บันทึกการสอน → หา session สถานะ 'รอประเมิน' → กดปุ่ม 'ประเมิน' → เลือกวิธี + ผล → บันทึก"
@@ -6668,6 +6810,29 @@ ${((currentUser?.type === 'branch' ? BRANCH_NAV_ITEMS : (typeof getActiveNavItem
 - "แจ้งเคส" → "เมนู 📨 ติดต่อ Admin → + แจ้งเคสใหม่"
 
 ═══════════════════════════════════════════════════════════
+❓ เมื่อตอบไม่ได้ — ให้ขอข้อมูลเพิ่ม ห้ามเดา
+═══════════════════════════════════════════════════════════
+ตอบไม่ได้มี 3 แบบ แยกให้ออกแล้วตอบคนละอย่าง:
+
+1) **ข้อมูลในคำถามไม่พอ** (ไม่รู้ว่าหมายถึงใคร/หลักสูตรไหน/ช่วงเวลาไหน)
+   → บอกสั้น ๆ ว่าต้องรู้อะไรเพิ่ม แล้วขอ **ทีละ 1-2 อย่างเท่านั้น** ห้ามขอเป็นแบบฟอร์มยาว
+   ตัวอย่าง: "ขอรหัสพนักงานหรือชื่อเต็มด้วยค่ะ ในสาขานี้มีชื่อคล้ายกัน 3 คน"
+   ตัวอย่าง: "หมายถึง Module ไหนคะ — ระบุมาแล้วน้องสรุปให้เลย"
+   ถ้าพอเดาได้ว่าน่าจะหมายถึงอะไร ให้ตอบสิ่งที่เดาไว้ก่อน 1 บรรทัด แล้วค่อยขอให้ยืนยัน
+
+2) **ข้อมูลมีในระบบ แต่ไม่ได้ส่งมาในรอบนี้** (เช่น ถามลึกถึงรายคนที่ไม่อยู่ในสรุป)
+   → บอกว่ายังดึงมาไม่ครบ แล้วบอก **ทางที่ผู้ใช้เปิดดูเองได้** จากเมนูจริงที่มี
+   ห้ามตอบว่า "ไม่มีข้อมูล" ทั้งที่ระบบมี
+
+3) **ระบบนี้ไม่ได้เก็บเรื่องนั้นเลย** (เช่น เงินเดือน ตารางกะ ยอดขาย)
+   → บอกตรง ๆ ว่าระบบบันทึกการสอนงานไม่ได้เก็บเรื่องนี้ แล้วแนะให้แจ้งผ่านเมนู 📨 เคส ถ้าอยากให้แอดมินช่วย
+
+กติกาเวลาขอข้อมูลเพิ่ม:
+- ขอแบบสั้น ไม่เกิน 2 บรรทัด และต้องบอกด้วยว่า "ได้มาแล้วจะทำอะไรให้" เช่น "…จะได้เช็คให้ตรงคนค่ะ"
+- ห้ามขอข้อมูลที่ระบบรู้อยู่แล้ว (สาขาของผู้ใช้ · role · วันนี้วันที่เท่าไร)
+- ห้ามตอบลอย ๆ ว่า "ไม่มีข้อมูล" / "ไม่แน่ใจ" โดยไม่บอกว่าขาดอะไรหรือให้ทางไปต่อ
+
+═══════════════════════════════════════════════════════════
 ⚠️ ข้อห้าม
 ═══════════════════════════════════════════════════════════
 - ห้ามเรียกตัวเองว่า "ฉัน/ผม" — ใช้ "น้องแฮปปี้" หรือ "น้อง" หรือเลี่ยงการเรียกตัวเอง
@@ -6677,6 +6842,8 @@ ${((currentUser?.type === 'branch' ? BRANCH_NAV_ITEMS : (typeof getActiveNavItem
 - ห้ามขึ้นต้นด้วย "ขอโทษค่ะ" เว้นแต่ตอบไม่ได้จริงๆ
 - "ผู้สอน" = trainer · "ผู้ถูกสอน" = trainee — อย่าสลับ
 - BZM/VP/COO ถามนอกขอบเขตที่เขาดูแล → "เรื่องนี้อยู่นอกขอบเขตที่คุณดูแลค่ะ"
+- ห้ามอธิบายงานหลังบ้านของแอดมิน (การจัดอบรม · ใบรายชื่อผู้เข้าอบรม · การติดตามว่าสาขาไหนยังไม่อบรม)
+  เป็นขั้นตอนภายในของแอดมิน ไม่ใช่สิ่งที่สาขาต้องรู้ — ถูกถามให้ตอบว่าแอดมินเป็นคนจัดให้ค่ะ
 
 ═══════════════════════════════════════════════════════════
 ✨ ตัวอย่างตอบที่ดี
@@ -10593,14 +10760,32 @@ function _covTargets() {
     .filter(e => { if (seen[e.id]) return false; seen[e.id] = true; return true; })   // กันซ้ำถ้าเข้าหลายชุด
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
 }
+let _covSheets = null;   // null = กำลังโหลด
+/* คนที่อยู่ในใบรายชื่อของหลักสูตรที่เลือก และยังไม่ได้เช็คชื่อ → ชื่อใบ (ใช้บอกว่าอยู่ใบไหน) */
+function _covInSheets(courses) {
+  const out = {};
+  (_covSheets || []).filter(d => courses.indexOf(String(d.course || '').trim()) >= 0).forEach(d => {
+    const label = (d.course || '') + (d.batch ? ' รุ่น ' + d.batch : '') + (d.issuedAt ? '' : ' (ร่าง)');
+    (d.people || []).forEach(p => { if (p.attended) return;
+      [p.id, p.empCode ? 'code:' + p.empCode : ''].filter(Boolean).forEach(k => { if (!out[k]) out[k] = label; }); });
+  });
+  return out;
+}
 function _covCompute() {
   const courses = _covMulti('cov-course');
   const emps = _covTargets();
   // เลือกหลายหลักสูตร = ต้องผ่าน "ครบทุกหลักสูตร" ถึงนับว่าผ่าน
   const sets = courses.map(c => _covPassed(c));
   const ok = e => sets.length > 0 && sets.every(pp => _covHasPassed(e, pp));
-  const passed = emps.filter(ok), notPassed = emps.filter(e => !ok(e));
-  return { courses, course: courses.join(' + '), emps, passed, notPassed,
+  const passed = emps.filter(ok);
+  let notPassed = emps.filter(e => !ok(e));
+  /* คนที่อยู่ในใบรายชื่อที่ทำไว้แล้วแต่ยังไม่ได้เช็คชื่อ — ติ๊กตัวเลือกไว้ = ตัดออก ไม่ให้จัดซ้ำ */
+  const inMap = _covInSheets(courses);
+  const sheetOf = e => inMap[e.id] || (e.empCode ? inMap['code:' + e.empCode] : '');
+  const inSheet = notPassed.filter(sheetOf);
+  const nodup = !!(document.getElementById('cov-nodup') || {}).checked;
+  if (nodup) notPassed = notPassed.filter(e => !sheetOf(e));
+  return { courses, course: courses.join(' + '), emps, passed, notPassed, inSheet, nodup, sheetOf,
            pct: emps.length ? Math.round(passed.length / emps.length * 100) : 0 };
 }
 function _covScopeLabel() {
@@ -10618,6 +10803,37 @@ function _covScopeLabel() {
   const pre = _covMulti('cov-prereq');
   return { br, conds, prereq: pre.length ? pre.join(' + ') : '' };
 }
+/* ชนรายชื่อ: คนที่ยังไม่ผ่านติ๊กเลือกทีละคนได้ — ตั้งต้นติ๊กทุกคน
+   จำคนที่เอาติ๊กออก (ไม่ใช่คนที่ติ๊ก) กรองเงื่อนไขใหม่แล้วคนใหม่ที่โผล่มาจะติ๊กไว้ให้เอง
+   ใช้กับทั้ง "ส่งออก PDF" และ "จัดอบรมให้ … คน" */
+let _covOff = new Set();
+const _covPicked = r => r.notPassed.filter(e => !_covOff.has(e.id));
+function _covPickList(arr) {
+  if (!arr.length) return '';
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const n = arr.filter(e => !_covOff.has(e.id)).length;
+  return `<div style="margin-bottom:10px">
+    <div class="cov-pk-hd"><label><input type="checkbox" id="cov-pk-all" ${n === arr.length ? 'checked' : ''} onchange="_covPickAll(this.checked)">
+      <span style="color:#DC2626">❌ ยังไม่ผ่าน (${arr.length})</span></label>
+      <span id="cov-pk-n">เลือก ${n}/${arr.length} คน</span></div>` +
+    arr.map(e => `<label class="cov-pk">
+      <input type="checkbox" class="cov-pk-chk" value="${e.id}" ${_covOff.has(e.id) ? '' : 'checked'} onchange="_covPickOne(this)">
+      <span class="cov-pk-code">${e.empCode || '—'}</span>
+      <span class="cov-pk-nm"><b>${e.name}</b><small>${e.position || '-'} · ${brName(e.branchId)}</small></span>
+      <span class="ts-ten">${_tsTenure(e)}</span>
+    </label>`).join('') + `</div>`;
+}
+function _covPickSync() {
+  const all = document.querySelectorAll('.cov-pk-chk'), on = document.querySelectorAll('.cov-pk-chk:checked').length;
+  const n = document.getElementById('cov-pk-n'); if (n) n.textContent = `เลือก ${on}/${all.length} คน`;
+  const a = document.getElementById('cov-pk-all'); if (a) a.checked = all.length > 0 && on === all.length;
+  _covSyncPlanBtn(on);
+}
+window._covPickOne = function(c){ if (c.checked) _covOff.delete(c.value); else _covOff.add(c.value); _covPickSync(); };
+window._covPickAll = function(on){
+  document.querySelectorAll('.cov-pk-chk').forEach(c => { c.checked = on; if (on) _covOff.delete(c.value); else _covOff.add(c.value); });
+  _covPickSync();
+};
 function _covList(title, arr, color) {
   if (!arr.length) return '';
   return `<div style="margin-bottom:10px"><div style="font-size:12.5px;font-weight:800;color:${color};padding:6px 0 4px;position:sticky;top:0;background:var(--white);z-index:2">${title} (${arr.length})</div>` +
@@ -10642,11 +10858,16 @@ function _covRun() {
       <div style="flex:1;min-width:92px;padding:10px;background:#FEF2F2;border-radius:9px;text-align:center"><div style="font-size:20px;font-weight:800;color:#DC2626">${r.notPassed.length}</div><div style="font-size:11px;color:var(--text3)">ยังไม่ผ่าน</div></div>
     </div>
     <div style="max-height:34vh;overflow:auto">
-      ${_covList('❌ ยังไม่ผ่าน', r.notPassed, '#DC2626')}
+      ${_covPickList(r.notPassed)}
       ${_covList('✅ ผ่านแล้ว', r.passed, 'var(--green)')}
       ${r.emps.length ? '' : '<p class="text-muted" style="text-align:center;padding:14px">ไม่มีพนักงานตามเงื่อนไขที่เลือก</p>'}
     </div>`;
-  _covSyncPlanBtn(r.notPassed.length);
+  const nEl = document.getElementById('cov-nodup-n');
+  if (nEl) nEl.textContent = _covSheets == null ? '· กำลังโหลดใบรายชื่อ…'
+    : r.inSheet.length ? `· มี ${r.inSheet.length} คน${r.nodup ? ' ตัดออกแล้ว' : ''}` : '· ไม่มีใครซ้ำ';
+  if (r.nodup && r.inSheet.length && box.firstElementChild) box.firstElementChild.insertAdjacentHTML('afterend', `<details class="cov-dup"><summary>ตัดออก ${r.inSheet.length} คน ที่อยู่ในใบรายชื่อที่ทำไว้แล้ว</summary>
+    ${r.inSheet.map(e => `<div><b>${e.name}</b><span>${r.sheetOf(e)}</span></div>`).join('')}</details>`);
+  _covSyncPlanBtn(_covPicked(r).length);
 }
 /* ปุ่ม "จัดอบรมให้ N คน" อยู่แถวเดียวกับ ยกเลิก / ส่งออก PDF ที่ท้าย modal
    — showModal รองรับแค่ 2 ปุ่ม เลยแทรกเพิ่มเองแล้วอัปเดตตัวเลขทุกครั้งที่กรองใหม่ */
@@ -10660,7 +10881,7 @@ function _covSyncPlanBtn(n) {
       '<button class="btn btn-plan" id="cov-plan-btn" style="margin-right:auto" onclick="openTrainingSessionForm()"></button>');
     b = document.getElementById('cov-plan-btn');
   }
-  b.textContent = `📋 จัดอบรมให้ ${n} คนที่ยังไม่ผ่าน →`;
+  b.textContent = `📋 จัดอบรมให้ ${n} คนที่เลือก →`;
 }
 function openCourseCoverage() {
   const list = DB.courseHistory || [];
@@ -10669,6 +10890,11 @@ function openCourseCoverage() {
   const itCourse = courses.map(c => ({ v: c, label: c }));
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   _covRowSeq = 0; _covRowIds = [1]; _covRowSeq = 1;   // เริ่มด้วยเงื่อนไข 1 ชุด
+  _covOff = new Set();   // เปิดใหม่ = ติ๊กทุกคนอีกครั้ง
+  /* ใบรายชื่อที่ทำไว้แล้ว — ดึงครั้งเดียวตอนเปิด ใช้กับตัวเลือก "ไม่เอาคนที่อยู่ในใบรายชื่อที่ทำไว้แล้ว" */
+  _covSheets = null;
+  _tpFetchDrafts().then(rows => { _covSheets = rows; if (document.getElementById('cov-result')) _covRun(); })
+    .catch(() => { _covSheets = []; });
   showModal('🔀 ชนรายชื่อ · ใครผ่าน / ยังไม่ผ่านหลักสูตร', `
     <div class="form-row">
       <div><label class="form-label">หลักสูตร <span class="req">*</span> <span style="font-weight:500;color:var(--text3);font-size:11px">— หลายอัน = ต้องผ่านครบ</span></label>
@@ -10686,6 +10912,8 @@ function openCourseCoverage() {
         <label class="form-label" style="font-size:11px;margin-bottom:3px">ต้องผ่านหลักสูตรนี้มาก่อน <span style="font-weight:500;color:var(--text3)">— ไม่ระบุ = ไม่กรอง · ใช้หา "ผ่าน A แล้ว แต่ยังไม่ผ่าน B"</span></label>
         ${_mselHTML('cov-prereq', itCourse, { onChange: '_covRun', noneText: '— ไม่ระบุ —' })}
       </div>
+      <label class="cov-opt"><input type="checkbox" id="cov-nodup" onchange="_covRun()">
+        <span><b>ไม่เอาคนที่อยู่ในใบรายชื่อที่ทำไว้แล้ว</b><small>ใบของหลักสูตรนี้ ทั้งแบบร่างและที่ออกใบแล้ว · เฉพาะคนที่ยังไม่ได้เช็คชื่อ <i id="cov-nodup-n"></i></small></span></label>
     </div>
     <div id="cov-result" style="min-height:220px"></div>
   `, () => {
@@ -10693,7 +10921,8 @@ function openCourseCoverage() {
     if (miss.length) { notify('ยังไม่ได้เลือก: ' + miss.join(' · '), 'error'); return; }
     const r = _covCompute();
     if (!r.emps.length) { notify('ไม่มีพนักงานตามเงื่อนไขที่เลือก', 'error'); return; }
-    _printCourseCoverage(r);
+    /* คนที่ยังไม่ผ่าน = คนที่จะส่งเข้าอบรม จึงต้องเหลือสาขาละ 1 คน · คนที่ผ่านแล้วแสดงครบตามเดิม */
+    _onePerBranchPick(_covPicked(r), list => { r.notPassed = list; _printCourseCoverage(r); });
   }, 'ส่งออก PDF');
   ['cov-course', 'cov-branch', 'cov-prereq', 'cov-pos-1', 'cov-ten-1'].forEach(_mselSync);
   const mb = document.querySelector('#modal-overlay .modal');   // กรอบนิ่ง ไม่ยืดหดตามการเลือก
@@ -10821,6 +11050,8 @@ function renderTrainingPlan() {
     <div id="tw-list"><p class="text-muted" style="text-align:center;padding:22px;font-size:13px">กำลังโหลด…</p></div>
   </div>
 
+  <div id="tp-allbranch">${_tpAllBranchCard()}</div>
+
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
   <div class="card" style="margin-top:14px">
@@ -10840,17 +11071,26 @@ function renderTrainingPlan() {
       const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
       const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       // เรียงคนผ่านมากไปน้อย — หลักสูตรที่ใช้จริงอยู่บน ตัวที่ยังไม่มีใครผ่านอยู่ล่างให้เห็นชัด
-      const rows = names.map(n => ({ n, used: courseUseCount(n), inCat: !!_catalogEntry(n) }))
+      const rows = names.map(n => ({ n, used: courseUseCount(n), inCat: !!_catalogEntry(n),
+                                     all: courseIsAllBranch(n), gap: (function(){ const t = courseTodo(n);
+                                       return { missing: t.urgent.concat(t.queue) }; })() }))
         .sort((a, b) => b.used - a.used || a.n.localeCompare(b.n, 'th'));
       return `<div class="cc-table" id="cc-table">
         <div class="cc-head">
-          <div>หลักสูตร</div><div style="text-align:right">ผ่านแล้ว</div><div style="text-align:right">จัดการ</div>
+          <div>หลักสูตร</div><div style="text-align:center">ทุกสาขา</div><div style="text-align:right">ผ่านแล้ว</div><div style="text-align:right">จัดการ</div>
         </div>
-        ${rows.map(r => `<div class="cc-row" data-name="${esc(r.n.toLowerCase())}">
+        ${rows.map(r => `<div class="cc-row" data-name="${esc(r.n.toLowerCase())}" data-cname="${esc(r.n)}">
           <div class="cc-name">
             <span class="cc-dot${r.used ? '' : ' zero'}"></span>
             <span title="${esc(r.n)}">${esc(r.n)}</span>
             ${r.inCat ? '' : '<span class="cc-src" title="ชื่อนี้มาจากประวัติอบรมเก่า ยังไม่ได้เพิ่มเข้าทะเบียน">ประวัติ</span>'}
+            ${r.all ? (r.gap.missing.length
+              ? `<span class="cc-gap miss" title="สาขาที่ยังต้องจัดอบรม: ${esc(r.gap.missing.map(b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b).join(', '))}">ต้องจัดอีก ${r.gap.missing.length} สาขา</span>`
+              : '<span class="cc-gap full">ครบทุกสาขา</span>') : ''}
+          </div>
+          <div class="cc-all">
+            <input type="checkbox" ${r.all ? 'checked' : ''} onchange="toggleCourseAllBranch('${js(r.n)}', this)"
+              title="ติ๊ก = หลักสูตรนี้ต้องอบรมทุกสาขาอย่างน้อย 1 คน">
           </div>
           <div class="cc-num${r.used ? '' : ' zero'}">${r.used > 0
             ? `<button class="cc-who" onclick="showCoursePassers('${js(r.n)}')" title="กดดูรายชื่อคนที่ผ่านหลักสูตรนี้">${r.used}<span> คน</span></button>`
@@ -10865,6 +11105,192 @@ function renderTrainingPlan() {
       </div>`;
     })()}
   </div>`;
+}
+
+/* ══════════ ข้อสังเกต: หลักสูตรที่ต้องอบรมทุกสาขา ══════════
+   ติ๊กหลักสูตรไว้แล้ว หน้าจัดอบรมจะคอยบอกว่าเหลือสาขาไหนที่ยังไม่มีใครผ่าน
+   จะได้รู้ว่าต้องจัดรุ่นต่อไปให้ใคร โดยไม่ต้องไปไล่ชนรายชื่อทีละหลักสูตร */
+function _tpAllBranchCard() {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const js  = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
+  const names = allCourseNames().filter(courseIsAllBranch);
+  if (!names.length) return '';
+  const items = names.map(n => ({ n, t: courseTodo(n) }))
+    .sort((a, b) => b.t.todo - a.t.todo || a.n.localeCompare(b.n, 'th'));
+  const gone = items.filter(x => !x.t.todo).length;
+
+  /* กลุ่มงาน 1 กลุ่ม: หัวข้อ + เหตุผล + ชิปสาขา (ยกเว้นได้ถ้าเป็นกลุ่มที่ยังไม่ได้เริ่ม) */
+  const group = (course, cls, title, why, list, act) => {
+    if (!list.length) return '';
+    return `<div class="ab-g ${cls}">
+      <div class="ab-g-h"><b>${title}</b><span class="n">${list.length} สาขา</span><em>${why}</em></div>
+      <div class="ab-brs">${list.map(b => act
+        ? `<span class="ab-br">${esc(brName(b))}<button class="ab-x" title="${act.tip}" onclick="${act.fn}('${js(course)}','${js(b)}')">${act.ic}</button></span>`
+        : `<span class="ab-br plain">${esc(brName(b))}</span>`).join('')}</div>
+    </div>`;
+  };
+
+  return `
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">🏁 หลักสูตรที่ต้องอบรมทุกสาขา</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${items.length} หลักสูตร</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">ครบแล้ว ${gone} / ${items.length} หลักสูตร</div>
+    </div>
+    ${items.map(x => {
+      const t = x.t;
+      const pct = t.target ? Math.round(t.done / t.target * 100) : 0;
+      return `<div class="ab-item">
+        <div class="ab-top">
+          <div class="ab-name">${esc(x.n)}</div>
+          ${t.todo
+            ? `<span class="ab-score">อบรมแล้ว ${t.done} / ${t.target} สาขา</span>
+               <span class="cc-gap miss">ต้องจัดอีก ${t.todo} สาขา</span>
+               <button class="btn btn-sm btn-outline" onclick="_abCopy('${js(x.n)}')">คัดลอกรายชื่อ</button>`
+            : '<span class="cc-gap full">ครบทุกสาขาแล้ว</span>'}
+        </div>
+        <div class="ab-bar"><i class="${t.todo ? 'warn' : ''}" style="width:${pct}%"></i></div>
+        <div class="ab-sum">${pct}% ของสาขาที่ต้องอบรม${t.skipped.length ? ' · ยกเว้นไว้ ' + t.skipped.length + ' สาขา' : ''}${
+          t.sysName ? ' · ชนกับสิทธิ์เข้าระบบ “' + esc(t.sysName) + '” แล้ว' : ''}</div>
+
+        ${group(x.n, 'hot', '① ต้องจัดก่อน', 'เปิดสิทธิ์ให้ใช้ระบบแล้ว แต่ยังไม่ได้อบรม', t.urgent,
+                { fn:'_abSkip', ic:'✕', tip:'ยกเว้นสาขานี้' })}
+        ${group(x.n, 'wait', '② ยังไม่ได้เริ่ม', 'ยังไม่อบรมและยังไม่มีใบรายชื่อ', t.queue,
+                { fn:'_abSkip', ic:'✕', tip:'ยกเว้นสาขานี้' })}
+        ${group(x.n, 'plan', '③ ทำใบรายชื่อแล้ว', 'รอวันอบรม / รอผลเข้าระบบ — ไม่ต้องทำอะไร', t.waiting, null)}
+        ${group(x.n, 'perm', '④ ไปเปิดสิทธิ์ให้ที่ฮับ', 'อบรมแล้วแต่ยังเข้าระบบไม่ได้', t.noAccess, null)}
+        ${t.skipped.length ? `<div class="ab-g"><div class="ab-g-h"><b>ยกเว้นไว้</b><span class="n">${t.skipped.length} สาขา</span><em>กด ↺ เพื่อเอากลับมานับ</em></div>
+          <div class="ab-brs">${t.skipped.map(b => `<span class="ab-br">${esc(brName(b))}<button class="ab-x" title="เอากลับมานับ" onclick="_abUnskip('${js(x.n)}','${js(b)}')">↺</button></span>`).join('')}</div></div>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+/* แบ่งสาขาเป็นกลุ่มงานที่ไม่ทับกัน — สาขาหนึ่งอยู่ได้กลุ่มเดียว เรียงตามความเร่งด่วน
+   ① เปิดสิทธิ์แล้วแต่ยังไม่อบรม → ② ยังไม่ได้เริ่ม → ③ ทำใบแล้วรอผล → ④ อบรมแล้วแต่ยังไม่เปิดสิทธิ์ */
+function courseTodo(name) {
+  const n = String(name || '').trim();
+  const skip = new Set(courseSkipBranches(n));
+  const open = openBranchIds();
+  const target = open.filter(b => !skip.has(b));
+  const trained = new Set((DB.courseHistory || [])
+    .filter(c => (c.courseName || '').trim() === n)
+    .map(c => String(c.branchId || '').trim()).filter(Boolean));
+  const roster = courseRosterBranches(n);
+  const sys = courseLinkedSystem(n);
+  const acc = sys ? systemBranchAccess(sys) : null;
+  const out = { target: target.length, done: 0, urgent: [], queue: [], waiting: [], noAccess: [],
+                skipped: open.filter(b => skip.has(b)), sysName: sys ? (sys.name || '') : '' };
+  target.forEach(b => {
+    const t = trained.has(b);
+    if (t) {
+      out.done++;
+      if (acc && !acc.has(b)) out.noAccess.push(b);
+      return;
+    }
+    if (roster.has(b)) out.waiting.push(b);
+    else if (acc && acc.has(b)) out.urgent.push(b);
+    else out.queue.push(b);
+  });
+  /* "ต้องจัดอีกกี่สาขา" = คนที่ยังไม่มีใครทำอะไรให้ (ไม่รวมที่ทำใบไว้แล้ว) */
+  out.todo = out.urgent.length + out.queue.length;
+  return out;
+}
+
+/* วาดการ์ดใหม่อย่างเดียว ไม่ต้องวาดทั้งหน้า — ใช้ตอนใบรายชื่อโหลดเสร็จและตอนกดยกเว้น */
+function _abPaint() {
+  const box = document.getElementById('tp-allbranch');
+  if (box) box.innerHTML = _tpAllBranchCard();
+  _abPaintBadges();
+}
+/* ป้าย "ต้องจัดอีก N สาขา" ในทะเบียนหลักสูตร — คิดจากชุดเดียวกับการ์ด
+   (ตอนวาดตารางครั้งแรก ใบรายชื่อยังโหลดไม่เสร็จ ตัวเลขจะเกินจริง) */
+function _abPaintBadges() {
+  document.querySelectorAll('#cc-table .cc-row').forEach(row => {
+    const name = row.getAttribute('data-cname') || '';
+    if (!name || !courseIsAllBranch(name)) return;
+    const t = courseTodo(name);
+    const el = row.querySelector('.cc-gap');
+    if (!el) return;
+    el.className = 'cc-gap ' + (t.todo ? 'miss' : 'full');
+    el.textContent = t.todo ? 'ต้องจัดอีก ' + t.todo + ' สาขา' : 'ครบทุกสาขา';
+  });
+}
+/* ยกเว้น / เอากลับมานับ — เก็บที่ทะเบียนหลักสูตร แอดมินคนอื่นเห็นตรงกัน */
+async function _abSetSkip(name, branchId, on) {
+  const n = String(name || '').trim();
+  const cur = _catalogEntry(n);
+  const list = new Set(courseSkipBranches(n));
+  if (on) list.add(String(branchId)); else list.delete(String(branchId));
+  const skipBranches = [...list];
+  const rec = cur
+    ? Object.assign({}, cur, { skipBranches })
+    : { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: n,
+        createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+        createdAt: new Date().toISOString(), allBranches: true, skipBranches };
+  try {
+    const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+    const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
+    if (res.error) throw res.error;
+    if (cur) cur.skipBranches = skipBranches;
+    else (DB.courseCatalog = DB.courseCatalog || []).push(rec);
+    const nm = (BRANCH_MASTER[branchId] && BRANCH_MASTER[branchId].name) || branchId;
+    notify(on ? 'ยกเว้น ' + nm + ' แล้ว' : 'เอา ' + nm + ' กลับมานับแล้ว');
+    _abPaint();
+    if (currentPage === 'admin-training-plan') { const t = document.getElementById('cc-table'); if (t) showPage('admin-training-plan'); }
+  } catch (e) {
+    const m = String((e && e.message) || e);
+    notify(/skip_branches/.test(m)
+      ? 'ยังไม่ได้เพิ่มคอลัมน์ในฐานข้อมูล — รันไฟล์ supabase-course-skip-branch.sql ก่อน'
+      : 'บันทึกไม่สำเร็จ — ' + m, 'error');
+  }
+}
+function _abSkip(name, branchId)  { _abSetSkip(name, branchId, true); }
+function _abUnskip(name, branchId){ _abSetSkip(name, branchId, false); }
+
+/* คัดลอกรายชื่อสาขาที่ยังไม่อบรม — เอาไปวางในไลน์กลุ่มได้เลย */
+function _abCopy(name) {
+  const t = courseTodo(name);
+  const list = t.urgent.concat(t.queue);
+  const txt = String(name) + ' — ยังต้องจัดอบรม ' + list.length + ' สาขา\n' +
+    list.map(b => '• ' + ((BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b) +
+      (t.urgent.indexOf(b) >= 0 ? '  (เปิดสิทธิ์ใช้ระบบแล้ว)' : '')).join('\n');
+  navigator.clipboard.writeText(txt)
+    .then(() => notify('คัดลอกแล้ว ' + list.length + ' สาขา'))
+    .catch(() => notify('คัดลอกไม่สำเร็จ', 'error'));
+}
+/* ติ๊ก/เอาติ๊กออก "ต้องอบรมทุกสาขา" — หลักสูตรที่ยังไม่อยู่ในทะเบียน (ชื่อมาจากประวัติ)
+   จะถูกเพิ่มเข้าทะเบียนให้อัตโนมัติ ไม่งั้นไม่มีที่เก็บค่านี้ */
+async function toggleCourseAllBranch(name, el) {
+  const n = String(name || '').trim();
+  const on = !!(el && el.checked);
+  const cur = _catalogEntry(n);
+  const rec = cur
+    ? Object.assign({}, cur, { allBranches: on })
+    : { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: n,
+        createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
+        createdAt: new Date().toISOString(), allBranches: on };
+  try {
+    const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
+    const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
+    if (res.error) throw res.error;
+    if (cur) Object.assign(cur, { allBranches: on });
+    else (DB.courseCatalog = DB.courseCatalog || []).push(rec);
+    const g = courseBranchGap(n);
+    notify(on ? (g.missing.length ? 'ติ๊กแล้ว · ยังขาด ' + g.missing.length + ' สาขา' : 'ติ๊กแล้ว · ครบทุกสาขาแล้ว')
+              : 'เอาติ๊กออกแล้ว');
+    if (currentPage === 'admin-training-plan') showPage('admin-training-plan');
+  } catch (e) {
+    if (el) el.checked = !on;
+    /* คอลัมน์ยังไม่มี = ยังไม่ได้รันไฟล์ SQL — บอกให้รู้ว่าต้องทำอะไร ไม่ใช่ error ดิบ ๆ */
+    const m = String((e && e.message) || e);
+    notify(/all_branches/.test(m)
+      ? 'ยังไม่ได้เพิ่มคอลัมน์ในฐานข้อมูล — รันไฟล์ supabase-course-allbranch.sql ก่อน'
+      : 'บันทึกไม่สำเร็จ — ' + m, 'error');
+  }
 }
 
 /* กดตัวเลข "N คน" ในทะเบียนหลักสูตร → ดูว่าใครผ่านหลักสูตรนี้บ้าง
@@ -10952,6 +11378,90 @@ function courseUseCount(name) {
   const n = String(name || '').trim();
   return (DB.courseHistory || []).filter(c => (c.courseName || '').trim() === n).length;
 }
+/* หลักสูตรนี้ติ๊ก "ต้องอบรมทุกสาขาอย่างน้อย 1 คน" ไว้ไหม */
+function courseIsAllBranch(name) {
+  const e = _catalogEntry(name);
+  return !!(e && e.allBranches);
+}
+/* หลักสูตรที่ผูกกับ "สิทธิ์เข้าระบบ" ของฮับ — ตอนนี้มีตัวเดียว
+   หลักสูตรสอนใช้ระบบ ต้องดูคู่กับว่าสาขานั้นเปิดสิทธิ์เข้าระบบให้หรือยัง
+   (เปิดสิทธิ์แต่ไม่ได้อบรม = ใช้มั่ว · อบรมแล้วไม่เปิดสิทธิ์ = อบรมไปเปล่า ๆ) */
+const COURSE_SYSTEM_LINK = { 'การใช้งานระบบ training record system': 'training-record' };
+function courseLinkedSystem(name) {
+  const key = String(name || '').trim().toLowerCase();
+  let id = COURSE_SYSTEM_LINK[key];
+  if (!id && /training\s*record/i.test(key)) id = 'training-record';   // ชื่อหลักสูตรเพี้ยนไปบ้างก็ยังจับได้
+  if (!id) return null;
+  return (_hubSystems || []).find(x => String(x.id) === id) || null;
+}
+/* สาขาไหนเปิดสิทธิ์เข้าระบบนั้นแล้วบ้าง — กติกาเดียวกับฮับ:
+   ปิดทุกสาขา = ไม่มีใครเห็น · ไม่ได้ระบุสาขา = ทุกสาขาเห็น · ระบุไว้ = เฉพาะที่ระบุ */
+function systemBranchAccess(sys) {
+  const open = openBranchIds();
+  if (!sys) return null;
+  if (sys.hideFromAllBranches) return new Set();
+  const list = Array.isArray(sys.visibleBranches) ? sys.visibleBranches.map(String) : [];
+  if (!list.length) return new Set(open);
+  return new Set(list);
+}
+/* ตารางชน 2 ทาง: อบรมแล้วหรือยัง × เปิดสิทธิ์หรือยัง */
+function courseAccessCross(name) {
+  const sys = courseLinkedSystem(name);
+  if (!sys) return null;
+  const acc = systemBranchAccess(sys);
+  const n = String(name || '').trim();
+  const skip = new Set(courseSkipBranches(n));
+  const trained = new Set((DB.courseHistory || [])
+    .filter(c => (c.courseName || '').trim() === n)
+    .map(c => String(c.branchId || '').trim()).filter(Boolean));
+  const out = { sys, both: [], accessNoTrain: [], trainNoAccess: [], neither: [] };
+  openBranchIds().filter(b => !skip.has(b)).forEach(b => {
+    const t = trained.has(b), a = acc.has(b);
+    if (t && a) out.both.push(b);
+    else if (a) out.accessNoTrain.push(b);
+    else if (t) out.trainNoAccess.push(b);
+    else out.neither.push(b);
+  });
+  return out;
+}
+
+/* สาขาที่ยกเว้นไว้ของหลักสูตรนี้ — ไม่นับว่าค้าง */
+function courseSkipBranches(name) {
+  const e = _catalogEntry(name);
+  const v = e && e.skipBranches;
+  return Array.isArray(v) ? v.map(String) : [];
+}
+/* สาขาที่มีชื่ออยู่ในใบรายชื่อผู้เข้าอบรมของหลักสูตรนี้แล้ว (ทั้งแบบร่างและใบที่ออกแล้ว)
+   = จัดไปแล้ว รอผลเข้าระบบ ไม่ควรนับรวมกับสาขาที่ยังไม่ได้ทำอะไรเลย */
+function courseRosterBranches(name) {
+  const n = String(name || '').trim();
+  const all = [].concat(typeof _tpDrafts !== 'undefined' ? _tpDrafts || [] : [],
+                        typeof _rhRows   !== 'undefined' ? _rhRows   || [] : []);
+  const out = new Set();
+  all.forEach(d => {
+    if (String(d.course || '').trim() !== n) return;
+    (d.people || []).forEach(p => { const b = String((p && p.branchId) || '').trim(); if (b) out.add(b); });
+  });
+  return out;
+}
+/* สาขาไหนยังไม่มีใครผ่านหลักสูตรนี้ — นับเฉพาะสาขาที่ยังเปิดอยู่
+   (สาขาปิดแล้วไม่ต้องตามให้เสียเวลา ทะเบียนสาขาของฮับเป็นตัวบอกว่าใครปิด)
+   หักสองอย่างออกก่อน: สาขาที่ยกเว้นไว้ · สาขาที่ทำใบรายชื่อไปแล้วรอผล */
+function courseBranchGap(name) {
+  const n = String(name || '').trim();
+  const skip = new Set(courseSkipBranches(n));
+  const open = openBranchIds();
+  const target = open.filter(b => !skip.has(b));
+  const done = new Set((DB.courseHistory || [])
+    .filter(c => (c.courseName || '').trim() === n)
+    .map(c => String(c.branchId || '').trim()).filter(Boolean));
+  const roster = courseRosterBranches(n);
+  const left = target.filter(b => !done.has(b));
+  const planned = left.filter(b => roster.has(b));
+  const missing = left.filter(b => !roster.has(b));
+  return { total: target.length, done: target.length - left.length, planned, missing,
+           skipped: open.filter(b => skip.has(b)) };
+}
 function _catalogEntry(name) {
   const n = String(name || '').trim();
   return (DB.courseCatalog || []).find(c => (c.name || '').trim() === n) || null;
@@ -10964,15 +11474,21 @@ function addCourseName() {
       <label class="form-label">ชื่อหลักสูตร <span class="req">*</span></label>
       <input class="form-input" id="cc-name" placeholder="เช่น Admin Operations Level 3" maxlength="120">
       <div style="font-size:11.5px;color:var(--text3);margin-top:5px">เพิ่มแล้วจะเลือกได้ทันทีในชนรายชื่อและฟอร์มจัดอบรม แม้ยังไม่มีใครผ่าน</div>
-    </div>`, async () => {
+    </div>
+    <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:11px 12px">
+      <input type="checkbox" id="cc-allbr" style="width:17px;height:17px;accent-color:var(--accent);margin-top:2px">
+      <span><b style="font-size:13px">ต้องอบรมทุกสาขาอย่างน้อย 1 คน</b>
+        <small style="display:block;font-size:11.5px;color:var(--text3);margin-top:2px">หน้าจัดอบรมจะคอยบอกว่าเหลือสาขาไหนที่ยังไม่มีใครผ่าน</small></span>
+    </label>`, async () => {
     const name = (document.getElementById('cc-name').value || '').trim();
     if (!name) { notify('กรุณากรอกชื่อหลักสูตร', 'error'); return; }
     if (allCourseNames().some(c => c.toLowerCase() === name.toLowerCase())) {
       notify('มีหลักสูตรชื่อนี้อยู่แล้ว', 'error'); return;
     }
+    const allBr = !!(document.getElementById('cc-allbr') || {}).checked;
     const rec = { id: 'CC' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name,
                   createdBy: (currentUser && (currentUser.name || currentUser.nick)) || '-',
-                  createdAt: new Date().toISOString() };
+                  createdAt: new Date().toISOString(), allBranches: allBr };
     try {
       const sb = _initSb(); if (!sb) throw new Error('ยังเชื่อมต่อระบบไม่ได้');
       const res = await sb.from('course_catalog').upsert(_toSb('courseCatalog', rec));
@@ -11108,6 +11624,7 @@ async function _tpRenderAll() {
   _rhRows = rows.filter(d => d.issuedAt)
     .sort((a, b) => String(b.issuedAt || '').localeCompare(String(a.issuedAt || '')));
   _twPaint();
+  _abPaint();   /* ใบรายชื่อเพิ่งมาถึง — การ์ดสาขาที่ค้างต้องหักใบที่ทำไว้แล้วออก */
 }
 function _twError(e) {
   const box = document.getElementById('tw-list');
@@ -11488,11 +12005,15 @@ function openTrainingSessionForm() {
   const r = _covCompute();
   if (!r.course) { notify('เลือกหลักสูตรก่อน', 'error'); return; }
   if (!r.notPassed.length) { notify('ไม่มีคนที่ยังไม่ผ่าน', 'error'); return; }
-  _tsPeople = r.notPassed.slice();   // snapshot ก่อนปิด modal ชนรายชื่อ
-  _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่ (ไม่ทับร่าง/ใบที่เปิดค้างไว้ก่อนหน้า)
+  if (!_covPicked(r).length) { notify('ยังไม่ได้ติ๊กเลือกคนที่จะส่งอบรม', 'error'); return; }
   const course = r.course;
-  closeModal();
-  setTimeout(() => _openTsModal(course), 60);
+  /* สาขาละ 1 คน — เลือกตั้งแต่ตรงนี้ ใบรายชื่อจะได้มีแต่คนที่ส่งจริง */
+  _onePerBranchPick(_covPicked(r), list => {
+    _tsPeople = list;   // snapshot ก่อนปิด modal ชนรายชื่อ
+    _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่ (ไม่ทับร่าง/ใบที่เปิดค้างไว้ก่อนหน้า)
+    closeModal();
+    setTimeout(() => _openTsModal(course), 60);
+  });
 }
 /* ══════════ ทะเบียนบริษัทในเครือ ══════════
    ใช้เลือกว่าใบรายชื่อผู้เข้าอบรมจะออกในนามบริษัทไหน
@@ -11610,9 +12131,10 @@ function _openTsModal(course, draft) {
             <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name}</div>
             <div style="font-size:11.5px;color:var(--text3)">${e.empCode?e.empCode+' · ':''}${e.position||'-'} · ${brName(e.branchId)}</div>
           </div>
+          <span class="ts-ten" title="อายุงาน">${_tsTenure(e)}</span>
         </label>`).join('')}
     </div>
-  `, () => {
+  `, () => { _tsOnePerBranch(() => {
     const courseV = document.getElementById('ts-course').value.trim();
     const date = document.getElementById('ts-date').value;
     if (!courseV || !date) { notify('กรอกหลักสูตร + วันที่อบรม', 'error'); return; }
@@ -11633,7 +12155,7 @@ function _openTsModal(course, draft) {
     closeModal();
     _tsArchiveIssued(info, list);   // เก็บเป็นประวัติก่อน แล้วค่อยเปิด PDF
     _printTrainingSession(info, list);
-  }, _tsIssuedAt ? 'บันทึก + เปิด PDF ใหม่' : 'ออกใบรายชื่อ PDF');
+  }); }, _tsIssuedAt ? 'บันทึก + เปิด PDF ใหม่' : 'ออกใบรายชื่อ PDF');
   /* ปุ่มซ้าย — แทรกเพิ่มในแถบล่างของ modal (showModal รองรับแค่ 2 ปุ่ม)
      ตอนแก้ใบที่ออกแล้วต้องมีทางบันทึกโดยไม่เปิด PDF ซ้ำ แค่แก้คำผิดไม่ควรต้องสั่งพิมพ์ใหม่ */
   const footer = document.querySelector('#modal-overlay .modal-footer');
@@ -11642,7 +12164,8 @@ function _openTsModal(course, draft) {
   _tsUpd();
 }
 /* เก็บสิ่งที่กรอกไว้เป็นแบบร่าง — ไม่บังคับกรอกครบ ขอแค่มีรายชื่อที่ติ๊กไว้ */
-async function _tsSaveDraft() {
+function _tsSaveDraft() { _tsOnePerBranch(_tsSaveDraftGo); }
+async function _tsSaveDraftGo() {
   const g = id => (document.getElementById(id) || {}).value || '';
   const ids = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
   const people = _tsPeople.filter(e => ids.has(e.id)).map(_tsPerson);
@@ -11755,9 +12278,72 @@ function _tpRunMore() {
         <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}${dup ? ' <span style="font-size:11px;color:var(--text3);font-weight:700">· อยู่ในใบแล้ว</span>' : ''}</div>
         <div style="font-size:11.5px;color:var(--text3)">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div>
       </div>
+      <span class="ts-ten" title="อายุงาน">${_tsTenure(e)}</span>
     </label>`;
   }).join('');
   _tpUpd();
+}
+/* อายุงานของคนในใบ · คนในแบบร่างเก็บไว้แค่ชื่อ/ตำแหน่ง เลยต้องไปหยิบวันเริ่มงานจากทะเบียน */
+function _tsTenure(e) {
+  const cur = (DB.employees[e.branchId] || []).find(x => x.id === e.id) || e;
+  const t = calcTenureShort(cur.startDate || e.startDate);
+  return t === '—' ? '<span style="color:var(--text3)">อายุงาน —</span>' : 'อายุงาน ' + t;
+}
+/* ใบรายชื่อ 1 ใบ ส่งได้สาขาละ 1 คน
+   ถ้าติ๊กไว้เกินในสาขาไหน เด้งหน้าต่างให้เลือกคนเดียวของสาขานั้นก่อน แล้วค่อยทำต่อ (ออกใบ / บันทึกร่าง)
+   หน้าต่างนี้ซ้อนบนฟอร์มเดิม (showModal มีชั้นเดียว เปิดทับแล้วของที่กรอกไว้หาย) */
+/* สาขาละ 1 คน — ตัวกลาง
+   people = รายชื่อ · next(list) = ทำต่อด้วยรายชื่อที่เหลือสาขาละคน
+   ถ้าไม่มีสาขาไหนเกิน ทำต่อทันที · ถ้าเกิน เด้งหน้าต่างให้เลือก (ตั้งต้น = อายุงานมากสุด)
+   หน้าต่างซ้อนบนของเดิม ไม่ปิด modal ที่เปิดอยู่ (showModal มีชั้นเดียว) */
+function _onePerBranchPick(people, next) {
+  const by = {};
+  people.forEach(e => { (by[e.branchId || '—'] = by[e.branchId || '—'] || []).push(e); });
+  const over = Object.keys(by).filter(b => by[b].length > 1).sort();
+  if (!over.length) return next(people.slice());
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  const esc = x => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const since = e => {
+    const cur = (DB.employees[e.branchId] || []).find(x => x.id === e.id) || e;
+    const d = new Date(cur.startDate || e.startDate || ''); return isNaN(d) ? 9e15 : d.getTime();
+  };
+  let ov = document.getElementById('ts-one-ov');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'ts-one-ov';
+  ov.className = 'ts-one-ov';
+  ov.innerHTML = `<div class="ts-one">
+    <div class="ts-one-hd"><b>สาขาละ 1 คน</b><span>มี ${over.length} สาขาที่มีรายชื่อมากกว่า 1 คน · เลือกคนที่จะส่งเข้าอบรมสาขาละคน</span></div>
+    <div class="ts-one-bd">${over.map(b => {
+      const list = by[b].slice().sort((x, y) => since(x) - since(y));
+      return `<div class="ts-one-br"><div class="ts-one-bn">${esc(brName(b))} <em>${by[b].length} คน</em></div>
+        ${list.map((e, k) => `<label class="ts-one-p"><input type="radio" name="one-${esc(b)}" value="${esc(e.id)}"${k === 0 ? ' checked' : ''}>
+          <span><b>${esc(e.name)}</b><small>${e.empCode ? esc(e.empCode) + ' · ' : ''}${esc(e.position || '-')}</small></span>
+          <span class="ts-ten">${_tsTenure(e)}</span></label>`).join('')}</div>`;
+    }).join('')}</div>
+    <div class="ts-one-ft"><button class="btn btn-outline" id="ts-one-no">ยกเลิก</button><button class="btn btn-accent" id="ts-one-ok">ใช้คนที่เลือก · ทำต่อ</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#ts-one-no').onclick = () => ov.remove();
+  ov.querySelector('#ts-one-ok').onclick = () => {
+    const drop = new Set();
+    over.forEach(b => {
+      const keep = (ov.querySelector(`input[name="one-${CSS.escape(b)}"]:checked`) || {}).value;
+      by[b].forEach(e => { if (e.id !== keep) drop.add(e.id); });
+    });
+    ov.remove();
+    next(people.filter(e => !drop.has(e.id)));
+  };
+}
+/* ในฟอร์มใบรายชื่อ: เลือกแล้วเอาติ๊กคนที่ไม่ได้เลือกออก แล้วค่อยออกใบ/บันทึกร่าง */
+function _tsOnePerBranch(next) {
+  const checked = new Set(Array.from(document.querySelectorAll('.ts-chk:checked')).map(c => c.value));
+  _onePerBranchPick(_tsPeople.filter(e => checked.has(e.id)), list => {
+    const keep = new Set(list.map(e => e.id));
+    document.querySelectorAll('.ts-chk:checked').forEach(c => { if (!keep.has(c.value)) c.checked = false; });
+    _tsUpd();
+    next();
+  });
 }
 function _tsToggleAll(on) { document.querySelectorAll('.ts-chk').forEach(c => c.checked = on); _tsUpd(); }
 function _tsUpd() {
@@ -18572,6 +19158,7 @@ function renderAdminChatLogs() {
     const first = s.msgs[0];
     const last  = s.msgs[s.msgs.length-1];
     const errIn = s.msgs.some(m => m.err);
+    const askIn = s.msgs.some(_chatLogNeedsInfo);
     const roleColor = ({branch:'#16A34A', admin:'#DC2626', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777'})[first.userRole] || '#6B7280';
     const rawPrev = String(last.content || '').replace(/[*#`>]/g,'').replace(/\s+/g,' ').trim();
     const preview = _esc(rawPrev.slice(0, 90)) + (rawPrev.length > 90 ? '…' : '');
@@ -18579,7 +19166,7 @@ function renderAdminChatLogs() {
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:800;color:var(--text)">${_esc(first.userName)||'-'} <span style="font-size:10.5px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;font-weight:700;letter-spacing:.3px">${_esc((first.userRole||'-').toUpperCase())}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700">${_esc(first.branchId)}</span>` : ''}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}${askIn?` · <span style="color:#D97706;font-weight:700">ขอข้อมูลเพิ่ม</span>`:''}</div>
         </div>
         <span style="font-size:18px;color:var(--text3);flex-shrink:0">›</span>
       </div>
