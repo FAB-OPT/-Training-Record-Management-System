@@ -9850,7 +9850,6 @@ function renderQuizStatsPage() {
     ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
     ${tile(fails.length, 'ยังไม่ผ่าน', fails.length ? 'ต้องตามมาสอบใหม่' : 'ผ่านครบทุกคน', fails.length ? 'bad' : 'ok')}
     ${tile(pool.length, 'ครั้งที่สอบ', '')}
-    ${tile(nTrain, 'การสอน', '')}
     ${tile(retake, 'สอบซ้ำ', '')}
     ${tile(_qsFmtSec(med), 'เวลาที่ใช้กลาง ๆ', '')}
   </div>
