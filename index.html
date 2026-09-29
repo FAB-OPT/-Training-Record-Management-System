@@ -1551,6 +1551,15 @@
     color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
   }
   .qs-row { border-top: 1px solid var(--border); transition: background .12s; }
+  /* ปุ่มสลับมุมมอง (โมดูล / โซน / สาขา / บุคคล) */
+  .qs-views { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px 0; }
+  .qs-view {
+    border: 1.5px solid var(--border); background: var(--surface); color: var(--text2);
+    border-radius: 999px; padding: 8px 15px; font: inherit; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all .12s;
+  }
+  .qs-view:hover { border-color: var(--accent); color: var(--accent); }
+  .qs-view.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .qs-row:hover { background: var(--surface2); }
   /* ตารางรายครั้งที่สอบ — ทั้งแถวกดติ๊กได้ ไม่ต้องเล็งช่องเล็ก ๆ */
   .qh-head, .qh-row {
@@ -9355,6 +9364,87 @@ function _qhListHTML(pool) {
 let _qsBranch = '';      // '' = ทุกสาขา
 let _qsDays = 0;         // 0 = ทุกช่วงเวลา
 let _qsMid = '';         // '' = ทุก Module
+/* ── มุมมองของหน้า: โมดูล → โซน → สาขา → บุคคล ──
+   คำถามของแต่ละคนไม่เหมือนกัน — เทรนเนอร์ถามว่า "ข้อไหนคนตก", BZM ถามว่า "สาขาไหนในโซนฉันแย่",
+   ผู้บริหารถามว่า "โซนไหนตามไม่ทัน", หัวหน้าสาขาถามว่า "ลูกน้องคนไหนยังไม่ผ่าน"
+   หน้าเดียวตอบได้หมดถ้าสลับมุมมองได้ ไม่ต้องทำสี่หน้า */
+let _qsView = 'module';
+function _qsSetView(v) { _qsView = v || 'module'; showPage('admin-quiz-stats'); }
+function _qsViewUnit() { return { zone:'โซน', branch:'สาขา', person:'คน' }[_qsView] || 'Module'; }
+function _qsViewLabel() {
+  return { module:'แยกตาม Module', zone:'แยกตามโซน', branch:'แยกตามสาขา', person:'แยกตามบุคคล' }[_qsView];
+}
+function _qsViewHint() {
+  return {
+    module: 'เรียงจากอัตราผ่านต่ำสุด — ตัวบนคือตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน',
+    zone:   'โซน = ผู้จัดการเขตของสาขา · เรียงจากอัตราผ่านต่ำสุด',
+    branch: 'เรียงจากอัตราผ่านต่ำสุด — กด “ดูเฉพาะสาขานี้” เพื่อกรองทั้งหน้าไปที่สาขานั้น',
+    person: 'คนที่ยังมีการสอนค้างอยู่บนสุด · “ดีที่สุด” คือคะแนนสูงสุดที่เคยทำได้'
+  }[_qsView];
+}
+
+/* ผลสอบไม่ได้เก็บว่าใครเป็นคนทำ (คอลัมน์ emp_id ว่างทั้งตาราง)
+   คนที่สอบจึงต้องย้อนไปดูจาก "ผู้ถูกสอน" ของการสอนที่ผลสอบนั้นผูกอยู่
+   ส่วนใหญ่ 1 การสอน = 1 คน · ถ้าสอนพร้อมกันหลายคนก็นับให้ทุกคนในใบนั้น */
+let _qsTrainIdx = null;
+function _qsTrainingOf(r) {
+  if (!_qsTrainIdx || _qsTrainIdx.src !== DB.trainings) {
+    const m = new Map();
+    (DB.trainings || []).forEach(t => m.set(t.id, t));
+    _qsTrainIdx = { src: DB.trainings, map: m };
+  }
+  return _qsTrainIdx.map.get(r && r.trainingId) || null;
+}
+function _qsTraineeIds(r) {
+  if (r && r.empId) return [String(r.empId)];
+  const t = _qsTrainingOf(r);
+  return ((t && t.traineeIds) || []).map(String);
+}
+/* โซน = ผู้จัดการเขตของสาขานั้น (ทะเบียนสาขาเก็บเป็นชื่อเต็ม + ชื่อเล่น) */
+function _qsZoneOf(branchId) {
+  const m = (BRANCH_MASTER[branchId] || {}).manager || '';
+  return m || '— ไม่ระบุเขต —';
+}
+function _qsZoneShort(z) {
+  const m = String(z || '').match(/\(([^)]+)\)\s*$/);
+  return m ? m[1] : String(z || '').split(/\s+/)[0] || z;
+}
+/* รวมผลสอบตามคีย์ที่ส่งเข้ามา — ใช้ชุดเดียวกันทั้งโซน สาขา และรายคน
+   นับ "การสอน" (trainingId) เป็นหน่วยของการผ่าน เพราะสอบซ้ำในการสอนเดียวกันถือเป็นครั้งเดียว
+   ตรงกับวิธีนับของไทล์ด้านบน ตัวเลขสองที่จะได้ไม่ขัดกัน */
+function _qsAgg(pool, keyFn) {
+  const g = new Map();
+  pool.forEach(r => {
+    const k = keyFn(r);
+    if (k == null || k === '') return;
+    let o = g.get(k);
+    if (!o) { o = { key: k, runs: 0, best: new Map(), emps: new Set(), mods: new Set(), pcts: [], last: '' }; g.set(k, o); }
+    o.runs++;
+    _qsTraineeIds(r).forEach(id => o.emps.add(id));
+    if (r.moduleId) o.mods.add(r.moduleId);
+    const at = String(_qhDate(r) || '');
+    if (at > o.last) o.last = at;
+    const p = _qsPct(r);
+    if (typeof p === 'number') o.pcts.push(p);
+    const t = r.trainingId || r.id;
+    const cur = o.best.get(t);
+    if (cur == null || (p || 0) > cur) o.best.set(t, p == null ? -1 : p);
+  });
+  return [...g.values()].map(o => {
+    const list = [...o.best.values()];
+    const passed = list.filter(p => p >= QUIZ_PASS_PCT).length;
+    return {
+      key: o.key, runs: o.runs, trainings: list.length, passed,
+      notPassed: list.length - passed,
+      passRate: list.length ? Math.round(passed / list.length * 100) : null,
+      avg: o.pcts.length ? Math.round(o.pcts.reduce((a, b) => a + b, 0) / o.pcts.length) : null,
+      best: o.pcts.length ? Math.max.apply(null, o.pcts) : null,
+      emps: o.emps.size, mods: o.mods.size, last: o.last,
+      retake: o.runs - list.length
+    };
+  }).sort((a, b) => (a.passRate == null ? 101 : a.passRate) - (b.passRate == null ? 101 : b.passRate));
+}
+
 function _qsSetMid(v) { _qsMid = v || ''; showPage('admin-quiz-stats'); }
 function _qsSetBranch(v) { _qsBranch = v || ''; showPage('admin-quiz-stats'); }
 function _qsSetDays(v) { _qsDays = +v || 0; showPage('admin-quiz-stats'); }
@@ -9471,6 +9561,46 @@ function renderQuizStatsPage() {
      รอบก่อนโชว์แค่ 14 กับ 16 แล้วเขียนอธิบายส่วนต่างไว้ใต้ตัวเลข
      ยังงงอยู่ดี เพราะต้องอ่านคำอธิบายก่อนถึงจะรู้ว่าสองเลขนี้เกี่ยวกันยังไง
      พอเห็นเป็น 14 + 2 = 16 เรียงกันสามใบ ก็ไม่ต้องอธิบายอะไรอีก */
+  /* ข้อมูลของมุมมองที่เลือก — สร้างจาก pool เดียวกับไทล์ด้านบน ตัวเลขจะได้ตรงกัน */
+  const aggRows = (() => {
+    if (_qsView === 'zone') {
+      return _qsAgg(pool, r => _qsZoneOf(r.branchId)).map(a => {
+        const brs = new Set(pool.filter(r => _qsZoneOf(r.branchId) === a.key).map(r => r.branchId));
+        return Object.assign(a, {
+          title: _qsZoneShort(a.key),
+          sub: a.key === '— ไม่ระบุเขต —' ? 'สาขาที่ยังไม่ได้ผูกเขต' : brs.size + ' สาขา · ' + a.mods + ' Module · ' + a.runs + ' ครั้ง',
+          right: { t: a.notPassed ? a.notPassed + ' การสอน' : '—', c: a.notPassed ? '#B91C1C' : 'var(--text3)' },
+          action: ''
+        });
+      });
+    }
+    if (_qsView === 'branch') {
+      return _qsAgg(pool, r => String(r.branchId || '')).map(a => Object.assign(a, {
+        title: brName(a.key),
+        sub: _qsZoneShort(_qsZoneOf(a.key)) + ' · ' + a.mods + ' Module · ' + a.runs + ' ครั้ง',
+        right: { t: a.notPassed ? a.notPassed + ' การสอน' : '—', c: a.notPassed ? '#B91C1C' : 'var(--text3)' },
+        action: `<button class="btn btn-sm btn-outline" onclick="_qsSetBranch('${a.key}')">ดูเฉพาะสาขานี้</button>`
+      }));
+    }
+    if (_qsView === 'person') {
+      const byPerson = [];
+      pool.forEach(r => _qsTraineeIds(r).forEach(id => byPerson.push(Object.assign({}, r, { empId: id }))));
+      return _qsAgg(byPerson, r => String(r.empId || '')).map(a => {
+        const e = getEmployee(a.key) || {};
+        const done = a.notPassed === 0;
+        return Object.assign(a, {
+          title: e.name || ('รหัส ' + a.key),
+          sub: (e.position ? e.position + ' · ' : '') + brName(e.branchId || '') + ' · ' + a.mods + ' Module'
+             + (a.last ? ' · ล่าสุด ' + fmtDate(String(a.last).slice(0, 10)) : ''),
+          right: { t: a.best == null ? '—' : a.best + '%', c: done ? '#047857' : '#B91C1C' },
+          action: done ? '<span class="qs-pill" style="color:#047857;background:#ECFDF5">ผ่านครบ</span>'
+                       : `<span class="qs-pill" style="color:#B91C1C;background:#FEE2E2">ค้าง ${a.notPassed}</span>`
+        });
+      }).sort((x, y) => (y.notPassed - x.notPassed) || ((x.best == null ? -1 : x.best) - (y.best == null ? -1 : y.best)));
+    }
+    return [];
+  })();
+
   const retake = pool.length - nTrain;
   const passPct = nTrain ? Math.round(passT / nTrain * 100) : null;
   const avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
@@ -9525,9 +9655,43 @@ function renderQuizStatsPage() {
   </div>
 
   <div class="sec" style="margin-bottom:14px">
-    ${head('📚', 'แยกตาม Module', 'เรียงจากอัตราผ่านต่ำสุด — ตัวบนคือตัวที่ต้องไปดูว่าสอนไม่ครบหรือข้อสอบยากเกิน', 'var(--accent-light)',
-      `<span class="sec-cnt">${rows.length} Module</span>`)}
-    <div class="tw-table">
+    ${head('📚', _qsViewLabel(), _qsViewHint(), 'var(--accent-light)',
+      `<span class="sec-cnt">${_qsView === 'module' ? rows.length + ' Module' : aggRows.length + ' ' + _qsViewUnit()}</span>`)}
+
+    <!-- สลับมุมมอง — คำถามของแต่ละคนไม่เหมือนกัน หน้าเดียวตอบได้หมด -->
+    <div class="qs-views">
+      ${[['module','📚 รายโมดูล'],['zone','🗺 รายโซน'],['branch','🏬 รายสาขา'],['person','🙍 รายบุคคล']]
+        .map(([k,l]) => `<button class="qs-view${_qsView===k?' on':''}" onclick="_qsSetView('${k}')">${l}</button>`).join('')}
+    </div>
+
+    ${_qsView !== 'module' ? `<div class="tw-table">
+      <div class="qs-head qs-head-${_qsView}">
+        <div>${_qsViewUnit()}</div><div style="text-align:right">${_qsView==='person'?'สอบ':'คนสอบ'}</div>
+        <div style="text-align:right">คะแนนเฉลี่ย</div><div>อัตราผ่าน</div>
+        <div style="text-align:right">${_qsView==='person'?'ดีที่สุด':'ยังไม่ผ่าน'}</div><div></div>
+      </div>
+      ${!aggRows.length ? `<div class="qs-row"><div style="grid-column:1/-1;text-align:center;color:var(--text3);padding:26px">ยังไม่มีข้อมูลในขอบเขตที่เลือก</div></div>`
+        : aggRows.map(a => {
+        const pr = a.passRate;
+        const c = pr == null ? 'var(--text3)' : pr >= 80 ? '#047857' : pr >= 50 ? '#B45309' : '#B91C1C';
+        return `<div class="qs-row qs-head-${_qsView}">
+          <div style="min-width:0">
+            <div class="qs-mod">${esc(a.title)}</div>
+            <div class="qs-sub">${esc(a.sub)}</div>
+          </div>
+          <div style="text-align:right" class="qs-num">${_qsView==='person' ? a.runs : a.emps}</div>
+          <div style="text-align:right" class="qs-num">${a.avg == null ? '—' : a.avg + '%'}</div>
+          <div>
+            <div style="display:flex;align-items:center;gap:9px">
+              <div class="qs-bar"><div style="width:${pr || 0}%;background:${c}"></div></div>
+              <span style="font-size:13.5px;font-weight:800;color:${c};flex-shrink:0;min-width:38px;text-align:right">${pr == null ? '—' : pr + '%'}</span>
+            </div>
+          </div>
+          <div style="text-align:right;font-size:12.5px;font-weight:700;color:${a.right.c}">${a.right.t}</div>
+          <div style="text-align:right">${a.action || ''}</div>
+        </div>`;
+      }).join('')}
+    </div>` : `<div class="tw-table">
       <div class="qs-head">
         <div>Module</div><div style="text-align:right">ครั้งที่สอบ</div><div style="text-align:right">คะแนนเฉลี่ย</div>
         <div>อัตราผ่าน</div><div style="text-align:right">เวลาที่ใช้</div><div></div>
@@ -9552,7 +9716,7 @@ function renderQuizStatsPage() {
           <div style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openQuizStatsModal('${r.m}')">ดูรายข้อ</button></div>
         </div>`;
       }).join('')}
-    </div>
+    </div>`}
   </div>
 
   <div class="qs-2col">
