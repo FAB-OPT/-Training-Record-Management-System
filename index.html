@@ -1446,6 +1446,27 @@
   .qs-tile.ok   .qs-tile-n { color: #047857; }
   .qs-tile.warn { background: #FFFBEB; border-color: #FDE68A; }
   .qs-tile.warn .qs-tile-n { color: #B45309; }
+  /* บรรทัดตัวเลขประกอบใต้ไทล์ — ของที่เคยเป็นไทล์แต่ไม่ได้ใช้ตัดสินใจ */
+  .qs-more-line { font-size: 12.5px; color: var(--text3); font-weight: 600; margin: -6px 0 14px; padding: 0 2px; }
+  .qs-more-line b { color: var(--text2); font-weight: 800; }
+  .qs-dot { margin: 0 7px; color: var(--border); }
+  /* ปุ่มขยายรายการในกล่อง */
+  .qs-expand {
+    display: block; width: 100%; margin-top: 8px; border: 1.5px dashed var(--border); background: transparent;
+    color: var(--text3); border-radius: 9px; padding: 8px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  }
+  .qs-expand:hover { border-color: var(--accent); color: var(--accent); }
+  /* ก้อนที่พับไว้ */
+  .qs-fold { margin-top: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--card, #fff); }
+  .qs-fold > summary {
+    cursor: pointer; padding: 13px 16px; font-size: 13.5px; font-weight: 700; color: var(--text2);
+    list-style: none; display: flex; align-items: center; gap: 8px;
+  }
+  .qs-fold > summary::-webkit-details-marker { display: none; }
+  .qs-fold > summary::after { content: '▾'; margin-left: auto; color: var(--text3); transition: transform .15s; }
+  .qs-fold[open] > summary::after { transform: rotate(180deg); }
+  .qs-fold > summary b { color: var(--accent); }
+  .qs-fold > *:not(summary) { padding: 0 14px 14px; }
   .qs-tile.bad  { background: #FEF2F2; border-color: #FECACA; }
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
 
@@ -9360,6 +9381,10 @@ let _qsMid = '';         // '' = ทุก Module
    ผู้บริหารถามว่า "โซนไหนตามไม่ทัน", หัวหน้าสาขาถามว่า "ลูกน้องคนไหนยังไม่ผ่าน"
    หน้าเดียวตอบได้หมดถ้าสลับมุมมองได้ ไม่ต้องทำสี่หน้า */
 let _qsView = 'module';
+/* กล่องล่างสองใบโชว์แค่ 5 แถวก่อน — ของทั้งหมดกดดูได้ ไม่ต้องเลื่อนผ่านทุกครั้ง */
+let _qsAllWorst = false, _qsAllFails = false;
+function _qsToggleWorst(){ _qsAllWorst = !_qsAllWorst; showPage('admin-quiz-stats'); }
+function _qsToggleFails(){ _qsAllFails = !_qsAllFails; showPage('admin-quiz-stats'); }
 function _qsSetView(v) { _qsView = v || 'module'; showPage('admin-quiz-stats'); }
 function _qsViewUnit() { return { zone:'โซน', branch:'สาขา', person:'คน' }[_qsView] || 'Module'; }
 function _qsViewLabel() {
@@ -9640,13 +9665,17 @@ function renderQuizStatsPage() {
       filtered ? 'ไม่มีการสอบในขอบเขตที่เลือก' : 'ยังไม่มีใครทำข้อสอบในระบบ',
       filtered ? 'ลองขยายช่วงเวลา หรือเลือกทุกสาขา/ทุก Module' : 'ตัวเลขจะขึ้นเองเมื่อมีคนทำข้อสอบครั้งแรก')}</div>` : `
 
+  <!-- เหลือสามตัวเลขที่ตัดสินใจได้จริง · ที่เหลือเป็นบรรทัดประกอบใต้ไทล์
+       (เดิมหกใบเรียงกันจนไม่รู้ว่าต้องมองใบไหนก่อน) -->
   <div class="qs-tiles">
-    ${tile(pool.length, 'ทำข้อสอบ', nTrain + ' การสอน')}
-    ${tile(retake, 'สอบซ้ำ', retake ? 'รอบแรกไม่ผ่าน เลยสอบใหม่' : 'ไม่มีใครต้องสอบใหม่', retake ? 'warn' : '')}
     ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' การสอน', tone(passPct))}
     ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
-    ${tile(_qsFmtSec(med), 'เวลาที่ใช้', secs.length ? 'ค่ากลางจาก ' + secs.length + ' ครั้ง' : 'ยังไม่มีข้อมูล')}
-    ${tile(fails.length, 'ยังไม่ผ่าน', 'ต้องตามมาสอบใหม่', fails.length ? 'bad' : 'ok')}
+    ${tile(fails.length, 'ยังไม่ผ่าน', fails.length ? 'ต้องตามมาสอบใหม่' : 'ผ่านครบทุกคน', fails.length ? 'bad' : 'ok')}
+  </div>
+  <div class="qs-more-line">
+    ทำข้อสอบ <b>${pool.length}</b> ครั้ง จาก <b>${nTrain}</b> การสอน
+    <span class="qs-dot">·</span> สอบซ้ำ <b>${retake}</b> ครั้ง
+    <span class="qs-dot">·</span> เวลาที่ใช้กลาง ๆ <b>${_qsFmtSec(med)}</b>
   </div>
 
   <div class="sec" style="margin-bottom:14px">
@@ -9714,7 +9743,7 @@ function renderQuizStatsPage() {
         worst.length ? `<span class="sec-cnt">${worst.length} ข้อ</span>` : '')}
       ${!worst.length ? empty('🎯', 'ยังไม่มีข้อที่ต้องแก้',
           det ? 'ทุกข้อที่ออกไปแล้วมีคนตอบถูกเกิน 80%' : 'ต้องมีคนทำข้อสอบก่อน จึงจะรู้ว่าข้อไหนมีปัญหา')
-        : worst.map((w, i) => {
+        : (_qsAllWorst ? worst : worst.slice(0, 5)).map((w, i) => {
         const pct = Math.round(w.pct * 100);
         const c = pct >= 50 ? '#B45309' : '#B91C1C';
         const opt = w.pick && w.q.opts ? w.q.opts[w.pick] : '';
@@ -9747,14 +9776,15 @@ function renderQuizStatsPage() {
             <span class="qw-wrong-t">${esc(opt)}</span>
             <span class="qw-wrong-n">ตอบผิดมาที่นี่ ${w.pickN} ครั้ง</span></div>` : ''}
         </div>`;
-      }).join('')}
+      }).join('') + (worst.length > 5 ? `<button class="qs-expand" onclick="_qsToggleWorst()">${
+        _qsAllWorst ? 'ย่อกลับ เหลือ 5 ข้อ' : 'ดูอีก ' + (worst.length - 5) + ' ข้อ'}</button>` : '')}
     </div>
 
     <div class="sec">
       ${head('🙍', 'ยังไม่ผ่าน · ต้องตามต่อ', 'สอบแล้วแต่ยังไม่ถึง ' + QUIZ_PASS_PCT + '% — เรียงครั้งล่าสุดก่อน', '#FEF3C7',
         fails.length ? `<span class="sec-cnt">${fails.length} คน</span>` : '')}
       ${!fails.length ? empty('✅', 'ทุกคนสอบผ่านหมดแล้ว', 'ไม่มีใครค้างอยู่ในขอบเขตที่เลือก')
-        : `<div style="max-height:42vh;overflow:auto">${fails.slice(0, 40).map(f => `
+        : `<div>${(_qsAllFails ? fails : fails.slice(0, 5)).map(f => `
         <div class="qs-item">
           <div style="flex:1;min-width:0">
             <div class="qs-item-t">${esc(f.who)}</div>
@@ -9762,15 +9792,15 @@ function renderQuizStatsPage() {
           </div>
           <span class="qs-pill" style="color:#B91C1C;background:#FEE2E2">${f.best < 0 ? '—' : f.best + '%'}</span>
           <span class="qs-pill" style="${f.left ? 'color:#B45309;background:#FFFBEB' : 'color:#fff;background:#B91C1C'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
-        </div>`).join('')}${fails.length > 40 ? `<div class="qs-more">แสดง 40 จาก ${fails.length} รายการ</div>` : ''}</div>`}
+        </div>`).join('')}${fails.length > 5 ? `<button class="qs-expand" onclick="_qsToggleFails()">${
+          _qsAllFails ? 'ย่อกลับ เหลือ 5 คน' : 'ดูอีก ' + (fails.length - 5) + ' คน'}</button>` : ''}</div>`}
     </div>
   </div>
 
-  <div class="sec" style="margin-top:14px">
-    ${head('🔁', 'รายละเอียดการสอบซ้ำ', 'ครั้งที่สอนที่สอบมากกว่าหนึ่งรอบ — เห็นว่ารอบสองดีขึ้นไหม', '#FFFBEB',
-      retakes.length ? `<span class="sec-cnt">${retakes.length} รายการ</span>` : '')}
-    ${!retakes.length ? empty('👍', 'ยังไม่มีใครสอบซ้ำ', 'ทุกคนผ่านตั้งแต่รอบแรกในขอบเขตที่เลือก')
-      : `<div style="max-height:44vh;overflow:auto">${retakes.map(t => `
+  <!-- สองก้อนล่างเป็นของดูย้อนหลัง ไม่ใช่ของที่ต้องเห็นทุกครั้ง — พับไว้ให้หน้าสั้นลง -->
+  ${!retakes.length ? '' : `<details class="qs-fold"><summary>🔁 รายละเอียดการสอบซ้ำ <b>${retakes.length}</b> รายการ</summary>
+  <div class="sec" style="margin-top:10px">
+    <div>${retakes.map(t => `
       <div class="qs-item">
         <div style="flex:1;min-width:0">
           <div class="qs-item-t">${esc(t.who)}</div>
@@ -9783,10 +9813,12 @@ function renderQuizStatsPage() {
         }).join('')}</span>
         <span class="qs-pill" style="${t.passed
           ? 'color:#047857;background:#ECFDF5' : 'color:#fff;background:#B91C1C'}">${t.passed ? 'ผ่านแล้ว' : 'ยังไม่ผ่าน'}</span>
-      </div>`).join('')}</div>`}
-  </div>
+      </div>`).join('')}</div>
+  </div></details>`}
 
-  ${_qhListHTML(pool)}`}`;
+  <details class="qs-fold"><summary>🕘 ประวัติการสอบทั้งหมด <b>${pool.length}</b> ครั้ง</summary>
+    ${_qhListHTML(pool)}
+  </details>`}`;
 }
 
 /* ══════════ ผลสอบรายคน — เจาะถึงรายข้อ ══════════
