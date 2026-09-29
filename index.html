@@ -1595,15 +1595,15 @@
      เดิมสามใบแรกเป็นไทล์ แต่สี่ตัวหลังเป็นบรรทัดตัวหนังสือแยกกล่อง หน้าตาคนละแบบทั้งที่เป็นสถิติชุดเดียวกัน */
   .qs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .qs-tile {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 13px; padding: 14px 12px; text-align: center;
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: 14px 12px; text-align: center;
   }
   .qs-tile-n { font-size: 23px; font-weight: 800; color: var(--accent); line-height: 1.1; }
   .qs-tile-l { font-size: 12px; font-weight: 700; color: var(--text2); margin-top: 4px; }
   .qs-tile-s { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
-  .qs-tile.ok   { background: #ECFDF5; border-color: #A7F3D0; }
+  .qs-tile.ok   { border-left-color: #047857; }
   .qs-tile.ok   .qs-tile-n { color: #047857; }
-  .qs-tile.warn { background: #FFFBEB; border-color: #FDE68A; }
+  .qs-tile.warn { border-left-color: #B45309; }
   .qs-tile.warn .qs-tile-n { color: #B45309; }
   /* ปุ่มขยายรายการในกล่อง */
   .qs-expand {
@@ -1622,7 +1622,7 @@
   .qs-fold[open] > summary::after { transform: rotate(180deg); }
   .qs-fold > summary b { color: var(--accent); }
   .qs-fold > *:not(summary) { padding: 0 14px 14px; }
-  .qs-tile.bad  { background: #FEF2F2; border-color: #FECACA; }
+  .qs-tile.bad  { border-left-color: #B91C1C; }
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
 
   /* พื้นที่ทำงานหลัก: ตาราง | สิ่งที่ต้องตามต่อ */
@@ -9851,7 +9851,7 @@ function renderQuizStatsPage() {
     ${tile(fails.length, 'ยังไม่ผ่าน', fails.length ? 'ต้องตามมาสอบใหม่' : 'ผ่านครบทุกคน', fails.length ? 'bad' : 'ok')}
     ${tile(pool.length, 'ครั้งที่สอบ', '')}
     ${tile(retake, 'สอบซ้ำ', '')}
-    ${tile(_qsFmtSec(med), 'เวลาที่ใช้กลาง ๆ', '')}
+    ${tile(_qsFmtSec(med), 'เวลาเฉลี่ย', '')}
   </div>
 
   <!-- จอกว้างวางสองคอลัมน์: ตารางหลักอยู่ซ้าย ของที่ต้องตามต่ออยู่ขวาในสายตาเดียวกัน
