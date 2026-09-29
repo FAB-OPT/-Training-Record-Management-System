@@ -8610,7 +8610,9 @@ let _trainFilter = 'all';
 let _trainModuleFilter = '';
 let _trainResultFilter = '';
 let _trainSort = { key: 'date', dir: 'desc' };
+let _trainView = 'person';   // ค่าเริ่มต้นเป็นรายคน — อยากเห็นภาพรวมคนก่อน ค่อยกดดูรายละเอียดทีหลัง
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function setTrainView(v) { _trainView = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainModuleFilter(v) { _trainModuleFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainResultFilter(v) { _trainResultFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainSort(key) { _toggleSort(_trainSort, key); document.getElementById('main-content').innerHTML = renderTrainings(); }
@@ -8663,6 +8665,145 @@ function _sortTrainings(list) {
   });
 }
 
+
+/* ══════════ มุมมองรายคน ══════════
+   มุมมองรายครั้งตอบว่า "ครั้งนี้เป็นยังไง" ทีละแถว — คนละคำถามกับที่หัวหน้าสาขา/BZM อยากรู้จริง ๆ
+   ซึ่งคือ "คนคนนี้เป็นยังไงบ้าง" รวมทุกครั้งของเขาเป็นแถวเดียว: ล่าสุดเมื่อไร สอนไปกี่ครั้ง
+   โมดูลสะสมครบกี่ตัว ค้างประเมิน/หมดเวลากี่ครั้ง ผลสอบดีที่สุดเท่าไร แล้วกางดูประวัติทั้งหมดได้ */
+function _personSummaryRows(trains) {
+  const byEmp = new Map();
+  trains.forEach(t => {
+    (t.traineeIds || []).forEach(id => {
+      if (!byEmp.has(id)) byEmp.set(id, []);
+      byEmp.get(id).push(t);
+    });
+  });
+  const rows = [];
+  byEmp.forEach((list, empId) => {
+    const emp = getEmployee(empId);
+    if (!emp) return;                          // ลบ/ย้ายออกจากระบบไปแล้ว ไม่แสดงในสรุป
+    list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const pending = list.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).length;
+    const expired = list.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
+    // โมดูลสะสม — รวมทุก Module ที่เคยสอนคนนี้ (แยกตามสาขาด้วย เผื่อเคยย้ายสาขามา สะสมของสาขาเดิมไม่ปนกัน)
+    const modKeys = new Set(list.map(t => t.branchId + '|' + t.moduleId));
+    let modDone = 0;
+    modKeys.forEach(k => {
+      const [bid, mid] = k.split('|');
+      const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
+      if (prog.total > 0 && prog.done >= prog.total) modDone++;
+    });
+    let bestQuizPct = null;
+    list.forEach(t => {
+      _quizAttemptsFor(t.id).forEach(r => {
+        const pct = (r.pct != null) ? r.pct : (r.total ? Math.round(r.score / r.total * 100) : 0);
+        if (bestQuizPct == null || pct > bestQuizPct) bestQuizPct = pct;
+      });
+    });
+    rows.push({
+      empId, emp, trainings: list,
+      count: list.length, last: list[0].date,
+      pending, expired, done: list.length - pending - expired,
+      modDone, modTotal: modKeys.size,
+      bestQuizPct,
+    });
+  });
+  rows.sort((a, b) => new Date(b.last) - new Date(a.last));    // ล่าสุดก่อน — เหมือน default ของมุมมองรายครั้ง
+  return rows;
+}
+
+/* ตารางสรุปรายคน — ใช้ร่วมกันทั้งฝั่งสาขาและฝั่งแอดมิน ต่างกันแค่มีคอลัมน์สาขาหรือไม่ */
+function renderPersonSummaryTable(rows, opts) {
+  opts = opts || {};
+  const cols = opts.showBranch ? 8 : 7;
+  return `<div class="table-wrap"><table class="cards-on-mobile person-summary-table">
+    <thead><tr>
+      <th>ชื่อ - นามสกุล</th>
+      ${opts.showBranch ? '<th>สาขา</th>' : ''}
+      <th>สอนล่าสุด</th>
+      <th style="text-align:center">จำนวนครั้ง</th>
+      <th style="text-align:center">โมดูลสะสม</th>
+      <th style="text-align:center">ค้างอยู่</th>
+      <th style="text-align:center">ผลสอบดีสุด</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${!rows.length ? `<tr><td colspan="${cols}" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>` : rows.map(r => {
+      const modBadge = r.modTotal
+        ? `<span class="badge ${r.modDone===r.modTotal?'badge-green':'badge-navy'}" style="font-size:11px;font-weight:700;cursor:pointer" onclick="showPersonModuleBreakdown('${r.empId}')" title="กดดูรายโมดูล">${r.modDone}/${r.modTotal} Module${r.modDone===r.modTotal?' ✓':''}</span>`
+        : '<span style="color:var(--text4)">—</span>';
+      const pendBits = [];
+      if (r.pending) pendBits.push(`<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน ${r.pending}</span>`);
+      if (r.expired) pendBits.push(`<span class="badge badge-red" style="font-size:10.5px">หมดเวลา ${r.expired}</span>`);
+      const pendCell = pendBits.length ? pendBits.join(' ') : '<span class="badge badge-green" style="font-size:10.5px">ไม่มีค้าง</span>';
+      const quizCell = r.bestQuizPct != null
+        ? `<span style="font-weight:700;color:${r.bestQuizPct>=80?'var(--green)':'var(--red)'}">${r.bestQuizPct}%</span>`
+        : '<span style="color:var(--text4)">—</span>';
+      return `<tr>
+        <td data-label="พนักงาน" style="font-size:12.5px"><strong>${r.emp.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${r.emp.position||''}</span></td>
+        ${opts.showBranch ? `<td data-label="สาขา" style="font-size:12.5px;font-weight:600">${r.emp.branchId||''}</td>` : ''}
+        <td data-label="สอนล่าสุด" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(r.last)}</span><span class="dt-long">${fmtDateTimeLong(r.last)}</span></td>
+        <td data-label="จำนวนครั้ง" style="text-align:center;font-weight:700">${r.count}</td>
+        <td data-label="โมดูลสะสม" style="text-align:center">${modBadge}</td>
+        <td data-label="ค้างอยู่" style="text-align:center;white-space:nowrap">${pendCell}</td>
+        <td data-label="ผลสอบดีสุด" style="text-align:center">${quizCell}</td>
+        <td data-label="actions" style="white-space:nowrap;text-align:right"><button class="btn btn-sm btn-view" onclick="openPersonTrainingHistory('${r.empId}')">ดูประวัติ</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+/* กางดูประวัติรายคน — ทุกครั้งที่เคยสอนคนนี้ (ในขอบเขตสาขาที่ผู้ดูมีสิทธิ์) ไม่ผูกกับตัวกรองบนหน้า
+   เพราะอยากเห็นภาพรวมทั้งหมดของคนคนนี้จริง ๆ ไม่ใช่แค่ส่วนที่กรองอยู่ตอนนั้น */
+function openPersonTrainingHistory(empId) {
+  const emp = getEmployee(empId); if (!emp) return;
+  const ownOnly = currentUser?.type === 'branch';                 // สาขาเห็นแค่ของตัวเอง · แอดมิน/BZM/exec เป็นผู้สังเกตการณ์ทั้งระบบ
+  const list = DB.trainings.filter(t => (!ownOnly || t.branchId === currentUser.branchId) && (t.traineeIds || []).includes(empId))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  showModal(`ประวัติการสอน · ${emp.name}`, `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">${emp.position||''} · ${BRANCH_MASTER[emp.branchId]?.name || emp.branchId} · ทั้งหมด ${list.length} ครั้ง</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto">
+    ${list.map(t => {
+      const badge = t.eval
+        ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="font-size:10.5px">${getEvalResultShort(t.eval.result)}</span>`
+        : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="font-size:10.5px">หมดเวลา</span>' : '<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน</span>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="closeModal();viewTraining('${t.id}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700">${MODULES[t.moduleId]?.name || t.moduleId}</div>
+          <div style="font-size:11.5px;color:var(--text3)">${fmtDateTime(t.date)} · ${t.trainerName||'—'}</div>
+        </div>
+        ${badge}
+      </div>`;
+    }).join('') || '<div style="text-align:center;color:var(--text3);padding:20px">ไม่มีประวัติ</div>'}
+    </div>`, null, 'ปิด');
+}
+
+/* กางดูรายโมดูลของคนคนหนึ่ง — โมดูลไหนสะสมครบแล้ว โมดูลไหนยังขาดกี่หัวข้อ */
+function showPersonModuleBreakdown(empId) {
+  const emp = getEmployee(empId); if (!emp) return;
+  const ownOnly = currentUser?.type === 'branch';
+  const list = DB.trainings.filter(t => (!ownOnly || t.branchId === currentUser.branchId) && (t.traineeIds || []).includes(empId));
+  const modKeys = new Set(list.map(t => t.branchId + '|' + t.moduleId));
+  const modList = [...modKeys].map(k => {
+    const [bid, mid] = k.split('|');
+    const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
+    return { name: MODULES[mid]?.name || mid, done: prog.done, total: prog.total };
+  }).sort((a, b) => (a.total - a.done) - (b.total - b.done) || a.name.localeCompare(b.name, 'th'));
+  showModal(`โมดูลของ ${emp.name}`, `
+    <div style="display:flex;flex-direction:column;gap:8px">
+    ${modList.map(m => {
+      const complete = m.total > 0 && m.done >= m.total;
+      const pct = m.total ? Math.round(m.done / m.total * 100) : 0;
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:700">${m.name}</span>
+          <span class="badge ${complete?'badge-green':'badge-navy'}" style="font-size:10.5px">${m.done}/${m.total} หัวข้อ${complete?' ✓':''}</span>
+        </div>
+        <div style="height:6px;border-radius:4px;background:var(--surface2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${complete?'var(--green)':'var(--accent)'}"></div></div>
+      </div>`;
+    }).join('') || '<div style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล Module</div>'}
+    </div>`, null, 'ปิด');
+}
+
 function renderTrainings() {
   const bid = getBranchId(); const trains = getBranchTrainings(bid);
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
@@ -8710,7 +8851,12 @@ function renderTrainings() {
       <select class="form-select" onchange="setTrainResultFilter(this.value)" style="max-width:240px">
         ${_resultOptionsHtml(_trainResultFilter)}
       </select>
+      <span class="cat-tabs" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+        <button class="btn btn-sm ${_trainView==='record'?'btn-navy':'btn-outline'}" style="${_trainView==='record'?'':'background:transparent;border:0'}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
+        <button class="btn btn-sm ${_trainView==='person'?'btn-navy':'btn-outline'}" style="${_trainView==='person'?'':'background:transparent;border:0'}" onclick="setTrainView('person')">🙍 รายคน</button>
+      </span>
     </div>
+    ${_trainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch:false}) : `
     <div class="table-wrap"><table class="cards-on-mobile train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_trainSort,'setTrainSort')}
@@ -8758,7 +8904,7 @@ function renderTrainings() {
           </td>
         </tr>`;}).join('')}
       </tbody>
-    </table></div>
+    </table></div>`}
   </div>`;
 }
 
@@ -16466,7 +16612,9 @@ let _adminTrainBranch = '';
 let _adminTrainModule = '';
 let _adminTrainResult = '';
 let _adminTrainSort = { key: 'date', dir: 'desc' };
+let _adminTrainView = 'person';  // ค่าเริ่มต้นเป็นรายคน เหมือนฝั่งสาขา
 function setAdminTrainFilter(f) { _adminTrainFilter = f; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
+function setAdminTrainView(v) { _adminTrainView = v; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function setAdminTrainSort(key) { _toggleSort(_adminTrainSort, key); document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function _sortAdminTrainings(list) {
   const k = _adminTrainSort.key, dir = _adminTrainSort.dir;
@@ -16571,7 +16719,12 @@ function renderAdminTrainings() {
           <option value="1"${_adminTrainResult==='1'?' selected':''}>ไม่ผ่าน 0-49%</option>
         </optgroup>
       </select>
+      <span class="cat-tabs" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+        <button class="btn btn-sm ${_adminTrainView==='record'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='record'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('record')">🗓 รายครั้ง</button>
+        <button class="btn btn-sm ${_adminTrainView==='person'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='person'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('person')">🙍 รายคน</button>
+      </span>
     </div>
+    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch: !_adminTrainBranch}) : `
     <div class="table-wrap"><table class="cards-on-mobile admin-train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
@@ -16617,7 +16770,7 @@ function renderAdminTrainings() {
             ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditEval('${t.id}')">แก้ผล</button>`:''}<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
-    </table></div>
+    </table></div>`}
   </div>`;
 }
 
