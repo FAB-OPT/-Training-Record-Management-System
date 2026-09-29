@@ -1407,8 +1407,6 @@
   .qsx-page { max-width: 1200px; margin: 0 auto; }
   .qsx-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.7fr); gap: 14px; align-items: start; }
   .qsx-2 .qsx-card { position: sticky; top: 12px; } .qsx-2 .qsx-card + .qsx-card { position: static; }
-  .qsx-2.eq { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
-  .qsx-2.eq .qsx-bb { grid-template-columns: minmax(0,1fr) 44px 92px; gap: 8px 10px; } .qsx-2.eq .qsx-bb .seg { grid-column: 1 / -1; order: 9; }
   .qsx-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
   .qsx-tabs button { border: 1.5px solid var(--border); background: var(--surface); color: var(--text2);
     border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .12s; }
@@ -1470,22 +1468,35 @@
   .qsx-row .pill.bad, .qsx-rt .pill.bad, .qsx-bb .pill.bad { color: #B91C1C; background: #FEE2E2; }
   .qsx-row .pill.ok, .qsx-rt .pill.ok { color: #047857; background: #ECFDF5; }
   .qsx-empty { padding: 28px; text-align: center; color: var(--text3); font-size: 13px; }
-  /* ข้อที่ต้องแก้ */
-  .qsx-w { padding: 12px 15px; border-top: 1px solid var(--border); }
+  /* ข้อที่ต้องแก้ — บรรทัดเดียวต่อข้อ กดขยายดูเฉลย/ตัวลวง */
+  .qsx-w { border-top: 1px solid var(--border); }
   .qsx-w:first-of-type { border-top: 0; }
-  .qsx-w .top { display: flex; align-items: flex-start; gap: 9px; }
-  .qsx-w .num { flex: none; width: 24px; height: 24px; border-radius: 7px; background: var(--surface2); color: var(--text3); font-size: 11.5px; font-weight: 800; display: grid; place-items: center; }
-  .qsx-w .top b { flex: 1; font-size: 13.5px; font-weight: 700; line-height: 1.5; color: var(--text); }
-  .qsx-w .pct { flex: none; font-size: 15px; font-weight: 800; }
-  .qsx-w .bar { height: 6px; border-radius: 4px; background: var(--surface2); overflow: hidden; margin: 8px 0 6px 33px; }
+  .qsx-w > summary { display: grid; grid-template-columns: 24px minmax(0,1fr) minmax(120px,26%) 90px 44px 14px; gap: 10px; align-items: center;
+    padding: 9px 15px; cursor: pointer; list-style: none; }
+  .qsx-w > summary::-webkit-details-marker { display: none; }
+  .qsx-w > summary:hover { background: var(--surface2); }
+  .qsx-w .num { width: 24px; height: 24px; border-radius: 7px; background: var(--surface2); color: var(--text3); font-size: 11.5px; font-weight: 800; display: grid; place-items: center; }
+  .qsx-w > summary b { font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qsx-w[open] > summary b { white-space: normal; }
+  .qsx-w .meta { font-size: 11.5px; color: var(--text3); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .qsx-w .meta i { font-style: normal; color: #B45309; }
+  .qsx-w .bar { display: block; height: 7px; border-radius: 4px; background: var(--surface2); overflow: hidden; }
   .qsx-w .bar i { display: block; height: 100%; border-radius: 4px; }
-  .qsx-w .meta { margin-left: 33px; font-size: 11.5px; color: var(--text3); font-weight: 600; } .qsx-w .meta i { font-style: normal; color: #B45309; }
-  .qsx-w .ans { display: flex; align-items: center; gap: 8px; margin: 7px 0 0 33px; padding: 7px 10px; border-radius: 9px; font-size: 12.5px; font-weight: 600; }
+  .qsx-w .pct { text-align: right; font-size: 13.5px; font-weight: 800; }
+  .qsx-w .chev { color: var(--text3); font-size: 12px; transition: transform .15s; } .qsx-w[open] .chev { transform: rotate(180deg); }
+  .qsx-w .ans { display: flex; align-items: center; gap: 8px; margin: 0 15px 8px 49px; padding: 7px 10px; border-radius: 9px; font-size: 12.5px; font-weight: 600; background: var(--surface2); color: var(--text2); }
   .qsx-w .ans .k { flex: none; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; }
   .qsx-w .ans span:not(.k) { flex: 1; min-width: 0; }
   .qsx-w .ans em { flex: none; font-style: normal; font-size: 11px; font-weight: 800; }
   .qsx-w .ans.ok { background: #ECFDF5; color: #065F46; } .qsx-w .ans.ok .k { background: #047857; }
   .qsx-w .ans.no { background: #FEF2F2; color: #991B1B; } .qsx-w .ans.no .k { background: #B91C1C; }
+  .qsx-w[open] .ans:first-of-type { margin-top: 2px; }
+  @media (max-width: 800px) {
+    .qsx-w > summary { grid-template-columns: 24px minmax(0,1fr) 44px 14px; gap: 6px 8px; }
+    .qsx-w > summary b { white-space: normal; }
+    .qsx-w .num { grid-row: 1; } .qsx-w > summary b { grid-row: 1; grid-column: 2; } .qsx-w .pct { grid-row: 1; grid-column: 3; } .qsx-w .chev { grid-row: 1; grid-column: 4; }
+    .qsx-w .meta { grid-row: 2; grid-column: 2 / -1; } .qsx-w .bar { grid-row: 3; grid-column: 2 / -1; }
+    .qsx-w .ans { margin-left: 15px; }
+  }
   /* สอบซ้ำ */
   .qsx-rtsum { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; padding: 12px 15px 4px; }
   .qsx-rtsum span { background: var(--surface2); border-radius: 10px; padding: 9px 10px; text-align: center; font-size: 11px; font-weight: 700; color: var(--text3); }
@@ -1514,7 +1525,7 @@
   .qsx-bbdone .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .qsx-bbdone .chips span { font-size: 12px; font-weight: 700; color: #065F46; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 999px; padding: 4px 10px; }
   .qsx-bbdone .chips small { margin-left: 5px; font-size: 10.5px; font-weight: 800; color: #047857; opacity: .8; }
-  @media (max-width: 1080px) { .qsx-kpis { grid-template-columns: repeat(2,1fr); } .qsx-2, .qsx-2.eq { grid-template-columns: 1fr; } .qsx-2 .qsx-card { position: static; } }
+  @media (max-width: 1080px) { .qsx-kpis { grid-template-columns: repeat(2,1fr); } .qsx-2 { grid-template-columns: 1fr; } .qsx-2 .qsx-card { position: static; } }
   @media (max-width: 900px) { .qsx-hero { grid-template-columns: 1fr; } .qsx-hero .donuts { justify-content: flex-start; } .qsx-hero .big b { font-size: 46px; } }
   @media (max-width: 800px) {
     .qsx-bb .seg { order: 9; } .qsx-bb .pill { grid-column: auto; justify-self: end; }
@@ -9774,17 +9785,18 @@ const QSX = {
       const list = worst.filter(w => this.hit(String(w.q.q) + ' ' + MODULES[w.mid].name));
       return `
         <div class="qsx-card"><div class="qsx-h"><h3>ข้อที่ต้องแก้</h3>
-          <span class="cnt">${list.length} ข้อ · นับเฉพาะข้อที่ถูกสุ่มออกไปแล้วอย่างน้อย 2 ครั้ง · เรียงจากตอบถูกน้อยสุด</span></div>
+          <span class="cnt">${list.length} ข้อ · เรียงจากตอบถูกน้อยสุด · กดที่ข้อเพื่อดูเฉลยและตัวลวง</span></div>
           ${list.length ? list.map((w, i) => {
             const pct = Math.round(w.pct * 100), ansTxt = w.q.opts ? w.q.opts[w.q.ans] : '', pickTxt = w.q.opts && w.pick ? w.q.opts[w.pick] : '';
-            return `<div class="qsx-w">
-              <div class="top"><span class="num">${i + 1}</span><b>${esc(String(w.q.q).replace(/^\d+[\.\s]+/, ''))}</b>
-                <span class="pct" style="color:${this.tone(pct)}">${pct}%</span></div>
-              <div class="bar"><i style="width:${pct}%;background:${this.tone(pct)}"></i></div>
-              <div class="meta">${esc(MODULES[w.mid].name)} · ตอบถูก <b>${w.s.ok}</b> จาก ${w.s.n} ครั้ง${w.s.n < 5 ? ' · <i>ยังสอบน้อย ตัวเลขอาจแกว่ง</i>' : ''}</div>
+            return `<details class="qsx-w">
+              <summary><span class="num">${i + 1}</span><b>${esc(String(w.q.q).replace(/^\d+[\.\s]+/, ''))}</b>
+                <span class="meta">${esc(MODULES[w.mid].name)} · ถูก ${w.s.ok}/${w.s.n}${w.s.n < 5 ? ' · <i>สอบน้อย</i>' : ''}</span>
+                <span class="bar"><i style="width:${pct}%;background:${this.tone(pct)}"></i></span>
+                <span class="pct" style="color:${this.tone(pct)}">${pct}%</span><span class="chev">▾</span></summary>
               ${ansTxt ? `<div class="ans ok"><span class="k">${esc(w.q.ans)}</span><span>${esc(ansTxt)}</span><em>เฉลย</em></div>` : ''}
               ${pickTxt ? `<div class="ans no"><span class="k">${esc(w.pick)}</span><span>${esc(pickTxt)}</span><em>ตอบผิดมาที่นี่ ${w.pickN} ครั้ง</em></div>` : ''}
-            </div>`; }).join('') : '<div class="qsx-empty">ไม่มีข้อที่ต้องแก้ในขอบเขตนี้ 🎯</div>'}
+              ${!ansTxt && !pickTxt ? '<div class="ans"><span>ไม่มีข้อมูลรายตัวเลือกของข้อนี้</span></div>' : ''}
+            </details>`; }).join('') : '<div class="qsx-empty">ไม่มีข้อที่ต้องแก้ในขอบเขตนี้ 🎯</div>'}
         </div>`;
     })();
     /* กล่องสอบซ้ำ — คำถามคือ "รอบสองดีขึ้นไหม" จึงเทียบรอบต่อรอบให้เห็นส่วนต่างเลย */
@@ -9825,10 +9837,8 @@ const QSX = {
           </div>
         </div>
         ${kpi}
-        <div class="qsx-2 eq">
-        <div class="qsx-card"><div class="qsx-h"><h3>สาขาที่ยังมีคนไม่ผ่าน</h3><span class="cnt">เรียงจากอัตราผ่านต่ำสุด</span></div>${this.branchBoard(pool)}</div>
+        <div class="qsx-card"><div class="qsx-h"><h3>สาขาที่ยังมีคนไม่ผ่าน</h3><span class="cnt">เรียงจากอัตราผ่านต่ำสุด · แถบเขียว/แดง = สัดส่วนผ่าน/ยังไม่ผ่าน</span></div>${this.branchBoard(pool)}</div>
         ${worstBox}
-        </div>
         ${retakeBox}`;
     } else {
       /* ── แท็บ Module / สาขา / บุคคล: กราฟย่อ + ตารางค้นหาได้ ── */
