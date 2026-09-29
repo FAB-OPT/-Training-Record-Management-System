@@ -1591,12 +1591,8 @@
   @media (max-width: 900px) { .qs-view-tabs { width: 100%; } .qs-view-tabs button { flex: 1; } }
   @media (max-width: 500px) { .qs-view-tabs { flex-wrap: wrap; } .qs-view-tabs button { flex: 1 1 calc(50% - 4px); padding: 8px 6px; font-size: 12px; } }
 
-  /* กล่องสถิติรวม — ไทล์สีเด่น 3 ใบแถวบน กับตัวเลขประกอบ 4 ตัวแถวล่าง อยู่ในกรอบเดียวกัน
-     เดิมแยกเป็นสองกล่องคนละก้อน มีช่องว่างคั่น ดูเหมือนไม่เกี่ยวข้องกันทั้งที่เป็นสถิติชุดเดียวกัน */
-  .qs-statbox {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 13px; padding: 14px 14px 0; margin-bottom: 14px;
-  }
+  /* ไทล์สถิติรวมแถวเดียว — 3 ใบแรกสีเด่น (ตัดสินใจได้จริง) ต่อด้วย 4 ใบตัวเลขประกอบ หน้าตากล่องเดียวกันหมด
+     เดิมสามใบแรกเป็นไทล์ แต่สี่ตัวหลังเป็นบรรทัดตัวหนังสือแยกกล่อง หน้าตาคนละแบบทั้งที่เป็นสถิติชุดเดียวกัน */
   .qs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .qs-tile {
     background: var(--surface); border: 1px solid var(--border);
@@ -1609,18 +1605,6 @@
   .qs-tile.ok   .qs-tile-n { color: #047857; }
   .qs-tile.warn { background: #FFFBEB; border-color: #FDE68A; }
   .qs-tile.warn .qs-tile-n { color: #B45309; }
-  /* แถวสรุปตัวเลขประกอบ — เดิมเป็นกล่องแยกมีกรอบของตัวเอง ตอนนี้อยู่ในกล่องเดียวกับไทล์ด้านบน
-     ใช้เส้นคั่นบนแทนกรอบเต็ม พื้นสีอ่อนแยกโซนให้เห็นว่าเป็นข้อมูลประกอบ ไม่ใช่ตัวชี้วัดหลัก */
-  .qs-summary {
-    display: flex; align-items: center; gap: 0; background: var(--surface2);
-    margin: 0 -14px; padding: 12px 16px; flex-wrap: wrap; border-radius: 0 0 12px 12px;
-  }
-  .qs-summary-ic { font-size: 19px; margin-right: 14px; }
-  .qs-summary-i { padding: 0 16px; border-left: 1px solid var(--border); }
-  .qs-summary-i:first-of-type { border-left: 0; padding-left: 0; }
-  .qs-summary-i b { font-size: 16px; font-weight: 800; color: var(--text); margin-right: 5px; }
-  .qs-summary-i span { font-size: 12px; font-weight: 600; color: var(--text3); }
-  @media (max-width: 700px) { .qs-summary-i { border-left: 0; padding: 0 14px 0 0; } }
   /* ปุ่มขยายรายการในกล่อง */
   .qs-expand {
     display: block; width: 100%; margin-top: 8px; border: 1.5px dashed var(--border); background: transparent;
@@ -9859,21 +9843,16 @@ function renderQuizStatsPage() {
       filtered ? 'ไม่มีการสอบในขอบเขตที่เลือก' : 'ยังไม่มีใครทำข้อสอบในระบบ',
       filtered ? 'ลองขยายช่วงเวลา หรือเลือกทุกสาขา/ทุก Module' : 'ตัวเลขจะขึ้นเองเมื่อมีคนทำข้อสอบครั้งแรก')}</div>` : `
 
-  <!-- เหลือสามตัวเลขที่ตัดสินใจได้จริงเป็นไทล์สีเด่นแถวบน · ตัวเลขประกอบอีกสี่ตัวอยู่แถวล่างในกล่องเดียวกัน
-       (เดิมหกใบเรียงกันจนไม่รู้ว่าต้องมองใบไหนก่อน แล้วเคยแยกเป็นสองกล่องคนละก้อน ดูเหมือนไม่เกี่ยวกัน) -->
-  <div class="qs-statbox">
-    <div class="qs-tiles">
-      ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' การสอน', tone(passPct))}
-      ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
-      ${tile(fails.length, 'ยังไม่ผ่าน', fails.length ? 'ต้องตามมาสอบใหม่' : 'ผ่านครบทุกคน', fails.length ? 'bad' : 'ok')}
-    </div>
-    <div class="qs-summary">
-      <span class="qs-summary-ic">🧮</span>
-      <div class="qs-summary-i"><b>${pool.length}</b><span>ครั้งที่สอบ</span></div>
-      <div class="qs-summary-i"><b>${nTrain}</b><span>การสอน</span></div>
-      <div class="qs-summary-i"><b>${retake}</b><span>สอบซ้ำ</span></div>
-      <div class="qs-summary-i"><b>${_qsFmtSec(med)}</b><span>เวลาที่ใช้กลาง ๆ</span></div>
-    </div>
+  <!-- สามตัวแรกตัดสินใจได้จริง (มีสีเด่น) ส่วนสี่ตัวหลังเป็นตัวเลขประกอบ (ไม่มีสี) — ทั้งเจ็ดเป็นไทล์หน้าตาเดียวกันบรรทัดเดียว
+       (เดิมหกใบเรียงกันจนไม่รู้ว่าต้องมองใบไหนก่อน แล้วเคยแยกไทล์กับบรรทัดสรุปเป็นคนละแบบคนละก้อน) -->
+  <div class="qs-tiles">
+    ${tile(passPct == null ? '—' : passPct + '%', 'ผ่านแล้ว', passT + ' / ' + nTrain + ' การสอน', tone(passPct))}
+    ${tile(avg == null ? '—' : avg + '%', 'คะแนนเฉลี่ย', 'เกณฑ์ผ่าน ' + QUIZ_PASS_PCT + '%')}
+    ${tile(fails.length, 'ยังไม่ผ่าน', fails.length ? 'ต้องตามมาสอบใหม่' : 'ผ่านครบทุกคน', fails.length ? 'bad' : 'ok')}
+    ${tile(pool.length, 'ครั้งที่สอบ', '')}
+    ${tile(nTrain, 'การสอน', '')}
+    ${tile(retake, 'สอบซ้ำ', '')}
+    ${tile(_qsFmtSec(med), 'เวลาที่ใช้กลาง ๆ', '')}
   </div>
 
   <!-- จอกว้างวางสองคอลัมน์: ตารางหลักอยู่ซ้าย ของที่ต้องตามต่ออยู่ขวาในสายตาเดียวกัน
