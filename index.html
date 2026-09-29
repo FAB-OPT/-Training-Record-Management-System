@@ -1471,7 +1471,12 @@
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
 
   /* พื้นที่ทำงานหลัก: ตาราง | สิ่งที่ต้องตามต่อ */
-  .qs-work { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .95fr); gap: 14px; align-items: start; }
+  /* คอลัมน์ซ้าย = ตาราง + คนที่ยังไม่ผ่าน (เรียงลงมา) · คอลัมน์ขวา = ข้อที่ต้องแก้ (ก้อนสูง)
+     แบ่งแบบนี้ความสูงสองฝั่งใกล้กัน ไม่เหลือที่ว่างยาว ๆ ใต้ตารางเหมือนตอนวางก้อนสูงไว้ขวาอย่างเดียว */
+  .qs-work { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .95fr);
+             gap: 14px; align-items: start; }
+  .qs-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .qs-main > .sec { margin: 0; }
   /* ตารางอยู่ในคอลัมน์แคบลง — บีบคอลัมน์ตัวเลขให้ชื่อ Module มีที่พอไม่ต้องตัดบรรทัด */
   .qs-work .qs-head, .qs-work .qs-row { grid-template-columns: minmax(0,1fr) 58px 66px 116px 74px 82px; gap: 9px; padding: 10px 12px; }
   .qs-work .qs-mod { font-size: 13px; line-height: 1.35; }
@@ -1479,8 +1484,8 @@
   .qs-work .qs-num { font-size: 13.5px; }
   @media (max-width: 1320px) { .qs-work .qs-head > div:nth-child(5), .qs-work .qs-row > div:nth-child(5) { display: none; }
     .qs-work .qs-head, .qs-work .qs-row { grid-template-columns: minmax(0,1fr) 58px 66px 116px 82px; } }
-  .qs-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-  .qs-side .sec { margin: 0; }
+  .qs-side { min-width: 0; }
+  .qs-side > .sec { margin: 0; }
   @media (max-width: 1080px) { .qs-work { grid-template-columns: 1fr; } }
   .qs-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); gap: 14px; }
   .qs-mod { font-size: 13.5px; font-weight: 700; color: var(--text); }
@@ -9694,6 +9699,7 @@ function renderQuizStatsPage() {
        เดิมเรียงลงมาเป็นแถวเดียว ต้องเลื่อนผ่านตารางยาว ๆ ก่อนถึงจะเห็นว่าต้องทำอะไร
        จอแคบจะซ้อนกลับเป็นแถวเดียวเหมือนเดิม -->
   <div class="qs-work">
+  <div class="qs-main">
   <div class="sec" style="margin-bottom:0">
     ${head('📚', _qsViewLabel(), _qsViewHint(), 'var(--accent-light)',
       `<span class="sec-cnt">${_qsView === 'module' ? rows.length + ' Module' : aggRows.length + ' ' + _qsViewUnit()}</span>`)}
@@ -9752,6 +9758,22 @@ function renderQuizStatsPage() {
       }).join('')}
     </div>`}
   </div>
+    <div class="sec">
+      ${head('🙍', 'ยังไม่ผ่าน · ต้องตามต่อ', 'สอบแล้วแต่ยังไม่ถึง ' + QUIZ_PASS_PCT + '% — เรียงครั้งล่าสุดก่อน', '#FEF3C7',
+        fails.length ? `<span class="sec-cnt">${fails.length} คน</span>` : '')}
+      ${!fails.length ? empty('✅', 'ทุกคนสอบผ่านหมดแล้ว', 'ไม่มีใครค้างอยู่ในขอบเขตที่เลือก')
+        : `<div>${(_qsAllFails ? fails : fails.slice(0, 5)).map(f => `
+        <div class="qs-item">
+          <div style="flex:1;min-width:0">
+            <div class="qs-item-t">${esc(f.who)}</div>
+            <div class="qs-item-d">${esc(brName(f.br))} · ${esc((MODULES[f.mid] || {}).name || f.mid)} · ${f.last ? fmtDate(f.last.slice(0, 10)) : '—'}</div>
+          </div>
+          <span class="qs-pill" style="color:#B91C1C;background:#FEE2E2">${f.best < 0 ? '—' : f.best + '%'}</span>
+          <span class="qs-pill" style="${f.left ? 'color:#B45309;background:#FFFBEB' : 'color:#fff;background:#B91C1C'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
+        </div>`).join('')}${fails.length > 5 ? `<button class="qs-expand" onclick="_qsToggleFails()">${
+          _qsAllFails ? 'ย่อกลับ เหลือ 5 คน' : 'ดูอีก ' + (fails.length - 5) + ' คน'}</button>` : ''}</div>`}
+    </div>
+  </div>
 
   <div class="qs-side">
     <div class="sec">
@@ -9796,21 +9818,6 @@ function renderQuizStatsPage() {
         _qsAllWorst ? 'ย่อกลับ เหลือ 5 ข้อ' : 'ดูอีก ' + (worst.length - 5) + ' ข้อ'}</button>` : '')}
     </div>
 
-    <div class="sec">
-      ${head('🙍', 'ยังไม่ผ่าน · ต้องตามต่อ', 'สอบแล้วแต่ยังไม่ถึง ' + QUIZ_PASS_PCT + '% — เรียงครั้งล่าสุดก่อน', '#FEF3C7',
-        fails.length ? `<span class="sec-cnt">${fails.length} คน</span>` : '')}
-      ${!fails.length ? empty('✅', 'ทุกคนสอบผ่านหมดแล้ว', 'ไม่มีใครค้างอยู่ในขอบเขตที่เลือก')
-        : `<div>${(_qsAllFails ? fails : fails.slice(0, 5)).map(f => `
-        <div class="qs-item">
-          <div style="flex:1;min-width:0">
-            <div class="qs-item-t">${esc(f.who)}</div>
-            <div class="qs-item-d">${esc(brName(f.br))} · ${esc((MODULES[f.mid] || {}).name || f.mid)} · ${f.last ? fmtDate(f.last.slice(0, 10)) : '—'}</div>
-          </div>
-          <span class="qs-pill" style="color:#B91C1C;background:#FEE2E2">${f.best < 0 ? '—' : f.best + '%'}</span>
-          <span class="qs-pill" style="${f.left ? 'color:#B45309;background:#FFFBEB' : 'color:#fff;background:#B91C1C'}">${f.left ? 'เหลือ ' + f.left + ' ครั้ง' : 'สอบครบแล้ว'}</span>
-        </div>`).join('')}${fails.length > 5 ? `<button class="qs-expand" onclick="_qsToggleFails()">${
-          _qsAllFails ? 'ย่อกลับ เหลือ 5 คน' : 'ดูอีก ' + (fails.length - 5) + ' คน'}</button>` : ''}</div>`}
-    </div>
   </div>
   </div>
 
