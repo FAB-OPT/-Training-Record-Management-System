@@ -3152,20 +3152,9 @@ body.admin-user .btn-navy{background:var(--primary)}
       <h2 class="login-title">ปิดปรับปรุงระบบชั่วคราว</h2>
       <p class="login-subtitle">ระบบบันทึกการสอนงาน</p>
     </div>
-    <div class="maint-body">
+    <div class="maint-body" style="padding-bottom:34px">
       กำลังอัปเดตฟีเจอร์ใหม่อยู่ครับ ขออภัยในความไม่สะดวก<br>
       <b>กลับมาเปิดใช้งานตามปกติเร็ว ๆ นี้</b>
-    </div>
-    <div style="padding:0 32px 28px;text-align:center">
-      <a href="javascript:void(0)" onclick="maintShowAdminLogin()" id="maint-admin-link"
-         style="font-size:12px;color:var(--text3);text-decoration:underline">เข้าสู่ระบบสำหรับแอดมิน</a>
-      <div id="maint-admin-box" style="display:none;margin-top:12px">
-        <input id="maint-admin-pin" type="password" inputmode="numeric" placeholder="รหัสแอดมิน"
-               style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font:inherit;font-size:14px;text-align:center;box-sizing:border-box"
-               onkeydown="if(event.key==='Enter')maintAdminLogin()">
-        <div id="maint-admin-err" style="display:none;color:#DC2626;font-size:12px;margin-top:6px">รหัสไม่ถูกต้อง</div>
-        <button class="btn btn-accent" style="width:100%;margin-top:8px" onclick="maintAdminLogin()">เข้าสู่ระบบ</button>
-      </div>
     </div>
   </div>
 </div>
@@ -20660,25 +20649,6 @@ function _withinMaintenanceWindow(from, to) {
   if (from && today < from) return false;
   if (to && today > to) return false;
   return true;
-}
-/* แอดมินกดลิงก์เล็ก ๆ ใต้หน้าปิดปรับปรุง เพื่อล็อกอินเข้าไปปิดสวิตช์เอง
-   เช็คกับ ADMIN_CODES (ค่าคงที่ในไฟล์ ไม่ต้องรอโหลด DB.adminUsers) — พอเพียงเพราะแอดมินหลักอยู่ในนี้ทุกคน */
-function maintShowAdminLogin() {
-  document.getElementById('maint-admin-link').style.display = 'none';
-  document.getElementById('maint-admin-box').style.display = 'block';
-  const pin = document.getElementById('maint-admin-pin'); if (pin) pin.focus();
-}
-function maintAdminLogin() {
-  const pin = (document.getElementById('maint-admin-pin').value || '').trim();
-  const admin = ADMIN_CODES[pin];
-  const err = document.getElementById('maint-admin-err');
-  if (!admin) { if (err) err.style.display = 'block'; return; }
-  if (err) err.style.display = 'none';
-  currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role, pagePerms: null };
-  _writeFabSession();
-  document.getElementById('maintenance-screen').style.display = 'none';
-  showApp();
-  gsLoad();
 }
 async function initApp() {
   // แอดมินที่เคยล็อกอินค้างไว้ในเครื่องนี้แล้ว (fab_session) ให้เข้าได้เลยแม้ระบบปิดอยู่ ไม่ต้องกรอกรหัสซ้ำทุกครั้ง
