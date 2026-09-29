@@ -1551,15 +1551,6 @@
     color: var(--text3); letter-spacing: .3px; text-transform: uppercase;
   }
   .qs-row { border-top: 1px solid var(--border); transition: background .12s; }
-  /* ปุ่มสลับมุมมอง (โมดูล / โซน / สาขา / บุคคล) */
-  .qs-views { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px 0; }
-  .qs-view {
-    border: 1.5px solid var(--border); background: var(--surface); color: var(--text2);
-    border-radius: 999px; padding: 8px 15px; font: inherit; font-size: 13px; font-weight: 700;
-    cursor: pointer; transition: all .12s;
-  }
-  .qs-view:hover { border-color: var(--accent); color: var(--accent); }
-  .qs-view.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .qs-row:hover { background: var(--surface2); }
   /* ตารางรายครั้งที่สอบ — ทั้งแถวกดติ๊กได้ ไม่ต้องเล็งช่องเล็ก ๆ */
   .qh-head, .qh-row {
@@ -9593,8 +9584,7 @@ function renderQuizStatsPage() {
           sub: (e.position ? e.position + ' · ' : '') + brName(e.branchId || '') + ' · ' + a.mods + ' Module'
              + (a.last ? ' · ล่าสุด ' + fmtDate(String(a.last).slice(0, 10)) : ''),
           right: { t: a.best == null ? '—' : a.best + '%', c: done ? '#047857' : '#B91C1C' },
-          action: done ? '<span class="qs-pill" style="color:#047857;background:#ECFDF5">ผ่านครบ</span>'
-                       : `<span class="qs-pill" style="color:#B91C1C;background:#FEE2E2">ค้าง ${a.notPassed}</span>`
+          action: `<button class="btn btn-sm btn-outline" onclick="openPersonQuizModal('${a.key}')">ดูรายข้อ</button>`
         });
       }).sort((x, y) => (y.notPassed - x.notPassed) || ((x.best == null ? -1 : x.best) - (y.best == null ? -1 : y.best)));
     }
@@ -9628,7 +9618,12 @@ function renderQuizStatsPage() {
   </div>
 
   <div class="qs-filter">
-    <span class="qs-filter-l">ดูข้อมูลของ</span>
+    <span class="qs-filter-l">ดูแบบ</span>
+    <select class="form-select" onchange="_qsSetView(this.value)" title="เลือกว่าจะดูสถิติแยกตามอะไร">
+      ${[['module','📚 รายโมดูล'],['zone','🗺 รายโซน'],['branch','🏬 รายสาขา'],['person','🙍 รายบุคคล']]
+        .map(([k,l]) => `<option value="${k}"${_qsView===k?' selected':''}>${l}</option>`).join('')}
+    </select>
+    <span class="qs-filter-l">ของ</span>
     <select class="form-select" onchange="_qsSetMid(this.value)"><option value="">📚 ทุก Module</option>${midOpts}</select>
     <select class="form-select" onchange="_qsSetBranch(this.value)"><option value="">🏢 ทุกสาขา</option>${brOpts}</select>
     <select class="form-select" onchange="_qsSetDays(this.value)">
@@ -9657,12 +9652,6 @@ function renderQuizStatsPage() {
   <div class="sec" style="margin-bottom:14px">
     ${head('📚', _qsViewLabel(), _qsViewHint(), 'var(--accent-light)',
       `<span class="sec-cnt">${_qsView === 'module' ? rows.length + ' Module' : aggRows.length + ' ' + _qsViewUnit()}</span>`)}
-
-    <!-- สลับมุมมอง — คำถามของแต่ละคนไม่เหมือนกัน หน้าเดียวตอบได้หมด -->
-    <div class="qs-views">
-      ${[['module','📚 รายโมดูล'],['zone','🗺 รายโซน'],['branch','🏬 รายสาขา'],['person','🙍 รายบุคคล']]
-        .map(([k,l]) => `<button class="qs-view${_qsView===k?' on':''}" onclick="_qsSetView('${k}')">${l}</button>`).join('')}
-    </div>
 
     ${_qsView !== 'module' ? `<div class="tw-table">
       <div class="qs-head qs-head-${_qsView}">
@@ -9798,6 +9787,86 @@ function renderQuizStatsPage() {
   </div>
 
   ${_qhListHTML(pool)}`}`;
+}
+
+/* ══════════ ผลสอบรายคน — เจาะถึงรายข้อ ══════════
+   หัวหน้าสาขาถามว่า "คนนี้ตกเพราะอะไร" ตัวเลขรวมตอบไม่ได้ ต้องเห็นว่าข้อไหนผิดและไปตอบอะไร
+   ผลสอบเก็บ items เป็น {uid, pick, ok} · ตัวคำถามอยู่คนละที่ ต้องแมปด้วย uid
+   ผลเก่าบางครั้งไม่มี items (สอบก่อนระบบเก็บรายข้อ) — บอกตรง ๆ ว่าไม่มี ไม่ใช่โชว์ว่างเปล่า */
+function _qsQuestionIndex() {
+  if (_qsQIdx && _qsQIdx.src === DB.customQuiz) return _qsQIdx.map;
+  const m = new Map();
+  Object.keys(MODULES).forEach(mid => {
+    getAllQuestionsForModule(mid, true).forEach(q => m.set(q.uid, Object.assign({ mid: mid }, q)));
+  });
+  _qsQIdx = { src: DB.customQuiz, map: m };
+  return m;
+}
+let _qsQIdx = null;
+
+function openPersonQuizModal(empId) {
+  const e = getEmployee(empId) || {};
+  const qi = _qsQuestionIndex();
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  /* ผลสอบของคนนี้ = ผลสอบของการสอนที่มีชื่อเขาเป็นผู้ถูกสอน */
+  const runs = (_qsPool() || []).filter(r => _qsTraineeIds(r).indexOf(String(empId)) >= 0)
+    .sort((a, b) => String(_qhDate(b) || '').localeCompare(String(_qhDate(a) || '')));
+  if (!runs.length) { notify('ยังไม่มีผลสอบของคนนี้ในขอบเขตที่เลือก', 'error'); return; }
+
+  const pcts = runs.map(_qsPct).filter(p => typeof p === 'number');
+  const best = pcts.length ? Math.max.apply(null, pcts) : null;
+  const passed = pcts.some(p => p >= QUIZ_PASS_PCT);
+  const cell = (n, l) => `<div style="background:var(--surface);padding:11px 10px;text-align:center">
+    <div style="font-size:19px;font-weight:800;color:var(--accent);line-height:1.1">${n}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:3px">${l}</div></div>`;
+
+  const body = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:1px;background:var(--border);
+                border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:6px">
+      ${cell(runs.length, 'ครั้งที่สอบ')}
+      ${cell(best == null ? '—' : best + '%', 'คะแนนดีที่สุด')}
+      ${cell(pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) + '%' : '—', 'เฉลี่ย')}
+      ${cell(passed ? 'ผ่าน' : 'ยังไม่ผ่าน', 'สถานะ')}
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin:10px 0 12px">
+      ${esc(e.position || '')}${e.position ? ' · ' : ''}${esc((BRANCH_MASTER[e.branchId] || {}).name || e.branchId || '')}
+      · เกณฑ์ผ่าน ${QUIZ_PASS_PCT}%
+    </div>
+    ${runs.map((r, ri) => {
+      const pct = _qsPct(r), ok = typeof pct === 'number' && pct >= QUIZ_PASS_PCT;
+      const items = (r.answers && r.answers.items) || [];
+      const when = _qhDate(r) ? fmtDate(String(_qhDate(r)).slice(0, 10)) : '—';
+      return `<div style="border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--surface)">
+          <span style="font-size:13px;font-weight:800">ครั้งที่ ${runs.length - ri}</span>
+          <span style="font-size:12px;color:var(--text3)">${esc((MODULES[r.moduleId] || {}).name || r.moduleId)} · ${when}</span>
+          <span style="margin-left:auto;font-size:13px;font-weight:800;color:${ok ? '#047857' : '#B91C1C'}">
+            ${r.score != null ? r.score + '/' + r.total + ' · ' : ''}${pct == null ? '—' : pct + '%'}</span>
+          <span class="badge ${ok ? 'badge-green' : 'badge-red'}" style="font-size:10.5px">${ok ? 'ผ่าน' : 'ไม่ผ่าน'}</span>
+        </div>
+        ${!items.length
+          ? `<div style="padding:13px;font-size:12px;color:var(--text3)">ครั้งนี้สอบก่อนระบบเก็บคำตอบรายข้อ — ดูได้แค่คะแนนรวม</div>`
+          : items.map((it, qn) => {
+              const q = qi.get(it.uid);
+              const pickTxt = q && q.opts ? q.opts[it.pick] : '';
+              const ansTxt  = q && q.opts ? q.opts[q.ans] : '';
+              return `<div style="padding:11px 13px;border-top:1px solid var(--border)">
+                <div style="display:flex;gap:9px;align-items:flex-start">
+                  <span style="flex-shrink:0;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;
+                    font-size:11px;font-weight:800;color:#fff;background:${it.ok ? '#047857' : '#B91C1C'}">${it.ok ? '✓' : '✕'}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:600;line-height:1.5">${qn + 1}. ${esc(q ? q.q : 'ไม่พบคำถามนี้แล้ว (ถูกลบหรือแก้ไข)')}</div>
+                    ${it.ok
+                      ? (pickTxt ? `<div style="margin-top:4px;font-size:12px;color:#047857">ตอบ ${esc(it.pick)} · ${esc(pickTxt)}</div>` : '')
+                      : `${pickTxt ? `<div style="margin-top:4px;font-size:12px;color:#B91C1C">ตอบ ${esc(it.pick)} · ${esc(pickTxt)}</div>` : ''}
+                         ${ansTxt ? `<div style="margin-top:2px;font-size:12px;color:#047857">เฉลย ${esc(q.ans)} · ${esc(ansTxt)}</div>` : ''}`}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+      </div>`;
+    }).join('')}`;
+  showModal('🙍 ผลสอบของ ' + (e.name || ('รหัส ' + empId)), body);
 }
 
 function openQuizStatsModal(mid) {
