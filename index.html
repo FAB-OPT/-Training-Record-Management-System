@@ -1407,6 +1407,8 @@
   .qsx-page { max-width: 1200px; margin: 0 auto; }
   .qsx-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.7fr); gap: 14px; align-items: start; }
   .qsx-2 .qsx-card { position: sticky; top: 12px; } .qsx-2 .qsx-card + .qsx-card { position: static; }
+  .qsx-2.eq { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .qsx-2.eq .qsx-bb { grid-template-columns: minmax(0,1fr) 44px 92px; gap: 8px 10px; } .qsx-2.eq .qsx-bb .seg { grid-column: 1 / -1; order: 9; }
   .qsx-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
   .qsx-tabs button { border: 1.5px solid var(--border); background: var(--surface); color: var(--text2);
     border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .12s; }
@@ -1525,7 +1527,7 @@
   .qsx-bbdone .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .qsx-bbdone .chips span { font-size: 12px; font-weight: 700; color: #065F46; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 999px; padding: 4px 10px; }
   .qsx-bbdone .chips small { margin-left: 5px; font-size: 10.5px; font-weight: 800; color: #047857; opacity: .8; }
-  @media (max-width: 1080px) { .qsx-kpis { grid-template-columns: repeat(2,1fr); } .qsx-2 { grid-template-columns: 1fr; } .qsx-2 .qsx-card { position: static; } }
+  @media (max-width: 1080px) { .qsx-kpis { grid-template-columns: repeat(2,1fr); } .qsx-2, .qsx-2.eq { grid-template-columns: 1fr; } .qsx-2 .qsx-card { position: static; } }
   @media (max-width: 900px) { .qsx-hero { grid-template-columns: 1fr; } .qsx-hero .donuts { justify-content: flex-start; } .qsx-hero .big b { font-size: 46px; } }
   @media (max-width: 800px) {
     .qsx-bb .seg { order: 9; } .qsx-bb .pill { grid-column: auto; justify-self: end; }
@@ -9837,8 +9839,10 @@ const QSX = {
           </div>
         </div>
         ${kpi}
-        <div class="qsx-card"><div class="qsx-h"><h3>สาขาที่ยังมีคนไม่ผ่าน</h3><span class="cnt">เรียงจากอัตราผ่านต่ำสุด · แถบเขียว/แดง = สัดส่วนผ่าน/ยังไม่ผ่าน</span></div>${this.branchBoard(pool)}</div>
+        <div class="qsx-2 eq">
+        <div class="qsx-card"><div class="qsx-h"><h3>สาขาที่ยังมีคนไม่ผ่าน</h3><span class="cnt">เรียงจากอัตราผ่านต่ำสุด</span></div>${this.branchBoard(pool)}</div>
         ${worstBox}
+        </div>
         ${retakeBox}`;
     } else {
       /* ── แท็บ Module / สาขา / บุคคล: กราฟย่อ + ตารางค้นหาได้ ── */
