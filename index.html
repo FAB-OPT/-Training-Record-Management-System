@@ -8673,7 +8673,7 @@ function renderEmpRows(emps) {
     <td data-label="actions" style="text-align:right;white-space:nowrap">${_isEmpEnabled(e) && currentUser?.type === 'branch' ? (
         (DB.transferRequests || []).some(r => r.empId === e.id && r.status === 'pending')
           ? '<span class="badge badge-yellow" style="margin-right:4px">รออนุมัติย้าย</span>'
-          : `<button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openTransferRequest('${e.id}')">ขอย้าย</button>`) : ''}<button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
+          : `<button class="btn btn-sm btn-navy" style="margin-right:4px" onclick="openTransferRequest('${e.id}')">🔁 ขอย้าย</button>`) : ''}<button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
 
