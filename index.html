@@ -1404,6 +1404,9 @@
 
   /* ── หน้าสถิติข้อสอบ (โครงใหม่) ─────────────────────────────────
      แถวบนแถวเดียว: แท็บ + ค้นหา + ช่วงวันที่ · ตัวเลขใหญ่ · กล่องเรียงตามลำดับที่ต้องลงมือ */
+  .qsx-page { max-width: 1200px; margin: 0 auto; }
+  .qsx-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.7fr); gap: 14px; align-items: start; }
+  .qsx-2 .qsx-card { position: sticky; top: 12px; } .qsx-2 .qsx-card + .qsx-card { position: static; }
   .qsx-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
   .qsx-tabs button { border: 1.5px solid var(--border); background: var(--surface); color: var(--text2);
     border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .12s; }
@@ -1433,7 +1436,7 @@
   .qsx-h h3 { font-size: 14px; font-weight: 800; color: var(--text); margin: 0; }
   .qsx-h .cnt { margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--text3); }
   .qsx-chart { padding: 12px 15px 14px; }
-  .qsx-bar { display: grid; grid-template-columns: 150px minmax(0,1fr) 46px; gap: 10px; align-items: center; padding: 5px 0; }
+  .qsx-bar { display: grid; grid-template-columns: minmax(120px,42%) minmax(0,1fr) 46px; gap: 10px; align-items: center; padding: 5px 0; }
   .qsx-bar .lb { font-size: 12.5px; font-weight: 700; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .qsx-bar .tr { height: 11px; border-radius: 6px; background: var(--surface2); overflow: hidden; }
   .qsx-bar .tr i { display: block; height: 100%; border-radius: 6px; }
@@ -1449,7 +1452,7 @@
   .qsx-hero .big b { display: block; font-size: 58px; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
   .qsx-hero .big span { display: block; margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--text3); }
   .qsx-hero .donuts { display: flex; gap: 22px; justify-content: flex-end; }
-  .qsx-thead, .qsx-row { display: grid; grid-template-columns: minmax(0,1fr) 62px 64px minmax(90px,150px) 52px 104px; gap: 10px; align-items: center; padding: 10px 15px; }
+  .qsx-thead, .qsx-row { display: grid; grid-template-columns: minmax(0,1fr) 48px 56px minmax(80px,120px) 48px 96px; gap: 10px; align-items: center; padding: 10px 15px; }
   .qsx-thead { background: var(--surface2); font-size: 11px; font-weight: 800; color: var(--text3); }
   .qsx-thead .n, .qsx-row .n { text-align: right; }
   .qsx-row { border-top: 1px solid var(--border); }
@@ -1509,7 +1512,7 @@
   .qsx-bbdone .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .qsx-bbdone .chips span { font-size: 12px; font-weight: 700; color: #065F46; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 999px; padding: 4px 10px; }
   .qsx-bbdone .chips small { margin-left: 5px; font-size: 10.5px; font-weight: 800; color: #047857; opacity: .8; }
-  @media (max-width: 1080px) { .qsx-kpis { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 1080px) { .qsx-kpis { grid-template-columns: repeat(2,1fr); } .qsx-2 { grid-template-columns: 1fr; } .qsx-2 .qsx-card { position: static; } }
   @media (max-width: 900px) { .qsx-hero { grid-template-columns: 1fr; } .qsx-hero .donuts { justify-content: flex-start; } .qsx-hero .big b { font-size: 46px; } }
   @media (max-width: 800px) {
     .qsx-filters { gap: 8px; } .qsx-search { min-width: 100%; order: 3; }
@@ -9853,6 +9856,7 @@ const QSX = {
       }
       const chartRows = rows.slice(0, 10).map(r => ({ n: r.t.replace(/^\d+\s/, ''), p: r.a.passRate, s: r.a.runs + ' ครั้ง' }));
       body = `${kpi}
+        <div class="qsx-2">
         <div class="qsx-card"><div class="qsx-h"><h3>อัตราผ่าน ${label} (ต่ำสุด 10 อันดับ)</h3></div>${this.barChart(chartRows)}</div>
         <div class="qsx-card">
           <div class="qsx-h"><h3>รายการ${label}</h3><span class="cnt">${rows.length} ${label}${this.q ? ' · ค้นหา “' + esc(this.q) + '”' : ''}</span></div>
@@ -9866,6 +9870,7 @@ const QSX = {
             <div class="pc" style="color:${this.tone(r.a.passRate)}">${r.a.passRate == null ? '—' : r.a.passRate + '%'}</div>
             <div class="act">${r.act}</div>
           </div>`).join('') : '<div class="qsx-empty">ไม่พบรายการที่ตรงกับคำค้นหา</div>'}
+        </div>
         </div>`;
     }
 
@@ -9876,14 +9881,14 @@ const QSX = {
 };
 
 function renderQuizStatsPage() {
-  return `
+  return `<div class="qsx-page">
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">สถิติข้อสอบ</div>
       <div class="page-hero-sub">ตอนนี้ผ่านกี่เปอร์เซ็นต์ สาขาไหนยังมีคนไม่ผ่าน ข้อไหนต้องแก้ สอบซ้ำแล้วดีขึ้นไหม</div>
     </div>
   </div>
-  <div id="qsxBody">${QSX.html()}</div>`;
+  <div id="qsxBody">${QSX.html()}</div></div>`;
 }
 
 /* ══════════ ผลสอบรายคน — เจาะถึงรายข้อ ══════════
