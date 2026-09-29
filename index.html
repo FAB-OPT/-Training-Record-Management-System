@@ -1470,6 +1470,18 @@
   .qs-tile.bad  { background: #FEF2F2; border-color: #FECACA; }
   .qs-tile.bad  .qs-tile-n { color: #B91C1C; }
 
+  /* พื้นที่ทำงานหลัก: ตาราง | สิ่งที่ต้องตามต่อ */
+  .qs-work { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .95fr); gap: 14px; align-items: start; }
+  /* ตารางอยู่ในคอลัมน์แคบลง — บีบคอลัมน์ตัวเลขให้ชื่อ Module มีที่พอไม่ต้องตัดบรรทัด */
+  .qs-work .qs-head, .qs-work .qs-row { grid-template-columns: minmax(0,1fr) 58px 66px 116px 74px 82px; gap: 9px; padding: 10px 12px; }
+  .qs-work .qs-mod { font-size: 13px; line-height: 1.35; }
+  .qs-work .qs-sub { font-size: 11px; }
+  .qs-work .qs-num { font-size: 13.5px; }
+  @media (max-width: 1320px) { .qs-work .qs-head > div:nth-child(5), .qs-work .qs-row > div:nth-child(5) { display: none; }
+    .qs-work .qs-head, .qs-work .qs-row { grid-template-columns: minmax(0,1fr) 58px 66px 116px 82px; } }
+  .qs-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .qs-side .sec { margin: 0; }
+  @media (max-width: 1080px) { .qs-work { grid-template-columns: 1fr; } }
   .qs-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); gap: 14px; }
   .qs-mod { font-size: 13.5px; font-weight: 700; color: var(--text); }
   .qs-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
@@ -9678,7 +9690,11 @@ function renderQuizStatsPage() {
     <span class="qs-dot">·</span> เวลาที่ใช้กลาง ๆ <b>${_qsFmtSec(med)}</b>
   </div>
 
-  <div class="sec" style="margin-bottom:14px">
+  <!-- จอกว้างวางสองคอลัมน์: ตารางหลักอยู่ซ้าย ของที่ต้องตามต่ออยู่ขวาในสายตาเดียวกัน
+       เดิมเรียงลงมาเป็นแถวเดียว ต้องเลื่อนผ่านตารางยาว ๆ ก่อนถึงจะเห็นว่าต้องทำอะไร
+       จอแคบจะซ้อนกลับเป็นแถวเดียวเหมือนเดิม -->
+  <div class="qs-work">
+  <div class="sec" style="margin-bottom:0">
     ${head('📚', _qsViewLabel(), _qsViewHint(), 'var(--accent-light)',
       `<span class="sec-cnt">${_qsView === 'module' ? rows.length + ' Module' : aggRows.length + ' ' + _qsViewUnit()}</span>`)}
 
@@ -9737,7 +9753,7 @@ function renderQuizStatsPage() {
     </div>`}
   </div>
 
-  <div class="qs-2col">
+  <div class="qs-side">
     <div class="sec">
       ${head('⚠️', 'ข้อที่ต้องแก้', 'ตอบผิดเยอะสุดทั้งระบบ · นับเฉพาะข้อที่ถูกสุ่มออกไปแล้วอย่างน้อย 2 ครั้ง', '#FEE2E2',
         worst.length ? `<span class="sec-cnt">${worst.length} ข้อ</span>` : '')}
@@ -9795,6 +9811,7 @@ function renderQuizStatsPage() {
         </div>`).join('')}${fails.length > 5 ? `<button class="qs-expand" onclick="_qsToggleFails()">${
           _qsAllFails ? 'ย่อกลับ เหลือ 5 คน' : 'ดูอีก ' + (fails.length - 5) + ' คน'}</button>` : ''}</div>`}
     </div>
+  </div>
   </div>
 
   <!-- สองก้อนล่างเป็นของดูย้อนหลัง ไม่ใช่ของที่ต้องเห็นทุกครั้ง — พับไว้ให้หน้าสั้นลง -->
