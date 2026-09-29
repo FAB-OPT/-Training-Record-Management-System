@@ -2945,6 +2945,140 @@
 .ts-one-p small{display:block;font-size:11.5px;color:var(--text3)}
 .ts-one-ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--border)}
 </style>
+<style>
+/* ═══════════ หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ═══════════
+   โทนสว่าง พื้นเทาอมเขียวแบบกระดาษบิลครัว (#F3F4F1) ตัวหนังสือกราไฟต์ (#1D2322)
+   ส้มแบรนด์ (#FF6B1A) ใช้เฉพาะจุดที่ต้องกด · เปลี่ยนเฉพาะฝั่ง admin (body.admin-user)
+   ฝั่งสาขาใช้หน้าตาเดิมทุกอย่าง */
+body.admin-user{
+  --bg:#F3F4F1; --surface:#FFFFFF; --surface2:#ECEEE9; --surface3:#E2E5DF;
+  --border:#DCDFD8; --border2:#C4C9C1;
+  --primary:#1D2322; --primary-hover:#2A3230; --primary-light:#ECEEE9;
+  --text:#1D2322; --text2:#56605C; --text3:#838C88; --text4:#B6BDB8;
+  --green:#2F8F5B; --green-light:#E6F3EB; --yellow:#B7791F; --yellow-light:#FBF1DE;
+  --red:#C2413A; --red-light:#FBE9E7;
+  --shadow-sm:none; --shadow:0 1px 0 rgba(29,35,34,.04); --shadow-lg:0 16px 40px rgba(29,35,34,.14);
+  --ring:0 0 0 3px rgba(29,35,34,.14);
+  background:var(--bg);
+}
+body.admin-user .sidebar{background:#FFFFFF;border-right-color:var(--border)}
+body.admin-user .sidebar-header{border-bottom-color:var(--border)}
+body.admin-user .branch-info{background:var(--surface2);border-color:var(--border)}
+body.admin-user .nav-section-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.6px;text-transform:none;padding:14px 11px 5px}
+body.admin-user .nav-divider{display:none}
+body.admin-user .nav-item{color:var(--text);font-weight:600}
+body.admin-user .nav-item:hover{background:var(--surface2)}
+/* เมนูที่เลือกอยู่เป็นกราไฟต์ ไม่ใช่ส้ม — ส้มเหลือไว้ให้สิ่งที่ต้องกด */
+body.admin-user .nav-item.active{background:var(--primary);color:#FFFFFF;box-shadow:none}
+body.admin-user .nav-item.active .nav-icon{color:#FFFFFF}
+body.admin-user .nav-count{margin-left:auto;min-width:20px;text-align:center;font-size:11px;font-weight:800;line-height:18px;
+  background:var(--accent);color:#FFFFFF;border-radius:999px;padding:0 6px}
+body.admin-user .nav-item.active .nav-count{background:#FFFFFF;color:var(--accent)}
+/* หัวหน้า: ไม่เป็นการ์ดแล้ว ตัวหนังสือวางบนพื้นตรง ๆ */
+body.admin-user .page-hero{background:transparent;border:0;border-radius:0;padding:2px 2px 0;margin-bottom:16px;box-shadow:none}
+body.admin-user .page-hero::before,body.admin-user .page-hero::after{display:none}
+body.admin-user .page-hero-title{font-size:25px;letter-spacing:-.3px}
+body.admin-user .page-hero-eyebrow{color:var(--text3)}
+body.admin-user .card{border-color:var(--border);box-shadow:none;border-radius:10px}
+body.admin-user th{background:var(--surface2);color:var(--text2);text-transform:none;letter-spacing:.2px;font-size:12px}
+body.admin-user td{border-color:var(--border)}
+body.admin-user .btn-outline{border-color:var(--border2);color:var(--text)}
+body.admin-user .btn-navy{background:var(--primary)}
+/* แถบ "งานที่รอคุณ" — ใบงานเรียงบนราง แบบบิลในครัว */
+.tk2-wrap{margin-bottom:16px}
+.tk2-sec{font-size:13px;font-weight:800;color:var(--text2);margin:0 2px 8px}
+.tk2-sec span{font-weight:500;color:var(--text3);margin-left:6px}
+.tk2-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.tk2{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;min-height:132px}
+.tk2-top{height:5px;background:var(--primary)}
+.tk2.hot .tk2-top{background:var(--accent)}
+.tk2.zero .tk2-top{background:var(--border2)}
+.tk2-b{padding:12px 14px 6px;display:flex;flex-direction:column;gap:3px}
+.tk2-n{font-size:30px;font-weight:800;line-height:1;color:var(--text)}
+.tk2.zero .tk2-n{color:var(--text4)}
+.tk2-l{font-size:13.5px;font-weight:700;color:var(--text)}
+.tk2-s{font-size:12px;color:var(--text3)}
+.tk2-go{margin:auto 14px 12px;align-self:flex-start;border:0;border-radius:8px;padding:7px 13px;font:700 12.5px Sarabun,sans-serif;
+  background:var(--accent-light);color:var(--accent);cursor:pointer;min-height:34px}
+.tk2.hot .tk2-go{background:var(--accent);color:#FFFFFF}
+.tk2-go:hover{filter:brightness(.97)}
+.tk2-done{margin:auto 14px 12px;font-size:12px;font-weight:700;color:var(--green)}
+@media (max-width:760px){ .tk2-grid{grid-template-columns:1fr 1fr;gap:8px} .tk2{min-height:118px} .tk2-n{font-size:24px} }
+</style>
+<style>
+/* คำขอย้ายสาขา — ใบละแถว · เส้นทางต้นทาง → ปลายทาง */
+.xr-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;margin-bottom:12px}
+.xr-pill{background:var(--accent);color:#fff;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:800}
+.xr-list{display:flex;flex-direction:column;gap:8px}
+.xr-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(0,2.2fr) auto;gap:18px;align-items:center;
+  padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.xr-row.pending{border-color:color-mix(in srgb,var(--accent) 35%,var(--border));background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.xr-row.cancelled,.xr-row.rejected{opacity:.72}
+.xr-who{display:flex;align-items:center;gap:11px;min-width:0}
+.xr-av{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;
+  background:var(--accent-light);color:var(--accent)}
+.xr-nm{font-weight:700;font-size:14px;line-height:1.3}
+.xr-meta{font-size:12px;color:var(--text3)}
+.xr-dir{font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:2px;background:var(--surface2);color:var(--text2)}
+.xr-dir.in{background:var(--green-light);color:var(--green)}
+.xr-mid{min-width:0}
+.xr-route{display:flex;align-items:center;gap:0;min-width:0}
+.xr-b{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;
+  background:var(--surface2);border-radius:999px;padding:5px 12px;color:var(--text2)}
+.xr-b b{color:var(--text);font-variant-numeric:tabular-nums}
+.xr-b.to{background:var(--accent-light);color:var(--text);font-weight:600}
+.xr-b.to b{color:var(--accent)}
+.xr-line{flex:1 0 28px;max-width:90px;height:2px;margin:0 4px;position:relative;
+  background:repeating-linear-gradient(90deg,var(--border2) 0 5px,transparent 5px 9px)}
+.xr-line::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left:7px solid var(--accent);border-right:0}
+.xr-note{font-size:12px;color:var(--text3);margin-top:6px;overflow-wrap:anywhere}
+.xr-note b{color:var(--text2)}
+.xr-side{display:flex;align-items:center;gap:8px;justify-content:flex-end;white-space:nowrap}
+.xr-st{font-size:12px;font-weight:800;border-radius:999px;padding:4px 12px;background:var(--surface2);color:var(--text2)}
+.xr-st.pending{background:var(--yellow-light);color:var(--yellow)}
+.xr-st.approved{background:var(--green-light);color:var(--green)}
+.xr-st.rejected{background:var(--red-light);color:var(--red)}
+.xr-cancel{border:0;background:transparent;color:var(--text3);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:8px}
+.xr-cancel:hover{background:var(--red-light);color:var(--red)}
+@media (max-width:760px){
+  .xr-row{grid-template-columns:1fr;gap:10px}
+  .xr-side{justify-content:flex-start}
+  .xr-side .btn{flex:1}
+}
+/* หน้าสาขาของ admin — ผังเขต (สีจากตัวแปรของระบบ) */
+.zm-legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text2);margin:0 4px 12px}
+.zm-legend span{display:inline-flex;align-items:center;gap:7px}
+.zm-zone{display:grid;grid-template-columns:210px 1fr;background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.zm-root{padding:18px 20px;color:#fff;display:flex;flex-direction:column;justify-content:center;gap:2px;
+  background:linear-gradient(150deg,var(--accent) 0%,color-mix(in srgb,var(--accent) 72%,#7A2400) 100%)}
+.zm-nick{font-size:21px;font-weight:800;letter-spacing:-.3px;line-height:1.15}
+.zm-full{font-size:12.5px;opacity:.85}
+.zm-sum{margin-top:10px;font-size:14px;font-weight:600}
+.zm-sum b{font-size:30px;font-weight:800;letter-spacing:-.8px;font-variant-numeric:tabular-nums;margin-right:2px}
+.zm-sum span{opacity:.85;font-weight:500}
+.zm-leaves{padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-content:center}
+.zm-leaf{display:inline-flex;align-items:center;gap:8px;background:var(--accent-light);border:1px solid transparent;border-radius:999px;
+  padding:4px 12px 4px 4px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;transition:.15s;min-height:34px}
+.zm-leaf:hover{border-color:var(--accent);background:var(--surface)}
+.zm-leaf.none{background:transparent;border:1.5px dashed var(--border2);color:var(--text3)}
+.zm-cnt{display:inline-grid;place-items:center;min-width:28px;height:26px;padding:0 6px;border-radius:999px;background:var(--surface);
+  color:var(--text);font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.zm-cnt.warn{background:var(--accent);color:#fff}
+.zm-cnt.none{background:transparent;box-shadow:none;border:1.5px dashed var(--border2);color:var(--text3)}
+.zm-acts{display:none;gap:2px;margin-left:2px}
+.zm-leaf:hover .zm-acts{display:inline-flex}
+.zm-acts button{border:0;background:transparent;color:var(--text3);font-size:12px;width:22px;height:22px;border-radius:50%;cursor:pointer}
+.zm-acts button:hover{background:var(--surface2);color:var(--text)}
+.zm-acts button.del:hover{background:var(--red-light);color:var(--red)}
+@media (hover:none){ .zm-acts{display:inline-flex} }
+@media (max-width:760px){
+  .zm-zone{grid-template-columns:1fr}
+  .zm-root{flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:14px 16px}
+  .zm-full{flex:1}
+  .zm-sum{margin:0 0 0 auto}.zm-sum b{font-size:22px}.zm-sum span{display:none}
+  .zm-leaves{padding:12px}
+}
+</style>
 </head>
 <body>
 
@@ -4859,7 +4993,7 @@ const QUIZ_BANK_POOL = {
 };
 
 // ==================== DB ====================
-let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], courseCatalog: [], chatLogs: [], cases: [], adminUsers: [] };
+let DB = { employees: {}, trainings: [], quizResults: [], customQuiz: [], quizMeta: { deleted: [], disabled: [] }, courseHistory: [], courseCatalog: [], chatLogs: [], cases: [], adminUsers: [], coachingPlans: {}, transferRequests: [] };
 /* ── แคช DB: ย้ายจาก localStorage → IndexedDB ───────────────────────────
    opt_db_cache กินราว 1.5 MB จากโควตา localStorage ~10 MB ที่ทุกแอปบน
    โดเมนนี้ใช้ร่วมกัน (hub / checklist / sales report) พอโควตาเต็มแอปอื่น
@@ -5131,6 +5265,8 @@ const _SB_TABLE = {
   trainingDrafts: 'training_drafts',
   cases:         'cases',
   chatLogs:      'chat_logs',
+  coachingPlans:    'coaching_plans',
+  transferRequests: 'transfer_requests',
 };
 const _SB_FIELD_MAP = {
   employees:     { branchId:'branch_id', empCode:'emp_code', positionGroup:'position_group', startDate:'start_date', disabledReason:'disabled_reason', disabledAt:'disabled_at', transferHistory:'transfer_history' },
@@ -5142,6 +5278,9 @@ const _SB_FIELD_MAP = {
   customQuiz:    { moduleId:'module_id' },
   courseHistory: { branchId:'branch_id', empId:'emp_id', empCode:'emp_code', empName:'emp_name', courseName:'course_name', batchNo:'batch_no', courseDate:'course_date' },
   branchOverrides: { branchId:'branch_id', managerName:'manager_name', branchName:'branch_name' },
+  coachingPlans:    { branchId:'branch_id', updatedBy:'updated_by', updatedAt:'updated_at' },
+  transferRequests: { empId:'emp_id', empName:'emp_name', empCode:'emp_code', fromBranch:'from_branch', toBranch:'to_branch', moveDate:'move_date',
+                      requestedBy:'requested_by', requestedAt:'requested_at', decidedBy:'decided_by', decidedAt:'decided_at', decisionNote:'decision_note' },
 };
 function _camelToSnake(s) { return s.replace(/[A-Z]/g, c => '_' + c.toLowerCase()); }
 function _snakeToCamel(s) { return s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }
@@ -5203,7 +5342,7 @@ async function _sbAll(sb, table, tweak, max) {
 async function sbLoadAll() {
   await sbAuthReady();          // รอล็อกอิน Supabase ก่อนแตะตาราง
   const sb = _initSb(); if (!sb) throw new Error('Supabase client not ready');
-  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse, clg] = await Promise.all([
+  const [emps, trs, qrs, cqs, chs, qms, bos, cat, cse, clg, cpl, trq] = await Promise.all([
     _sbAll(sb, 'employees'),
     _sbAll(sb, 'trainings'),
     _sbAll(sb, 'quiz_results'),
@@ -5215,7 +5354,20 @@ async function sbLoadAll() {
     _sbAll(sb, 'cases'),
     // ประวัติแชต — เอาแค่ 2,000 รายการล่าสุดพอ หน้าประวัติโชว์ได้ 80 บทสนทนาอยู่แล้ว
     _sbAll(sb, 'chat_logs', q => q.order('ts', { ascending: false }), 2000),
+    _sbAll(sb, 'coaching_plans'),
+    _sbAll(sb, 'transfer_requests'),
   ]);
+  /* แผนการสอนประจำเดือน + คำขอย้ายสาขา — ตารางใหม่ (supabase-coaching-plan-transfer.sql)
+     ยังไม่ได้รัน SQL = ข้ามเงียบ ๆ แล้วหน้าจอบอกว่ายังไม่เปิดใช้งาน ไม่ให้บันทึกลงที่ไม่มีอยู่ */
+  if (cpl && !cpl.error && Array.isArray(cpl.data)) {
+    _coachingReady = true;
+    DB.coachingPlans = {};
+    cpl.data.forEach(r => { const p = _fromSb('coachingPlans', r); if (!Array.isArray(p.items)) p.items = []; DB.coachingPlans[p.id] = p; });
+  }
+  if (trq && !trq.error && Array.isArray(trq.data)) {
+    _xferReady = true;
+    DB.transferRequests = trq.data.map(r => _fromSb('transferRequests', r));
+  }
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
   }
@@ -7008,6 +7160,7 @@ function showWelcomeModal(subtitle) {
 const BRANCH_NAV_ITEMS = [
   { page: 'dashboard',      icon: '🏠',  label: 'หน้าหลัก' },
   { page: 'employees',      icon: '👥',  label: 'พนักงาน' },
+  { page: 'coaching-plan',  icon: '📅',  label: 'แผนสอน' },
   { page: 'trainings',      icon: '📚',  label: 'การสอน' },
   { page: 'course-history', icon: '🎓',  label: 'หลักสูตร' },
   { page: 'cases',          icon: '📨',  label: 'เคส' },
@@ -7117,6 +7270,7 @@ function buildBranchNav() {
     <div class="nav-section-label">เมนูหลัก</div>
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
+    <div class="nav-item" id="nav-coaching-plan" onclick="showPage('coaching-plan')"><span class="nav-icon">📅</span> แผนการสอนงาน</div>
     <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอน &amp; ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-divider"></div>
@@ -7165,11 +7319,13 @@ const NAV_SECTION = {
   'admin-reports':        'การจัดการข้อมูล',
 };
 function buildAdminNav() {
-  const items = getActiveNavItems();
+  /* จัดเมนูเป็น 4 กลุ่ม (ภาพรวม · คนและสาขา · การสอนและประเมิน · ระบบ) — เรียงตามกลุ่ม คงลำดับเดิมในกลุ่ม */
+  const items = getActiveNavItems().map((it, i) => ({ it, i }))
+    .sort((a, b) => (_navGroupOf(a.it.page) - _navGroupOf(b.it.page)) || (a.i - b.i)).map(x => x.it);
   let html = '';
   let lastSection = null;
   items.forEach(it => {
-    const sec = NAV_SECTION[it.page] || '';
+    const sec = (NAV_GROUP_V2[_navGroupOf(it.page)] || [NAV_SECTION[it.page] || ''])[0];
     if (sec && sec !== lastSection) {
       if (lastSection !== null) html += '<div class="nav-divider"></div>';
       html += `<div class="nav-section-label">${sec}</div>`;
@@ -7179,6 +7335,7 @@ function buildAdminNav() {
   });
   document.getElementById('sidebar-nav').innerHTML = html;
   buildBottomNav(items);
+  _paintNavBadges();
 }
 
 function showPage(page) {
@@ -7200,6 +7357,7 @@ function showPage(page) {
   const pages = {
     'dashboard': renderDashboard, 'employees': renderEmployees,
     'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
+    'coaching-plan': renderCoachingPlanPage,
     'course-history': renderCourseHistory,
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
@@ -7217,6 +7375,18 @@ function showPage(page) {
   };
   if (page !== 'admin-dashboard') _viewBranchOverride = null;
   if (pages[page]) document.getElementById('main-content').innerHTML = pages[page]();
+  /* ของใหม่ที่ admin ต้องเห็น — แทรกหลังหัวหน้าของหน้านั้น ไม่ต้องรื้อแม่แบบเดิม */
+  if (currentUser?.type === 'admin') {
+    const extra = page === 'admin-dashboard' ? renderAdminTickets() + renderAdminTransferCard()
+                : page === 'admin-manage' ? renderAdminTransferCard()
+                : page === 'admin-trainings' ? renderAdminPlanOverview() : '';
+    if (extra) {
+      const main = document.getElementById('main-content');
+      const head = main.querySelector(':scope > .page-hero, :scope > .topbar');
+      if (head) head.insertAdjacentHTML('afterend', extra); else main.insertAdjacentHTML('afterbegin', extra);
+    }
+    _paintNavBadges();
+  }
   if (currentUser && currentUser.type === 'branch') {
     document.querySelectorAll('#main-content .topbar').forEach(el => el.remove());
   }
@@ -7235,6 +7405,7 @@ function updateBottomNav(page) {
     'dashboard': 'bnav-dashboard',
     'employees': 'bnav-employees',
     'trainings': 'bnav-trainings',
+    'coaching-plan': 'bnav-coaching-plan',
     'evaluations': 'bnav-trainings',
     'course-history': 'bnav-course-history',
     'manual': 'bnav-trainings',
@@ -8446,6 +8617,7 @@ function renderEmployees() {
     </div>
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
+  ${renderBranchTransferCard(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="emp-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -8498,7 +8670,10 @@ function renderEmpRows(emps) {
     <td data-label="ตำแหน่ง" style="font-size:12.5px;color:var(--text2)">${e.position}</td>
     <td data-label="วันเริ่มงาน" style="font-size:12.5px">${fmtDate(e.startDate)||'—'}</td>
     <td data-label="อายุงาน"><span style="font-size:12px;font-weight:600;color:var(--accent)">${calcTenureShort(e.startDate)}</span></td>
-    <td data-label="actions" style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
+    <td data-label="actions" style="text-align:right;white-space:nowrap">${_isEmpEnabled(e) && currentUser?.type === 'branch' ? (
+        (DB.transferRequests || []).some(r => r.empId === e.id && r.status === 'pending')
+          ? '<span class="badge badge-yellow" style="margin-right:4px">รออนุมัติย้าย</span>'
+          : `<button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openTransferRequest('${e.id}')">ขอย้าย</button>`) : ''}<button class="btn btn-sm btn-outline" onclick="openEditEmployee('${e.id}')">แก้ไข</button></td>
   </tr>`;}).join('');
 }
 
@@ -8637,7 +8812,9 @@ let _trainFilter = 'all';
 let _trainModuleFilter = '';
 let _trainResultFilter = '';
 let _trainSort = { key: 'date', dir: 'desc' };
+let _trainView = 'person';   // ค่าเริ่มต้นเป็นรายคน — อยากเห็นภาพรวมคนก่อน ค่อยกดดูรายละเอียดทีหลัง
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function setTrainView(v) { _trainView = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainModuleFilter(v) { _trainModuleFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainResultFilter(v) { _trainResultFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainSort(key) { _toggleSort(_trainSort, key); document.getElementById('main-content').innerHTML = renderTrainings(); }
@@ -8690,6 +8867,145 @@ function _sortTrainings(list) {
   });
 }
 
+
+/* ══════════ มุมมองรายคน ══════════
+   มุมมองรายครั้งตอบว่า "ครั้งนี้เป็นยังไง" ทีละแถว — คนละคำถามกับที่หัวหน้าสาขา/BZM อยากรู้จริง ๆ
+   ซึ่งคือ "คนคนนี้เป็นยังไงบ้าง" รวมทุกครั้งของเขาเป็นแถวเดียว: ล่าสุดเมื่อไร สอนไปกี่ครั้ง
+   โมดูลสะสมครบกี่ตัว ค้างประเมิน/หมดเวลากี่ครั้ง ผลสอบดีที่สุดเท่าไร แล้วกางดูประวัติทั้งหมดได้ */
+function _personSummaryRows(trains) {
+  const byEmp = new Map();
+  trains.forEach(t => {
+    (t.traineeIds || []).forEach(id => {
+      if (!byEmp.has(id)) byEmp.set(id, []);
+      byEmp.get(id).push(t);
+    });
+  });
+  const rows = [];
+  byEmp.forEach((list, empId) => {
+    const emp = getEmployee(empId);
+    if (!emp) return;                          // ลบ/ย้ายออกจากระบบไปแล้ว ไม่แสดงในสรุป
+    list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const pending = list.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).length;
+    const expired = list.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
+    // โมดูลสะสม — รวมทุก Module ที่เคยสอนคนนี้ (แยกตามสาขาด้วย เผื่อเคยย้ายสาขามา สะสมของสาขาเดิมไม่ปนกัน)
+    const modKeys = new Set(list.map(t => t.branchId + '|' + t.moduleId));
+    let modDone = 0;
+    modKeys.forEach(k => {
+      const [bid, mid] = k.split('|');
+      const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
+      if (prog.total > 0 && prog.done >= prog.total) modDone++;
+    });
+    let bestQuizPct = null;
+    list.forEach(t => {
+      _quizAttemptsFor(t.id).forEach(r => {
+        const pct = (r.pct != null) ? r.pct : (r.total ? Math.round(r.score / r.total * 100) : 0);
+        if (bestQuizPct == null || pct > bestQuizPct) bestQuizPct = pct;
+      });
+    });
+    rows.push({
+      empId, emp, trainings: list,
+      count: list.length, last: list[0].date,
+      pending, expired, done: list.length - pending - expired,
+      modDone, modTotal: modKeys.size,
+      bestQuizPct,
+    });
+  });
+  rows.sort((a, b) => new Date(b.last) - new Date(a.last));    // ล่าสุดก่อน — เหมือน default ของมุมมองรายครั้ง
+  return rows;
+}
+
+/* ตารางสรุปรายคน — ใช้ร่วมกันทั้งฝั่งสาขาและฝั่งแอดมิน ต่างกันแค่มีคอลัมน์สาขาหรือไม่ */
+function renderPersonSummaryTable(rows, opts) {
+  opts = opts || {};
+  const cols = opts.showBranch ? 8 : 7;
+  return `<div class="table-wrap"><table class="cards-on-mobile person-summary-table">
+    <thead><tr>
+      <th>ชื่อ - นามสกุล</th>
+      ${opts.showBranch ? '<th>สาขา</th>' : ''}
+      <th>สอนล่าสุด</th>
+      <th style="text-align:center">จำนวนครั้ง</th>
+      <th style="text-align:center">โมดูลสะสม</th>
+      <th style="text-align:center">ค้างอยู่</th>
+      <th style="text-align:center">ผลสอบดีสุด</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${!rows.length ? `<tr><td colspan="${cols}" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>` : rows.map(r => {
+      const modBadge = r.modTotal
+        ? `<span class="badge ${r.modDone===r.modTotal?'badge-green':'badge-navy'}" style="font-size:11px;font-weight:700;cursor:pointer" onclick="showPersonModuleBreakdown('${r.empId}')" title="กดดูรายโมดูล">${r.modDone}/${r.modTotal} Module${r.modDone===r.modTotal?' ✓':''}</span>`
+        : '<span style="color:var(--text4)">—</span>';
+      const pendBits = [];
+      if (r.pending) pendBits.push(`<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน ${r.pending}</span>`);
+      if (r.expired) pendBits.push(`<span class="badge badge-red" style="font-size:10.5px">หมดเวลา ${r.expired}</span>`);
+      const pendCell = pendBits.length ? pendBits.join(' ') : '<span class="badge badge-green" style="font-size:10.5px">ไม่มีค้าง</span>';
+      const quizCell = r.bestQuizPct != null
+        ? `<span style="font-weight:700;color:${r.bestQuizPct>=80?'var(--green)':'var(--red)'}">${r.bestQuizPct}%</span>`
+        : '<span style="color:var(--text4)">—</span>';
+      return `<tr>
+        <td data-label="พนักงาน" style="font-size:12.5px"><strong>${r.emp.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${r.emp.position||''}</span></td>
+        ${opts.showBranch ? `<td data-label="สาขา" style="font-size:12.5px;font-weight:600">${r.emp.branchId||''}</td>` : ''}
+        <td data-label="สอนล่าสุด" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(r.last)}</span><span class="dt-long">${fmtDateTimeLong(r.last)}</span></td>
+        <td data-label="จำนวนครั้ง" style="text-align:center;font-weight:700">${r.count}</td>
+        <td data-label="โมดูลสะสม" style="text-align:center">${modBadge}</td>
+        <td data-label="ค้างอยู่" style="text-align:center;white-space:nowrap">${pendCell}</td>
+        <td data-label="ผลสอบดีสุด" style="text-align:center">${quizCell}</td>
+        <td data-label="actions" style="white-space:nowrap;text-align:right"><button class="btn btn-sm btn-view" onclick="openPersonTrainingHistory('${r.empId}')">ดูประวัติ</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+/* กางดูประวัติรายคน — ทุกครั้งที่เคยสอนคนนี้ (ในขอบเขตสาขาที่ผู้ดูมีสิทธิ์) ไม่ผูกกับตัวกรองบนหน้า
+   เพราะอยากเห็นภาพรวมทั้งหมดของคนคนนี้จริง ๆ ไม่ใช่แค่ส่วนที่กรองอยู่ตอนนั้น */
+function openPersonTrainingHistory(empId) {
+  const emp = getEmployee(empId); if (!emp) return;
+  const ownOnly = currentUser?.type === 'branch';                 // สาขาเห็นแค่ของตัวเอง · แอดมิน/BZM/exec เป็นผู้สังเกตการณ์ทั้งระบบ
+  const list = DB.trainings.filter(t => (!ownOnly || t.branchId === currentUser.branchId) && (t.traineeIds || []).includes(empId))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  showModal(`ประวัติการสอน · ${emp.name}`, `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">${emp.position||''} · ${BRANCH_MASTER[emp.branchId]?.name || emp.branchId} · ทั้งหมด ${list.length} ครั้ง</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto">
+    ${list.map(t => {
+      const badge = t.eval
+        ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="font-size:10.5px">${getEvalResultShort(t.eval.result)}</span>`
+        : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="font-size:10.5px">หมดเวลา</span>' : '<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน</span>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="closeModal();viewTraining('${t.id}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700">${MODULES[t.moduleId]?.name || t.moduleId}</div>
+          <div style="font-size:11.5px;color:var(--text3)">${fmtDateTime(t.date)} · ${t.trainerName||'—'}</div>
+        </div>
+        ${badge}
+      </div>`;
+    }).join('') || '<div style="text-align:center;color:var(--text3);padding:20px">ไม่มีประวัติ</div>'}
+    </div>`, null, 'ปิด');
+}
+
+/* กางดูรายโมดูลของคนคนหนึ่ง — โมดูลไหนสะสมครบแล้ว โมดูลไหนยังขาดกี่หัวข้อ */
+function showPersonModuleBreakdown(empId) {
+  const emp = getEmployee(empId); if (!emp) return;
+  const ownOnly = currentUser?.type === 'branch';
+  const list = DB.trainings.filter(t => (!ownOnly || t.branchId === currentUser.branchId) && (t.traineeIds || []).includes(empId));
+  const modKeys = new Set(list.map(t => t.branchId + '|' + t.moduleId));
+  const modList = [...modKeys].map(k => {
+    const [bid, mid] = k.split('|');
+    const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
+    return { name: MODULES[mid]?.name || mid, done: prog.done, total: prog.total };
+  }).sort((a, b) => (a.total - a.done) - (b.total - b.done) || a.name.localeCompare(b.name, 'th'));
+  showModal(`โมดูลของ ${emp.name}`, `
+    <div style="display:flex;flex-direction:column;gap:8px">
+    ${modList.map(m => {
+      const complete = m.total > 0 && m.done >= m.total;
+      const pct = m.total ? Math.round(m.done / m.total * 100) : 0;
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:700">${m.name}</span>
+          <span class="badge ${complete?'badge-green':'badge-navy'}" style="font-size:10.5px">${m.done}/${m.total} หัวข้อ${complete?' ✓':''}</span>
+        </div>
+        <div style="height:6px;border-radius:4px;background:var(--surface2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${complete?'var(--green)':'var(--accent)'}"></div></div>
+      </div>`;
+    }).join('') || '<div style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล Module</div>'}
+    </div>`, null, 'ปิด');
+}
+
 function renderTrainings() {
   const bid = getBranchId(); const trains = getBranchTrainings(bid);
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
@@ -8716,6 +9032,7 @@ function renderTrainings() {
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
+  ${renderPlanStrip(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -8736,7 +9053,12 @@ function renderTrainings() {
       <select class="form-select" onchange="setTrainResultFilter(this.value)" style="max-width:240px">
         ${_resultOptionsHtml(_trainResultFilter)}
       </select>
+      <span class="cat-tabs" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+        <button class="btn btn-sm ${_trainView==='record'?'btn-navy':'btn-outline'}" style="${_trainView==='record'?'':'background:transparent;border:0'}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
+        <button class="btn btn-sm ${_trainView==='person'?'btn-navy':'btn-outline'}" style="${_trainView==='person'?'':'background:transparent;border:0'}" onclick="setTrainView('person')">🙍 รายคน</button>
+      </span>
     </div>
+    ${_trainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch:false}) : `
     <div class="table-wrap"><table class="cards-on-mobile train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_trainSort,'setTrainSort')}
@@ -8784,7 +9106,7 @@ function renderTrainings() {
           </td>
         </tr>`;}).join('')}
       </tbody>
-    </table></div>
+    </table></div>`}
   </div>`;
 }
 
@@ -15502,30 +15824,19 @@ function _renderAdminBranchesPanel(tabBtn, branchCount, empCount, bzmCount) {
         ${tabBtn('branches', 'สาขา', branchCount)}
         ${tabBtn('bzm', 'BZM', bzmCount||0)}
       </div>
-      <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:240px">
+      <select class="form-select" id="branch-mgr-filter" onchange="filterBranches()" style="width:220px">
         <option value="">— ทุกผู้จัดการเขต —</option>
         ${mgrOptions}
+      </select>
+      <select class="form-select" id="branch-sort" onchange="_bcSort=this.value;filterBranches()" style="width:190px">
+        <option value="most"${_bcSort==='most'?' selected':''}>พนักงานมาก → น้อย</option>
+        <option value="id"${_bcSort==='id'?' selected':''}>เรียงตามรหัสสาขา</option>
+        <option value="least"${_bcSort==='least'?' selected':''}>พนักงานน้อย → มาก</option>
       </select>
       <input class="search-input" id="branch-search" placeholder="ค้นหารหัส / ชื่อสาขา..." oninput="filterBranches()" style="flex:1;min-width:180px;margin-left:auto">
     </div>
   </div>
-  <div class="card">
-    <div class="table-wrap">
-      <table class="cards-on-mobile branch-table">
-        <thead><tr>
-          ${_sortHeader('id','รหัส',_branchSort,'setBranchSort')}
-          ${_sortHeader('name','ชื่อสาขา',_branchSort,'setBranchSort')}
-          ${_sortHeader('manager','ผู้จัดการเขต',_branchSort,'setBranchSort')}
-          ${_sortHeader('employees','ทั้งหมด',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('mgr_team','ผจก.สาขา',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('cook','ครัว',_branchSort,'setBranchSort','center')}
-          ${_sortHeader('service','บริการ',_branchSort,'setBranchSort','center')}
-          <th style="text-align:right">จัดการ</th>
-        </tr></thead>
-        <tbody id="branches-tbody">${renderBranchRows(_sortBranchEntries(Object.entries(BRANCH_MASTER)))}</tbody>
-      </table>
-    </div>
-  </div>`;
+  <div id="branches-grid">${renderBranchCards(Object.entries(BRANCH_MASTER))}</div>`;
 }
 
 let _adminEmpSort = { key: 'name', dir: 'asc' };
@@ -15597,39 +15908,65 @@ function _renderAdminEmployeesPanel(tabBtn, branchCount, empCount, bzmCount) {
 function renderAdminBranches() { _adminManageTab = 'branches'; return renderAdminManage(); }
 function renderAdminEmployees() { _adminManageTab = 'employees'; return renderAdminManage(); }
 
-function renderBranchRows(entries) {
-  if(!entries.length) return '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">🔍 ไม่พบสาขา</td></tr>';
-  return entries.map(([id,b])=>{
-    const emps = getBranchEmployees(id).filter(e => e.status === 'active');
-    const totalEmp = emps.length;
-    const mgrTeam = emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา').length;
-    const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
-    const service = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
-    const shortName = b.name.replace(id+' ','');
-    return `<tr>
-      <td data-label="รหัส" style="font-weight:800;color:var(--primary)">${id}</td>
-      <td data-label="ชื่อ" style="cursor:pointer" onclick="adminViewBranch('${id}')" title="คลิกเพื่อดูพนักงาน"><strong style="font-weight:700">${shortName}</strong></td>
-      <td data-label="ผู้จัดการ" style="color:var(--text2);font-size:12.5px">${b.manager||'—'}</td>
-      <td data-label="พนักงานทั้งหมด" style="text-align:center;font-weight:800">${totalEmp}</td>
-      <td data-label="ทีมผู้จัดการสาขา" style="text-align:center;font-weight:700;color:var(--blue)">${mgrTeam}</td>
-      <td data-label="พนักงานครัว" style="text-align:center;font-weight:700;color:var(--red)">${cook}</td>
-      <td data-label="พนักงานบริการ" style="text-align:center;font-weight:700;color:var(--green)">${service}</td>
-      <td data-label="actions" style="text-align:right;white-space:nowrap">
-        <button class="btn btn-sm btn-outline" style="margin-right:4px" onclick="openEditBranch('${id}')">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" onclick="openDeleteBranch('${id}')">ลบ</button>
-      </td>
-    </tr>`;
-  }).join('');
+/* หน้าสาขาของ admin — ผังเขต
+   กล่องส้มซ้ายคือผู้จัดการเขต (ชื่อเล่น · ชื่อเต็ม · ยอดคน) แตกเป็นแคปซูลสาขาในเขต
+   วงกลมในแคปซูลคือจำนวนคน · วงส้ม = ต้องดู · เส้นประ = ยังไม่มีคน · กดแคปซูล = ดูพนักงาน
+   "ต้องดู" นับเฉพาะกรณีชัดเจน: ไม่มีทีมผู้จัดการ / ไม่มีคนครัว / ไม่มีคนบริการ (ไม่ตั้งเกณฑ์อัตรากำลังเอง)
+   สีทั้งหมดมาจากตัวแปรของระบบ จึงเข้ากับธีมเดิม */
+let _bcSort = 'most';
+const _bcNick = mgr => { const m = String(mgr || '').match(/^(.*?)\s*\((.+)\)\s*$/); return m ? { nick: m[2], full: m[1] } : { nick: mgr || 'ไม่ระบุเขต', full: '' }; };
+function _bcStats(id) {
+  const emps = getBranchEmployees(id).filter(e => e.status === 'active');
+  const g = x => emps.filter(e => getPositionGroup(e.position) === x).length;
+  return { total: emps.length, mgr: g('ทีมผู้จัดการสาขา'), cook: g('พนักงานครัว'), svc: g('พนักงานบริการ') };
 }
-
+function _bcFlags(st) {
+  if (!st.total) return [];
+  const f = [];
+  if (!st.mgr) f.push('ไม่มีทีมผู้จัดการ');
+  if (!st.cook) f.push('ไม่มีคนครัว');
+  if (!st.svc) f.push('ไม่มีคนบริการ');
+  return f;
+}
+function renderBranchCards(entries) {
+  if (!entries.length) return '<div class="card" style="text-align:center;color:var(--text3);padding:34px">🔍 ไม่พบสาขา</div>';
+  const zones = {};
+  entries.forEach(([id, b]) => { const k = b.manager || ''; (zones[k] = zones[k] || []).push([id, b, _bcStats(id)]); });
+  const zTotal = k => zones[k].reduce((a, r) => a + r[2].total, 0);
+  const order = Object.keys(zones).sort((x, y) => zTotal(y) - zTotal(x) || _bcNick(x).nick.localeCompare(_bcNick(y).nick, 'th'));
+  const sortList = list => list.sort((x, y) =>
+    _bcSort === 'most' ? (y[2].total - x[2].total) || x[0].localeCompare(y[0]) :
+    _bcSort === 'least' ? (x[2].total - y[2].total) || x[0].localeCompare(y[0]) : x[0].localeCompare(y[0]));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  return `<div class="zm-legend"><span><b class="zm-cnt">12</b>จำนวนคน</span><span><b class="zm-cnt warn">5</b>ต้องดู</span><span><b class="zm-cnt none">0</b>ยังไม่มีคน</span></div>` +
+    order.map(k => {
+      const n = _bcNick(k), list = sortList(zones[k]);
+      return `<section class="zm-zone">
+        <div class="zm-root">
+          <div class="zm-nick">${esc(n.nick)}</div>
+          ${n.full ? `<div class="zm-full">${esc(n.full)}</div>` : ''}
+          <div class="zm-sum"><b>${zTotal(k).toLocaleString('en-US')}</b> คน <span>· ${list.length} สาขา</span></div>
+        </div>
+        <div class="zm-leaves">${list.map(([id, b, st]) => {
+          const f = _bcFlags(st);
+          const cls = !st.total ? 'none' : f.length ? 'warn' : '';
+          const tip = st.total ? `${id} ${b.name.replace(id + ' ', '')} · ผจก. ${st.mgr} · ครัว ${st.cook} · บริการ ${st.svc}${f.length ? ' · ' + f.join(' · ') : ''}` : `${id} ยังไม่มีพนักงาน`;
+          return `<span class="zm-leaf ${cls}" onclick="adminViewBranch('${id}')" title="${esc(tip)}">
+            <b class="zm-cnt ${cls}">${st.total}</b><span class="zm-txt">${id} ${esc(b.name.replace(id + ' ', ''))}</span>
+            <span class="zm-acts" onclick="event.stopPropagation()"><button onclick="openEditBranch('${id}')" title="แก้ไขสาขา">✎</button><button class="del" onclick="openDeleteBranch('${id}')" title="ลบสาขา">✕</button></span>
+          </span>`;
+        }).join('')}</div>
+      </section>`;
+    }).join('');
+}
 function filterBranches() {
   const q = (document.getElementById('branch-search')?.value||'').toLowerCase();
   const mgr = document.getElementById('branch-mgr-filter')?.value||'';
   let entries = Object.entries(BRANCH_MASTER);
   if(q) entries = entries.filter(([id,b])=>id.includes(q)||b.name.toLowerCase().includes(q));
   if(mgr) entries = entries.filter(([id,b])=>b.manager===mgr);
-  const tbody = document.getElementById('branches-tbody');
-  if(tbody) tbody.innerHTML = renderBranchRows(_sortBranchEntries(entries));
+  const grid = document.getElementById('branches-grid');
+  if(grid) grid.innerHTML = renderBranchCards(entries);
 }
 
 function openAddBranch() {
@@ -16064,6 +16401,522 @@ function adminAddEmpToBranch(bid) {
   });
 }
 
+// ==================== แผนการสอนงานประจำเดือน ====================
+// สาขาวางแผนก่อนว่าเดือนนี้จะสอน Module ไหนให้ใคร แยกครัว / บริการ
+// แล้วค่อยไปบันทึกการสอนตามปกติ — แผนเป็นแค่ตัวช่วยวางงาน
+// บันทึกที่ไม่ตรงแผน (สอนนอกแผน · สอนไม่ครบ · คนละวัน) ระบบไม่ฟ้องอะไรทั้งนั้น
+// แค่ขึ้นเครื่องหมาย "สอนแล้ว" ให้แผนที่มีบันทึกตรงกันในเดือนเดียวกัน
+// ตาราง coaching_plans · 1 แถว = 1 สาขา 1 เดือน (supabase-coaching-plan-transfer.sql)
+let _coachingReady = false;          // true = ตารางมีอยู่จริง บันทึกได้
+let _planMonth = null;               // YYYY-MM ที่กำลังดู
+const _TH_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const _ymNow = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const _ymShift = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const _ymLabel = ym => { const [y, m] = ym.split('-').map(Number); return _TH_MONTHS[m - 1] + ' ' + (y + 543); };
+const _ymOf = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const _planId = (bid, ym) => bid + '_' + ym;
+const _planGroup = moduleId => (MODULES[moduleId] && MODULES[moduleId].group === 'Cook') ? 'kitchen' : 'service';
+const _escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function getCoachingPlan(bid, ym) {
+  return (DB.coachingPlans || {})[_planId(bid, ym)] || { id: _planId(bid, ym), branchId: bid, month: ym, items: [] };
+}
+/* แผนข้อนี้มีบันทึกการสอนตรงกันไหม — เดือนเดียวกัน Module เดียวกัน
+   ถ้าแผนระบุคนไว้ ต้องมีคนในแผนอยู่ในบันทึกอย่างน้อย 1 คน
+   ใช้แค่ขึ้นเครื่องหมาย ไม่ใช่ตัวตัดสินอะไร */
+function _planItemDone(bid, ym, it) {
+  return (DB.trainings || []).some(t =>
+    t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+}
+
+function renderCoachingPlanPanel(bid) {
+  if (!bid || bid === 'ALL') return '';
+  if (!_planMonth) _planMonth = _ymNow();
+  const ym = _planMonth, plan = getCoachingPlan(bid, ym);
+  const items = plan.items || [];
+  const canEdit = _coachingReady && (currentUser?.type === 'branch' || isAdminRole());
+  const col = (grp, icon, label) => {
+    const list = items.filter(it => _planGroup(it.moduleId) === grp);
+    const done = list.filter(it => _planItemDone(bid, ym, it)).length;
+    return `<div class="cp-col">
+      <div class="cp-col-head">
+        <span class="cp-col-title">${icon} ${label}</span>
+        <span class="cp-col-count">${list.length ? `สอนแล้ว <b>${done}</b>/${list.length}` : 'ยังไม่มีแผน'}</span>
+        ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}')">+ เพิ่มแผน</button>` : ''}
+      </div>
+      ${list.length ? list.map(it => {
+        const m = MODULES[it.moduleId] || {};
+        const ok = _planItemDone(bid, ym, it);
+        const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
+        return `<div class="cp-item ${ok ? 'ok' : ''}">
+          <div class="cp-item-main">
+            <div class="cp-item-name">${_escH(m.name || it.moduleId)}</div>
+            <div class="cp-item-meta">
+              ${(it.subtopics || []).length ? `<span>${it.subtopics.length} หัวข้อย่อย</span>` : ''}
+              ${names.length ? `<span>👤 ${_escH(names.join(', '))}</span>` : '<span>ยังไม่ระบุคน</span>'}
+              ${it.planDate ? `<span>📅 ${_escH(fmtDate(it.planDate))}</span>` : ''}
+              ${it.note ? `<span>📝 ${_escH(it.note)}</span>` : ''}
+            </div>
+          </div>
+          <div class="cp-item-side">
+            ${ok ? '<span class="badge badge-green">✓ สอนแล้ว</span>' : ''}
+            ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
+            ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
+          </div>
+        </div>`;
+      }).join('') : `<div class="cp-empty">กด "+ เพิ่มแผน" เพื่อวางว่าเดือนนี้จะสอน Module ไหน</div>`}
+    </div>`;
+  };
+  return `
+  <style>
+    .cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+    .cp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .cp-title{font-size:16px;font-weight:800;color:var(--text);flex:1;min-width:200px}
+    .cp-title small{display:block;font-size:12px;font-weight:500;color:var(--text3);margin-top:2px}
+    .cp-month{display:flex;align-items:center;gap:6px}
+    .cp-month b{min-width:130px;text-align:center;font-size:14px}
+    .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .cp-col{background:var(--surface2);border-radius:12px;padding:12px}
+    .cp-col-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+    .cp-col-title{font-weight:800;font-size:14px;flex:1}
+    .cp-col-count{font-size:12px;color:var(--text2)}
+    .cp-col-count b{color:var(--green)}
+    .cp-item{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:8px}
+    .cp-item.ok{border-color:#BBE5C8}
+    .cp-item-main{flex:1;min-width:0}
+    .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
+    .cp-item-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text3);margin-top:3px}
+    .cp-item-side{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
+    @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} .cp-item{flex-direction:column;align-items:stretch} .cp-item-side{justify-content:flex-start} }
+  </style>
+  <div class="cp-card">
+    <div class="cp-top">
+      <div class="cp-title">📅 แผนการสอนงานประจำเดือน</div>
+      <div class="cp-month">
+        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
+        <b>${_ymLabel(ym)}</b>
+        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
+      </div>
+    </div>
+    ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+      ระบบแผนการสอนยังไม่เปิดใช้งาน${isAdminRole() ? ' — ต้องรันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน' : ' — แจ้ง Admin'}</div>` : ''}
+    <div class="cp-grid">
+      ${col('kitchen', '👨‍🍳', 'ครัว')}
+      ${col('service', '🍽', 'บริการ')}
+    </div>
+  </div>`;
+}
+
+/* หน้าแผนการสอนงาน (เมนูของตัวเอง) */
+function renderCoachingPlanPage() {
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body"><div class="page-hero-title">แผนการสอนงาน</div></div>
+    <button class="btn btn-outline" onclick="showPage('trainings')">📚 ไปหน้าบันทึกการสอน</button>
+  </div>
+  ${renderCoachingPlanPanel(getBranchId())}`;
+}
+/* แถบสั้นบนหน้าบันทึกการสอน — ความคืบหน้าแผนเดือนนี้ กดแล้วไปหน้าแผน */
+function renderPlanStrip(bid) {
+  if (!_coachingReady || !bid || bid === 'ALL') return '';
+  const ym = _ymNow(), items = getCoachingPlan(bid, ym).items || [];
+  const done = items.filter(it => _planItemDone(bid, ym, it)).length;
+  return `<div onclick="_planMonth='${ym}';showPage('coaching-plan')" style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 16px;margin-bottom:16px;font-size:13.5px">
+    <span style="font-weight:800">📅 แผนการสอนเดือน${_ymLabel(ym)}</span>
+    <span style="color:var(--text2)">${items.length ? `สอนแล้ว <b style="color:var(--green)">${done}</b> จาก ${items.length} แผน` : 'ยังไม่ได้วางแผนเดือนนี้'}</span>
+    <span style="margin-left:auto;color:var(--accent);font-weight:700">${items.length ? 'ดูแผน' : 'วางแผน'} →</span>
+  </div>`;
+}
+function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
+
+/* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
+function openPlanItem(grp, itemId) {
+  if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const plan = getCoachingPlan(bid, ym);
+  const it = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
+  const want = grp === 'kitchen' ? 'Cook' : 'Service';
+  const mods = Object.entries(MODULES).filter(([, m]) => m.group === want);
+  const empGrp = grp === 'kitchen' ? 'พนักงานครัว' : 'พนักงานบริการ';
+  /* คนในกลุ่มนั้นขึ้นก่อน ทีมผู้จัดการสาขาตามมา (สอนได้ทั้งสองฝั่ง) */
+  const emps = getBranchEmployees(bid).filter(_isEmpEnabled)
+    .filter(e => [empGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
+    .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
+  const sel = new Set((it && it.empIds) || []);
+  showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
+    <div class="form-full">
+      <label class="form-label">Module <span class="req">*</span></label>
+      <select class="form-select" id="cp-module" onchange="_cpSubtopics()">
+        <option value="">— เลือก Module —</option>
+        ${mods.map(([id, m]) => `<option value="${id}"${it && it.moduleId === id ? ' selected' : ''}>${_escH(m.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-full">
+      <label class="form-label">หัวข้อย่อยที่จะสอน <span style="font-weight:500;color:var(--text3)">(ไม่เลือก = ทั้ง Module)</span></label>
+      <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify((it && it.subtopics) || []).replace(/'/g, '&#39;')}'></div>
+    </div>
+    <div class="form-full">
+      <label class="form-label">พนักงานที่จะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+      <div class="checkbox-group" style="max-height:190px;overflow:auto">
+        ${emps.length ? emps.map(e => `<label class="checkbox-item"><input type="checkbox" class="cp-emp" value="${e.id}"${sel.has(e.id) ? ' checked' : ''}> ${_escH(e.name)} <span style="color:var(--text3);font-size:12px">· ${_escH(e.position || '')}</span></label>`).join('')
+          : '<span class="text-muted">ไม่มีพนักงานในกลุ่มนี้</span>'}
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่วางแผนจะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+        <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
+      <div><label class="form-label">หมายเหตุ</label>
+        <input class="form-input" id="cp-note" value="${_escH((it && it.note) || '')}" placeholder="เช่น สอนช่วงบ่ายหลังปิดรอบ"></div>
+    </div>
+    ${itemId ? `<div style="margin-top:12px"><button type="button" class="btn btn-sm btn-danger" onclick="deletePlanItem('${itemId}')">ลบแผนข้อนี้</button></div>` : ''}
+  `, () => {
+    const moduleId = document.getElementById('cp-module').value;
+    if (!moduleId) { notify('กรุณาเลือก Module', 'error'); return; }
+    const rec = {
+      id: itemId || genId('P'), moduleId,
+      subtopics: [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value),
+      empIds: [...document.querySelectorAll('.cp-emp:checked')].map(c => c.value),
+      planDate: document.getElementById('cp-date').value || '',
+      note: (document.getElementById('cp-note').value || '').trim()
+    };
+    const p = getCoachingPlan(bid, ym);
+    const items = (p.items || []).filter(x => x.id !== rec.id);
+    const at = itemId ? (p.items || []).findIndex(x => x.id === itemId) : -1;
+    if (at >= 0) items.splice(at, 0, rec); else items.push(rec);
+    _savePlan(bid, ym, items);
+    closeModal(); showPage(currentPage); notify('บันทึกแผนการสอนแล้ว');
+  }, 'บันทึกแผน');
+  _cpSubtopics();
+}
+function _cpSubtopics() {
+  const box = document.getElementById('cp-subs'); if (!box) return;
+  const m = MODULES[document.getElementById('cp-module').value];
+  let pre = []; try { pre = JSON.parse(box.dataset.sel || '[]'); } catch (_) {}
+  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
+    : '<span class="text-muted">เลือก Module ก่อน</span>';
+}
+function deletePlanItem(itemId) {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const p = getCoachingPlan(bid, ym);
+  _savePlan(bid, ym, (p.items || []).filter(x => x.id !== itemId));
+  closeModal(); showPage(currentPage); notify('ลบแผนแล้ว');
+}
+function _savePlan(bid, ym, items) {
+  const rec = { id: _planId(bid, ym), branchId: bid, month: ym, items,
+    updatedBy: currentUser?.name || currentUser?.nick || '—', updatedAt: new Date().toISOString() };
+  if (!DB.coachingPlans) DB.coachingPlans = {};
+  DB.coachingPlans[rec.id] = rec;
+  gsSave('coachingPlans', rec.id, rec);
+}
+
+/* กด "บันทึกการสอน" จากแผน → เปิดหน้าต่างบันทึกเดิม แล้วเติมคนกับ Module ให้
+   ยังแก้ได้ทุกช่อง — บันทึกจริงไม่ต้องตรงแผน */
+function startTrainingFromPlan(itemId) {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
+  openAddTraining();
+  setTimeout(() => {
+    (it.empIds || []).slice(0, 2).forEach(id => { if (document.getElementById('empopt-' + id)) toggleEmpSelection(id); });
+    const sel = document.getElementById('tr-module');
+    if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
+      sel.value = it.moduleId;
+      try { updateSubtopics(); } catch (_) {}
+      setTimeout(() => (it.subtopics || []).forEach(s => {
+        const c = [...document.querySelectorAll('.sub-check')].find(x => x.value === s);
+        if (c && !c.checked && !c.disabled) c.click();
+      }), 60);
+    }
+  }, 80);
+}
+
+/* ภาพรวมแผนทุกสาขา + ตรวจการสอนที่ไม่ตรงแผน (หน้าบันทึกการสอนของ admin)
+   ฝั่งสาขาไม่เห็นและไม่ถูกเตือน — เป็นเครื่องมือตรวจของ admin อย่างเดียว
+   บันทึก "ตรงแผน" = เดือนเดียวกัน Module เดียวกัน และถ้าแผนระบุคนไว้ ต้องมีคนในแผนอยู่ในบันทึก */
+function _planAudit(bid, ym) {
+  const items = getCoachingPlan(bid, ym).items || [];
+  const recs = (DB.trainings || []).filter(t => t.branchId === bid && _ymOf(t.date) === ym);
+  const matches = (t, it) => it.moduleId === t.moduleId &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)));
+  const off = recs.filter(t => !items.some(it => matches(t, it))).map(t => {
+    /* บอกเหตุผลให้ตามต่อได้: Module นี้ไม่มีในแผนเลย หรือมีแต่สอนคนละคน */
+    const sameMod = items.filter(it => it.moduleId === t.moduleId);
+    return { t, why: !items.length ? 'สาขายังไม่ได้วางแผนเดือนนี้' : sameMod.length ? 'Module ตรงแผน แต่สอนคนละคน' : 'Module นี้ไม่อยู่ในแผน' };
+  });
+  const notYet = items.filter(it => !recs.some(t => matches(t, it)));
+  return { items, recs, off, notYet };
+}
+
+function renderAdminPlanOverview() {
+  if (!_planMonth) _planMonth = _ymNow();
+  const ym = _planMonth;
+  const bids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
+  const rows = bids.map(bid => {
+    const a = _planAudit(bid, ym);
+    const k = a.items.filter(it => _planGroup(it.moduleId) === 'kitchen');
+    const s = a.items.filter(it => _planGroup(it.moduleId) === 'service');
+    const d = arr => arr.filter(it => _planItemDone(bid, ym, it)).length;
+    return { bid, name: (BRANCH_MASTER[bid].name || bid).replace(bid + ' ', ''), a,
+      k: k.length, kd: d(k), s: s.length, sd: d(s) };
+  }).filter(r => r.a.items.length || r.a.recs.length)
+    .sort((x, y) => (y.a.off.length - x.a.off.length) || x.bid.localeCompare(y.bid));
+  const withPlan = rows.filter(r => r.a.items.length).length;
+  const offTotal = rows.reduce((n, r) => n + r.a.off.length, 0);
+  const offBranches = rows.filter(r => r.a.off.length).length;
+  const cell = (n, dn) => n ? `<b>${dn}</b>/${n}` : '<span style="color:var(--text4)">—</span>';
+  return `<div class="card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="flex:1;min-width:240px;font-weight:800;font-size:15px">📅 แผนการสอนงาน · ตรวจการสอนเทียบแผน
+        <div style="font-size:12px;font-weight:500;color:var(--text3)">วางแผนแล้ว ${withPlan} จาก ${bids.length} สาขา ·
+          ${offTotal ? `<b style="color:var(--yellow)">บันทึกไม่ตรงแผน ${offTotal} ครั้ง ใน ${offBranches} สาขา</b>` : 'บันทึกทุกครั้งตรงแผน'}</div></div>
+      <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)">‹</button>
+      <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
+      <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
+    </div>
+    ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
+    rows.length ? `<div class="table-wrap" style="max-height:340px;overflow:auto"><table>
+      <thead><tr><th>สาขา</th><th style="text-align:center">👨‍🍳 ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">🍽 บริการ<br><small>สอนแล้ว/แผน</small></th>
+        <th style="text-align:center">ยังไม่สอน</th><th style="text-align:center">บันทึกนอกแผน</th><th></th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:10.5px">ยังไม่วางแผน</span>'}</td>
+        <td style="text-align:center">${cell(r.k, r.kd)}</td><td style="text-align:center">${cell(r.s, r.sd)}</td>
+        <td style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
+        <td style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>
+        <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>` : '<div style="font-size:13px;color:var(--text3)">เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน</div>'}
+  </div>`;
+}
+
+/* รายละเอียดรายสาขา: บันทึกที่ไม่ตรงแผน (พร้อมเหตุผล) · แผนที่ยังไม่ได้สอน */
+function openPlanAudit(bid) {
+  const ym = _planMonth || _ymNow();
+  const a = _planAudit(bid, ym);
+  const emp = ids => (ids || []).map(id => (getEmployee(id) || {}).name || id).join(', ') || '—';
+  const mod = id => _escH((MODULES[id] || {}).name || id);
+  showModal(`ตรวจการสอนเทียบแผน · ${_escH(_bName(bid))} · ${_ymLabel(ym)}`, `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px">
+      <span class="badge">แผน ${a.items.length} ข้อ</span><span class="badge">บันทึก ${a.recs.length} ครั้ง</span>
+      <span class="badge ${a.off.length ? 'badge-yellow' : 'badge-green'}">นอกแผน ${a.off.length}</span>
+      <span class="badge ${a.notYet.length ? '' : 'badge-green'}">ยังไม่สอน ${a.notYet.length}</span>
+    </div>
+    <div style="font-weight:800;margin:4px 0 6px">บันทึกที่ไม่ตรงแผน</div>
+    ${a.off.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ไม่ตรงเพราะ</th></tr></thead>
+      <tbody>${a.off.map(o => `<tr><td style="white-space:nowrap">${_escH(fmtDate(o.t.date))}</td><td>${mod(o.t.moduleId)}</td>
+        <td>${_escH(emp(o.t.traineeIds))}</td><td>${_escH(o.t.trainerName || '—')}</td>
+        <td><span class="badge badge-yellow" style="white-space:nowrap">${_escH(o.why)}</span></td></tr>`).join('')}</tbody>
+    </table></div>` : '<div style="font-size:13px;color:var(--green);font-weight:700">✓ ทุกบันทึกตรงแผน</div>'}
+    <div style="font-weight:800;margin:16px 0 6px">แผนที่ยังไม่ได้สอน</div>
+    ${a.notYet.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Module</th><th>พนักงานในแผน</th><th>วันที่วางไว้</th><th>หมายเหตุ</th></tr></thead>
+      <tbody>${a.notYet.map(it => `<tr><td>${mod(it.moduleId)}</td><td>${_escH(emp(it.empIds))}</td>
+        <td>${it.planDate ? _escH(fmtDate(it.planDate)) : '—'}</td><td>${_escH(it.note || '—')}</td></tr>`).join('')}</tbody>
+    </table></div>` : '<div style="font-size:13px;color:var(--green);font-weight:700">✓ สอนครบทุกแผน</div>'}
+  `, null, '', 'ปิด');
+}
+
+// ==================== คำขอย้ายสาขา (สาขาขอ · admin อนุมัติ) ====================
+// สาขากด "ขอย้าย" ที่รายชื่อพนักงาน → เกิดคำขอสถานะรออนุมัติ
+// admin อนุมัติ → ย้ายด้วย _moveEmployee (ตัวเดียวกับที่ admin ย้ายเอง เก็บ transferHistory)
+// ตาราง transfer_requests (supabase-coaching-plan-transfer.sql)
+let _xferReady = false;
+const _XFER_ST = { pending:['รออนุมัติ','badge-yellow'], approved:['อนุมัติแล้ว','badge-green'], rejected:['ไม่อนุมัติ','badge-red'], cancelled:['ยกเลิกแล้ว',''] };
+const _xferBadge = st => { const x = _XFER_ST[st] || [st, '']; return `<span class="badge ${x[1]}" style="white-space:nowrap">${x[0]}</span>`; };
+const _bName = bid => BRANCH_MASTER[bid] ? `${bid} ${String(BRANCH_MASTER[bid].name || '').replace(bid + ' ', '')}` : bid;
+
+function openTransferRequest(empId) {
+  if (!_xferReady) { notify('ระบบขอย้ายสาขายังไม่เปิดใช้งาน — แจ้ง Admin', 'error'); return; }
+  const e = getEmployee(empId); if (!e) return;
+  if ((DB.transferRequests || []).some(r => r.empId === empId && r.status === 'pending')) {
+    notify('พนักงานคนนี้มีคำขอย้ายที่รออนุมัติอยู่แล้ว', 'error'); return;
+  }
+  const opts = Object.keys(BRANCH_MASTER).sort().filter(b => b !== e.branchId)
+    .map(b => `<option value="${b}">${_escH(_bName(b))}</option>`).join('');
+  const today = new Date().toISOString().slice(0, 10);
+  showModal(`🔁 ขอย้ายสาขา — ${_escH(e.name)}`, `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+      สาขาปัจจุบัน <b style="color:var(--accent)">${_escH(_bName(e.branchId))}</b> · ${_escH(e.position || '—')}
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ย้ายไปสาขา <span class="req">*</span></label>
+        <select class="form-select" id="xr-to"><option value="">— เลือกสาขาปลายทาง —</option>${opts}</select></div>
+      <div><label class="form-label">วันที่ต้องการย้าย <span class="req">*</span></label>
+        <input class="form-input" type="date" id="xr-date" value="${today}"></div>
+    </div>
+    <div class="form-full"><label class="form-label">เหตุผล <span class="req">*</span></label>
+      <input class="form-input" id="xr-reason" placeholder="เช่น ย้ายตามที่อยู่ใหม่ · ช่วยสาขาเปิดใหม่"></div>
+    <div style="margin-top:10px;font-size:12.5px;color:var(--text3)">ส่งแล้ว Admin เป็นผู้อนุมัติ · ระหว่างรออนุมัติ พนักงานยังอยู่สาขาเดิม</div>
+  `, () => {
+    const to = document.getElementById('xr-to').value, date = document.getElementById('xr-date').value;
+    const reason = (document.getElementById('xr-reason').value || '').trim();
+    if (!to) { notify('กรุณาเลือกสาขาปลายทาง', 'error'); return; }
+    if (!date) { notify('กรุณาเลือกวันที่', 'error'); return; }
+    if (!reason) { notify('กรุณาใส่เหตุผล', 'error'); return; }
+    const r = { id: genId('X'), empId, empName: e.name, empCode: e.empCode || '', position: e.position || '',
+      fromBranch: e.branchId, toBranch: to, moveDate: date, reason, status: 'pending',
+      requestedBy: currentUser?.name || currentUser?.nick || e.branchId, requestedAt: new Date().toISOString() };
+    if (!DB.transferRequests) DB.transferRequests = [];
+    DB.transferRequests.push(r);
+    gsSave('transferRequests', r.id, r);
+    closeModal(); showPage(currentPage); notify('ส่งคำขอย้ายสาขาแล้ว รอ Admin อนุมัติ');
+  }, 'ส่งคำขอ');
+}
+
+function cancelTransferRequest(id) {
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r || r.status !== 'pending') return;
+  if (!confirm(`ยกเลิกคำขอย้าย ${r.empName} ?`)) return;
+  Object.assign(r, { status: 'cancelled', decidedBy: currentUser?.name || currentUser?.nick || '—', decidedAt: new Date().toISOString() });
+  gsSave('transferRequests', r.id, { ...r });
+  showPage(currentPage); notify('ยกเลิกคำขอแล้ว');
+}
+
+/* แถวคำขอย้าย 1 ใบ — ใช้ทั้งฝั่งสาขาและ admin
+   ซ้าย: คน (ตัวอักษรแรก · ชื่อ · ตำแหน่ง) · กลาง: เส้นทาง ต้นทาง ──→ ปลายทาง + วันที่ย้าย/เหตุผล · ขวา: สถานะหรือปุ่ม */
+function _xferRow(r, side) {
+  const st = _XFER_ST[r.status] || [r.status, ''];
+  const code = b => `<b>${_escH(b)}</b> ${_escH(String(BRANCH_MASTER[b]?.name || '').replace(b + ' ', ''))}`;
+  const dir = side.bid ? (r.fromBranch === side.bid ? '<span class="xr-dir">ขาออก</span>' : '<span class="xr-dir in">ขาเข้า</span>') : '';
+  const meta = [_escH(r.position || ''), r.empCode ? _escH(r.empCode) : ''].filter(Boolean).join(' · ');
+  const acts = side.admin
+    ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
+       <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>`
+    : `<span class="xr-st ${r.status}">${st[0]}</span>${r.status === 'pending' && r.fromBranch === side.bid
+        ? `<button class="xr-cancel" onclick="cancelTransferRequest('${r.id}')">ยกเลิกคำขอ</button>` : ''}`;
+  return `<div class="xr-row ${r.status}">
+    <div class="xr-who"><span class="xr-av">${_escH(String(r.empName || '?').trim().charAt(0))}</span>
+      <div><div class="xr-nm">${_escH(r.empName)} ${dir}</div>${meta ? `<div class="xr-meta">${meta}</div>` : ''}</div></div>
+    <div class="xr-mid">
+      <div class="xr-route"><span class="xr-b">${code(r.fromBranch)}</span><i class="xr-line"></i><span class="xr-b to">${code(r.toBranch)}</span></div>
+      <div class="xr-note">📅 ย้าย ${_escH(fmtDate(r.moveDate) || '—')}${r.reason ? ` · “${_escH(r.reason)}”` : ''}${side.admin
+        ? ` · ขอโดย ${_escH(r.requestedBy || '—')} ${_escH(fmtDate(r.requestedAt) || '')}` : ''}${r.decisionNote ? ` · <b>Admin:</b> ${_escH(r.decisionNote)}` : ''}</div>
+    </div>
+    <div class="xr-side">${acts}</div>
+  </div>`;
+}
+
+/* คำขอของสาขานี้ (ขาออก + ขาเข้า) — แสดงบนหน้ารายชื่อพนักงาน */
+function renderBranchTransferCard(bid) {
+  if (!bid || bid === 'ALL') return '';
+  const list = (DB.transferRequests || []).filter(r => r.fromBranch === bid || r.toBranch === bid)
+    .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || String(b.requestedAt).localeCompare(String(a.requestedAt))).slice(0, 8);
+  if (!list.length) return '';
+  const n = list.filter(r => r.status === 'pending').length;
+  return `<div class="card xr-card" style="margin-bottom:16px">
+    <div class="xr-head">🔁 คำขอย้ายสาขา ${n ? `<span class="xr-pill">รออนุมัติ ${n}</span>` : ''}</div>
+    <div class="xr-list">${list.map(r => _xferRow(r, { bid })).join('')}</div>
+  </div>`;
+}
+
+/* การ์ดคำขอที่รออนุมัติ — ขึ้นบนหน้าแดชบอร์ดและหน้าจัดการของ admin */
+function renderAdminTransferCard() {
+  if (!isAdminRole() || !_xferReady) return '';
+  const acc = new Set(getAccessibleBranches());
+  const list = (DB.transferRequests || []).filter(r => r.status === 'pending' && (acc.has(r.fromBranch) || acc.has(r.toBranch)))
+    .sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+  if (!list.length) return '';
+  return `<div class="card xr-card xr-admin" style="margin-bottom:16px">
+    <div class="xr-head">🔁 คำขอย้ายสาขารออนุมัติ <span class="xr-pill">${list.length}</span></div>
+    <div class="xr-list">${list.map(r => _xferRow(r, { admin: true })).join('')}</div>
+  </div>`;
+}
+
+function decideTransferRequest(id, approve) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่อนุมัติได้', 'error'); return; }
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r || r.status !== 'pending') return;
+  const e = getEmployee(r.empId);
+  if (approve && !e) { notify('ไม่พบพนักงานคนนี้แล้ว — อาจถูกลบไป', 'error'); return; }
+  if (approve && e.branchId !== r.fromBranch) {
+    if (!confirm(`${r.empName} ย้ายไป ${e.branchId} แล้วก่อนหน้านี้ — ยังจะย้ายไป ${r.toBranch} ต่อหรือไม่?`)) return;
+  }
+  showModal(approve ? `อนุมัติย้าย ${_escH(r.empName)}` : `ไม่อนุมัติคำขอของ ${_escH(r.empName)}`, `
+    <div style="font-size:13.5px;margin-bottom:10px">${_escH(_bName(r.fromBranch))} → <b>${_escH(_bName(r.toBranch))}</b> · ${_escH(fmtDate(r.moveDate) || '')}</div>
+    <label class="form-label">หมายเหตุถึงสาขา ${approve ? '(ไม่บังคับ)' : '<span class="req">*</span>'}</label>
+    <input class="form-input" id="xr-note" placeholder="${approve ? '' : 'เช่น รอคุยกับ BZM ก่อน'}">
+  `, () => {
+    const note = (document.getElementById('xr-note').value || '').trim();
+    if (!approve && !note) { notify('กรุณาใส่เหตุผลที่ไม่อนุมัติ', 'error'); return; }
+    if (approve) _moveEmployee(r.empId, r.toBranch, r.moveDate, 'ตามคำขอสาขา: ' + (r.reason || ''));
+    Object.assign(r, { status: approve ? 'approved' : 'rejected', decisionNote: note,
+      decidedBy: currentUser?.name || currentUser?.nick || '—', decidedAt: new Date().toISOString() });
+    gsSave('transferRequests', r.id, { ...r });
+    closeModal(); showPage(currentPage);
+    notify(approve ? `ย้าย ${r.empName} ไป ${r.toBranch} แล้ว` : 'บันทึกไม่อนุมัติแล้ว');
+  }, approve ? 'ยืนยันอนุมัติ' : 'ยืนยันไม่อนุมัติ');
+}
+
+// ==================== หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ====================
+// โทนสว่าง พื้นเทาอมเขียวแบบกระดาษบิลครัว ตัวหนังสือกราไฟต์ ส้มใช้เฉพาะจุดที่ต้องกด
+// สีทั้งหมดอยู่ที่ CSS (body.admin-user) · ตรงนี้คือโครง: เมนู 4 กลุ่ม + ตัวเลขงานค้าง
+// + แถบ "งานที่รอคุณ" บนแดชบอร์ด · ฝั่งสาขาไม่เปลี่ยน
+const NAV_GROUP_V2 = [
+  ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
+  ['คนและสาขา',          ['admin-manage', 'exec-leaderboard', 'admin-users']],
+  ['การสอนและประเมิน',   ['admin-trainings', 'admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
+  ['ระบบ',              ['admin-cases', 'admin-reports', 'admin-chat-logs']],
+];
+const _navGroupOf = page => { const i = NAV_GROUP_V2.findIndex(g => g[1].includes(page)); return i < 0 ? NAV_GROUP_V2.length : i; };
+
+/* งานค้างที่ admin ต้องลงมือ — ใช้ทั้งตัวเลขที่เมนูและแถบบนแดชบอร์ด */
+function _adminWork() {
+  const acc = new Set(getAccessibleBranches());
+  const trs = (DB.trainings || []).filter(t => acc.has(t.branchId) && !t.eval);
+  const soon = Date.now() + 3 * 86400000;
+  const pending = trs.filter(t => !isEvalDeadlinePassed(t.date));
+  const dueSoon = pending.filter(t => { const d = new Date(t.date); d.setDate(d.getDate() + EVAL_DEADLINE_DAYS); return d.getTime() <= soon; });
+  const ym = _ymNow();
+  const expired = trs.filter(t => isEvalDeadlinePassed(t.date) && _ymOf(t.date) >= _ymShift(ym, -1));
+  const xfers = isAdminRole() ? (DB.transferRequests || []).filter(r => r.status === 'pending' && (acc.has(r.fromBranch) || acc.has(r.toBranch))) : [];
+  const cases = (DB.cases || []).filter(c => (c.status === 'open' || c.status === 'in_progress') && (!c.branchId || acc.has(c.branchId) || acc.has(String(c.branchId))));
+  return { pending, dueSoon, expired, xfers, cases, casesNew: cases.filter(c => c.status === 'open') };
+}
+
+/* ตัวเลขที่เมนู — วาดใหม่ทุกครั้งที่เปลี่ยนหน้า (ข้อมูลอาจเปลี่ยนระหว่างนั้น) */
+function _paintNavBadges() {
+  if (currentUser?.type !== 'admin') return;
+  let w; try { w = _adminWork(); } catch (_) { return; }
+  /* เมนูเคสมีป้าย "ยังไม่อ่าน" ของเดิมอยู่แล้ว (refreshCaseBadge) — ไม่ซ้อนตัวเลขลงไปอีก */
+  const n = {
+    'admin-manage':    w.xfers.length,
+    'admin-trainings': w.pending.length,
+  };
+  n['admin-dashboard'] = w.xfers.length + w.pending.length + w.expired.length + w.cases.length;
+  document.querySelectorAll('#sidebar-nav .nav-item').forEach(el => {
+    const page = (el.id || '').replace('nav-', '');
+    let b = el.querySelector('.nav-count');
+    const v = n[page] || 0;
+    if (!v) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('span'); b.className = 'nav-count'; el.appendChild(b); }
+    b.textContent = v > 99 ? '99+' : v;
+  });
+}
+
+function renderAdminTickets() {
+  const w = _adminWork();
+  const oldest = w.xfers.length ? Math.max(0, Math.floor((Date.now() - new Date(w.xfers.map(r => r.requestedAt).sort()[0]).getTime()) / 86400000)) : 0;
+  const expBranches = [...new Set(w.expired.map(t => t.branchId))];
+  const total = w.xfers.length + w.pending.length + w.expired.length + w.cases.length;
+  const tk = (hot, n, label, sub, btn, act) => `<div class="tk2 ${hot && n ? 'hot' : ''} ${n ? '' : 'zero'}">
+      <div class="tk2-top"></div>
+      <div class="tk2-b"><div class="tk2-n">${n}</div><div class="tk2-l">${label}</div><div class="tk2-s">${sub}</div></div>
+      ${n ? `<button class="tk2-go" onclick="${act}">${btn}</button>` : '<div class="tk2-done">✓ เคลียร์แล้ว</div>'}
+    </div>`;
+  return `<div class="tk2-wrap">
+    <div class="tk2-sec">งานที่รอคุณ <span>${total ? total + ' รายการ' : 'ไม่มีงานค้าง'}</span></div>
+    <div class="tk2-grid">
+      ${isAdminRole() ? tk(true, w.xfers.length, 'คำขอย้ายสาขา', w.xfers.length ? `เก่าสุด ${oldest} วัน` : 'ไม่มีคำขอใหม่', 'อนุมัติ',
+          "document.querySelector('.xr-admin')&&document.querySelector('.xr-admin').scrollIntoView({behavior:'smooth',block:'start'})") : ''}
+      ${tk(false, w.pending.length, 'รอประเมินผล', w.dueSoon.length ? `ใกล้หมดเวลา ${w.dueSoon.length} รายการ` : 'ยังอยู่ในเวลา', 'ดูรายการ',
+          "_adminTrainFilter='pending';showPage('admin-trainings')")}
+      ${tk(false, w.expired.length, 'หมดเวลาประเมิน', w.expired.length ? _escH(expBranches.slice(0, 3).join(' · ') + (expBranches.length > 3 ? ` และอีก ${expBranches.length - 3}` : '')) : '2 เดือนล่าสุด', 'ตามสาขา',
+          "_adminTrainFilter='expired';showPage('admin-trainings')")}
+      ${tk(false, w.cases.length, 'เคสจากสาขา', w.casesNew.length ? `ยังไม่ตอบ ${w.casesNew.length} เคส` : 'ตอบครบแล้ว', 'เปิดเคส', "showPage('admin-cases')")}
+    </div>
+  </div>`;
+}
+
 // ==================== EMPLOYEE BRANCH TRANSFER ====================
 // Moves an employee record from one branch to another while preserving:
 // - employee.id (so all training history stays linked)
@@ -16115,6 +16968,16 @@ function openTransferEmployee(empId, fromBid) {
 function _doTransferEmployee(empId, fromBid, toBid, date, reason) {
   const e = getEmployee(empId); if (!e) return;
   const oldBid = e.branchId;
+  _moveEmployee(empId, toBid, date, reason);
+  notify(`ย้าย ${e.name} จาก ${oldBid} → ${toBid} สำเร็จ`);
+  closeModal();
+  // Re-open the destination branch view so admin sees the move
+  setTimeout(() => adminViewBranch(toBid), 150);
+}
+/* ย้ายจริง (ไม่มีหน้าจอ) — ใช้ทั้งตอน admin ย้ายเอง และตอนอนุมัติคำขอของสาขา */
+function _moveEmployee(empId, toBid, date, reason) {
+  const e = getEmployee(empId); if (!e) return;
+  const oldBid = e.branchId;
   // Remove from old branch's array
   if (DB.employees[oldBid]) {
     DB.employees[oldBid] = DB.employees[oldBid].filter(x => x.id !== empId);
@@ -16135,10 +16998,6 @@ function _doTransferEmployee(empId, fromBid, toBid, date, reason) {
   DB.employees[toBid].push(e);
   // Persist
   gsSave('employees', e.id, {...e});
-  notify(`ย้าย ${e.name} จาก ${oldBid} → ${toBid} สำเร็จ`);
-  closeModal();
-  // Re-open the destination branch view so admin sees the move
-  setTimeout(() => adminViewBranch(toBid), 150);
 }
 
 function adminEditEmp(empId, bid) {
@@ -16201,7 +17060,9 @@ let _adminTrainBranch = '';
 let _adminTrainModule = '';
 let _adminTrainResult = '';
 let _adminTrainSort = { key: 'date', dir: 'desc' };
+let _adminTrainView = 'person';  // ค่าเริ่มต้นเป็นรายคน เหมือนฝั่งสาขา
 function setAdminTrainFilter(f) { _adminTrainFilter = f; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
+function setAdminTrainView(v) { _adminTrainView = v; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function setAdminTrainSort(key) { _toggleSort(_adminTrainSort, key); document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function _sortAdminTrainings(list) {
   const k = _adminTrainSort.key, dir = _adminTrainSort.dir;
@@ -16306,7 +17167,12 @@ function renderAdminTrainings() {
           <option value="1"${_adminTrainResult==='1'?' selected':''}>ไม่ผ่าน 0-49%</option>
         </optgroup>
       </select>
+      <span class="cat-tabs" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+        <button class="btn btn-sm ${_adminTrainView==='record'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='record'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('record')">🗓 รายครั้ง</button>
+        <button class="btn btn-sm ${_adminTrainView==='person'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='person'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('person')">🙍 รายคน</button>
+      </span>
     </div>
+    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch: !_adminTrainBranch}) : `
     <div class="table-wrap"><table class="cards-on-mobile admin-train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
@@ -16352,7 +17218,7 @@ function renderAdminTrainings() {
             ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditEval('${t.id}')">แก้ผล</button>`:''}<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
-    </table></div>
+    </table></div>`}
   </div>`;
 }
 
