@@ -3156,6 +3156,17 @@ body.admin-user .btn-navy{background:var(--primary)}
       กำลังอัปเดตฟีเจอร์ใหม่อยู่ครับ ขออภัยในความไม่สะดวก<br>
       <b>กลับมาเปิดใช้งานตามปกติเร็ว ๆ นี้</b>
     </div>
+    <div style="padding:0 32px 28px;text-align:center">
+      <a href="javascript:void(0)" onclick="maintShowAdminLogin()" id="maint-admin-link"
+         style="font-size:12px;color:var(--text3);text-decoration:underline">เข้าสู่ระบบสำหรับแอดมิน</a>
+      <div id="maint-admin-box" style="display:none;margin-top:12px">
+        <input id="maint-admin-pin" type="password" inputmode="numeric" placeholder="รหัสแอดมิน"
+               style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font:inherit;font-size:14px;text-align:center;box-sizing:border-box"
+               onkeydown="if(event.key==='Enter')maintAdminLogin()">
+        <div id="maint-admin-err" style="display:none;color:#DC2626;font-size:12px;margin-top:6px">รหัสไม่ถูกต้อง</div>
+        <button class="btn btn-accent" style="width:100%;margin-top:8px" onclick="maintAdminLogin()">เข้าสู่ระบบ</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -3243,6 +3254,10 @@ body.admin-user .btn-navy{background:var(--primary)}
       <button class="btn-test-toggle" id="test-mode-btn" onclick="toggleTestMode()" style="display:none" title="โหมดทดสอบ — Admin เท่านั้น">
         <span id="test-mode-icon">🧪</span>
         <span id="test-mode-label">โหมดทดสอบ</span>
+      </button>
+      <button class="btn-test-toggle" id="maint-mode-btn" onclick="toggleMaintenanceMode()" style="display:none" title="ปิดระบบชั่วคราว — Admin เท่านั้น">
+        <span id="maint-mode-icon">🛠️</span>
+        <span id="maint-mode-label">ปิดระบบชั่วคราว</span>
       </button>
       <button class="btn-hub-nav" id="back-hub-btn" onclick="goBackToHub()" title="กลับเมนูหลัก (ไม่ออกจากระบบ)">
         <svg class="sf-ico" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>กลับหน้าหลัก</span>
@@ -5438,7 +5453,7 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'', companies: qms.data.companies||[] } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '', companies: [] },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, maintenanceMode: !!qms.data.maintenance_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'', companies: qms.data.companies||[] } : { deleted: [], disabled: [], testMode: false, maintenanceMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '', companies: [] },
   };
 }
 async function sbSaveOne(coll, id, rec) {
@@ -5446,7 +5461,7 @@ async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, companies: rec.companies||[], updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, maintenance_mode: !!rec.maintenanceMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, companies: rec.companies||[], updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -5505,6 +5520,8 @@ function _applyServerData(d) {
   if (DB.quizMeta && typeof DB.quizMeta.testMode === 'boolean') {
     _applyTestModeFromServer(DB.quizMeta.testMode);
   }
+  // ปุ่มปิดระบบชั่วคราวของแอดมิน (ถ้ามี) ให้ตรงกับค่าล่าสุดจากเซิร์ฟเวอร์เสมอ — เผื่อแอดมินอีกคนสลับไว้
+  if (typeof applyMaintenanceModeUI === 'function') applyMaintenanceModeUI(!!(DB.quizMeta && DB.quizMeta.maintenanceMode));
   _saveDbCache();
 }
 
@@ -6279,6 +6296,38 @@ function initTestModeButton() {
   // when initial gsLoad ran). Just update the button label.
   applyTestModeUI(isTestMode());
 }
+/* ปิดระบบชั่วคราว — เฉพาะ Admin กดสลับได้ (ไม่ใช่ BZM/VP/COO) เพราะเป็นการล็อกคนทั้งบริษัทออก
+   บันทึกลง quiz_meta.maintenance_mode ตัวเดียวกับโหมดทดสอบ เห็นผลทันทีกับทุกคนที่รีเฟรชหลังจากนี้ */
+function toggleMaintenanceMode() {
+  if (!isAdminRole()) { notify('ปิดระบบชั่วคราวได้เฉพาะ Admin', 'error'); return; }
+  const on = !(DB.quizMeta && DB.quizMeta.maintenanceMode);
+  showConfirm(on
+    ? 'ปิดระบบชั่วคราวทั้งบริษัท?\n\n• ทุกคนจะเข้าระบบไม่ได้ เห็นแต่หน้า "ปิดปรับปรุงระบบชั่วคราว"\n• แอดมินยังเข้าได้ทางลิงก์ "เข้าสู่ระบบสำหรับแอดมิน" ที่หน้านั้น\n• กดปุ่มนี้อีกครั้งเมื่อพร้อมเปิดใช้งาน'
+    : 'เปิดระบบกลับมาใช้งานตามปกติ?\n\nทุกคนจะกลับมาเข้าระบบได้ทันที',
+    () => _commitMaintenanceMode(on),
+    { title: on ? 'ปิดระบบชั่วคราว' : 'เปิดระบบกลับมาใช้งาน', icon: '🛠️', confirmText: on ? 'ปิดระบบ' : 'เปิดระบบ' }
+  );
+}
+function _commitMaintenanceMode(on) {
+  DB.quizMeta = { ...(DB.quizMeta || {}), maintenanceMode: on };
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  applyMaintenanceModeUI(on);
+  notify(on ? 'ปิดระบบชั่วคราวแล้ว — คนอื่นจะเข้าไม่ได้ตั้งแต่ตอนนี้' : 'เปิดระบบกลับมาใช้งานแล้ว');
+}
+function applyMaintenanceModeUI(on) {
+  const btn = document.getElementById('maint-mode-btn');
+  if (!btn) return;
+  btn.classList.toggle('active', on);
+  const label = document.getElementById('maint-mode-label');
+  if (label) label.textContent = on ? 'เปิดระบบกลับมาใช้งาน' : 'ปิดระบบชั่วคราว';
+}
+function initMaintenanceButton() {
+  const btn = document.getElementById('maint-mode-btn');
+  if (!btn) return;
+  if (!isAdminRole()) { btn.style.display = 'none'; return; }
+  btn.style.display = 'flex';
+  applyMaintenanceModeUI(!!(DB.quizMeta && DB.quizMeta.maintenanceMode));
+}
 function goBackToHub() {
   // กลับเมนูหลัก Hub โดยไม่ออกจากระบบ (คง fab_session ไว้ → ไม่ต้อง login ใหม่)
   try { window.location.href = '/fab-operations-hub/'; } catch (_) { window.location.href = '/fab-operations-hub/'; }
@@ -6356,6 +6405,7 @@ function showApp() {
   }
   // Test-mode button visible (+ restore saved state) for admin only
   initTestModeButton();
+  initMaintenanceButton();
   // Show chat FAB once logged in
   const _fab = document.getElementById('chatbot-fab');
   if (_fab) _fab.style.display = 'flex';
@@ -20553,17 +20603,50 @@ function trySsoAutoLogin() {
   return false;
 }
 
-/* ปิดระบบชั่วคราวเพื่ออัปเดต — true = ทุกคนเห็นแต่หน้า "ปิดปรับปรุงระบบชั่วคราว" แทนหน้า login
-   ปิดกั้นตั้งแต่ก่อนแตะ SSO/Supabase เลย ไม่มีทางเห็นข้อมูลหลุดออกมาระหว่างปิดปรับปรุง
-   เสร็จแล้วเปลี่ยนกลับเป็น false แล้ว deploy ใหม่อีกครั้ง */
-const MAINTENANCE_MODE = true;
+/* ปิดระบบชั่วคราวเพื่ออัปเดต — ค่าอยู่ใน Supabase (quiz_meta.maintenance_mode) แอดมินเปิด/ปิดเองจากปุ่มในระบบได้เลย
+   ไม่ต้องแก้โค้ด ไม่ต้อง deploy ใหม่ · เช็คก่อนแตะข้อมูลอื่นใด ๆ ทั้งหมด กันข้อมูลหลุดระหว่างปิดปรับปรุง
+   เน็ตมีปัญหา/เช็คไม่ทันใน 4 วิ → ปล่อยผ่านเข้าใช้งานปกติ (ล็อกทุกคนออกเพราะเน็ตสะดุดแย่กว่า) */
+async function _checkMaintenanceMode() {
+  try {
+    _initSb();
+    const authOk = await Promise.race([sbAuthReady(), new Promise(r => setTimeout(() => r(false), 4000))]);
+    if (!authOk || !SB) return false;
+    const r = await Promise.race([
+      SB.from('quiz_meta').select('maintenance_mode').eq('id', 'singleton').maybeSingle(),
+      new Promise(res => setTimeout(() => res(null), 4000)),
+    ]);
+    return !!(r && r.data && r.data.maintenance_mode);
+  } catch (_) { return false; }
+}
+/* แอดมินกดลิงก์เล็ก ๆ ใต้หน้าปิดปรับปรุง เพื่อล็อกอินเข้าไปปิดสวิตช์เอง
+   เช็คกับ ADMIN_CODES (ค่าคงที่ในไฟล์ ไม่ต้องรอโหลด DB.adminUsers) — พอเพียงเพราะแอดมินหลักอยู่ในนี้ทุกคน */
+function maintShowAdminLogin() {
+  document.getElementById('maint-admin-link').style.display = 'none';
+  document.getElementById('maint-admin-box').style.display = 'block';
+  const pin = document.getElementById('maint-admin-pin'); if (pin) pin.focus();
+}
+function maintAdminLogin() {
+  const pin = (document.getElementById('maint-admin-pin').value || '').trim();
+  const admin = ADMIN_CODES[pin];
+  const err = document.getElementById('maint-admin-err');
+  if (!admin) { if (err) err.style.display = 'block'; return; }
+  if (err) err.style.display = 'none';
+  currentUser = { type: 'admin', code: pin, name: admin.name, nick: admin.nick, role: admin.role, pagePerms: null };
+  _writeFabSession();
+  document.getElementById('maintenance-screen').style.display = 'none';
+  showApp();
+  gsLoad();
+}
 async function initApp() {
-  if (MAINTENANCE_MODE) {
+  if (await _checkMaintenanceMode()) {
     document.body.classList.remove('on-login');
     const ms = document.getElementById('maintenance-screen');
     if (ms) ms.style.display = 'flex';
     return;
   }
+  await _bootNormal();
+}
+async function _bootNormal() {
   /* ทาพื้นหลังหน้า login ไว้ก่อนแบบ sync — ระหว่างรอ IDB เบราว์เซอร์วาดจอได้แล้ว
      ถ้าไม่ทาไว้จะเห็นจอขาวแวบหนึ่ง (เดิมโค้ดทั้งก้อนเป็น sync เลยไม่มีช่องให้วาด)
      ถ้า SSO ผ่าน showApp() จะถอดคลาสนี้ออกให้เอง */
