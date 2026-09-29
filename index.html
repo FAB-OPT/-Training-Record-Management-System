@@ -1646,8 +1646,12 @@
   .qs-work .qs-mod { font-size: 13px; line-height: 1.35; }
   .qs-work .qs-sub { font-size: 11px; }
   .qs-work .qs-num { font-size: 13.5px; }
+  /* คอลัมน์ท้ายแคบ 82px พอสำหรับปุ่มสั้น ๆ อย่าง "ดูรายข้อ" แต่ปุ่ม "ดูเฉพาะสาขานี้" ของมุมมองรายสาขายาวกว่านั้นมาก
+     ล้นออกนอกคอลัมน์แล้วโดนขอบโค้งของ .tw-table (overflow:hidden) ตัดทิ้งครึ่งปุ่ม — ให้คอลัมน์ท้ายของแถวนี้กว้างขึ้นเป็นพิเศษ */
+  .qs-work .qs-head.qs-head-branch, .qs-work .qs-row.qs-head-branch { grid-template-columns: minmax(0,1fr) 50px 60px 100px 60px 150px; }
   @media (max-width: 1320px) { .qs-work .qs-head > div:nth-child(5), .qs-work .qs-row > div:nth-child(5) { display: none; }
-    .qs-work .qs-head, .qs-work .qs-row { grid-template-columns: minmax(0,1fr) 58px 66px 116px 82px; } }
+    .qs-work .qs-head, .qs-work .qs-row { grid-template-columns: minmax(0,1fr) 58px 66px 116px 82px; }
+    .qs-work .qs-head.qs-head-branch, .qs-work .qs-row.qs-head-branch { grid-template-columns: minmax(0,1fr) 50px 60px 100px 150px; } }
   .qs-side { min-width: 0; }
   .qs-side > .sec { margin: 0; }
   @media (max-width: 1080px) { .qs-work { grid-template-columns: 1fr; } }
