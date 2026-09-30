@@ -16951,9 +16951,8 @@ function _xferTable(list, side) {
         ? (r.status === 'pending'
             ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
                <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>`
-            : canRevertTransfer(r)
-              ? `<button class="btn btn-sm btn-outline" onclick="revertTransferRequest('${r.id}')" title="ยังไม่มีประวัติที่สาขาปลายทาง ยกเลิกย้อนกลับได้">↩ ยกเลิกการย้าย</button>`
-              : '—')
+            : `${canRevertTransfer(r) ? `<button class="btn btn-sm btn-outline" onclick="revertTransferRequest('${r.id}')" title="ยังไม่มีประวัติที่สาขาปลายทาง ยกเลิกย้อนกลับได้">↩ ยกเลิกการย้าย</button>` : ''}
+               <button class="btn btn-sm btn-outline" style="color:#DC2626;border-color:#F3B4B4" onclick="deleteTransferRequestRow('${r.id}')" title="ลบประวัติรายการนี้ออกจากระบบถาวร">🗑 ลบประวัติ</button>`)
         : (r.status === 'pending' && r.fromBranch === side.bid
             ? `<button class="xr-cancel" onclick="cancelTransferRequest('${r.id}')">ยกเลิกคำขอ</button>` : '—');
       return `<tr>
@@ -17086,6 +17085,24 @@ async function _revertTransferRequestConfirmed(id) {
   gsSave('transferRequests', r.id, { ...r });
   showPage(currentPage);
   notify(`ยกเลิกการย้าย ${r.empName} แล้ว — กลับไป ${r.fromBranch}`);
+}
+
+/* ลบประวัติคำขอย้ายสาขาทิ้งถาวร — เฉพาะ Admin เฉพาะรายการที่จบสถานะแล้ว (ไม่ใช่ pending)
+   ไม่กระทบพนักงาน/สาขา — แค่ลบแถวประวัติออกจาก transfer_requests เท่านั้น */
+function deleteTransferRequestRow(id) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่ลบประวัติได้', 'error'); return; }
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r) return;
+  if (r.status === 'pending') { notify('คำขอนี้ยังรออนุมัติอยู่ — อนุมัติ/ไม่อนุมัติก่อนจึงจะลบได้', 'error'); return; }
+  showConfirm(
+    `ลบประวัติการโยกย้ายของ <b style="color:var(--text)">${_escH(r.empName)}</b><br>(${_escH(r.fromBranch)} → ${_escH(r.toBranch)}) ออกจากระบบถาวร<br><span style="color:var(--text3)">ไม่กระทบข้อมูลพนักงานหรือสาขาปัจจุบัน</span>`,
+    () => {
+      DB.transferRequests = (DB.transferRequests || []).filter(x => x.id !== id);
+      gsDel('transferRequests', id);
+      showPage(currentPage);
+      notify('ลบประวัติการโยกย้ายแล้ว');
+    },
+    { title: 'ลบประวัติรายการนี้?', icon: '🗑', confirmText: 'ลบถาวร', danger: true }
+  );
 }
 
 // ==================== หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ====================
