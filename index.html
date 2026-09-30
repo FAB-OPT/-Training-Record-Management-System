@@ -17069,7 +17069,15 @@ async function revertTransferRequest(id) {
   if (!canRevertTransfer(r)) { notify('ยกเลิกไม่ได้ — พนักงานมีประวัติการสอน/ประเมินที่สาขาปลายทางแล้ว', 'error'); return; }
   const e = getEmployee(r.empId);
   if (!e) { notify('ไม่พบพนักงานคนนี้แล้ว — อาจถูกลบไป', 'error'); return; }
-  if (!confirm(`ยกเลิกการย้าย ${r.empName} — ย้ายกลับไป ${_bName(r.fromBranch)} ?`)) return;
+  const fromLabel = _bName(r.fromBranch) || r.fromBranch;
+  showConfirm(
+    `พนักงาน <b style="color:var(--text)">${r.empName}</b> จะถูกย้ายกลับไปที่<br><b style="color:var(--text)">${r.toBranch} → ${r.fromBranch} ${fromLabel.replace(r.fromBranch+' ','')}</b><br><span style="color:var(--text3)">การกระทำนี้ไม่มีผลย้อนหลังกับประวัติที่บันทึกไว้แล้ว</span>`,
+    () => _revertTransferRequestConfirmed(id),
+    { title: 'ยกเลิกการโยกย้าย?', icon: '↩', confirmText: 'ยืนยันย้ายกลับ', danger: false }
+  );
+}
+async function _revertTransferRequestConfirmed(id) {
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r) return;
   const { error } = await _moveEmployee(r.empId, r.fromBranch, new Date().toISOString().slice(0, 10), 'ยกเลิกการย้าย (ไม่มีประวัติที่สาขาปลายทาง)');
   if (error) { notify('ยกเลิกไม่สำเร็จ — ' + (error.message || 'ไม่ทราบสาเหตุ') + ' · ลองใหม่อีกครั้ง', 'error'); return; }
   Object.assign(r, { status: 'reverted',
