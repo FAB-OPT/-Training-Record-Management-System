@@ -16946,10 +16946,14 @@ function openPlanItem(grp, itemId) {
   _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
   const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
+    <div class="form-full">
+      <label class="form-label">ผู้จัดทำแผน <span class="req">*</span></label>
+      <input class="form-input" id="cp-creator" placeholder="ชื่อผู้กรอกแผนนี้" value="${_escH((it && it.createdBy) || _cpLastCreatorName())}">
+    </div>
     <div class="form-row">
       <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
         <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
-      <div><label class="form-label">วันที่ต้องการประเมิน</label>
+      <div><label class="form-label">วันที่ต้องการประเมิน <span class="req">*</span></label>
         <input class="form-input" type="date" id="cp-eval-date" value="${(it && it.evalDate) || ''}"></div>
     </div>
     <div class="form-full">
@@ -17014,14 +17018,21 @@ function openPlanItem(grp, itemId) {
     const planDate = document.getElementById('cp-date').value || '';
     if (!planDate) { notify('กรุณาเลือกวันที่วางแผนจะสอน', 'error'); return; }
     const evalDate = document.getElementById('cp-eval-date').value || '';
+    if (!evalDate) { notify('กรุณาเลือกวันที่ต้องการประเมิน', 'error'); return; }
+    const evalDays = (new Date(evalDate) - new Date(planDate)) / 86400000;
+    if (evalDays < 0) { notify('วันที่ประเมินต้องไม่ก่อนวันที่วางแผนจะสอน', 'error'); return; }
+    if (evalDays > 14) { notify('วันที่ประเมินต้องไม่เกิน 14 วันนับจากวันที่สอน', 'error'); return; }
     const trainerName = (document.getElementById('tr-trainer').value || '').trim();
     if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
-    const who = currentUser?.name || currentUser?.nick || '—';
+    const who = (document.getElementById('cp-creator').value || '').trim();
+    if (!who) { notify('กรุณาระบุชื่อผู้จัดทำแผน', 'error'); return; }
+    try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {}
     const now = new Date().toISOString();
     const rec = {
       id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName,
       note: (document.getElementById('cp-note').value || '').trim(),
-      // ผู้จัดทำ (สติกอัตโนมัติ ครั้งแรกเท่านั้น) · ผู้แก้ไขล่าสุด (อัปเดตทุกครั้งที่บันทึก — ใช้เช็คว่ามีอะไรใหม่ให้ BZM ดูไหมด้วย)
+      // ผู้จัดทำ (ล็อกครั้งแรกที่สร้าง — คงเดิมแม้แก้ไขภายหลัง) · ผู้แก้ไขล่าสุด (อัปเดตทุกครั้งที่บันทึก — ใช้เช็คว่ามีอะไรใหม่ให้ BZM ดูไหมด้วย)
+      // ต้องให้กรอกเอง เพราะบัญชีสาขาล็อกอินร่วมกันทั้งสาขา ไม่มีชื่อรายคนผูกกับ currentUser ให้สติกอัตโนมัติได้
       createdBy: (it && it.createdBy) || who, createdAt: (it && it.createdAt) || now,
       updatedBy: who, updatedAt: now,
     };
@@ -17047,6 +17058,9 @@ function openPlanItem(grp, itemId) {
 let _cpSelectedEmps = [];
 let _cpEmpsOwnGroup = [];
 let _cpEmpsAllGroups = [];
+// บัญชีสาขาล็อกอินร่วมกันทั้งสาขา ไม่มีชื่อรายคน — จำชื่อผู้จัดทำล่าสุดต่อสาขา/เครื่อง ไว้เติมให้อัตโนมัติครั้งถัดไป (แก้ไขได้เสมอ)
+function _cpCreatorKey() { return 'opt_plan_creator_' + (getBranchId() || 'x'); }
+function _cpLastCreatorName() { try { return localStorage.getItem(_cpCreatorKey()) || currentUser?.name || ''; } catch (_) { return ''; } }
 let _cpBatchMode = false;   // true = กำลังอยู่ในฟอร์ม "เพิ่มแผนหลายรายการ" — บันทึกแล้วไม่ปิดออกไปหน้าหลัก แต่กลับไปที่ลิสต์ชั่วคราวแทน
 let _cpBatchItems = [];     // รายการที่พักไว้ก่อนกด "บันทึกทั้งหมด" — ผสมครัว/บริการปนกันได้
 /* เพิ่มแผนการสอนหลายรายการในคราวเดียว — กด "+ เพิ่มรายการ" ได้เรื่อย ๆ ทั้งครัวและบริการปนกัน
