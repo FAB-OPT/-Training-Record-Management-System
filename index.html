@@ -3435,6 +3435,7 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้ายสาขา' },
   { page: 'admin-branch-updates',  icon: '🔄',  label: 'ประวัติการอัพเดทพนักงาน' },
   { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
+  { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนการสอนงาน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
@@ -7248,6 +7249,7 @@ const BZM_NAV_ITEMS = [
   { page: 'admin-dashboard',       icon: '🏠',  label: 'หน้าหลัก' },
   { page: 'admin-manage',          icon: '👥',  label: 'สาขา' },
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
+  { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือน' },
@@ -7279,6 +7281,7 @@ const _bnavMoreLabels = {
   'admin-chat-logs':  'ประวัติแชตบอท',
   'admin-quiz':       'จัดการข้อสอบ',
   'admin-quiz-stats': 'สถิติข้อสอบ',
+  'admin-plan-overview': 'แผนการสอนงานในโซน',
   'admin-cases':      'เคสจากสาขา',
   'admin-reports':    'ออกรายงาน',
   'admin-training-plan': 'จัดอบรม',
@@ -7353,6 +7356,7 @@ const _SIDEBAR_LABELS = {
   'admin-transfers':      { admin: 'โยกย้ายสาขา',                    bzm: '',                            exec: '' },
   'admin-branch-updates': { admin: 'ประวัติการอัพเดทพนักงาน',          bzm: '',                            exec: '' },
   'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
+  'admin-plan-overview':  { admin: 'แผนการสอนงาน',                   bzm: 'แผนการสอนงานในโซน',           exec: 'แผนการสอนงาน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
   'admin-quiz':           { admin: 'จัดการข้อสอบ',                   bzm: '',                            exec: '' },
@@ -7430,6 +7434,7 @@ function showPage(page) {
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
     'admin-training-plan': renderTrainingPlan,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
+    'admin-plan-overview': renderAdminPlanOverviewPage,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-quiz-stats': renderQuizStatsPage, 'admin-reports': renderAdminReports,
     'admin-bzm': () => { _adminManageTab = 'bzm'; return renderAdminManage(); },
@@ -7446,7 +7451,7 @@ function showPage(page) {
   if (currentUser?.type === 'admin') {
     const extra = page === 'admin-dashboard' ? renderAdminTickets() + renderAdminTransferCard()
                 : page === 'admin-manage' ? renderAdminTransferCard()
-                : page === 'admin-trainings' ? renderAdminPlanOverview() : '';
+                : (page === 'admin-trainings' && !isBzmRole()) ? renderAdminPlanOverview() : '';
     if (extra) {
       const main = document.getElementById('main-content');
       const head = main.querySelector(':scope > .page-hero, :scope > .topbar');
@@ -7485,6 +7490,7 @@ function updateBottomNav(page) {
     'admin-employees':       'bnav-admin-manage',
     'admin-trainings':       'bnav-admin-trainings',
     'admin-evaluations':     'bnav-admin-trainings',
+    'admin-plan-overview':   'bnav-admin-plan-overview',
     'admin-course-history':  'bnav-admin-course-history',
     'admin-quiz':            'bnav-admin-quiz',
     'admin-reports':         'bnav-admin-reports',
@@ -16741,10 +16747,12 @@ function refreshPlanBadge() {
   const n = _planUnreadItems().length;
   if (!n) return;
   const html = `<span class="nav-badge plan-badge" data-plan-badge title="แผนการสอนงานใหม่/อัปเดตที่ยังไม่ได้ดู">${n > 99 ? '99+' : n}</span>`;
-  const navEl = document.getElementById('nav-admin-trainings');
+  const navEl = document.getElementById('nav-admin-plan-overview');
   if (navEl) navEl.insertAdjacentHTML('beforeend', ' ' + html);
-  const bnEl = document.getElementById('bnav-admin-trainings');
+  const bnEl = document.getElementById('bnav-admin-plan-overview');
   if (bnEl) bnEl.querySelector('.bottom-nav-icon')?.insertAdjacentHTML('afterend', html.replace('nav-badge plan-badge', 'nav-badge plan-badge bn-badge'));
+  const bnMoreEl = document.getElementById('bnavmore-right-admin-plan-overview');
+  if (bnMoreEl) bnMoreEl.innerHTML = html;
 }
 function _planLastNotifyKey() {
   if (!currentUser) return null;
@@ -17314,6 +17322,16 @@ function renderAdminPlanOverview() {
     </table></div>` : '<div style="font-size:13px;color:var(--text3)">เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน</div>'}
   </div>`;
 }
+// เมนูเต็มหน้า (แยกจากวิดเจ็ตที่แทรกในหน้า "การสอน") — ให้ BZM เข้าถึงแผนการสอนงานทั้งโซนได้ตรง ๆ จากเมนู
+function renderAdminPlanOverviewPage() {
+  return `<div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">📅 แผนการสอนงาน${isBzmRole() ? 'ในโซน' : ''}</div>
+      <div class="page-hero-sub">ตรวจการสอนจริงเทียบกับแผนที่แต่ละสาขาวางไว้ ${isBzmRole() ? 'ในโซนของคุณ' : 'ทุกสาขา'}</div>
+    </div>
+  </div>
+  ${renderAdminPlanOverview()}`;
+}
 
 /* รายละเอียดรายสาขา: บันทึกที่ไม่ตรงแผน (พร้อมเหตุผล) · แผนที่ยังไม่ได้สอน */
 function openPlanAudit(bid) {
@@ -17630,7 +17648,7 @@ function deleteTransferRequestRow(id) {
 const NAV_GROUP_V2 = [
   ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
   ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'admin-branch-updates', 'exec-leaderboard', 'admin-users']],
-  ['การสอนและประเมิน',   ['admin-trainings', 'admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
+  ['การสอนและประเมิน',   ['admin-trainings', 'admin-plan-overview', 'admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
   ['ระบบ',              ['admin-cases', 'admin-reports', 'admin-chat-logs']],
 ];
 const _navGroupOf = page => { const i = NAV_GROUP_V2.findIndex(g => g[1].includes(page)); return i < 0 ? NAV_GROUP_V2.length : i; };
