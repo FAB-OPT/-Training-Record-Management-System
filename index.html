@@ -9008,7 +9008,9 @@ function showPersonModuleBreakdown(empId) {
 
 function renderTrainings() {
   const isEval = currentPage === 'evaluations';
-  const bid = getBranchId(); const trains = getBranchTrainings(bid);
+  // เดิมอิง getBranchTrainings(bid) (log ว่าสอนจริงที่ไหน) เปลี่ยนมาอิงคนที่ "ปัจจุบัน" สังกัดสาขานี้แทน
+  // ทั้งมุมมองรายครั้งและรายคน — ย้ายสาขามาแล้วประวัติสอนงาน/อบรมต้องตามมาด้วยทั้งสองมุมมอง
+  const bid = getBranchId(); const trains = getPersonScopeTrainings(bid);
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
   const done = trains.filter(t=>t.eval);
   const expired = trains.filter(t=>!t.eval && isEvalDeadlinePassed(t.date));
@@ -9025,10 +9027,9 @@ function renderTrainings() {
     return out;
   };
   let rows = _sortTrainings(_applyTrainFilters(trains));
-  // มุมมอง "รายคน" อิงประวัติทั้งชีวิตของคนที่สังกัดสาขานี้ตอนนี้ ไม่ใช่แค่ที่สอนจริงในสาขานี้
-  // onlyEmpIds กันคนอื่นที่ร่วมคลาสเดียวกันแต่ไม่ได้สังกัดสาขานี้หลุดเข้ามาด้วย
+  // onlyEmpIds กันคนอื่นที่ร่วมคลาสเดียวกันแต่ไม่ได้สังกัดสาขานี้ ไม่ให้มีแถวสรุปของตัวเองในมุมมองรายคน
   const _bidEmpIds = new Set(getBranchEmployees(bid).map(e => String(e.id)));
-  const personRows = _trainView === 'person' ? _applyTrainFilters(getPersonScopeTrainings(bid)) : [];
+  const personRows = _trainView === 'person' ? rows : [];
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
@@ -9098,8 +9099,9 @@ function renderTrainings() {
           ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="white-space:nowrap">${getEvalResultShort(t.eval.result)}</span>`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="white-space:nowrap">หมดเวลา</span>' : '<span class="badge badge-yellow" style="white-space:nowrap">รอประเมิน</span>';
         const within7 = !isEvalDeadlinePassed(t.date);
-        const canEdit = within7 && !t.eval;
-        const canEval = !t.eval && within7;
+        const fromOtherBranch = t.branchId !== bid;   // สอนจริงที่สาขาอื่นมาก่อนย้าย — ดูได้แต่แก้/ลบ/ประเมินจากที่นี่ไม่ได้
+        const canEdit = within7 && !t.eval && !fromOtherBranch;
+        const canEval = !t.eval && within7 && !fromOtherBranch;
         const moduleComplete = isModuleComplete(t);
         const isQuizRow = isLatestCompletingTraining(t);
         const quizAttempts = _quizAttemptsFor(t.id);
@@ -9116,7 +9118,7 @@ function renderTrainings() {
         return `<tr>
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(t.date)}</span><span class="dt-long">${fmtDateTimeLong(t.date)}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`<strong>${e.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${e.position} · ${calcTenureShort(e.startDate)}</span>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
-          <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId}${t.track?` <span class="badge" style="font-size:10.5px;background:${t.track==='steak'?'#FEE2E2':'#FEF3C7'};color:${t.track==='steak'?'#991B1B':'#92400E'};font-weight:700">${t.track==='steak'?'🥩 สเต็ก':'🍝 พาสต้า'}</span>`:''} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span></td>
+          <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId}${t.track?` <span class="badge" style="font-size:10.5px;background:${t.track==='steak'?'#FEE2E2':'#FEF3C7'};color:${t.track==='steak'?'#991B1B':'#92400E'};font-weight:700">${t.track==='steak'?'🥩 สเต็ก':'🍝 พาสต้า'}</span>`:''} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span>${fromOtherBranch?` <span class="badge badge-navy" style="font-size:10px;margin-left:4px" title="สอนที่สาขานี้ก่อนย้ายเข้ามา">🔁 ${_escH(t.branchId)}</span>`:''}</td>
           <td data-label="ผู้สอน" style="font-size:12.5px">${t.trainerName}</td>
           <td data-label="ผลสอบ" style="text-align:center">${quizCell}</td>
           <td data-label="สถานะ" style="white-space:nowrap">${badge}</td>
@@ -9124,7 +9126,7 @@ function renderTrainings() {
             ${canQuiz?`<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}')" title="ประเมินผลแล้ว — ทำข้อสอบได้">📝 ทำข้อสอบ</button>`
               :quizWaitEval?`<button class="btn btn-sm btn-outline" style="opacity:.65" onclick="notify('ต้องบันทึกผลการประเมินก่อน แล้วข้อสอบจะปลดล็อกให้เอง','error')" title="ต้องประเมินผลก่อน">🔒 ข้อสอบ</button>`
               :isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
-            ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:!t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
+            ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:(!t.eval && !fromOtherBranch)?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
             ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
           </td>
