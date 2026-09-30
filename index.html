@@ -426,6 +426,7 @@
   }
   /* Date-format swap: short on desktop, long (full Thai month) on mobile */
   .dt-long { display: none; }
+  .train-table .btn .ico { display: none; }   /* ไอคอนแก้ไข/ลบ ใช้เฉพาะมือถือ */
   @media (max-width: 768px) {
     .dt-short { display: none; }
     .dt-long { display: inline; }
@@ -2303,17 +2304,15 @@
     }
     table.cards-on-mobile.latest-eval-table td[data-label="วิธี"]::before { content: 'วิธี '; display: inline !important; color: var(--text4); margin-right: 3px; }
 
-    /* ===== Trainings card on mobile =====
-       จัดใหม่: หัวการ์ด = วันที่ + ผลการประเมิน (เห็นสถานะทันทีไม่ต้องไล่อ่าน) ตามด้วยชื่อ/Module (ตัวตนหลัก)
-       แล้วผู้สอน+ผลสอบ เป็นบรรทัดข้อมูลเสริมบรรทัดเดียวแบบแบน (ไม่มีแผงพื้นหลังซ้อนกันสองชั้นเหมือนก่อน) */
+    /* ===== Trainings card on mobile · แบบสเต็ป สอน → ประเมิน → ข้อสอบ =====
+       แถว 1 Module+ป้าย · แถว 2 เส้นสามขั้น (วันที่สอน / ผลประเมิน / ข้อสอบ) · แถว 3-4 ผู้เรียน, ผู้สอน คนละบรรทัด · แถว 5 ปุ่ม */
     table.cards-on-mobile.train-table tr {
       display: grid !important;
-      grid-template-columns: minmax(0, 1fr) auto;
-      row-gap: 6px; column-gap: 16px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      row-gap: 10px; column-gap: 0;
       padding: 12px 14px 12px 12px;
       border-left: 4px solid var(--border) !important;
     }
-    /* แถบสีซ้ายบอกสถานะแบบกวาดตาไว — เขียวผ่าน/แดงไม่ผ่านหรือหมดเวลา/เหลืองรอประเมิน */
     table.cards-on-mobile.train-table tr.tstat-pass { border-left-color: var(--green) !important; }
     table.cards-on-mobile.train-table tr.tstat-fail { border-left-color: var(--red) !important; }
     table.cards-on-mobile.train-table tr.tstat-pending { border-left-color: var(--yellow) !important; }
@@ -2323,78 +2322,74 @@
       white-space: normal !important;
     }
     table.cards-on-mobile.train-table td::before { display: none !important; }
-    /* หัวการ์ด แถวเดียวกัน: วันที่ (ซ้าย) + ผลการประเมิน (ขวา) */
-    table.cards-on-mobile.train-table td[data-label="วันที่"] {
-      grid-column: 1; grid-row: 1; justify-content: flex-start;
-      font-size: 11.5px; color: var(--text3); font-weight: 600;
-      text-align: left !important;
-      padding-bottom: 6px !important;
-      border-bottom: 1px dashed var(--border) !important;
-    }
-    table.cards-on-mobile.train-table td[data-label="สถานะ"] {
-      grid-column: 2; grid-row: 1; justify-content: flex-end;
-      font-size: 12px; font-weight: 800;
-      padding-bottom: 6px !important;
-      border-bottom: 1px dashed var(--border) !important;
-    }
-    /* ชื่อ + ตำแหน่ง + อายุงาน */
-    table.cards-on-mobile.train-table td[data-label="พนักงาน"] {
-      grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
-      font-size: 13.5px; font-weight: 700; color: var(--text);
-      text-align: left !important; line-height: 1.4;
-    }
-    /* Module + X/X หัวข้อ */
     table.cards-on-mobile.train-table td[data-label="Module"] {
-      grid-column: 1 / -1; grid-row: 3; justify-content: flex-start;
+      grid-column: 1 / -1; grid-row: 1; justify-content: flex-start;
       flex-wrap: wrap; gap: 6px;
-      font-size: 13px; color: var(--accent); font-weight: 700;
+      font-size: 14px; color: var(--text); font-weight: 800;
       text-align: left !important; line-height: 1.35;
     }
-    /* บรรทัดข้อมูลเสริมบรรทัดเดียว: ผู้สอน (ซ้าย) + ผลสอบข้อเขียน (ขวา) — เรียบ ไม่มีพื้นหลัง เหมือนการ์ดแผนการสอนงาน */
-    table.cards-on-mobile.train-table td[data-label="ผู้สอน"] {
-      grid-column: 1; grid-row: 4; justify-content: flex-start;
-      font-size: 11.5px; color: var(--text3); margin-top: 2px;
-      text-align: left !important;
+    /* เส้นสามขั้น: จุด + ป้ายชื่อขั้น + ค่า ในแต่ละช่อง เส้นเชื่อมวาดด้วยพื้นหลังของช่อง (ครึ่งเดียวที่ปลาย) */
+    table.cards-on-mobile.train-table td[data-label="วันที่"], table.cards-on-mobile.train-table td[data-label="สถานะ"], table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
+      grid-row: 2; flex-direction: column; justify-content: flex-start; align-items: center;
+      text-align: center !important; gap: 2px; font-size: 12px; font-weight: 800; color: var(--text);
+      background-repeat: no-repeat;
     }
-    table.cards-on-mobile.train-table td[data-label="ผู้สอน"]::before {
-      content: '🧑‍🏫 '; display: inline !important; margin-right: 3px;
+    table.cards-on-mobile.train-table td[data-label="วันที่"]  { grid-column: 1; background-image: linear-gradient(var(--border), var(--border)); background-position: 100% 6px; background-size: 50% 2px; }
+    table.cards-on-mobile.train-table td[data-label="สถานะ"]  { grid-column: 2; background-image: linear-gradient(var(--border), var(--border)); background-position: 0 6px; background-size: 100% 2px; }
+    table.cards-on-mobile.train-table td[data-label="ผลสอบ"]  { grid-column: 3; background-image: linear-gradient(var(--border), var(--border)); background-position: 0 6px; background-size: 50% 2px; }
+    table.cards-on-mobile.train-table td[data-label="วันที่"]::before, table.cards-on-mobile.train-table td[data-label="สถานะ"]::before, table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::before {
+      display: block !important; content: ''; order: -2; width: 14px; height: 14px; border-radius: 50%;
+      border: 2.5px solid var(--border); background: var(--surface); box-sizing: border-box; margin-bottom: 3px;
     }
-    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
-      grid-column: 2; grid-row: 4; justify-content: flex-end;
-      gap: 4px; font-size: 11.5px; color: var(--text3); margin-top: 2px;
-      white-space: nowrap;
+    table.cards-on-mobile.train-table td[data-label="วันที่"]::after, table.cards-on-mobile.train-table td[data-label="สถานะ"]::after, table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::after {
+      order: -1; font-size: 10.5px; color: var(--text3); font-weight: 600;
     }
-    table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::before {
-      content: '📝 ข้อสอบ '; display: inline !important; color: var(--text4);
+    table.cards-on-mobile.train-table td[data-label="วันที่"]::after  { content: 'สอน'; }
+    table.cards-on-mobile.train-table td[data-label="สถานะ"]::after  { content: 'ประเมิน'; }
+    table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::after  { content: 'ข้อสอบ'; }
+    table.cards-on-mobile.train-table td[data-label="วันที่"]::before { background: var(--green); border-color: var(--green); }
+    table.cards-on-mobile.train-table tr.tstat-pass td[data-label="สถานะ"]::before { background: var(--green); border-color: var(--green); }
+    table.cards-on-mobile.train-table tr.tstat-fail td[data-label="สถานะ"]::before { background: var(--red); border-color: var(--red); }
+    table.cards-on-mobile.train-table tr.tstat-pending td[data-label="สถานะ"]::before { border-color: var(--yellow); }
+    table.cards-on-mobile.train-table tr.qs-ok td[data-label="ผลสอบ"]::before { background: var(--green); border-color: var(--green); }
+    table.cards-on-mobile.train-table td[data-label="วันที่"] .dt-long { display: none !important; }
+    table.cards-on-mobile.train-table td[data-label="วันที่"] .dt-short { display: inline !important; }
+    table.cards-on-mobile.train-table td[data-label="สถานะ"] .badge, table.cards-on-mobile.train-table td[data-label="ผลสอบ"] .badge {
+      background: transparent !important; padding: 0 !important; font-size: 12px !important; font-weight: 800 !important;
     }
-    /* Strip badge background — keep colored text only */
-    table.cards-on-mobile.train-table td[data-label="สถานะ"] .badge,
-    table.cards-on-mobile.train-table td[data-label="ผลสอบ"] .badge {
-      background: transparent !important;
-      padding: 0 !important;
-      font-size: 12px !important;
-      font-weight: 700 !important;
+    /* ผู้เรียน / ผู้สอน คนละบรรทัด */
+    table.cards-on-mobile.train-table td[data-label="พนักงาน"], table.cards-on-mobile.train-table td[data-label="ผู้สอน"] {
+      display: block !important; grid-column: 1 / -1; text-align: left !important;
+      background: var(--surface2); border-radius: 9px; padding: 7px 10px !important;
+      font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.4;
     }
-    /* Actions: ปุ่มแบ่งความกว้างเท่า ๆ กันเต็มแถว — ปุ่มเดียวก็เต็มความกว้าง ไม่ลอยเป็นปุ่มจิ๋ว */
-    table.cards-on-mobile.train-table td[data-label="actions"],
-    table.cards-on-mobile.admin-train-table td[data-label="actions"] {
-      display: flex !important;
-      justify-content: stretch; gap: 6px; flex-wrap: wrap;
-      overflow: visible;
-      padding-top: 10px !important; margin-top: 8px;
-      border-top: 1px solid var(--border) !important;
+    table.cards-on-mobile.train-table td[data-label="พนักงาน"] { grid-row: 3; }
+    table.cards-on-mobile.train-table td[data-label="ผู้สอน"] { grid-row: 4; }
+    table.cards-on-mobile.train-table td[data-label="พนักงาน"]::before, table.cards-on-mobile.train-table td[data-label="ผู้สอน"]::before {
+      display: block !important; font-size: 10.5px; color: var(--text3); font-weight: 700; margin-bottom: 2px;
     }
-    /* .train-table ใช้ display:grid บน tr (การ์ด 5 แถว หลังจัดใหม่) ต้องระบุตำแหน่งชัด ๆ — admin-train-table ไม่ได้ใช้ grid เลยไม่ต้องกำหนด */
+    table.cards-on-mobile.train-table td[data-label="พนักงาน"]::before { content: '👤 ผู้เรียน'; }
+    table.cards-on-mobile.train-table td[data-label="ผู้สอน"]::before { content: '🧑‍🏫 ผู้สอน'; }
+    /* ปุ่ม: ปุ่มหลัก (ประเมิน/ทำข้อสอบ) กว้างกว่า · แก้ไข/ลบเป็นไอคอน เรียงแถวเดียวไม่ล้น */
+    table.cards-on-mobile.train-table td[data-label="actions"], table.cards-on-mobile.admin-train-table td[data-label="actions"] {
+      display: flex !important; justify-content: stretch; gap: 6px; flex-wrap: nowrap; overflow: visible;
+    }
     table.cards-on-mobile.train-table td[data-label="actions"] { grid-column: 1 / -1; grid-row: 5; }
-    table.cards-on-mobile.train-table td[data-label="actions"] .btn,
-    table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn {
-      flex: 1 1 0; min-width: 78px; margin: 0 !important;
-      min-height: 38px; padding: 8px 10px !important;
+    table.cards-on-mobile.admin-train-table td[data-label="actions"] { flex-wrap: wrap; padding-top: 10px !important; margin-top: 8px; border-top: 1px solid var(--border) !important; }
+    table.cards-on-mobile.train-table td[data-label="actions"] .btn, table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn {
+      flex: 1 1 0; min-width: 0; margin: 0 !important;
+      min-height: 38px; padding: 8px 6px !important;
       font-size: 12.5px !important; font-weight: 700;
       border-radius: 10px;
       display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-      text-align: center;
+      text-align: center; white-space: nowrap;
     }
+    table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn { min-width: 78px; padding: 8px 10px !important; }
+    table.cards-on-mobile.train-table td[data-label="actions"] .btn-accent, table.cards-on-mobile.train-table td[data-label="actions"] .btn-green { flex: 2 1 0; }
+    table.cards-on-mobile.train-table td[data-label="actions"] .btn.ic { flex: 0 0 44px; }
+    table.cards-on-mobile.train-table .btn .ico { display: none; }
+    table.cards-on-mobile.train-table .btn.ic .lbl { display: none; }
+    table.cards-on-mobile.train-table .btn.ic .ico { display: inline; }
 
     /* ===== เคส/ติดต่อ Admin: แถบค้นหา + ตัวกรอง =====
        มือถือ: ช่องค้นหาอยู่บรรทัดของตัวเอง, ดรอปดาวลงบรรทัดถัดไปแบ่งครึ่ง — ไม่ล้นกรอบการ์ด */
@@ -9372,7 +9367,7 @@ function _trainTableHtml(d) {
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         const tStat = t.eval ? (isEvalPass(t.eval.result) ? 'tstat-pass' : 'tstat-fail') : (isEvalDeadlinePassed(t.date) ? 'tstat-fail' : 'tstat-pending');
-        return `<tr class="${tStat}">
+        return `<tr class="${tStat}${quizPassed ? ' qs-ok' : ''}">
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(t.date)}</span><span class="dt-long">${fmtDateTimeLong(t.date)}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`<strong>${e.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${e.position} · ${calcTenureShort(e.startDate)}</span>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
           <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId}${reviewBadge(t)}${t.track?` <span class="badge" style="font-size:10.5px;background:${t.track==='steak'?'#FEE2E2':'#FEF3C7'};color:${t.track==='steak'?'#991B1B':'#92400E'};font-weight:700">${t.track==='steak'?'🥩 สเต็ก':'🍝 พาสต้า'}</span>`:''} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span>${fromOtherBranch?` <span class="badge badge-navy" style="font-size:10px;margin-left:4px" title="สอนที่สาขานี้ก่อนย้ายเข้ามา">🔁 ${_escH(t.branchId)}</span>`:''}</td>
@@ -9385,7 +9380,7 @@ function _trainTableHtml(d) {
               :isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:(!t.eval && !fromOtherBranch)?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
-            ${canEdit?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button><button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>`:''}
+            ${canEdit?`<button class="btn btn-sm btn-outline ic" style="margin-left:4px" title="แก้ไข" onclick="openEditTraining('${t.id}')"><span class="lbl">แก้ไข</span><span class="ico">✏️</span></button><button class="btn btn-sm btn-danger ic" style="margin-left:4px" title="ลบ" onclick="deleteTraining('${t.id}')"><span class="lbl">ลบ</span><span class="ico">🗑</span></button>`:''}
           </td>
         </tr>`;}).join('')}
       </tbody>
