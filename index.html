@@ -8953,16 +8953,16 @@ function openBranchUpdateMenu() {
   const bid = getBranchId();
   const last = getLastBranchUpdate(bid);
   showModal('🔄 อัพเดทข้อมูลพนักงาน', `
-    <div style="margin-bottom:14px">
-      <label class="form-label">ชื่อผู้อัพเดทข้อมูล <span class="req">*</span></label>
-      <input class="form-input" id="bu-who" placeholder="ชื่อคนที่ลงข้อมูลครั้งนี้" value="${_escH(_buWho(bid) || currentUser?.name || '')}">
-    </div>
-    <div style="padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:16px">
+    <div style="padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">🕐 อัพเดทล่าสุด</div>
       ${last ? `
         <div style="font-size:14.5px;font-weight:800;color:var(--text)">${fmtDateTime(last.at)}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px">โดย ${_escH(last.by || '—')}</div>
       ` : `<div style="font-size:12.5px;color:var(--text2)">ยังไม่เคยอัพเดทข้อมูลพนักงานของสาขานี้</div>`}
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="form-label">ชื่อผู้อัพเดทข้อมูล <span class="req">*</span></label>
+      <input class="form-input" id="bu-who" placeholder="ชื่อคนที่ลงข้อมูลครั้งนี้" value="${_escH(_buWho(bid) || currentUser?.name || '')}">
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${_buOptRow('➕', 'var(--accent-light)', 'var(--accent)', 'เพิ่มพนักงานใหม่', 'กรอกข้อมูลพนักงานที่เพิ่งเข้าทำงาน', "if(!_buRequireName())return;closeModal();openAddEmployee()")}
@@ -17005,7 +17005,7 @@ function renderCoachingPlanPanel(bid) {
       .cp-item-actions{flex-direction:row;min-width:0}
       .cp-item-actions .btn{flex:1;padding:10px}
     }
-    @container (max-width:290px){ .cp-item-people{grid-template-columns:1fr} }
+    @media (max-width:760px){ .cp-item-people{grid-template-columns:1fr} }   /* มือถือ: ผู้เรียนกับผู้สอนอยู่คนละบรรทัด */
   </style>
   <div class="cp-card">
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
