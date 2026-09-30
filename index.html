@@ -602,8 +602,8 @@
     flex-shrink: 0;
     gap: 12px;
   }
-  .modal-title {
-    font-size: 18.5px; font-weight: 800; color: var(--text);
+  .modal-title, .pop-title {
+    font-size: 23px; font-weight: 800; -webkit-text-stroke: 0.5px currentColor; color: var(--text);
     letter-spacing: -0.35px; line-height: 1.2;
     flex: 1; min-width: 0;
   }
@@ -7179,7 +7179,7 @@ function showWelcomeModal(subtitle) {
   ov.innerHTML = `<div class="modal welcome-modal" style="max-width:320px;text-align:center">
     <div class="welcome-body" style="padding:24px 22px 20px;display:flex;flex-direction:column;align-items:center;gap:10px">
       <div class="welcome-wave" style="font-size:52px;line-height:1;animation:wave 1.2s ease-in-out infinite">👋</div>
-      <div class="welcome-title" style="font-size:20px;font-weight:800;color:var(--text)">ยินดีต้อนรับ!</div>
+      <div class="welcome-title pop-title">ยินดีต้อนรับ!</div>
       <div class="welcome-sub" style="font-size:13px;color:var(--text2);font-weight:500">${subtitle}</div>
       <div style="margin-top:6px;text-align:center;width:100%">
         <button class="btn btn-accent welcome-btn" style="width:140px;display:inline-flex;justify-content:center;padding:9px 0" onclick="closeModal()">ตกลง</button>
@@ -7202,7 +7202,7 @@ function showWelcomeModal(subtitle) {
       +   '.modal-overlay:has(.welcome-modal){align-items:center!important}'
       +   '.welcome-modal .welcome-body{padding:20px 18px 16px!important;gap:8px!important}'
       +   '.welcome-modal .welcome-wave{font-size:44px!important}'
-      +   '.welcome-modal .welcome-title{font-size:18px!important}'
+      +   '.welcome-modal .welcome-title{font-size:21px!important}'
       +   '.welcome-modal .welcome-sub{font-size:12.5px!important}'
       +   '.welcome-modal .welcome-btn{width:120px!important;padding:8px 0!important;font-size:13px!important}'
       + '}';
@@ -9009,9 +9009,9 @@ let _trainResultFilter = '';
 let _trainSearch = '';
 let _trainSort = { key: 'date', dir: 'desc' };
 let _trainView = 'record';   // ค่าเริ่มต้นเป็นรายครั้ง
-// ค่าเริ่มต้นโชว์เดือนปัจจุบันเสมอ ทั้งบันทึกการสอนงานและประเมินผล (ทั้งคอมและมือถือ ใช้ฟังก์ชันเรนเดอร์เดียวกัน)
-let _trainDateFrom = _ymdLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-let _trainDateTo = _ymdLocal(new Date());
+// ค่าเริ่มต้นโชว์ทุกช่วงเวลา (ทั้งคอมและมือถือ ใช้ฟังก์ชันเรนเดอร์เดียวกัน)
+let _trainDateFrom = '';   // เข้าหน้ามาโชว์ "ทุกช่วง" ก่อนเสมอ
+let _trainDateTo = '';
 let _trainDateCustomOpen = false;   // "กำหนดเอง" — ซ่อนช่องกรอกวันที่ไว้จนกว่าจะกดเปิด ลดพื้นที่แถบตัวกรองบนมือถือ
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainView(v) { _trainView = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
@@ -9239,8 +9239,10 @@ function _trainPageData() {
     else if (filter === 'expired') out = out.filter(t=>!t.eval && isEvalDeadlinePassed(t.date));
     if (_trainModuleFilter) out = out.filter(t => t.moduleId === _trainModuleFilter);
     if (_trainResultFilter) out = out.filter(t => _matchesResultFilter(t, _trainResultFilter));
-    if (_trainDateFrom) out = out.filter(t => (t.date||'') >= _trainDateFrom);
-    if (_trainDateTo) out = out.filter(t => (t.date||'') <= _trainDateTo + 'T23:59:59');
+    // t.date เป็น ISO แบบ UTC (เช่น 1 ต.ค. 00:46 เวลาไทย = 2026-09-30T17:46Z) ต้องแปลงเป็นวันที่ตามเวลาท้องถิ่นก่อนเทียบ ไม่งั้นบันทึกช่วงหลังเที่ยงคืนหลุดจากช่วง "เดือนนี้"
+    const _localDay = t => t.date ? _ymdLocal(new Date(t.date)) : '';
+    if (_trainDateFrom) out = out.filter(t => _localDay(t) >= _trainDateFrom);
+    if (_trainDateTo) out = out.filter(t => _localDay(t) <= _trainDateTo);
     return out;
   };
   const filtered = _applyBaseFilters(trains);
@@ -9519,7 +9521,7 @@ function _confirmReviewTopics(lines, onYes) {
       <div style="display:flex;gap:14px;align-items:flex-start">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🔁</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px">มีหัวข้อที่เคยสอนไปแล้ว</div>
+          <div class="pop-title" style="margin-bottom:6px">มีหัวข้อที่เคยสอนไปแล้ว</div>
           <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px">${lines.join('<br>')}</div>
           <div style="font-size:13.5px;font-weight:700;color:var(--text)">ครั้งนี้เป็นการสอนทบทวนใช่หรือไม่?</div>
         </div>
@@ -17187,7 +17189,6 @@ function _renderPlanBatchModal() {
       <label class="form-label">ผู้จัดทำแผน <span class="req">*</span></label>
       <input class="form-input" id="cp-batch-creator" placeholder="ชื่อผู้กรอกแผนชุดนี้ — กรอกครั้งเดียวใช้ได้ทั้งชุด" value="${_escH(_cpBatchCreator)}" oninput="_cpBatchCreator=this.value">
     </div>
-    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">เพิ่มได้ทั้งครัวและบริการปนกันในครั้งเดียว กด "บันทึกทั้งหมด" ตอนเพิ่มครบแล้ว</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
       ${_cpBatchItems.length ? _cpBatchItems.map((b, i) => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px">
@@ -21469,7 +21470,7 @@ function showConfirm(message, onConfirm, opts) {
       <div style="display:flex;gap:14px;align-items:flex-start">
         <div style="width:44px;height:44px;border-radius:50%;background:${danger?'#FEE2E2':'var(--accent-light)'};color:${danger?'#DC2626':'var(--accent)'};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px">${title}</div>
+          <div class="pop-title" style="margin-bottom:6px">${title}</div>
           <div style="font-size:13.5px;color:var(--text2);line-height:1.5">${message}</div>
         </div>
       </div>
@@ -21494,7 +21495,7 @@ function showBlockModal(dup) {
   ov.innerHTML = `<div class="modal welcome-modal" style="max-width:440px;text-align:center">
     <div style="padding:32px 28px 22px;display:flex;flex-direction:column;align-items:center;gap:14px">
       <div style="width:72px;height:72px;border-radius:50%;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;font-size:36px">🚫</div>
-      <div style="font-size:20px;font-weight:800;color:var(--text)">ไม่สามารถเพิ่มได้</div>
+      <div class="pop-title">ไม่สามารถเพิ่มได้</div>
       <div style="font-size:13.5px;color:var(--text2);line-height:1.55">
         พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้<br>
         ตรงกับข้อมูลที่กำลังเพิ่ม
