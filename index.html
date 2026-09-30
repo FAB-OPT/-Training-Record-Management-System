@@ -2606,6 +2606,9 @@
     /* หน้าประวัติอบรมหลักสูตร: ดรอปดาว (กลุ่มพนักงาน + เลือกหลักสูตร) จัดกึ่งกลางแถวของตัวเอง */
     .ch-filter-bar .cat-select-mobile { display: flex !important; margin: 0 auto !important; max-width: 320px; }
     .ch-filter-bar #ch-course-filter { margin: 0 auto !important; width: 92% !important; max-width: 320px; }
+    /* หน้าจัดการรายชื่อพนักงาน: ดรอปดาวประเภทพอดีตัวหนังสือ (ไม่ยืดเกิน) ให้ช่องค้นหากินพื้นที่ที่เหลือ */
+    .emp-filter-bar .cat-select-mobile { width: auto !important; max-width: 44% !important; flex: 0 1 auto !important; }
+    .emp-filter-bar #emp-search { flex: 1 1 0% !important; min-width: 90px !important; margin-left: 0 !important; }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
     /* Bottom nav: ทุกบทบาทเหลือไม่เกิน 5 แท็บ (ที่เหลืออยู่ในปุ่ม "อื่นๆ") — ไม่ต้องเลื่อนแนวนอน
@@ -8669,7 +8672,7 @@ function renderEmployees() {
     <button class="btn btn-accent" onclick="openBranchUpdateMenu()">🔄 อัพเดทข้อมูลพนักงาน</button>
   </div>
   <div class="card">
-    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <div class="filter-bar emp-filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="emp-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
         ${tabBtn('all','ทั้งหมด',enabled.length)}
         ${tabBtn('mgr','ทีมผู้จัดการสาขา',mgr.length)}
@@ -16676,11 +16679,11 @@ function renderCoachingPlanPanel(bid) {
             <div><span class="cp-role-label">👤 ผู้เรียน</span>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4)">ยังไม่ระบุคน</span>'}</div>
             <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4)">—</span>'}</div>
           </div>
-          <div class="cp-item-name">${_escH(m.name || it.moduleId)}</div>
-          <div class="cp-item-meta">
-            ${(it.subtopics || []).length ? `<span>${it.subtopics.length} หัวข้อย่อย</span>` : ''}
-            ${it.note ? `<span>📝 ${_escH(it.note)}</span>` : ''}
+          <div class="cp-item-module">
+            <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
+            ${(it.subtopics || []).length ? `<span class="cp-item-sub-count">${it.subtopics.length} หัวข้อย่อย</span>` : ''}
           </div>
+          ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
           <div class="cp-item-actions">
             ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
             ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
@@ -16692,36 +16695,32 @@ function renderCoachingPlanPanel(bid) {
   return `
   <style>
     .cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px}
-    .cp-top{display:flex;align-items:center;justify-content:center;margin-bottom:12px}
-    .cp-month-frame{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:8px 18px}
+    .cp-month-frame{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:8px 18px;flex-shrink:0}
     .cp-month-frame b{min-width:130px;text-align:center;font-size:14px}
+    .cp-month-frame .btn{width:auto!important;flex-shrink:0}
+    @media (max-width:600px){ .cp-month-frame{padding:6px 12px;gap:8px} .cp-month-frame b{min-width:0;font-size:13px} }
     .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .cp-col{background:var(--surface2);border-radius:12px;padding:12px}
     .cp-col-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
     .cp-col-title{font-weight:800;font-size:14px;flex:1}
     .cp-col-count{font-size:12px;color:var(--text2)}
     .cp-col-count b{color:var(--green)}
-    .cp-item{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:8px}
+    .cp-item{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:8px}
     .cp-item.ok{border-color:#BBE5C8}
     .cp-ribbon-done{position:absolute;top:0;right:0;background:var(--green);color:#fff;font-size:10.5px;font-weight:800;padding:5px 14px;border-radius:0 9px 0 10px}
     .cp-item.ok .cp-item-date{padding-right:100px}
     .cp-item-date{font-weight:700;font-size:12.5px;color:var(--text)}
-    .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
-    .cp-item-people{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+    .cp-item-people{display:flex;flex-direction:column;gap:3px;font-size:12.5px;background:var(--surface2);border-radius:8px;padding:8px 10px}
     .cp-role-label{color:var(--text3);font-weight:700;margin-right:5px}
-    .cp-item-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--text3)}
+    .cp-item-module{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
+    .cp-item-sub-count{font-size:10.5px;font-weight:700;color:var(--text2);background:var(--surface2);padding:2px 9px;border-radius:999px;white-space:nowrap}
+    .cp-item-note{font-size:11.5px;color:var(--text3)}
     .cp-item-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:2px}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
     @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
   </style>
   <div class="cp-card">
-    <div class="cp-top">
-      <div class="cp-month-frame">
-        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
-        <b>${_ymLabel(ym)}</b>
-        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
-      </div>
-    </div>
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
       ระบบแผนการสอนยังไม่เปิดใช้งาน${isAdminRole() ? ' — ต้องรันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน' : ' — แจ้ง Admin'}</div>` : ''}
     <div class="cp-grid">
@@ -16733,9 +16732,17 @@ function renderCoachingPlanPanel(bid) {
 
 /* หน้าแผนการสอนงาน (เมนูของตัวเอง) */
 function renderCoachingPlanPage() {
+  if (!_planMonth) _planMonth = _ymNow();
   return `
   <div class="page-hero">
-    <div class="page-hero-body"><div class="page-hero-title">แผนการสอนงาน</div></div>
+    <div class="page-hero-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div class="page-hero-title" style="margin:0">แผนการสอนงาน</div>
+      <div class="cp-month-frame">
+        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
+        <b>${_ymLabel(_planMonth)}</b>
+        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
+      </div>
+    </div>
   </div>
   ${renderCoachingPlanPanel(getBranchId())}`;
 }
