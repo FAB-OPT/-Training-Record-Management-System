@@ -426,6 +426,7 @@
   }
   /* Date-format swap: short on desktop, long (full Thai month) on mobile */
   .dt-long { display: none; }
+  .tf-m { display: none; }
   .train-table .btn .ico { display: none; }   /* ไอคอนแก้ไข/ลบ ใช้เฉพาะมือถือ */
   @media (max-width: 768px) {
     .dt-short { display: none; }
@@ -2603,6 +2604,27 @@
     .tv-toggle .btn { justify-content: center; padding: 6px 9px !important; font-size: 12px !important }
     .dq-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
     .dq-tabs::-webkit-scrollbar { display: none; }
+    /* ===== แถบตัวกรองมือถือ (.tf-m) — ช่องค้นหา/ปุ่ม/สลับมุมมองสูงเท่ากัน 36px ===== */
+    .tf-desktop { display: none !important; }
+    .tf-m { display: flex !important; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .tf-m button, .tf-m select, .tf-m input { font-family: inherit; }
+    .tf-m .tf-search { width: 100% !important; height: 36px !important; min-height: 36px !important; box-sizing: border-box !important; font-size: 12.5px !important; padding: 0 12px !important; margin: 0 !important; border-radius: 10px !important; }
+    .tf-m .tf-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .tf-m .tf-seg { display: flex; background: var(--surface2); padding: 3px; border-radius: 10px; gap: 2px; height: 36px; box-sizing: border-box; }
+    .tf-m .tf-seg button { border: 0; background: transparent; border-radius: 8px; padding: 0 12px; font-weight: 700; font-size: 12.5px; color: var(--text2); cursor: pointer; white-space: nowrap; }
+    .tf-m .tf-seg button.on { background: var(--accent); color: #fff; }
+    .tf-m .tf-btn { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--border); background: var(--surface); border-radius: 10px; padding: 0 12px; height: 36px; font-weight: 700; font-size: 12.5px; cursor: pointer; color: var(--text); white-space: nowrap; }
+    .tf-m .tf-btn .n { background: var(--accent); color: #fff; border-radius: 999px; font-size: 10.5px; min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; }
+    .tf-m .tf-chips, .tf-m .tf-dates { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+    .tf-m .tf-chips::-webkit-scrollbar, .tf-m .tf-dates::-webkit-scrollbar { display: none; }
+    .tf-m .tf-dates { flex-wrap: wrap; overflow: visible; }
+    .tf-m .tf-chip { flex: 0 0 auto; border: 1.5px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 700; color: var(--text2); cursor: pointer; white-space: nowrap; }
+    .tf-m .tf-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tf-m .tf-chip .c { opacity: .75; font-weight: 600; margin-left: 4px; }
+    .tf-m .tf-panel { flex-direction: column; gap: 10px; background: var(--surface2); border-radius: 12px; padding: 10px; }
+    .tf-m .tf-row2 { display: flex; gap: 8px; align-items: center; }
+    .tf-m .tf-row2 select, .tf-m .tf-row2 input { flex: 1; min-width: 0; height: 36px !important; min-height: 36px !important; font-size: 12.5px !important; padding: 0 10px !important; border-radius: 10px !important; }
+    .tf-m .tf-lbl { font-size: 11px; font-weight: 700; color: var(--text3); }
     /* บนมือถือ: toggle รายครั้ง/รายคน + ปุ่มลัดช่วงวันที่ อยู่แถวเดียวกัน (ไม่ต้องมีป้าย "ช่วงวันที่" ซ้ำ ปุ่มลัดสื่อความหมายอยู่แล้ว)
        ช่องกรอกวันที่เองซ่อนไว้ โผล่เฉพาะกด "กำหนดเอง" — ลดพื้นที่แถบตัวกรองเมื่อไม่ได้ใช้ */
     .train-date-bar { align-items: center !important; }
@@ -9258,10 +9280,56 @@ function _trainPageData() {
     : [];
   return { bid, trains, pending, done, expired, filter, rows, personRows, _bidEmpIds };
 }
-function filterTrainSearch() {
-  _trainSearch = document.getElementById('train-search').value || '';
+function filterTrainSearch(el) {
+  _trainSearch = (el || document.getElementById('train-search')).value || '';
   const d = _trainPageData();
   document.getElementById('train-table-area').innerHTML = _trainTableHtml(d);
+}
+/* ===== แถบตัวกรองมือถือ (หน้าบันทึกการสอนงาน) — ค้นหาอยู่บนสุด · สลับมุมมอง + ปุ่มตัวกรอง · แท็บสถานะ · แผงตัวกรองพับเก็บ
+   จอคอมใช้แถบเดิม (.tf-desktop) มือถือใช้ชุดนี้ (.tf-m) สองชุดใช้ state ตัวเดียวกัน */
+let _trainFilterOpen = false;
+function toggleTrainFilterPanel() {
+  _trainFilterOpen = !_trainFilterOpen;
+  const p = document.getElementById('tf-panel'); if (p) p.style.display = _trainFilterOpen ? 'flex' : 'none';
+  const a = document.getElementById('tf-arrow'); if (a) a.textContent = _trainFilterOpen ? '▴' : '▾';
+}
+function _trainFilterMobileHtml(d) {
+  const { trains, pending, done, expired, filter } = d;
+  const today = new Date();
+  const thisFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1)), thisTo = _ymdLocal(today);
+  const lastFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth() - 1, 1)), lastTo = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 0));
+  const isAll = !_trainDateFrom && !_trainDateTo;
+  const isThis = _trainDateFrom === thisFrom && _trainDateTo === thisTo;
+  const isLast = _trainDateFrom === lastFrom && _trainDateTo === lastTo;
+  const isCustom = !isAll && !isThis && !isLast;
+  const showDates = isCustom || _trainDateCustomOpen;
+  const active = (_trainModuleFilter ? 1 : 0) + (_trainResultFilter ? 1 : 0) + (isAll ? 0 : 1);
+  const chip = (on, label, click) => `<button class="tf-chip${on ? ' on' : ''}" onclick="${click}">${label}</button>`;
+  const tab = (key, label, count) => chip(filter === key, `${label}<span class="c">(${count})</span>`, `setTrainFilter('${key}')`);
+  return `<div class="tf-m">
+    <input class="search-input tf-search" id="train-search-m" placeholder="🔍 ค้นหาชื่อพนักงาน / Module / ผู้สอน..." oninput="filterTrainSearch(this)" value="${_escH(_trainSearch)}">
+    <div class="tf-row">
+      <span class="tf-seg">
+        <button class="${_trainView === 'record' ? 'on' : ''}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
+        <button class="${_trainView === 'person' ? 'on' : ''}" onclick="setTrainView('person')">🙍 รายคน</button>
+      </span>
+      <button class="tf-btn" onclick="toggleTrainFilterPanel()">⚙ ตัวกรอง${active ? ` <span class="n">${active}</span>` : ''} <span id="tf-arrow">${_trainFilterOpen ? '▴' : '▾'}</span></button>
+    </div>
+    <div class="tf-chips">${tab('all', 'ทั้งหมด', trains.length)}${tab('pending', 'รอประเมิน', pending.length)}${tab('done', 'ประเมินแล้ว', done.length)}${tab('expired', 'หมดเวลาประเมิน', expired.length)}</div>
+    <div class="tf-panel" id="tf-panel" style="display:${_trainFilterOpen ? 'flex' : 'none'}">
+      <div class="tf-row2">
+        <select class="form-select" onchange="setTrainModuleFilter(this.value)">${_moduleOptionsHtml(_trainModuleFilter)}</select>
+        <select class="form-select" onchange="setTrainResultFilter(this.value)">${_resultOptionsHtml(_trainResultFilter)}</select>
+      </div>
+      <div class="tf-lbl">📅 ช่วงวันที่</div>
+      <div class="tf-dates">${chip(isAll, 'ทุกช่วง', "setTrainDateQuick('clear')")}${chip(isThis, 'เดือนนี้', "setTrainDateQuick('this-month')")}${chip(isLast, 'เดือนที่แล้ว', "setTrainDateQuick('last-month')")}${chip(isCustom || _trainDateCustomOpen, 'กำหนดเอง', "setTrainDateQuick('custom')")}</div>
+      ${showDates ? `<div class="tf-row2">
+        <input type="date" class="form-input" value="${_trainDateFrom}" onchange="setTrainDateRange(this.value,_trainDateTo)">
+        <span style="color:var(--text3);font-size:12px">ถึง</span>
+        <input type="date" class="form-input" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
+      </div>` : ''}
+    </div>
+  </div>`;
 }
 function renderTrainings() {
   const d = _trainPageData();
@@ -9280,7 +9348,8 @@ function renderTrainings() {
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
   <div class="card">
-    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    ${_trainFilterMobileHtml(d)}
+    <div class="filter-bar tf-desktop" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
         ${tabBtn('all','ทั้งหมด',trains.length)}
         ${tabBtn('pending','รอประเมิน',pending.length)}
@@ -9300,7 +9369,7 @@ function renderTrainings() {
         ${_resultOptionsHtml(_trainResultFilter)}
       </select>
     </div>
-    <div class="filter-bar train-date-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
+    <div class="filter-bar train-date-bar tf-desktop" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
       <span class="cat-tabs tv-toggle" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
         <button class="btn btn-sm ${_trainView==='record'?'btn-navy':'btn-outline'}" style="${_trainView==='record'?'':'background:transparent;border:0'}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
         <button class="btn btn-sm ${_trainView==='person'?'btn-navy':'btn-outline'}" style="${_trainView==='person'?'':'background:transparent;border:0'}" onclick="setTrainView('person')">🙍 รายคน</button>
