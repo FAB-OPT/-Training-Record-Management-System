@@ -2624,7 +2624,8 @@
     .tf-m .tf-chip .c { opacity: .75; font-weight: 600; margin-left: 4px; }
     .tf-m .tf-panel { flex-direction: column; gap: 10px; background: var(--surface2); border-radius: 12px; padding: 10px; }
     .tf-m .tf-row2 { display: flex; gap: 8px; align-items: center; }
-    .tf-m .tf-row2 select, .tf-m .tf-row2 input { flex: 1; min-width: 0; height: 36px !important; min-height: 36px !important; font-size: 12.5px !important; padding: 0 10px !important; border-radius: 10px !important; }
+    .tf-m .tf-row2 select, .tf-m .tf-row2 input { flex: 1; min-width: 0; height: 38px !important; min-height: 38px !important; font-size: 13px !important; line-height: 1.5 !important; padding: 0 10px !important; border-radius: 10px !important; }
+    .tf-m .tf-row2 select { padding: 0 34px 0 10px !important; }
     .tf-m .tf-lbl { font-size: 11px; font-weight: 700; color: var(--text3); }
     /* บนมือถือ: toggle รายครั้ง/รายคน + ปุ่มลัดช่วงวันที่ อยู่แถวเดียวกัน (ไม่ต้องมีป้าย "ช่วงวันที่" ซ้ำ ปุ่มลัดสื่อความหมายอยู่แล้ว)
        ช่องกรอกวันที่เองซ่อนไว้ โผล่เฉพาะกด "กำหนดเอง" — ลดพื้นที่แถบตัวกรองเมื่อไม่ได้ใช้ */
@@ -2637,8 +2638,9 @@
     .ch-filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
     .ch-filter-bar .cat-select-mobile, .ch-filter-bar #ch-course-filter, .ch-filter-bar #ch-search {
       display: block !important; width: 100% !important; max-width: none !important; min-width: 0 !important; margin: 0 !important;
-      height: 38px !important; min-height: 38px !important; box-sizing: border-box !important; font-size: 13px !important;
+      height: 38px !important; min-height: 38px !important; box-sizing: border-box !important; font-size: 13px !important; line-height: 1.5 !important;
     }
+    .ch-filter-bar .cat-select-mobile, .ch-filter-bar #ch-course-filter { padding: 0 36px 0 12px !important; }   /* padding บน-ล่างเดิม 11px บีบพื้นที่ตัวอักษร สระล่างไทยโดนตัด */
     .ch-filter-bar #ch-search { padding: 0 12px !important; border-radius: 10px !important; border: 1.5px solid var(--border) !important; background: var(--surface2) !important; }
     .ch-filter-bar #ch-course-filter { order: 1; }
     .ch-filter-bar .cat-select-mobile { order: 2; }
@@ -7358,7 +7360,7 @@ function buildBranchNav() {
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
     <div class="nav-item" id="nav-coaching-plan" onclick="showPage('coaching-plan')"><span class="nav-icon">📅</span> แผนการสอนงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอนงานและประเมินผล</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอนและประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-divider"></div>
     <div class="nav-section-label">การจัดการข้อมูล</div>
@@ -9352,7 +9354,7 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">บันทึกการสอนงานและประเมินผล</div>
+      <div class="page-hero-title">บันทึกการสอนและประเมินผล</div>
     </div>
     <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
@@ -16993,7 +16995,7 @@ function renderCoachingPlanPanel(bid) {
     const c = colColor[grp];
     return `<div class="cp-col" style="border-left:4px solid ${c}">
       <div class="cp-col-head" style="background:${c}14;margin:-12px -12px 8px;padding:10px 12px;border-radius:8px 8px 0 0">
-        <span class="cp-col-title" style="color:${c}">${icon} ${label}</span>
+        <span class="cp-col-title" style="color:${c}">${label}</span>
         <span class="cp-col-count">${list.length ? `สอนแล้ว <b>${done}</b>/${list.length}` : 'ยังไม่มีแผน'}</span>
       </div>
       ${list.length ? list.map(it => {
@@ -17084,8 +17086,8 @@ function renderCoachingPlanPanel(bid) {
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
       ระบบแผนการสอนยังไม่เปิดใช้งาน${isAdminRole() ? ' — ต้องรันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน' : ' — แจ้ง Admin'}</div>` : ''}
     <div class="cp-grid">
-      ${col('kitchen', '👨‍🍳', 'ครัว')}
-      ${col('service', '🍽', 'บริการ')}
+      ${col('kitchen', '', 'ครัว')}
+      ${col('service', '', 'บริการ')}
     </div>
   </div>`;
 }
@@ -17146,7 +17148,7 @@ function openPlanItem(grp, itemId) {
   _cpCrossDept = _cpSelectedEmps.some(e => getPositionGroup(e.position) === otherGrp);
   _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
   const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
-  showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
+  showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? 'ครัว' : 'บริการ'} · ${_ymLabel(ym)}`, `
     ${_cpBatchMode ? '' : `
     <div class="form-full">
       <label class="form-label">ผู้จัดทำแผน <span class="req">*</span></label>
@@ -17285,7 +17287,7 @@ function _renderPlanBatchModal() {
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
       ${_cpBatchItems.length ? _cpBatchItems.map((b, i) => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px">
-          <span style="font-size:18px;flex-shrink:0">${b.grp === 'kitchen' ? '👨‍🍳' : '🍽'}</span>
+          <span style="width:5px;align-self:stretch;border-radius:4px;flex-shrink:0;background:${b.grp === 'kitchen' ? '#EF4444' : '#22C55E'}"></span>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13px">${_escH(MODULES[b.moduleId]?.name || b.moduleId)}</div>
             <div style="font-size:11.5px;color:var(--text3)">${_escH((b.empNames || []).join(', ') || '—')} · ${b.planDate ? _escH(fmtDate(b.planDate)) : 'ยังไม่ระบุวันที่'}</div>
@@ -17303,8 +17305,8 @@ function _cpBatchAddOne() {
   try { localStorage.setItem(_cpCreatorKey(), _cpBatchCreator); } catch (_) {}
   showModal('เพิ่มรายการ · เลือกแผนก', `
     <div style="display:flex;gap:10px">
-      <button type="button" class="btn btn-outline" style="flex:1;padding:18px 10px;font-size:14px" onclick="_cpBatchPickGrp('kitchen')">👨‍🍳<br>ครัว</button>
-      <button type="button" class="btn btn-outline" style="flex:1;padding:18px 10px;font-size:14px" onclick="_cpBatchPickGrp('service')">🍽<br>บริการ</button>
+      <button type="button" style="flex:1;padding:26px 10px;font-family:inherit;font-size:19px;font-weight:800;color:#DC2626;background:#FEF2F2;border:2px solid #FECACA;border-radius:14px;cursor:pointer" onclick="_cpBatchPickGrp('kitchen')">ครัว</button>
+      <button type="button" style="flex:1;padding:26px 10px;font-family:inherit;font-size:19px;font-weight:800;color:#16A34A;background:#F0FDF4;border:2px solid #BBF7D0;border-radius:14px;cursor:pointer" onclick="_cpBatchPickGrp('service')">บริการ</button>
     </div>
   `, null, '');
 }
@@ -17570,7 +17572,7 @@ function renderAdminPlanOverview() {
     </div>
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
     rows.length ? `<div class="table-wrap" style="max-height:340px;overflow:auto"><table>
-      <thead><tr><th>สาขา</th><th style="text-align:center">👨‍🍳 ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">🍽 บริการ<br><small>สอนแล้ว/แผน</small></th>
+      <thead><tr><th>สาขา</th><th style="text-align:center">ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">บริการ<br><small>สอนแล้ว/แผน</small></th>
         <th>วันที่วางแผนสอน</th><th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
       <tbody>${rows.map(r => `<tr>
         <td><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:10.5px">ยังไม่วางแผน</span>'}</td>
@@ -17606,7 +17608,7 @@ function _planItemDetailListHtml(bid, ym, items) {
     const kitchen = _planGroup(it.moduleId) === 'kitchen';
     return `<div style="border:1px solid ${done ? '#BBE5C8' : 'var(--border)'};border-left:4px solid ${kitchen ? '#EF4444' : '#22C55E'};border-radius:10px;padding:10px 12px;background:var(--surface)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-weight:800;font-size:13px">${kitchen ? '👨‍🍳' : '🍽'} ${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)}</span>
+        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)}</span>
         <span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;background:${done ? 'var(--green)' : 'var(--surface2)'};color:${done ? '#fff' : 'var(--text3)'}">${done ? '✓ สอนแล้ว' : 'ยังไม่สอน'}</span>
       </div>
       <div style="font-size:12px;color:var(--text2);line-height:1.65">
