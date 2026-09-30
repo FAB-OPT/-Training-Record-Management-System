@@ -3011,6 +3011,11 @@ body.admin-user .btn-navy{background:var(--primary)}
 .xr-pill{background:var(--accent);color:#fff;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:800}
 .xr-cancel{border:0;background:transparent;color:var(--text3);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:8px}
 .xr-cancel:hover{background:var(--red-light);color:var(--red)}
+/* เมนู "อัพเดทข้อมูลพนักงาน" + ตัวเลือกพนักงานที่ตามมา */
+.bu-opt-row,.emp-pick-row{transition:background .12s,border-color .12s}
+.bu-opt-row:hover,.emp-pick-row:hover{background:var(--surface2);border-color:var(--border2)}
+.bu-opt-row:active,.emp-pick-row:active{transform:scale(.99)}
+.bu-last-pill{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
 /* หน้าสาขาของ admin — ผังเขต (สีจากตัวแปรของระบบ) */
 .zm-legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text2);margin:0 4px 12px}
 .zm-legend span{display:inline-flex;align-items:center;gap:7px}
@@ -8607,7 +8612,7 @@ function renderEmployees() {
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">จัดการรายชื่อพนักงาน</div>
-      <div class="page-hero-sub">${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
+      <div class="bu-last-pill" style="${_buLast ? 'background:var(--green-light);color:var(--green)' : 'background:var(--accent-light);color:var(--accent)'}">🕐 ${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
     </div>
     <button class="btn btn-accent" onclick="openBranchUpdateMenu()">🔄 อัพเดทข้อมูลพนักงาน</button>
   </div>
@@ -8822,19 +8827,30 @@ function getBranchUpdateHistory(bid) {
 function getLastBranchUpdate(bid) {
   return getBranchUpdateHistory(bid)[0] || null;
 }
+function _buOptRow(icon, iconBg, iconColor, title, desc, onclick) {
+  return `<div class="bu-opt-row" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer" onclick="${onclick}">
+    <div style="width:38px;height:38px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${icon}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13.5px;font-weight:700;color:var(--text)">${title}</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:1px">${desc}</div>
+    </div>
+    <span style="color:var(--text3);font-size:16px;flex-shrink:0">›</span>
+  </div>`;
+}
 function openBranchUpdateMenu() {
   const bid = getBranchId();
   const last = getLastBranchUpdate(bid);
   showModal('🔄 อัพเดทข้อมูลพนักงาน', `
-    <div style="font-size:12.5px;color:var(--text3);margin-bottom:14px">
-      ${last ? `อัพเดทล่าสุด <b style="color:var(--text)">${fmtDateTime(last.at)}</b> · ${_BU_ACTION[last.action]?.[0]||last.action}${last.empName?` (${_escH(last.empName)})`:''} · โดย ${_escH(last.by||'—')}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงานของสาขานี้'}
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:16px;font-size:12px;color:var(--text2)">
+      🕐 ${last ? `อัพเดทล่าสุด <b style="color:var(--text)">${fmtDateTime(last.at)}</b> · ${_BU_ACTION[last.action]?.[0]||last.action}${last.empName?` (${_escH(last.empName)})`:''} · โดย ${_escH(last.by||'—')}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงานของสาขานี้'}
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-outline" style="justify-content:flex-start;padding:12px 14px" onclick="closeModal();openAddEmployee()">➕ เพิ่มพนักงานใหม่</button>
-      <button class="btn btn-outline" style="justify-content:flex-start;padding:12px 14px" onclick="closeModal();openEmpPickerForUpdate('edit')">✏️ แก้ไขข้อมูลพนักงาน</button>
-      <button class="btn btn-outline" style="justify-content:flex-start;padding:12px 14px" onclick="closeModal();openEmpPickerForUpdate('transfer')">🔁 ขอย้ายสาขาพนักงาน</button>
-      <button class="btn btn-accent" style="justify-content:flex-start;padding:12px 14px" onclick="confirmNoBranchUpdate()">✓ ยืนยันไม่มีการเปลี่ยนแปลงรอบนี้</button>
+      ${_buOptRow('➕', 'var(--accent-light)', 'var(--accent)', 'เพิ่มพนักงานใหม่', 'กรอกข้อมูลพนักงานที่เพิ่งเข้าทำงาน', "closeModal();openAddEmployee()")}
+      ${_buOptRow('✏️', '#DBEAFE', '#2563EB', 'แก้ไขข้อมูลพนักงาน', 'เลือกคนจากรายชื่อ แล้วแก้ตำแหน่ง/สถานะ', "closeModal();openEmpPickerForUpdate('edit')")}
+      ${_buOptRow('🔁', 'var(--surface3, #EEE)', 'var(--text)', 'ขอย้ายสาขาพนักงาน', 'เลือกคนที่จะย้าย ส่งคำขอให้ Admin อนุมัติ', "closeModal();openEmpPickerForUpdate('transfer')")}
     </div>
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+    ${_buOptRow('✓', 'var(--green-light)', 'var(--green)', 'ยืนยันไม่มีการเปลี่ยนแปลงรอบนี้', 'ตรวจแล้ว ข้อมูลพนักงานสาขานี้ยังถูกต้องเหมือนเดิม', "confirmNoBranchUpdate()")}
   `, null, 'ปิด');
 }
 function confirmNoBranchUpdate() {
@@ -8843,18 +8859,24 @@ function confirmNoBranchUpdate() {
   closeModal(); showPage('employees'); notify('บันทึกการยืนยันแล้ว');
 }
 /* เลือกพนักงานก่อนไปแก้ไข/ขอย้าย เพราะปุ่มอัพเดทเป็นปุ่มเดียวระดับหน้า ไม่ใช่ต่อแถวเหมือนเดิม */
+function _buPickRowHtml(e, action) {
+  const grpHex = {'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
+  const color = grpHex[getPositionGroup(e.position)] || '#9CA3AF';
+  const initial = (e.name || '?').trim().charAt(0);
+  return `<div class="emp-pick-row" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer" onclick="closeModal();${action==='transfer'?`openTransferRequest('${e.id}')`:`openEditEmployee('${e.id}')`}">
+      <div style="width:34px;height:34px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0">${_escH(initial)}</div>
+      <div style="flex:1;min-width:0"><strong style="font-size:13px">${_escH(e.name)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(e.position||'')}</div></div>
+      <span style="color:var(--text3);font-size:16px;flex-shrink:0">›</span>
+    </div>`;
+}
 function openEmpPickerForUpdate(action) {
   const bid = getBranchId();
   const emps = getBranchEmployees(bid).filter(_isEmpEnabled).sort((a,b)=>a.name.localeCompare(b.name,'th'));
   const title = action === 'transfer' ? '🔁 เลือกพนักงานที่จะขอย้ายสาขา' : '✏️ เลือกพนักงานที่จะแก้ไข';
-  const rowHtml = e => `<div class="emp-pick-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="closeModal();${action==='transfer'?`openTransferRequest('${e.id}')`:`openEditEmployee('${e.id}')`}">
-      <div><strong style="font-size:13px">${_escH(e.name)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(e.position||'')}</div></div>
-      <span style="color:var(--text3)">›</span>
-    </div>`;
   showModal(title, `
     <input class="search-input" id="bu-pick-search" placeholder="ค้นหาชื่อ..." oninput="_filterEmpPicker('${action}')" style="width:100%;margin-bottom:10px">
     <div id="bu-pick-list" style="display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto">
-      ${emps.length ? emps.map(rowHtml).join('') : '<div style="text-align:center;color:var(--text3);padding:20px">ไม่มีพนักงานที่แก้ไขได้</div>'}
+      ${emps.length ? emps.map(e => _buPickRowHtml(e, action)).join('') : '<div style="text-align:center;color:var(--text3);padding:20px">ไม่มีพนักงานที่แก้ไขได้</div>'}
     </div>
   `, null, 'ยกเลิก');
   window._buPickAction = action; window._buPickEmps = emps;
@@ -8862,11 +8884,7 @@ function openEmpPickerForUpdate(action) {
 function _filterEmpPicker(action) {
   const q = (document.getElementById('bu-pick-search').value || '').toLowerCase();
   const emps = (window._buPickEmps || []).filter(e => e.name.toLowerCase().includes(q) || (e.position||'').toLowerCase().includes(q));
-  const rowHtml = e => `<div class="emp-pick-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="closeModal();${action==='transfer'?`openTransferRequest('${e.id}')`:`openEditEmployee('${e.id}')`}">
-      <div><strong style="font-size:13px">${_escH(e.name)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(e.position||'')}</div></div>
-      <span style="color:var(--text3)">›</span>
-    </div>`;
-  document.getElementById('bu-pick-list').innerHTML = emps.length ? emps.map(rowHtml).join('') : '<div style="text-align:center;color:var(--text3);padding:20px">ไม่พบพนักงาน</div>';
+  document.getElementById('bu-pick-list').innerHTML = emps.length ? emps.map(e => _buPickRowHtml(e, action)).join('') : '<div style="text-align:center;color:var(--text3);padding:20px">ไม่พบพนักงาน</div>';
 }
 
 // ==================== TRAININGS ====================
