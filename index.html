@@ -2305,8 +2305,13 @@
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) auto;
       row-gap: 5px; column-gap: 16px;
-      padding: 12px 14px;
+      padding: 12px 14px 12px 12px;
+      border-left: 4px solid var(--border) !important;
     }
+    /* แถบสีซ้ายบอกสถานะแบบกวาดตาไว — เขียวผ่าน/แดงไม่ผ่านหรือหมดเวลา/เหลืองรอประเมิน */
+    table.cards-on-mobile.train-table tr.tstat-pass { border-left-color: var(--green) !important; }
+    table.cards-on-mobile.train-table tr.tstat-fail { border-left-color: var(--red) !important; }
+    table.cards-on-mobile.train-table tr.tstat-pending { border-left-color: var(--yellow) !important; }
     table.cards-on-mobile.train-table td {
       display: flex !important; align-items: center;
       padding: 0 !important; font-size: 12.5px; min-width: 0;
@@ -2624,8 +2629,9 @@
     .emp-filter-bar .cat-select-mobile {
       width: auto !important; max-width: 44% !important; flex: 0 1 auto !important;
       background: var(--surface2) !important; border: 1.5px solid var(--border) !important; border-radius: 6px !important;
+      height: 32px !important; min-height: 32px !important; padding: 0 26px 0 11px !important; font-size: 12.5px !important;
     }
-    .emp-filter-bar #emp-search { flex: 1 1 0% !important; min-width: 90px !important; margin-left: 0 !important; }
+    .emp-filter-bar #emp-search { flex: 1 1 0% !important; min-width: 90px !important; margin-left: 0 !important; height: 32px !important; box-sizing: border-box !important; }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
     /* Bottom nav: ทุกบทบาทเหลือไม่เกิน 5 แท็บ (ที่เหลืออยู่ในปุ่ม "อื่นๆ") — ไม่ต้องเลื่อนแนวนอน
@@ -9322,7 +9328,8 @@ function _trainTableHtml(d) {
           ? `<span class="badge ${bestPct>=80?'badge-green':'badge-red'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
-        return `<tr>
+        const tStat = t.eval ? (isEvalPass(t.eval.result) ? 'tstat-pass' : 'tstat-fail') : (isEvalDeadlinePassed(t.date) ? 'tstat-fail' : 'tstat-pending');
+        return `<tr class="${tStat}">
           <td data-label="วันที่" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(t.date)}</span><span class="dt-long">${fmtDateTimeLong(t.date)}</span></td>
           <td data-label="พนักงาน" style="font-size:12.5px">${(t.traineeIds||[]).map(id=>{const e=getEmployee(id);return e?`<strong>${e.name}</strong> <span style="color:var(--text3);font-size:11.5px;font-weight:500">${e.position} · ${calcTenureShort(e.startDate)}</span>`:null;}).filter(Boolean).join('<br>')||'—'}</td>
           <td data-label="Module" style="color:var(--text)">${MODULES[t.moduleId]?.name||t.moduleId}${t.track?` <span class="badge" style="font-size:10.5px;background:${t.track==='steak'?'#FEE2E2':'#FEF3C7'};color:${t.track==='steak'?'#991B1B':'#92400E'};font-weight:700">${t.track==='steak'?'🥩 สเต็ก':'🍝 พาสต้า'}</span>`:''} <span class="badge ${moduleComplete?'badge-green':'badge-navy'}" style="font-size:10.5px;margin-left:4px;font-weight:600;cursor:pointer" onclick="showSubtopicBreakdown('${t.id}')" title="คลิกเพื่อดูรายละเอียดหัวข้อ · สะสมเฉพาะ session ที่ประเมินแล้ว">${(t.subtopics||[]).length} หัวข้อ${moduleComplete?' · สะสมครบ '+prog.done+'/'+prog.total+' ✓':' · สะสม '+prog.done+'/'+prog.total}${!t.eval?' ⌛':''} 🔍</span>${fromOtherBranch?` <span class="badge badge-navy" style="font-size:10px;margin-left:4px" title="สอนที่สาขานี้ก่อนย้ายเข้ามา">🔁 ${_escH(t.branchId)}</span>`:''}</td>
@@ -9385,14 +9392,13 @@ function openAddTraining() {
                 </div>`).join('')}
           </div>
         </div>
-        <div style="font-size:11.5px;color:var(--text3);margin-top:4px">เลือกจากรายชื่อพนักงานในสาขา หรือพิมพ์เองได้ถ้าผู้สอนมาจากที่อื่น</div>
       </div>
     </div>
     <div class="form-full">
       <label class="form-label" id="emp-select-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ต้องประเภทเดียวกัน) <span class="req">*</span></label>
       <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
         <input type="checkbox" id="tr-cross-dept" onchange="toggleCrossDeptMode()">
-        🔀 สอนข้ามแผนก (เช่นครัวสอนบริการ) — เลือกได้แค่ 1 คน
+        🔀 สอนข้ามส่วนงาน (เช่นตำแหน่งครัว สอนบริการ) — เลือกได้แค่ 1 คน
       </label>
       <div class="emp-multiselect" id="emp-multiselect" data-emps='${empsJson.replace(/'/g,"&#39;")}'>
         <div class="emp-select-box" id="emp-select-box" onclick="focusEmpSearch(event)">
@@ -9417,7 +9423,7 @@ function openAddTraining() {
     </div>
     <div class="form-full">
       <label class="form-label">Module หลัก <span class="req">*</span></label>
-      <div id="module-hint" style="font-size:12px;color:var(--text3);margin-bottom:6px">⬆ เลือกพนักงานก่อน เพื่อแสดง Module ที่เหมาะสม</div>
+      <div id="module-hint" style="font-size:12px;color:var(--text3);margin-bottom:6px"></div>
       <select class="form-select" id="tr-module" onchange="updateSubtopics()" disabled>
         <option value="">— กรุณาเลือกพนักงานก่อน —</option>
       </select>
@@ -9701,8 +9707,7 @@ function updateModulesByTrainees() {
   if (_selectedEmps.length === 0) {
     sel.innerHTML = '<option value="">— กรุณาเลือกพนักงานก่อน —</option>';
     sel.disabled = true;
-    hint.textContent = '⬆ เลือกพนักงานก่อน เพื่อแสดง Module ที่เหมาะสม';
-    hint.style.color = 'var(--text3)';
+    hint.textContent = '';
     subtopicsContainer.innerHTML = '<span class="text-muted">กรุณาเลือก Module ก่อน</span>';
     return;
   }
@@ -16720,7 +16725,10 @@ function renderCoachingPlanPanel(bid) {
         const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           ${ok ? '<span class="cp-ribbon-done">✓ สอนแล้ว</span>' : ''}
-          <div class="cp-item-date">📅 สอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุ</span>'}${it.evalDate ? ` <span style="color:var(--text3)">· 📝 ประเมิน ${_escH(fmtDate(it.evalDate))}</span>` : ''}</div>
+          <div class="cp-item-dates">
+            <div class="cp-item-date">📅 สอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุ</span>'}</div>
+            ${it.evalDate ? `<div class="cp-item-date" style="color:var(--text3);font-weight:600">📝 ประเมิน ${_escH(fmtDate(it.evalDate))}</div>` : ''}
+          </div>
           <div class="cp-item-people">
             <div><span class="cp-role-label">👤 ผู้เรียน</span>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4)">ยังไม่ระบุคน</span>'}</div>
             <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4)">—</span>'}</div>
@@ -16766,6 +16774,20 @@ function renderCoachingPlanPanel(bid) {
     .cp-item-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:2px}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
     @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
+    /* จอกว้าง (คอมพิวเตอร์) ไม่จำเป็นต้องเรียงเป็นการ์ดสแต็กแนวตั้งเหมือนมือถือ — ใช้พื้นที่แนวนอนที่มี
+       ให้เป็น 3 คอลัมน์: วันที่ (ซ้าย) · ผู้เรียน/ผู้สอน/Module (กลาง) · ปุ่มจัดการ (ขวา) หนาแน่นกว่าเดิม */
+    @media (min-width:1000px){
+      .cp-item{display:grid;grid-template-columns:150px 1fr auto;column-gap:18px;row-gap:5px;align-items:start;padding:14px 18px}
+      .cp-item-dates{grid-column:1;grid-row:1/4;padding-right:0;border-right:1px dashed var(--border)}
+      .cp-item.ok .cp-item-date{padding-right:0}
+      .cp-item-people{grid-column:2;grid-row:1;margin:0}
+      .cp-item-module{grid-column:2;grid-row:2}
+      .cp-item-note{grid-column:2;grid-row:3}
+      .cp-item-actions{grid-column:3;grid-row:1/4;flex-direction:column;justify-content:flex-start;align-items:stretch;min-width:130px}
+      .cp-item-actions .btn{width:100%}
+      .cp-item.ok .cp-item-actions{padding-top:26px}
+      .cp-ribbon-done{border-radius:0 9px 0 10px}
+    }
   </style>
   <div class="cp-card">
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
@@ -16864,7 +16886,7 @@ function openPlanItem(grp, itemId) {
       <label class="form-label">พนักงานที่จะสอน <span class="req">*</span> <span id="cp-emp-max-label" style="color:var(--text3);font-weight:400">(สูงสุด ${_cpMaxTrainees} คน)</span></label>
       <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
         <input type="checkbox" id="cp-cross-dept" onchange="cpToggleCrossDept()"${_cpCrossDept ? ' checked' : ''}>
-        🔀 สอนข้ามแผนก (เช่น${grp === 'kitchen' ? 'ครัวจะสอนบริการ' : 'บริการจะสอนครัว'}) — เลือกได้แค่ 1 คน
+        🔀 สอนข้ามส่วนงาน (เช่น${grp === 'kitchen' ? 'ตำแหน่งครัว สอนบริการ' : 'ตำแหน่งบริการ สอนครัว'}) — เลือกได้แค่ 1 คน
       </label>
       <div class="emp-multiselect" id="cp-emp-multiselect">
         <div class="emp-select-box" id="cp-emp-select-box" onclick="cpFocusEmpSearch(event)">
