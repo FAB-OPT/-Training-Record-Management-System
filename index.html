@@ -16946,10 +16946,11 @@ function openPlanItem(grp, itemId) {
   _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
   const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
+    ${_cpBatchMode ? '' : `
     <div class="form-full">
       <label class="form-label">ผู้จัดทำแผน <span class="req">*</span></label>
       <input class="form-input" id="cp-creator" placeholder="ชื่อผู้กรอกแผนนี้" value="${_escH((it && it.createdBy) || _cpLastCreatorName())}">
-    </div>
+    </div>`}
     <div class="form-row">
       <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
         <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
@@ -17024,9 +17025,9 @@ function openPlanItem(grp, itemId) {
     if (evalDays > 14) { notify('วันที่ประเมินต้องไม่เกิน 14 วันนับจากวันที่สอน', 'error'); return; }
     const trainerName = (document.getElementById('tr-trainer').value || '').trim();
     if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
-    const who = (document.getElementById('cp-creator').value || '').trim();
+    const who = _cpBatchMode ? _cpBatchCreator : (document.getElementById('cp-creator').value || '').trim();
     if (!who) { notify('กรุณาระบุชื่อผู้จัดทำแผน', 'error'); return; }
-    try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {}
+    if (!_cpBatchMode) { try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {} }
     const now = new Date().toISOString();
     const rec = {
       id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName,
@@ -17063,16 +17064,22 @@ function _cpCreatorKey() { return 'opt_plan_creator_' + (getBranchId() || 'x'); 
 function _cpLastCreatorName() { try { return localStorage.getItem(_cpCreatorKey()) || currentUser?.name || ''; } catch (_) { return ''; } }
 let _cpBatchMode = false;   // true = กำลังอยู่ในฟอร์ม "เพิ่มแผนหลายรายการ" — บันทึกแล้วไม่ปิดออกไปหน้าหลัก แต่กลับไปที่ลิสต์ชั่วคราวแทน
 let _cpBatchItems = [];     // รายการที่พักไว้ก่อนกด "บันทึกทั้งหมด" — ผสมครัว/บริการปนกันได้
+let _cpBatchCreator = '';   // พิมพ์ชื่อผู้จัดทำครั้งเดียวตอนเริ่มชุด — ใช้กับทุกรายการในชุดนี้ ไม่ต้องพิมพ์ซ้ำทีละรายการ
 /* เพิ่มแผนการสอนหลายรายการในคราวเดียว — กด "+ เพิ่มรายการ" ได้เรื่อย ๆ ทั้งครัวและบริการปนกัน
    แล้วค่อยกด "บันทึกทั้งหมด" ทีเดียว ไม่ต้องปิดฟอร์มแล้วเปิดใหม่ทีละรายการ */
 function openPlanBatch() {
   if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
   _cpBatchItems = [];
+  _cpBatchCreator = _cpLastCreatorName();
   _renderPlanBatchModal();
 }
 function _renderPlanBatchModal() {
   const ym = _planMonth || _ymNow();
   showModal(`เพิ่มแผนการสอน · ${_ymLabel(ym)}`, `
+    <div class="form-full" style="margin-bottom:12px">
+      <label class="form-label">ผู้จัดทำแผน <span class="req">*</span></label>
+      <input class="form-input" id="cp-batch-creator" placeholder="ชื่อผู้กรอกแผนชุดนี้ — กรอกครั้งเดียวใช้ได้ทั้งชุด" value="${_escH(_cpBatchCreator)}" oninput="_cpBatchCreator=this.value">
+    </div>
     <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">เพิ่มได้ทั้งครัวและบริการปนกันในครั้งเดียว กด "บันทึกทั้งหมด" ตอนเพิ่มครบแล้ว</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
       ${_cpBatchItems.length ? _cpBatchItems.map((b, i) => `
@@ -17090,6 +17097,9 @@ function _renderPlanBatchModal() {
 }
 function _cpBatchRemove(i) { _cpBatchItems.splice(i, 1); _renderPlanBatchModal(); }
 function _cpBatchAddOne() {
+  _cpBatchCreator = (document.getElementById('cp-batch-creator')?.value || _cpBatchCreator || '').trim();
+  if (!_cpBatchCreator) { notify('กรุณาระบุชื่อผู้จัดทำแผนก่อน', 'error'); return; }
+  try { localStorage.setItem(_cpCreatorKey(), _cpBatchCreator); } catch (_) {}
   showModal('เพิ่มรายการ · เลือกแผนก', `
     <div style="display:flex;gap:10px">
       <button type="button" class="btn btn-outline" style="flex:1;padding:18px 10px;font-size:14px" onclick="_cpBatchPickGrp('kitchen')">👨‍🍳<br>ครัว</button>
