@@ -7162,6 +7162,7 @@ const BRANCH_NAV_ITEMS = [
   { page: 'employees',      icon: '👥',  label: 'พนักงาน' },
   { page: 'coaching-plan',  icon: '📅',  label: 'แผนสอน' },
   { page: 'trainings',      icon: '📚',  label: 'การสอน' },
+  { page: 'evaluations',    icon: '✅',  label: 'ประเมินผล' },
   { page: 'course-history', icon: '🎓',  label: 'หลักสูตร' },
   { page: 'cases',          icon: '📨',  label: 'เคส' },
   { page: 'reports',        icon: '📊',  label: 'รายงาน' },
@@ -7271,7 +7272,8 @@ function buildBranchNav() {
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
     <div class="nav-item" id="nav-coaching-plan" onclick="showPage('coaching-plan')"><span class="nav-icon">📅</span> แผนการสอนงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอน &amp; ประเมินผล</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอนงาน</div>
+    <div class="nav-item" id="nav-evaluations" onclick="showPage('evaluations')"><span class="nav-icon">✅</span> ประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-divider"></div>
     <div class="nav-section-label">การจัดการข้อมูล</div>
@@ -7339,7 +7341,6 @@ function buildAdminNav() {
 }
 
 function showPage(page) {
-  if (page === 'evaluations') page = 'trainings';
   if (page === 'admin-evaluations') page = 'admin-trainings';
   if (page === 'admin-bzm') { _adminManageTab = 'bzm'; page = 'admin-manage'; }
   if (page === 'admin-employees') { _adminManageTab = 'employees'; page = 'admin-manage'; }
@@ -7356,7 +7357,7 @@ function showPage(page) {
   if (navEl) navEl.classList.add('active');
   const pages = {
     'dashboard': renderDashboard, 'employees': renderEmployees,
-    'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
+    'trainings': renderTrainings, 'evaluations': renderTrainings, 'manual': renderManual, 'reports': renderReports,
     'coaching-plan': renderCoachingPlanPage,
     'course-history': renderCourseHistory,
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
@@ -7406,7 +7407,7 @@ function updateBottomNav(page) {
     'employees': 'bnav-employees',
     'trainings': 'bnav-trainings',
     'coaching-plan': 'bnav-coaching-plan',
-    'evaluations': 'bnav-trainings',
+    'evaluations': 'bnav-evaluations',
     'course-history': 'bnav-course-history',
     'manual': 'bnav-trainings',
     'reports': 'bnav-reports',
@@ -8813,10 +8814,26 @@ let _trainModuleFilter = '';
 let _trainResultFilter = '';
 let _trainSort = { key: 'date', dir: 'desc' };
 let _trainView = 'person';   // ค่าเริ่มต้นเป็นรายคน — อยากเห็นภาพรวมคนก่อน ค่อยกดดูรายละเอียดทีหลัง
+let _trainDateFrom = '';
+let _trainDateTo = '';
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainView(v) { _trainView = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainModuleFilter(v) { _trainModuleFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainResultFilter(v) { _trainResultFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function setTrainDateRange(from, to) { _trainDateFrom = from || ''; _trainDateTo = to || ''; document.getElementById('main-content').innerHTML = renderTrainings(); }
+function _ymdLocal(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function setTrainDateQuick(spec) {
+  const today = new Date();
+  if (spec === 'clear') { _trainDateFrom = ''; _trainDateTo = ''; }
+  else if (spec === 'this-month') {
+    _trainDateFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1));
+    _trainDateTo = _ymdLocal(today);
+  } else if (spec === 'last-month') {
+    _trainDateFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth()-1, 1));
+    _trainDateTo = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 0));
+  }
+  document.getElementById('main-content').innerHTML = renderTrainings();
+}
 function setTrainSort(key) { _toggleSort(_trainSort, key); document.getElementById('main-content').innerHTML = renderTrainings(); }
 function _moduleOptionsHtml(selectedId) {
   const svc = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
@@ -9007,6 +9024,7 @@ function showPersonModuleBreakdown(empId) {
 }
 
 function renderTrainings() {
+  const isEval = currentPage === 'evaluations';
   const bid = getBranchId(); const trains = getBranchTrainings(bid);
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
   const done = trains.filter(t=>t.eval);
@@ -9018,6 +9036,8 @@ function renderTrainings() {
   else if (filter === 'expired') rows = expired;
   if (_trainModuleFilter) rows = rows.filter(t => t.moduleId === _trainModuleFilter);
   if (_trainResultFilter) rows = rows.filter(t => _matchesResultFilter(t, _trainResultFilter));
+  if (_trainDateFrom) rows = rows.filter(t => (t.date||'') >= _trainDateFrom);
+  if (_trainDateTo) rows = rows.filter(t => (t.date||'') <= _trainDateTo + 'T23:59:59');
   rows = _sortTrainings(rows);
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
@@ -9028,13 +9048,13 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">บันทึกการสอนงานและการประเมินผล</div>
+      <div class="page-hero-title">${isEval ? 'ประเมินผล' : 'บันทึกการสอนงาน'}</div>
     </div>
-    <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
+    ${isEval ? '' : `<button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>`}
   </div>
-  ${renderPlanStrip(bid)}
+  ${isEval ? '' : renderPlanStrip(bid)}
   <div class="card">
-    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
         ${tabBtn('all','ทั้งหมด',trains.length)}
         ${tabBtn('pending','รอประเมิน',pending.length)}
@@ -9057,6 +9077,15 @@ function renderTrainings() {
         <button class="btn btn-sm ${_trainView==='record'?'btn-navy':'btn-outline'}" style="${_trainView==='record'?'':'background:transparent;border:0'}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
         <button class="btn btn-sm ${_trainView==='person'?'btn-navy':'btn-outline'}" style="${_trainView==='person'?'':'background:transparent;border:0'}" onclick="setTrainView('person')">🙍 รายคน</button>
       </span>
+    </div>
+    <div class="filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
+      <span style="font-size:12.5px;color:var(--text3);font-weight:700">📅 ช่วงวันที่</span>
+      <input type="date" class="form-input" style="max-width:150px;padding:6px 10px;font-size:12.5px" value="${_trainDateFrom}" onchange="setTrainDateRange(this.value,_trainDateTo)">
+      <span style="color:var(--text3);font-size:12px">ถึง</span>
+      <input type="date" class="form-input" style="max-width:150px;padding:6px 10px;font-size:12.5px" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
+      <button class="btn btn-sm ${!_trainDateFrom && !_trainDateTo ? 'btn-navy' : 'btn-outline'}" onclick="setTrainDateQuick('clear')">ทั้งหมด</button>
+      <button class="btn btn-sm btn-outline" onclick="setTrainDateQuick('this-month')">เดือนนี้</button>
+      <button class="btn btn-sm btn-outline" onclick="setTrainDateQuick('last-month')">เดือนที่แล้ว</button>
     </div>
     ${_trainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch:false}) : `
     <div class="table-wrap"><table class="cards-on-mobile train-table">
@@ -13785,7 +13814,7 @@ function openEvalModal(trainingId) {
     if(!selectedEvalResult){notify('กรุณาเลือกผลการประเมิน','error');return;}
     t.eval = {method:selectedEvalMethod,result:selectedEvalResult,evalDate:new Date().toISOString(),note:document.getElementById('eval-note').value};
     gsSave('trainings', t.id, t);
-    closeModal(); showPage('trainings'); notify('บันทึกผลการประเมินสำเร็จ');
+    closeModal(); showPage(currentPage === 'evaluations' ? 'evaluations' : 'trainings'); notify('บันทึกผลการประเมินสำเร็จ');
     // ประเมินเสร็จแล้วข้อสอบจะปลดล็อก — เด้งถามให้ทำต่อทันที
     setTimeout(() => promptQuizAfterEval(t.id), 400);
   }, 'บันทึกผล');
