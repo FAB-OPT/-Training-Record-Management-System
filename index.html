@@ -9073,9 +9073,18 @@ function renderTrainings() {
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
       <span style="font-size:12.5px;color:var(--text3);font-weight:700;white-space:nowrap">📅 ช่วงวันที่</span>
       <span class="cat-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
-        <button class="btn btn-sm ${!_trainDateFrom && !_trainDateTo ? 'btn-navy' : 'btn-outline'}" style="${!_trainDateFrom && !_trainDateTo ? '' : 'background:transparent;border:0'}" onclick="setTrainDateQuick('clear')">ทุกช่วง</button>
-        <button class="btn btn-sm btn-outline" style="background:transparent;border:0" onclick="setTrainDateQuick('this-month')">เดือนนี้</button>
-        <button class="btn btn-sm btn-outline" style="background:transparent;border:0" onclick="setTrainDateQuick('last-month')">เดือนที่แล้ว</button>
+        ${(() => {
+          const today = new Date();
+          const thisFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1));
+          const thisTo = _ymdLocal(today);
+          const lastFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth()-1, 1));
+          const lastTo = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 0));
+          const isAll = !_trainDateFrom && !_trainDateTo;
+          const isThis = _trainDateFrom === thisFrom && _trainDateTo === thisTo;
+          const isLast = _trainDateFrom === lastFrom && _trainDateTo === lastTo;
+          const q = (active, label, spec) => `<button class="btn btn-sm ${active?'btn-navy':'btn-outline'}" style="${active?'':'background:transparent;border:0'}" onclick="setTrainDateQuick('${spec}')">${label}</button>`;
+          return q(isAll,'ทุกช่วง','clear') + q(isThis,'เดือนนี้','this-month') + q(isLast,'เดือนที่แล้ว','last-month');
+        })()}
       </span>
       <span style="width:1px;height:20px;background:var(--border)"></span>
       <div style="display:flex;align-items:center;gap:6px">
