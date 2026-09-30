@@ -16561,7 +16561,7 @@ function openPlanItem(grp, itemId) {
     <div class="form-full">
       <label class="form-label">พนักงานที่จะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
       <div class="checkbox-group" style="max-height:190px;overflow:auto">
-        ${emps.length ? emps.map(e => `<label class="checkbox-item"><input type="checkbox" class="cp-emp" value="${e.id}"${sel.has(e.id) ? ' checked' : ''}> ${_escH(e.name)} <span style="color:var(--text3);font-size:12px">· ${_escH(e.position || '')}</span></label>`).join('')
+        ${emps.length ? emps.map(e => `<label class="checkbox-item${sel.has(e.id) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-emp" value="${e.id}"${sel.has(e.id) ? ' checked' : ''}> ${_escH(e.name)} <span style="color:var(--text3);font-size:12px">· ${_escH(e.position || '')}</span></label>`).join('')
           : '<span class="text-muted">ไม่มีพนักงานในกลุ่มนี้</span>'}
       </div>
     </div>
@@ -16595,7 +16595,7 @@ function _cpSubtopics() {
   const box = document.getElementById('cp-subs'); if (!box) return;
   const m = MODULES[document.getElementById('cp-module').value];
   let pre = []; try { pre = JSON.parse(box.dataset.sel || '[]'); } catch (_) {}
-  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
+  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item${pre.includes(s) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
     : '<span class="text-muted">เลือก Module ก่อน</span>';
 }
 function deletePlanItem(itemId) {
