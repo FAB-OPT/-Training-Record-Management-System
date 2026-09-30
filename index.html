@@ -16736,7 +16736,7 @@ function _planUnreadItems() {
     if (p.month !== ym || !acc.has(p.branchId)) return;
     (p.items || []).forEach(it => {
       const t = new Date(it.updatedAt || it.createdAt || 0).getTime();
-      if (t > lastTs) out.push(it);
+      if (t > lastTs) out.push({ ...it, _branchId: p.branchId });
     });
   });
   return out;
@@ -16769,7 +16769,27 @@ function _maybeNotifyPlanUpdates() {
   try { lastNotified = Number(localStorage.getItem(k) || 0); } catch (_) {}
   if (maxTs <= lastNotified) return;
   try { localStorage.setItem(k, String(maxTs)); } catch (_) {}
-  setTimeout(() => notify(`📅 มีแผนการสอนงานใหม่/อัปเดต ${items.length} รายการในเขตของคุณ`), 1500);
+  setTimeout(() => _showPlanUpdateModal(items), 1500);
+}
+// ให้ BZM กด "รับทราบ" จริง ๆ แทนที่จะแค่เด้ง toast เฉย ๆ — badge จะเคลียร์ก็ต่อเมื่อกดปุ่มนี้ หรือเข้าไปดูหน้าแผนการสอนงานเอง
+function _ackPlanUpdates() {
+  _markPlansViewed();
+  refreshPlanBadge();
+  closeModal();
+}
+function _showPlanUpdateModal(items) {
+  const byBranch = {};
+  items.forEach(it => { (byBranch[it._branchId] = byBranch[it._branchId] || []).push(it); });
+  const rows = Object.keys(byBranch).map(bid => `<div style="margin-bottom:12px">
+    <div style="font-weight:800;color:var(--accent);margin-bottom:4px">🏠 ${_escH(_bName(bid))}</div>
+    ${byBranch[bid].map(it => `<div style="font-size:13px;color:var(--text2);padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:4px">
+      📘 ${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)}${it.trainerName ? ` · ผู้สอน ${_escH(it.trainerName)}` : ''}
+      <div style="font-size:11.5px;color:var(--text3);margin-top:2px">โดย ${_escH(it.createdBy || it.updatedBy || '—')} · ${fmtDate(it.updatedAt || it.createdAt)}</div>
+    </div>`).join('')}
+  </div>`).join('');
+  showModal(`📅 มีแผนการสอนงานใหม่/อัปเดต ${items.length} รายการ`,
+    `<div style="font-size:13px;color:var(--text3);margin-bottom:12px">จากสาขาในเขตของคุณ</div>${rows}`,
+    _ackPlanUpdates, 'รับทราบ', 'ปิดไว้ก่อน');
 }
 
 function renderCoachingPlanPanel(bid) {
