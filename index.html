@@ -7433,6 +7433,13 @@ function getBranchTrainings(bid) {
   }
   return DB.trainings.filter(t => t.branchId === bid);
 }
+/* ประวัติทั้งหมด (ทุกสาขาที่เคยผ่านมา) ของพนักงานที่ "ปัจจุบัน" สังกัดสาขานี้ — ใช้กับมุมมอง "รายคน"
+   เพื่อให้พนักงานที่ย้ายสาขามา เห็นประวัติสอนงาน/โมดูลสะสมจากสาขาเดิมตามมาด้วย
+   ต่างจาก getBranchTrainings ที่เป็น log ว่าครั้งนี้สอนที่สาขาไหนจริง ๆ (ใช้กับมุมมอง "รายครั้ง") */
+function getPersonScopeTrainings(bid) {
+  const empIds = new Set(getBranchEmployees(bid).map(e => String(e.id)));
+  return DB.trainings.filter(t => (t.traineeIds || []).some(id => empIds.has(String(id))));
+}
 
 // ==================== ROLE-BASED ACCESS ====================
 // Returns the branch IDs the current user is allowed to see.
@@ -8864,10 +8871,11 @@ function _sortTrainings(list) {
    มุมมองรายครั้งตอบว่า "ครั้งนี้เป็นยังไง" ทีละแถว — คนละคำถามกับที่หัวหน้าสาขา/BZM อยากรู้จริง ๆ
    ซึ่งคือ "คนคนนี้เป็นยังไงบ้าง" รวมทุกครั้งของเขาเป็นแถวเดียว: ล่าสุดเมื่อไร สอนไปกี่ครั้ง
    โมดูลสะสมครบกี่ตัว ค้างประเมิน/หมดเวลากี่ครั้ง ผลสอบดีที่สุดเท่าไร แล้วกางดูประวัติทั้งหมดได้ */
-function _personSummaryRows(trains) {
+function _personSummaryRows(trains, onlyEmpIds) {
   const byEmp = new Map();
   trains.forEach(t => {
     (t.traineeIds || []).forEach(id => {
+      if (onlyEmpIds && !onlyEmpIds.has(String(id))) return;   // กันคนอื่นในคลาสเดียวกันหลุดเข้ามาด้วย ทั้งที่ไม่ได้สังกัดขอบเขตนี้
       if (!byEmp.has(id)) byEmp.set(id, []);
       byEmp.get(id).push(t);
     });
@@ -9005,15 +9013,22 @@ function renderTrainings() {
   const done = trains.filter(t=>t.eval);
   const expired = trains.filter(t=>!t.eval && isEvalDeadlinePassed(t.date));
   const filter = _trainFilter;
-  let rows = trains;
-  if (filter === 'pending') rows = pending;
-  else if (filter === 'done') rows = done;
-  else if (filter === 'expired') rows = expired;
-  if (_trainModuleFilter) rows = rows.filter(t => t.moduleId === _trainModuleFilter);
-  if (_trainResultFilter) rows = rows.filter(t => _matchesResultFilter(t, _trainResultFilter));
-  if (_trainDateFrom) rows = rows.filter(t => (t.date||'') >= _trainDateFrom);
-  if (_trainDateTo) rows = rows.filter(t => (t.date||'') <= _trainDateTo + 'T23:59:59');
-  rows = _sortTrainings(rows);
+  const _applyTrainFilters = list => {
+    let out = list;
+    if (filter === 'pending') out = out.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
+    else if (filter === 'done') out = out.filter(t=>t.eval);
+    else if (filter === 'expired') out = out.filter(t=>!t.eval && isEvalDeadlinePassed(t.date));
+    if (_trainModuleFilter) out = out.filter(t => t.moduleId === _trainModuleFilter);
+    if (_trainResultFilter) out = out.filter(t => _matchesResultFilter(t, _trainResultFilter));
+    if (_trainDateFrom) out = out.filter(t => (t.date||'') >= _trainDateFrom);
+    if (_trainDateTo) out = out.filter(t => (t.date||'') <= _trainDateTo + 'T23:59:59');
+    return out;
+  };
+  let rows = _sortTrainings(_applyTrainFilters(trains));
+  // มุมมอง "รายคน" อิงประวัติทั้งชีวิตของคนที่สังกัดสาขานี้ตอนนี้ ไม่ใช่แค่ที่สอนจริงในสาขานี้
+  // onlyEmpIds กันคนอื่นที่ร่วมคลาสเดียวกันแต่ไม่ได้สังกัดสาขานี้หลุดเข้ามาด้วย
+  const _bidEmpIds = new Set(getBranchEmployees(bid).map(e => String(e.id)));
+  const personRows = _trainView === 'person' ? _applyTrainFilters(getPersonScopeTrainings(bid)) : [];
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
@@ -9067,7 +9082,7 @@ function renderTrainings() {
         <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
       </div>
     </div>
-    ${_trainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch:false}) : `
+    ${_trainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personRows, _bidEmpIds), {showBranch:false}) : `
     <div class="table-wrap"><table class="cards-on-mobile train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_trainSort,'setTrainSort')}
@@ -17370,14 +17385,26 @@ function applyAdminTrainFilters() {
   _adminTrainResult = document.getElementById('at-result')?.value || '';
   document.getElementById('main-content').innerHTML = renderAdminTrainings();
 }
-function _filteredAdminTrainings() {
-  let rows = DB.trainings.slice();
-  if (_adminTrainBranch) rows = rows.filter(t => String(t.branchId) === _adminTrainBranch);
+function _filteredAdminTrainings(base) {
+  let rows = base ? base.slice() : DB.trainings.slice();
+  if (!base && _adminTrainBranch) rows = rows.filter(t => String(t.branchId) === _adminTrainBranch);
   if (_adminTrainModule) rows = rows.filter(t => t.moduleId === _adminTrainModule);
   if (_adminTrainResult === 'pass') rows = rows.filter(t => t.eval && isEvalPass(t.eval.result));
   else if (_adminTrainResult === 'fail') rows = rows.filter(t => t.eval && !isEvalPass(t.eval.result));
   else if (_adminTrainResult) rows = rows.filter(t => t.eval && String(t.eval.result) === _adminTrainResult);
   return rows;
+}
+/* มุมมอง "รายคน" ฝั่งแอดมิน — ถ้าเลือกกรองสาขาใดสาขาหนึ่ง ต้องอิงประวัติทั้งชีวิตของคนที่สังกัดสาขานั้นตอนนี้
+   เหมือนฝั่งสาขา ไม่งั้นพนักงานที่ย้ายเข้ามาจะดูเหมือนไม่มีประวัติ ทั้งที่มีประวัติจากสาขาเดิม */
+function _adminPersonScopeRows(filter) {
+  const base = _adminTrainBranch ? getPersonScopeTrainings(_adminTrainBranch) : null;
+  let rows = _filteredAdminTrainings(base);
+  if (filter === 'pending') rows = rows.filter(t => !t.eval && !isEvalDeadlinePassed(t.date));
+  else if (filter === 'done') rows = rows.filter(t => t.eval);
+  else if (filter === 'expired') rows = rows.filter(t => !t.eval && isEvalDeadlinePassed(t.date));
+  // กันคนอื่นที่ร่วมคลาสเดียวกันแต่ไม่ได้สังกัดสาขาที่กรองไว้หลุดเข้ามาด้วย (เหมือนฝั่งสาขา)
+  const onlyEmpIds = _adminTrainBranch ? new Set(getBranchEmployees(_adminTrainBranch).map(e => String(e.id))) : null;
+  return { rows, onlyEmpIds };
 }
 
 function renderAdminTrainings() {
@@ -17393,6 +17420,7 @@ function renderAdminTrainings() {
   else if (filter === 'done') rows = done;
   else if (filter === 'expired') rows = expired;
   rows = _sortAdminTrainings(rows);
+  const personScope = _adminTrainView === 'person' ? _adminPersonScopeRows(filter) : { rows: [], onlyEmpIds: null };
 
   const branchOptions = getAccessibleBranches().slice().sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
   const _svcMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
@@ -17448,7 +17476,7 @@ function renderAdminTrainings() {
         <button class="btn btn-sm ${_adminTrainView==='person'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='person'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('person')">🙍 รายคน</button>
       </span>
     </div>
-    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(rows), {showBranch: !_adminTrainBranch}) : `
+    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personScope.rows, personScope.onlyEmpIds), {showBranch: !_adminTrainBranch}) : `
     <div class="table-wrap"><table class="cards-on-mobile admin-train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
