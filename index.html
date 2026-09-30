@@ -573,7 +573,7 @@
 
   /* ==================== MODAL ==================== */
   .modal-overlay {
-    display: none; position: fixed; inset: 0;
+    display: none; position: fixed; inset: 0; height: calc(var(--app-vh, 1vh) * 100);   /* 100vh บนมือถือรวมพื้นที่แถบเบราว์เซอร์ที่บังอยู่ ป็อปอัพเลยสูงเกินจอจนหัวการ์ดหาย */
     background: rgba(20,12,4,0.55);
     backdrop-filter: blur(10px);
     z-index: 300; align-items: center; justify-content: center;   /* สูงกว่าแชตเต็มจอ (260) และแถบเมนูล่าง (200) เสมอ */
@@ -584,7 +584,7 @@
   .modal {
     background: var(--white);
     border-radius: 22px;
-    width: 760px; max-width: 100%; max-height: 92vh;
+    width: 760px; max-width: 100%; max-height: calc(var(--app-vh, 1vh) * 92);
     overflow: hidden;
     border: 1px solid var(--border);
     box-shadow: 0 28px 90px rgba(255,107,26,0.18), 0 6px 24px rgba(0,0,0,0.18);
@@ -655,7 +655,7 @@
     .modal-overlay.open { animation: modalOverlayInMobile 0.15s ease-out !important; }
     @keyframes modalOverlayInMobile { from { opacity: 0; } to { opacity: 1; } }
     /* Faster slide-up + cheaper easing (no spring overshoot) — composited transform only */
-    .modal { border-radius: 22px 22px 0 0; max-height: 95vh; width: 100%; animation: modalInMobile 0.2s ease-out; will-change: transform; }
+    .modal { border-radius: 22px 22px 0 0; max-height: calc(var(--app-vh, 1vh) * 90); width: 100%; animation: modalInMobile 0.2s ease-out; will-change: transform; }
     @keyframes modalInMobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
     .modal-header { padding: 18px 20px 14px; }
     .modal-body { padding: 20px; }
@@ -1998,7 +1998,7 @@
     .modal {
       width: 100% !important;
       max-width: 100% !important;
-      max-height: 92vh !important;
+      max-height: calc(var(--app-vh, 1vh) * 90) !important;
       border-radius: 20px 20px 0 0 !important;
       border-bottom: none !important;
     }
@@ -2976,7 +2976,7 @@
     .pin-boxes { gap: 6px !important; }
     table { font-size: 11.5px; }
     .btn { font-size: 13px; }
-    .modal { max-height: 95vh !important; }
+    .modal { max-height: calc(var(--app-vh, 1vh) * 90) !important; }
     .login-panel { padding: 18px 20px 24px !important; }
     .login-section-title { font-size: 20px; }
     /* Dashboard hero title shouldn't overflow */
@@ -21534,7 +21534,14 @@ function downloadExcelTemplate() {
 
 
 // ==================== MODAL ====================
+/* ความสูงพื้นที่มองเห็นจริงของเบราว์เซอร์มือถือ (แถบ URL/แถบเครื่องมือล่างย่อ-ขยายได้) — ใช้แทน vh กับป็อปอัพ */
+function _setAppVh() { try { document.documentElement.style.setProperty('--app-vh', (window.innerHeight * 0.01) + 'px'); } catch (_) {} }
+window.addEventListener('resize', _setAppVh);
+window.addEventListener('orientationchange', _setAppVh);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', _setAppVh);
+_setAppVh();
 function showModal(title, body, onConfirm, confirmText, cancelText) {
+  _setAppVh();
   let ov = document.getElementById('modal-overlay');
   if(!ov){ov=document.createElement('div');ov.id='modal-overlay';ov.className='modal-overlay';document.body.appendChild(ov);}
   ov.innerHTML=`<div class="modal">
