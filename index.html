@@ -8968,9 +8968,10 @@ function openPersonTrainingHistory(empId) {
       const badge = t.eval
         ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="font-size:10.5px">${getEvalResultShort(t.eval.result)}</span>`
         : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="font-size:10.5px">หมดเวลา</span>' : '<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน</span>';
+      const fromOtherBranch = t.branchId !== emp.branchId;
       return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="closeModal();viewTraining('${t.id}')">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;font-weight:700">${MODULES[t.moduleId]?.name || t.moduleId}</div>
+          <div style="font-size:12.5px;font-weight:700">${MODULES[t.moduleId]?.name || t.moduleId}${fromOtherBranch?` <span class="badge badge-navy" style="font-size:10px;font-weight:600" title="สอนจากสาขานี้ก่อนย้ายเข้ามา">🔁 ${_escH(t.branchId)}</span>`:''}</div>
           <div style="font-size:11.5px;color:var(--text3)">${fmtDateTime(t.date)} · ${t.trainerName||'—'}</div>
         </div>
         ${badge}
