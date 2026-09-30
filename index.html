@@ -16549,9 +16549,9 @@ function openPlanItem(grp, itemId) {
   const sel = new Set((it && it.empIds) || []);
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
     <div class="form-row">
-      <div><label class="form-label">วันที่วางแผนจะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+      <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
         <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
-      <div><label class="form-label">ชื่อผู้สอนงาน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+      <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label>
         <div class="emp-multiselect" id="trainer-multiselect">
           <div class="emp-select-box" id="trainer-select-box" onclick="openTrainerDropdown()">
             <input type="text" id="tr-trainer" placeholder="พิมพ์เพื่อค้นหา หรือพิมพ์ชื่อใหม่" autocomplete="off" value="${_escH((it && it.trainerName) || '')}"
@@ -16573,7 +16573,7 @@ function openPlanItem(grp, itemId) {
       </div>
     </div>
     <div class="form-full">
-      <label class="form-label">พนักงานที่จะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+      <label class="form-label">พนักงานที่จะสอน <span class="req">*</span></label>
       <div class="checkbox-group" style="max-height:190px;overflow:auto">
         ${emps.length ? emps.map(e => `<label class="checkbox-item${sel.has(e.id) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-emp" value="${e.id}"${sel.has(e.id) ? ' checked' : ''}> ${_escH(e.name)} <span style="color:var(--text3);font-size:12px">· ${_escH(e.position || '')}</span></label>`).join('')
           : '<span class="text-muted">ไม่มีพนักงานในกลุ่มนี้</span>'}
@@ -16587,7 +16587,7 @@ function openPlanItem(grp, itemId) {
       </select>
     </div>
     <div class="form-full">
-      <label class="form-label">หัวข้อย่อยที่จะสอน <span class="req">*</span></label>
+      <label class="form-label">หัวข้อย่อย <span class="req">*</span></label>
       <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify((it && it.subtopics) || []).replace(/'/g, '&#39;')}'></div>
     </div>
     <div class="form-full">
@@ -16599,12 +16599,15 @@ function openPlanItem(grp, itemId) {
     const moduleId = document.getElementById('cp-module').value;
     if (!moduleId) { notify('กรุณาเลือก Module', 'error'); return; }
     const subtopics = [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value);
-    if (!subtopics.length) { notify('กรุณาเลือกหัวข้อย่อยที่จะสอน', 'error'); return; }
+    if (!subtopics.length) { notify('กรุณาเลือกหัวข้อย่อย', 'error'); return; }
+    const empIds = [...document.querySelectorAll('.cp-emp:checked')].map(c => c.value);
+    if (!empIds.length) { notify('กรุณาเลือกพนักงานที่จะสอน', 'error'); return; }
+    const planDate = document.getElementById('cp-date').value || '';
+    if (!planDate) { notify('กรุณาเลือกวันที่วางแผนจะสอน', 'error'); return; }
+    const trainerName = (document.getElementById('tr-trainer').value || '').trim();
+    if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
     const rec = {
-      id: itemId || genId('P'), moduleId, subtopics,
-      empIds: [...document.querySelectorAll('.cp-emp:checked')].map(c => c.value),
-      planDate: document.getElementById('cp-date').value || '',
-      trainerName: (document.getElementById('tr-trainer').value || '').trim(),
+      id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, trainerName,
       note: (document.getElementById('cp-note').value || '').trim()
     };
     const p = getCoachingPlan(bid, ym);
@@ -16620,10 +16623,8 @@ function _cpSubtopics() {
   const box = document.getElementById('cp-subs'); if (!box) return;
   const m = MODULES[document.getElementById('cp-module').value];
   let pre = []; try { pre = JSON.parse(box.dataset.sel || '[]'); } catch (_) {}
-  /* ไม่มีของเดิมให้จำ (เพิ่มใหม่ หรือของเก่าที่เคยปล่อยว่าง = ทั้ง Module) → ติ๊กให้ครบทุกหัวข้อไปเลย
-     ยังแก้ทีละข้อได้ตามใจ แต่ค่าเริ่มต้นคือ "สอนทั้ง Module" ซึ่งเป็นแผนส่วนใหญ่จริง ๆ */
-  const checkAll = pre.length === 0;
-  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item${(checkAll || pre.includes(s)) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${(checkAll || pre.includes(s)) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
+  /* ไม่ติ๊กให้ล่วงหน้า — ให้เลือกเองว่าจะวางแผนสอนหัวข้อไหนบ้าง (บังคับเลือกอย่างน้อย 1 ข้อตอนบันทึก) */
+  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item${pre.includes(s) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
     : '<span class="text-muted">เลือก Module ก่อน</span>';
 }
 function deletePlanItem(itemId) {
