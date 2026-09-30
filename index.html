@@ -2302,11 +2302,13 @@
     }
     table.cards-on-mobile.latest-eval-table td[data-label="วิธี"]::before { content: 'วิธี '; display: inline !important; color: var(--text4); margin-right: 3px; }
 
-    /* ===== Trainings card on mobile (5-line layout) ===== */
+    /* ===== Trainings card on mobile =====
+       จัดใหม่: หัวการ์ด = วันที่ + ผลการประเมิน (เห็นสถานะทันทีไม่ต้องไล่อ่าน) ตามด้วยชื่อ/Module (ตัวตนหลัก)
+       แล้วผู้สอน+ผลสอบ เป็นบรรทัดข้อมูลเสริมบรรทัดเดียวแบบแบน (ไม่มีแผงพื้นหลังซ้อนกันสองชั้นเหมือนก่อน) */
     table.cards-on-mobile.train-table tr {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) auto;
-      row-gap: 5px; column-gap: 16px;
+      row-gap: 6px; column-gap: 16px;
       padding: 12px 14px 12px 12px;
       border-left: 4px solid var(--border) !important;
     }
@@ -2320,60 +2322,49 @@
       white-space: normal !important;
     }
     table.cards-on-mobile.train-table td::before { display: none !important; }
-    /* Line 1: full date with full Thai month name */
+    /* หัวการ์ด แถวเดียวกัน: วันที่ (ซ้าย) + ผลการประเมิน (ขวา) */
     table.cards-on-mobile.train-table td[data-label="วันที่"] {
-      grid-column: 1 / -1; grid-row: 1; justify-content: flex-start;
+      grid-column: 1; grid-row: 1; justify-content: flex-start;
       font-size: 11.5px; color: var(--text3); font-weight: 600;
       text-align: left !important;
-      padding-bottom: 4px !important;
+      padding-bottom: 6px !important;
       border-bottom: 1px dashed var(--border) !important;
     }
-    /* Line 2: ชื่อ + ตำแหน่ง + อายุงาน combined */
+    table.cards-on-mobile.train-table td[data-label="สถานะ"] {
+      grid-column: 2; grid-row: 1; justify-content: flex-end;
+      font-size: 12px; font-weight: 800;
+      padding-bottom: 6px !important;
+      border-bottom: 1px dashed var(--border) !important;
+    }
+    /* ชื่อ + ตำแหน่ง + อายุงาน */
     table.cards-on-mobile.train-table td[data-label="พนักงาน"] {
       grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
       font-size: 13.5px; font-weight: 700; color: var(--text);
       text-align: left !important; line-height: 1.4;
     }
-    /* Line 3: Module + X/X หัวข้อ */
+    /* Module + X/X หัวข้อ */
     table.cards-on-mobile.train-table td[data-label="Module"] {
       grid-column: 1 / -1; grid-row: 3; justify-content: flex-start;
       flex-wrap: wrap; gap: 6px;
       font-size: 13px; color: var(--accent); font-weight: 700;
       text-align: left !important; line-height: 1.35;
     }
-    /* Line 4-5: ผู้สอน / ผลการประเมิน / ผลสอบ รวมเป็นแผงพื้นหลังเดียวกัน (เหมือนบล็อกผู้เรียน/ผู้สอน
-       ในหน้าแผนการสอนงาน) แทนที่จะลอยเป็นบรรทัดข้อความเปล่า ๆ บนพื้นขาว */
+    /* บรรทัดข้อมูลเสริมบรรทัดเดียว: ผู้สอน (ซ้าย) + ผลสอบข้อเขียน (ขวา) — เรียบ ไม่มีพื้นหลัง เหมือนการ์ดแผนการสอนงาน */
     table.cards-on-mobile.train-table td[data-label="ผู้สอน"] {
-      grid-column: 1 / -1; grid-row: 4; justify-content: flex-start;
-      font-size: 11.5px; color: var(--text2);
+      grid-column: 1; grid-row: 4; justify-content: flex-start;
+      font-size: 11.5px; color: var(--text3); margin-top: 2px;
       text-align: left !important;
-      background: var(--surface2); border-radius: 8px 8px 0 0;
-      padding: 8px 10px 3px !important; margin-top: 2px;
     }
     table.cards-on-mobile.train-table td[data-label="ผู้สอน"]::before {
-      content: 'ผู้สอน '; display: inline !important;
-      font-size: 10.5px; color: var(--text4); font-weight: 600; margin-right: 4px;
-    }
-    /* Line 5: ผลการประเมิน (left, fills space) + ผลสอบ (pushed to far right) */
-    table.cards-on-mobile.train-table td[data-label="สถานะ"] {
-      grid-column: 1; grid-row: 5; justify-content: flex-start;
-      gap: 6px; font-size: 12px;
-      background: var(--surface2); border-radius: 0 0 0 8px;
-      padding: 3px 10px 8px !important;
-    }
-    table.cards-on-mobile.train-table td[data-label="สถานะ"]::before {
-      content: 'ผลการประเมิน '; display: inline !important;
-      font-size: 11px; color: var(--text); font-weight: 700; margin-right: 4px;
+      content: '🧑‍🏫 '; display: inline !important; margin-right: 3px;
     }
     table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
-      grid-column: 2; grid-row: 5; justify-content: flex-end;
-      gap: 6px; font-size: 12px;
-      background: var(--surface2); border-radius: 0 0 8px 0;
-      padding: 3px 10px 8px !important; white-space: nowrap;
+      grid-column: 2; grid-row: 4; justify-content: flex-end;
+      gap: 4px; font-size: 11.5px; color: var(--text3); margin-top: 2px;
+      white-space: nowrap;
     }
     table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::before {
-      content: 'ผลสอบ '; display: inline !important;
-      font-size: 11px; color: var(--text); font-weight: 700; margin-right: 4px;
+      content: '📝 ข้อสอบ '; display: inline !important; color: var(--text4);
     }
     /* Strip badge background — keep colored text only */
     table.cards-on-mobile.train-table td[data-label="สถานะ"] .badge,
@@ -2386,13 +2377,14 @@
     /* Actions: ปุ่มแบ่งความกว้างเท่า ๆ กันเต็มแถว — ปุ่มเดียวก็เต็มความกว้าง ไม่ลอยเป็นปุ่มจิ๋ว */
     table.cards-on-mobile.train-table td[data-label="actions"],
     table.cards-on-mobile.admin-train-table td[data-label="actions"] {
-      grid-column: 1 / -1; grid-row: 6;
       display: flex !important;
       justify-content: stretch; gap: 6px; flex-wrap: wrap;
       overflow: visible;
       padding-top: 10px !important; margin-top: 8px;
       border-top: 1px solid var(--border) !important;
     }
+    /* .train-table ใช้ display:grid บน tr (การ์ด 5 แถว หลังจัดใหม่) ต้องระบุตำแหน่งชัด ๆ — admin-train-table ไม่ได้ใช้ grid เลยไม่ต้องกำหนด */
+    table.cards-on-mobile.train-table td[data-label="actions"] { grid-column: 1 / -1; grid-row: 5; }
     table.cards-on-mobile.train-table td[data-label="actions"] .btn,
     table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn {
       flex: 1 1 0; min-width: 78px; margin: 0 !important;
@@ -2611,14 +2603,14 @@
     /* รายครั้ง/รายคน toggle และตัวเลือกช่วงวันที่ด่วน ก็มีคลาส .cat-tabs (ใช้สไตล์ pill ร่วมกัน)
        แต่ไม่มีดรอปดาวสำรองเหมือนแท็บสถานะข้างบน เลยต้องยกเว้นไม่ให้โดนกฎ "ซ่อน .cat-tabs" กวาดไปด้วย */
     .tv-toggle.cat-tabs, .dq-tabs.cat-tabs { display: flex !important; }
-    .tv-toggle { width: 100% !important; margin-left: 0 !important; margin-top: 2px }
-    .tv-toggle .btn { flex: 1; justify-content: center }
+    .tv-toggle { margin-left: 0 !important; flex-shrink: 0 }
+    .tv-toggle .btn { justify-content: center; padding: 6px 9px !important; font-size: 12px !important }
     .dq-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
     .dq-tabs::-webkit-scrollbar { display: none; }
-    /* แถบ "ช่วงวันที่": ป้าย "ช่วงวันที่" กับปุ่มลัด (ทุกช่วง/เดือนนี้/เดือนที่แล้ว) อยู่บรรทัดเดียวกัน ชิดซ้าย
-       ส่วนวันที่กับช่องค้นหาลงเต็มแถวของตัวเองด้านล่าง อ่านง่ายกว่าไหลชนกันเป็นบรรทัดเดียวยาว */
+    /* บนมือถือ: toggle รายครั้ง/รายคน + ปุ่มลัดช่วงวันที่ อยู่แถวเดียวกัน (ไม่ต้องมีป้าย "ช่วงวันที่" ซ้ำ ปุ่มลัดสื่อความหมายอยู่แล้ว)
+       ช่องกรอกวันที่เองซ่อนไว้ โผล่เฉพาะกด "กำหนดเอง" — ลดพื้นที่แถบตัวกรองเมื่อไม่ได้ใช้ */
     .train-date-bar { align-items: center !important; }
-    .train-date-bar .tdb-sep { display: none; }
+    .train-date-bar .tdb-label { display: none; }
     .train-date-bar .tdb-dates { order: 3; width: 100%; }
     .train-date-bar .tdb-dates input[type=date] { flex: 1; width: auto !important; }
     .train-date-bar #train-search { order: 4; width: 100% !important; margin-left: 0 !important; }
@@ -8984,6 +8976,7 @@ let _trainView = 'record';   // ค่าเริ่มต้นเป็นร
 // ค่าเริ่มต้นโชว์เดือนปัจจุบันเสมอ ทั้งบันทึกการสอนงานและประเมินผล (ทั้งคอมและมือถือ ใช้ฟังก์ชันเรนเดอร์เดียวกัน)
 let _trainDateFrom = _ymdLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 let _trainDateTo = _ymdLocal(new Date());
+let _trainDateCustomOpen = false;   // "กำหนดเอง" — ซ่อนช่องกรอกวันที่ไว้จนกว่าจะกดเปิด ลดพื้นที่แถบตัวกรองบนมือถือ
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainView(v) { _trainView = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainModuleFilter(v) { _trainModuleFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
@@ -8992,6 +8985,7 @@ function setTrainDateRange(from, to) { _trainDateFrom = from || ''; _trainDateTo
 function _ymdLocal(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function setTrainDateQuick(spec) {
   const today = new Date();
+  _trainDateCustomOpen = spec === 'custom';
   if (spec === 'clear') { _trainDateFrom = ''; _trainDateTo = ''; }
   else if (spec === 'this-month') {
     _trainDateFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -9271,33 +9265,34 @@ function renderTrainings() {
       <select class="form-select" onchange="setTrainResultFilter(this.value)" style="max-width:240px">
         ${_resultOptionsHtml(_trainResultFilter)}
       </select>
-      <span class="cat-tabs tv-toggle" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+    </div>
+    <div class="filter-bar train-date-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
+      <span class="cat-tabs tv-toggle" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
         <button class="btn btn-sm ${_trainView==='record'?'btn-navy':'btn-outline'}" style="${_trainView==='record'?'':'background:transparent;border:0'}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
         <button class="btn btn-sm ${_trainView==='person'?'btn-navy':'btn-outline'}" style="${_trainView==='person'?'':'background:transparent;border:0'}" onclick="setTrainView('person')">🙍 รายคน</button>
       </span>
-    </div>
-    <div class="filter-bar train-date-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
       <span class="tdb-label" style="font-size:12.5px;color:var(--text3);font-weight:700;white-space:nowrap">📅 ช่วงวันที่</span>
-      <span class="cat-tabs dq-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
-        ${(() => {
-          const today = new Date();
-          const thisFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1));
-          const thisTo = _ymdLocal(today);
-          const lastFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth()-1, 1));
-          const lastTo = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 0));
-          const isAll = !_trainDateFrom && !_trainDateTo;
-          const isThis = _trainDateFrom === thisFrom && _trainDateTo === thisTo;
-          const isLast = _trainDateFrom === lastFrom && _trainDateTo === lastTo;
-          const q = (active, label, spec) => `<button class="btn btn-sm ${active?'btn-navy':'btn-outline'}" style="${active?'':'background:transparent;border:0'}" onclick="setTrainDateQuick('${spec}')">${label}</button>`;
-          return q(isAll,'ทุกช่วง','clear') + q(isThis,'เดือนนี้','this-month') + q(isLast,'เดือนที่แล้ว','last-month');
-        })()}
-      </span>
-      <span class="tdb-sep" style="width:1px;height:20px;background:var(--border)"></span>
-      <div class="tdb-dates" style="display:flex;align-items:center;gap:6px">
-        <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateFrom}" onchange="setTrainDateRange(this.value,_trainDateTo)">
-        <span style="color:var(--text3);font-size:12px">ถึง</span>
-        <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
-      </div>
+      ${(() => {
+        const today = new Date();
+        const thisFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1));
+        const thisTo = _ymdLocal(today);
+        const lastFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth()-1, 1));
+        const lastTo = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 0));
+        const isAll = !_trainDateFrom && !_trainDateTo;
+        const isThis = _trainDateFrom === thisFrom && _trainDateTo === thisTo;
+        const isLast = _trainDateFrom === lastFrom && _trainDateTo === lastTo;
+        const isCustom = !isAll && !isThis && !isLast;
+        const q = (active, label, spec) => `<button class="btn btn-sm ${active?'btn-navy':'btn-outline'}" style="${active?'':'background:transparent;border:0'}" onclick="setTrainDateQuick('${spec}')">${label}</button>`;
+        const showDates = isCustom || _trainDateCustomOpen;
+        return `<span class="cat-tabs dq-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
+          ${q(isAll,'ทุกช่วง','clear')}${q(isThis,'เดือนนี้','this-month')}${q(isLast,'เดือนที่แล้ว','last-month')}${q(isCustom || _trainDateCustomOpen,'กำหนดเอง','custom')}
+        </span>
+        ${showDates ? `<div class="tdb-dates" style="display:flex;align-items:center;gap:6px">
+          <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateFrom}" onchange="setTrainDateRange(this.value,_trainDateTo)">
+          <span style="color:var(--text3);font-size:12px">ถึง</span>
+          <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
+        </div>` : ''}`;
+      })()}
       <input class="search-input" id="train-search" placeholder="🔍 ค้นหาชื่อพนักงาน / Module / ผู้สอน..." oninput="filterTrainSearch()" value="${_escH(_trainSearch)}" style="flex:1;min-width:180px;margin-left:auto">
     </div>
     <div id="train-table-area">${_trainTableHtml(d)}</div>
@@ -16845,9 +16840,8 @@ function renderCoachingPlanPanel(bid) {
         const ok = _planItemDone(bid, ym, it);
         const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
         return `<div class="cp-item ${ok ? 'ok' : ''}">
-          ${ok ? '<span class="cp-ribbon-done">✓ สอนแล้ว</span>' : ''}
           <div class="cp-item-dates">
-            <div class="cp-item-date">📅 สอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุ</span>'}</div>
+            <div class="cp-item-date">📅 สอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุ</span>'} ${ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}</div>
             ${it.evalDate ? `<div class="cp-item-date" style="color:var(--text3);font-weight:600">📝 ประเมิน ${_escH(fmtDate(it.evalDate))}</div>` : ''}
           </div>
           <div class="cp-item-people">
@@ -16858,9 +16852,11 @@ function renderCoachingPlanPanel(bid) {
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
             ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย 🔍</span>` : ''}
           </div>
-          ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
-          ${it.createdBy ? `<div class="cp-item-note" style="color:var(--text4)">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
-          ${it.bzmAckBy ? `<div class="cp-item-note" style="color:var(--green)">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</div>` : ''}
+          <div class="cp-item-notes">
+            ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
+            ${it.createdBy ? `<div class="cp-item-note" style="color:var(--text4)">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
+            ${it.bzmAckBy ? `<div class="cp-item-note" style="color:var(--green)">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</div>` : ''}
+          </div>
           <div class="cp-item-actions">
             ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
             ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
@@ -16883,16 +16879,17 @@ function renderCoachingPlanPanel(bid) {
     .cp-col-title{font-weight:800;font-size:14px;flex:1}
     .cp-col-count{font-size:12px;color:var(--text2)}
     .cp-col-count b{color:var(--green)}
-    .cp-item{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:8px}
+    .cp-item{position:relative;display:flex;flex-direction:column;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:8px}
     .cp-item.ok{border-color:#BBE5C8}
-    .cp-ribbon-done{position:absolute;top:0;right:0;background:var(--green);color:#fff;font-size:10.5px;font-weight:800;padding:5px 14px;border-radius:0 9px 0 10px}
-    .cp-item.ok .cp-item-date{padding-right:100px}
+    .cp-status-tag{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text3);background:var(--surface2);padding:2px 9px;border-radius:999px;margin-left:6px;white-space:nowrap;vertical-align:1px}
+    .cp-status-tag.ok{color:#fff;background:var(--green)}
     .cp-item-date{font-weight:700;font-size:12.5px;color:var(--text)}
     .cp-item-people{display:flex;flex-direction:column;gap:3px;font-size:12.5px;background:var(--surface2);border-radius:8px;padding:8px 10px}
     .cp-role-label{color:var(--text3);font-weight:700;margin-right:5px}
     .cp-item-module{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
     .cp-item-sub-count{font-size:10.5px;font-weight:700;color:var(--text2);background:var(--surface2);padding:2px 9px;border-radius:999px;white-space:nowrap;cursor:pointer}
+    .cp-item-notes{display:flex;flex-direction:column;gap:3px}
     .cp-item-note{font-size:11.5px;color:var(--text3)}
     .cp-item-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:2px}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
@@ -16902,14 +16899,11 @@ function renderCoachingPlanPanel(bid) {
     @media (min-width:1000px){
       .cp-item{display:grid;grid-template-columns:150px 1fr auto;column-gap:18px;row-gap:5px;align-items:start;padding:14px 18px}
       .cp-item-dates{grid-column:1;grid-row:1/4;padding-right:0;border-right:1px dashed var(--border)}
-      .cp-item.ok .cp-item-date{padding-right:0}
       .cp-item-people{grid-column:2;grid-row:1;margin:0}
       .cp-item-module{grid-column:2;grid-row:2}
-      .cp-item-note{grid-column:2;grid-row:3}
+      .cp-item-notes{grid-column:2;grid-row:3}
       .cp-item-actions{grid-column:3;grid-row:1/4;flex-direction:column;justify-content:flex-start;align-items:stretch;min-width:130px}
       .cp-item-actions .btn{width:100%}
-      .cp-item.ok .cp-item-actions{padding-top:26px}
-      .cp-ribbon-done{border-radius:0 9px 0 10px}
     }
   </style>
   <div class="cp-card">
