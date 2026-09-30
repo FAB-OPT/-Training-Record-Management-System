@@ -8625,7 +8625,6 @@ function renderEmployees() {
     </div>
     <button class="btn btn-accent" onclick="openAddEmployee()">+ เพิ่มพนักงาน</button>
   </div>
-  ${renderBranchTransferCard(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <div class="emp-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -16996,19 +16995,6 @@ function _xferRow(r, side) {
         ? ` · ขอโดย ${_escH(r.requestedBy || '—')} ${_escH(fmtDate(r.requestedAt) || '')}` : ''}${r.decisionNote ? ` · <b>Admin:</b> ${_escH(r.decisionNote)}` : ''}</div>
     </div>
     <div class="xr-side">${acts}</div>
-  </div>`;
-}
-
-/* คำขอของสาขานี้ (ขาออก + ขาเข้า) — แสดงบนหน้ารายชื่อพนักงาน */
-function renderBranchTransferCard(bid) {
-  if (!bid || bid === 'ALL') return '';
-  const list = (DB.transferRequests || []).filter(r => r.fromBranch === bid || r.toBranch === bid)
-    .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || String(b.requestedAt).localeCompare(String(a.requestedAt))).slice(0, 8);
-  if (!list.length) return '';
-  const n = list.filter(r => r.status === 'pending').length;
-  return `<div class="card xr-card" style="margin-bottom:16px">
-    <div class="xr-head">🔁 คำขอย้ายสาขา ${n ? `<span class="xr-pill">รออนุมัติ ${n}</span>` : ''}</div>
-    <div class="xr-list">${list.map(r => _xferRow(r, { bid })).join('')}</div>
   </div>`;
 }
 
