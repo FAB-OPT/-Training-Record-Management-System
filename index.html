@@ -836,6 +836,8 @@
     min-width: 16px; height: 16px; font-size: 9.5px;
     padding: 0 4px;
   }
+  /* ป้ายแผนการสอนงานใหม่ที่ BZM ยังไม่ได้ดู — สีน้ำเงิน แยกจากป้ายแดงของเคส (เร่งด่วนกว่า) */
+  .nav-badge.plan-badge { background: #3B82F6; box-shadow: 0 2px 6px rgba(59,130,246,.4); }
   .bottom-nav-item { position: relative; }
 
   /* Detail row */
@@ -6254,7 +6256,7 @@ function startAutoSync() {
   const first = fresh ? Promise.resolve() : gsLoadOnce();
   first.then(() => {
     if (currentUser) showPage(currentPage);
-    setTimeout(() => { refreshCaseBadge(); _maybeNotifyCaseUpdates(); }, 1200);
+    setTimeout(() => { refreshCaseBadge(); _maybeNotifyCaseUpdates(); refreshPlanBadge(); _maybeNotifyPlanUpdates(); }, 1200);
   });
   // ซิงค์เบื้องหลังทุก 3 นาที (เดิม 30 วินาที ซึ่งถี่เกินไปสำหรับข้อมูลขนาดนี้)
   _autoSyncTimer = setInterval(async () => {
@@ -16703,6 +16705,65 @@ function _planItemDone(bid, ym, it) {
     (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
 }
 
+// ==================== BZM "เด้งให้รับทราบ" แผนการสอนงานของสาขาในเขต ====================
+// เหมือนระบบเคส (badge นับ + toast one-shot) แต่ดูจากแผนการสอนงาน (coaching_plans) แทน
+// นับเฉพาะเดือนปัจจุบัน เพราะแผนเป็นรายเดือนอยู่แล้ว ของเดือนก่อน ๆ ไม่มีใครมาแก้ต่อ
+function _planLastViewKey() {
+  if (!currentUser) return null;
+  return 'opt_plans_lastview_' + (currentUser.name || currentUser.nick || 'unknown');
+}
+function _markPlansViewed() {
+  try { const k = _planLastViewKey(); if (k) localStorage.setItem(k, new Date().toISOString()); } catch (_) {}
+}
+function _getPlansLastView() {
+  try { const k = _planLastViewKey(); return k ? localStorage.getItem(k) : null; } catch (_) { return null; }
+}
+// รายการแผนย่อยที่ "ใหม่/อัปเดต" หลังจากที่ BZM ดูครั้งล่าสุด เฉพาะสาขาที่เข้าถึงได้ + เดือนนี้
+function _planUnreadItems() {
+  if (!currentUser) return [];
+  const acc = new Set(getAccessibleBranches());
+  const ym = _ymNow();
+  const lastView = _getPlansLastView();
+  const lastTs = lastView ? new Date(lastView).getTime() : 0;
+  const out = [];
+  Object.values(DB.coachingPlans || {}).forEach(p => {
+    if (p.month !== ym || !acc.has(p.branchId)) return;
+    (p.items || []).forEach(it => {
+      const t = new Date(it.updatedAt || it.createdAt || 0).getTime();
+      if (t > lastTs) out.push(it);
+    });
+  });
+  return out;
+}
+function refreshPlanBadge() {
+  document.querySelectorAll('[data-plan-badge]').forEach(el => el.remove());
+  if (!isBzmRole()) return;   // เฉพาะหน้า BZM ตามที่ขอ
+  const n = _planUnreadItems().length;
+  if (!n) return;
+  const html = `<span class="nav-badge plan-badge" data-plan-badge title="แผนการสอนงานใหม่/อัปเดตที่ยังไม่ได้ดู">${n > 99 ? '99+' : n}</span>`;
+  const navEl = document.getElementById('nav-admin-trainings');
+  if (navEl) navEl.insertAdjacentHTML('beforeend', ' ' + html);
+  const bnEl = document.getElementById('bnav-admin-trainings');
+  if (bnEl) bnEl.querySelector('.bottom-nav-icon')?.insertAdjacentHTML('afterend', html.replace('nav-badge plan-badge', 'nav-badge plan-badge bn-badge'));
+}
+function _planLastNotifyKey() {
+  if (!currentUser) return null;
+  return 'opt_plans_lastnotify_' + (currentUser.name || currentUser.nick || 'unknown');
+}
+// เด้ง toast ครั้งเดียวต่อชุดอัปเดตจริง ๆ ไม่เด้งซ้ำเรื่องเดิมทุกครั้งที่เปิดแอป (ใช้ลอจิกเดียวกับที่แก้บั๊กเคสไว้ก่อนหน้า)
+function _maybeNotifyPlanUpdates() {
+  if (!isBzmRole()) return;
+  const items = _planUnreadItems();
+  if (!items.length) return;
+  const k = _planLastNotifyKey(); if (!k) return;
+  const maxTs = Math.max(0, ...items.map(it => new Date(it.updatedAt || it.createdAt || 0).getTime() || 0));
+  let lastNotified = 0;
+  try { lastNotified = Number(localStorage.getItem(k) || 0); } catch (_) {}
+  if (maxTs <= lastNotified) return;
+  try { localStorage.setItem(k, String(maxTs)); } catch (_) {}
+  setTimeout(() => notify(`📅 มีแผนการสอนงานใหม่/อัปเดต ${items.length} รายการในเขตของคุณ`), 1500);
+}
+
 function renderCoachingPlanPanel(bid) {
   if (!bid || bid === 'ALL') return '';
   if (!_planMonth) _planMonth = _ymNow();
@@ -16718,7 +16779,6 @@ function renderCoachingPlanPanel(bid) {
       <div class="cp-col-head" style="background:${c}14;margin:-12px -12px 8px;padding:10px 12px;border-radius:8px 8px 0 0">
         <span class="cp-col-title" style="color:${c}">${icon} ${label}</span>
         <span class="cp-col-count">${list.length ? `สอนแล้ว <b>${done}</b>/${list.length}` : 'ยังไม่มีแผน'}</span>
-        ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}')">+ เพิ่มแผน</button>` : ''}
       </div>
       ${list.length ? list.map(it => {
         const m = MODULES[it.moduleId] || {};
@@ -16739,12 +16799,13 @@ function renderCoachingPlanPanel(bid) {
             ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย 🔍</span>` : ''}
           </div>
           ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
+          ${it.createdBy ? `<div class="cp-item-note" style="color:var(--text4)">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
           <div class="cp-item-actions">
             ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
-            ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
+            ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
           </div>
         </div>`;
-      }).join('') : `<div class="cp-empty">กด "+ เพิ่มแผน" เพื่อวางว่าเดือนนี้จะสอน Module ไหน</div>`}
+      }).join('') : `<div class="cp-empty">กด "+ เพิ่มแผนการสอน" ด้านบนเพื่อวางว่าเดือนนี้จะสอน Module ไหน</div>`}
     </div>`;
   };
   return `
@@ -16813,6 +16874,7 @@ function renderCoachingPlanPage() {
         <button class="cp-month-btn" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
       </div>
     </div>
+    ${_coachingReady && (currentUser?.type === 'branch' || isAdminRole()) ? `<button class="btn btn-accent" onclick="openPlanBatch()">+ เพิ่มแผนการสอน</button>` : ''}
   </div>
   ${renderCoachingPlanPanel(getBranchId())}`;
 }
@@ -16926,10 +16988,22 @@ function openPlanItem(grp, itemId) {
     const evalDate = document.getElementById('cp-eval-date').value || '';
     const trainerName = (document.getElementById('tr-trainer').value || '').trim();
     if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
+    const who = currentUser?.name || currentUser?.nick || '—';
+    const now = new Date().toISOString();
     const rec = {
       id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName,
-      note: (document.getElementById('cp-note').value || '').trim()
+      note: (document.getElementById('cp-note').value || '').trim(),
+      // ผู้จัดทำ (สติกอัตโนมัติ ครั้งแรกเท่านั้น) · ผู้แก้ไขล่าสุด (อัปเดตทุกครั้งที่บันทึก — ใช้เช็คว่ามีอะไรใหม่ให้ BZM ดูไหมด้วย)
+      createdBy: (it && it.createdBy) || who, createdAt: (it && it.createdAt) || now,
+      updatedBy: who, updatedAt: now,
     };
+    if (_cpBatchMode) {
+      _cpBatchItems.push({ ...rec, grp, empNames: _cpSelectedEmps.map(e => e.name) });
+      _cpBatchMode = false;
+      closeModal();
+      _renderPlanBatchModal();
+      return;
+    }
     const p = getCoachingPlan(bid, ym);
     const items = (p.items || []).filter(x => x.id !== rec.id);
     const at = itemId ? (p.items || []).findIndex(x => x.id === itemId) : -1;
@@ -16945,6 +17019,65 @@ function openPlanItem(grp, itemId) {
 let _cpSelectedEmps = [];
 let _cpEmpsOwnGroup = [];
 let _cpEmpsAllGroups = [];
+let _cpBatchMode = false;   // true = กำลังอยู่ในฟอร์ม "เพิ่มแผนหลายรายการ" — บันทึกแล้วไม่ปิดออกไปหน้าหลัก แต่กลับไปที่ลิสต์ชั่วคราวแทน
+let _cpBatchItems = [];     // รายการที่พักไว้ก่อนกด "บันทึกทั้งหมด" — ผสมครัว/บริการปนกันได้
+/* เพิ่มแผนการสอนหลายรายการในคราวเดียว — กด "+ เพิ่มรายการ" ได้เรื่อย ๆ ทั้งครัวและบริการปนกัน
+   แล้วค่อยกด "บันทึกทั้งหมด" ทีเดียว ไม่ต้องปิดฟอร์มแล้วเปิดใหม่ทีละรายการ */
+function openPlanBatch() {
+  if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
+  _cpBatchItems = [];
+  _renderPlanBatchModal();
+}
+function _renderPlanBatchModal() {
+  const ym = _planMonth || _ymNow();
+  showModal(`เพิ่มแผนการสอน · ${_ymLabel(ym)}`, `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">เพิ่มได้ทั้งครัวและบริการปนกันในครั้งเดียว กด "บันทึกทั้งหมด" ตอนเพิ่มครบแล้ว</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      ${_cpBatchItems.length ? _cpBatchItems.map((b, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px">
+          <span style="font-size:18px;flex-shrink:0">${b.grp === 'kitchen' ? '👨‍🍳' : '🍽'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${_escH(MODULES[b.moduleId]?.name || b.moduleId)}</div>
+            <div style="font-size:11.5px;color:var(--text3)">${_escH((b.empNames || []).join(', ') || '—')} · ${b.planDate ? _escH(fmtDate(b.planDate)) : 'ยังไม่ระบุวันที่'}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" onclick="_cpBatchRemove(${i})">ลบ</button>
+        </div>`).join('') : '<div style="text-align:center;color:var(--text3);padding:16px;border:1px dashed var(--border);border-radius:10px">ยังไม่มีรายการ — กด "+ เพิ่มรายการ" ด้านล่าง</div>'}
+    </div>
+    <button type="button" class="btn btn-outline" style="width:100%" onclick="_cpBatchAddOne()">+ เพิ่มรายการ (ครัวหรือบริการก็ได้)</button>
+  `, _cpBatchItems.length ? () => _cpBatchSaveAll() : null, `บันทึกทั้งหมด (${_cpBatchItems.length})`);
+}
+function _cpBatchRemove(i) { _cpBatchItems.splice(i, 1); _renderPlanBatchModal(); }
+function _cpBatchAddOne() {
+  showModal('เพิ่มรายการ · เลือกแผนก', `
+    <div style="display:flex;gap:10px">
+      <button type="button" class="btn btn-outline" style="flex:1;padding:18px 10px;font-size:14px" onclick="_cpBatchPickGrp('kitchen')">👨‍🍳<br>ครัว</button>
+      <button type="button" class="btn btn-outline" style="flex:1;padding:18px 10px;font-size:14px" onclick="_cpBatchPickGrp('service')">🍽<br>บริการ</button>
+    </div>
+  `, null, '');
+}
+function _cpBatchPickGrp(grp) {
+  closeModal();
+  _cpBatchMode = true;
+  openPlanItem(grp, null);
+}
+function _cpBatchSaveAll() {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const p = getCoachingPlan(bid, ym);
+  const items = (p.items || []).slice();
+  _cpBatchItems.forEach(b => {
+    const { grp, empNames, ...rec } = b;
+    items.push(rec);
+  });
+  const n = _cpBatchItems.length;
+  _savePlan(bid, ym, items);
+  _cpBatchItems = [];
+  closeModal(); showPage(currentPage); notify(`บันทึกแผนการสอน ${n} รายการแล้ว`);
+}
+/* เข้าฟอร์มแก้ไขแผนที่มีอยู่แล้วตรง ๆ (ไม่ใช่โหมดเพิ่มหลายรายการ) — กันสถานะโหมดชุดก่อนหน้าหลุดมาปน */
+function editPlanItem(grp, itemId) {
+  _cpBatchMode = false;
+  openPlanItem(grp, itemId);
+}
 let _cpCrossDept = false;
 let _cpMaxTrainees = MAX_TRAINEES;
 function _cpEmpOptionsHtml(emps, sel) {
@@ -17140,6 +17273,9 @@ function _planAudit(bid, ym) {
 
 function renderAdminPlanOverview() {
   if (!_planMonth) _planMonth = _ymNow();
+  // BZM มาเห็นหน้านี้แล้วถือว่ารับทราบ — เคลียร์ badge/ไม่เด้ง toast ซ้ำจนกว่าจะมีอัปเดตใหม่จริง
+  _markPlansViewed();
+  setTimeout(refreshPlanBadge, 0);
   const ym = _planMonth;
   const bids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
   const rows = bids.map(bid => {
