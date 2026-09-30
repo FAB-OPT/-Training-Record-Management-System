@@ -2558,6 +2558,20 @@
     .train-tabs-mobile ~ .cat-select-mobile { display: none !important; }
     /* Module + Result dropdowns side-by-side on one row below the pills */
     .train-tabs-mobile ~ select.form-select { flex: 1 1 calc(50% - 5px) !important; max-width: none !important; min-width: 0 !important; font-size: 12px !important; padding: 7px 22px 7px 10px !important }
+    /* รายครั้ง/รายคน toggle และตัวเลือกช่วงวันที่ด่วน ก็มีคลาส .cat-tabs (ใช้สไตล์ pill ร่วมกัน)
+       แต่ไม่มีดรอปดาวสำรองเหมือนแท็บสถานะข้างบน เลยต้องยกเว้นไม่ให้โดนกฎ "ซ่อน .cat-tabs" กวาดไปด้วย */
+    .tv-toggle.cat-tabs, .dq-tabs.cat-tabs { display: flex !important; }
+    .tv-toggle { width: 100% !important; margin-left: 0 !important; margin-top: 2px }
+    .tv-toggle .btn { flex: 1; justify-content: center }
+    .dq-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+    .dq-tabs::-webkit-scrollbar { display: none; }
+    /* แถบ "ช่วงวันที่" ทั้งแถบ: จัดเป็นสแต็กเต็มความกว้างทีละแถว อ่านง่ายกว่าไหลชนกัน */
+    .train-date-bar { align-items: flex-start !important; }
+    .train-date-bar .tdb-label { width: 100%; margin-bottom: 2px; }
+    .train-date-bar .tdb-sep { display: none; }
+    .train-date-bar .tdb-dates { width: 100%; }
+    .train-date-bar .tdb-dates input[type=date] { flex: 1; width: auto !important; }
+    .train-date-bar #train-search { width: 100% !important; margin-left: 0 !important; }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
     /* Bottom nav: ทุกบทบาทเหลือไม่เกิน 5 แท็บ (ที่เหลืออยู่ในปุ่ม "อื่นๆ") — ไม่ต้องเลื่อนแนวนอน
@@ -3015,7 +3029,7 @@ body.admin-user .btn-navy{background:var(--primary)}
 .bu-opt-row,.emp-pick-row{transition:background .12s,border-color .12s}
 .bu-opt-row:hover,.emp-pick-row:hover{background:var(--surface2);border-color:var(--border2)}
 .bu-opt-row:active,.emp-pick-row:active{transform:scale(.99)}
-.bu-last-pill{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
+.bu-last-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
 /* หน้าสาขาของ admin — ผังเขต (สีจากตัวแปรของระบบ) */
 .zm-legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text2);margin:0 4px 12px}
 .zm-legend span{display:inline-flex;align-items:center;gap:7px}
@@ -8609,8 +8623,10 @@ function renderEmployees() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">จัดการรายชื่อพนักงาน</div>
-      <div class="bu-last-pill" style="${_buLast ? 'background:var(--green-light);color:var(--green)' : 'background:var(--accent-light);color:var(--accent)'}">🕐 ${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="page-hero-title" style="margin:0">จัดการรายชื่อพนักงาน</div>
+        <div class="bu-last-pill" style="${_buLast ? 'background:var(--green-light);color:var(--green)' : 'background:var(--accent-light);color:var(--accent)'}">🕐 ${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
+      </div>
     </div>
     <button class="btn btn-accent" onclick="openBranchUpdateMenu()">🔄 อัพเดทข้อมูลพนักงาน</button>
   </div>
@@ -8839,8 +8855,12 @@ function openBranchUpdateMenu() {
   const bid = getBranchId();
   const last = getLastBranchUpdate(bid);
   showModal('🔄 อัพเดทข้อมูลพนักงาน', `
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:16px;font-size:12px;color:var(--text2)">
-      🕐 ${last ? `อัพเดทล่าสุด <b style="color:var(--text)">${fmtDateTime(last.at)}</b> · ${_BU_ACTION[last.action]?.[0]||last.action}${last.empName?` (${_escH(last.empName)})`:''} · โดย ${_escH(last.by||'—')}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงานของสาขานี้'}
+    <div style="padding:12px 14px;background:var(--surface2);border-radius:10px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">🕐 อัพเดทล่าสุด</div>
+      ${last ? `
+        <div style="font-size:14.5px;font-weight:800;color:var(--text)">${fmtDateTime(last.at)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${_BU_ACTION[last.action]?.[0]||last.action}${last.empName?` (${_escH(last.empName)})`:''} · โดย ${_escH(last.by||'—')}</div>
+      ` : `<div style="font-size:12.5px;color:var(--text2)">ยังไม่เคยอัพเดทข้อมูลพนักงานของสาขานี้</div>`}
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${_buOptRow('➕', 'var(--accent-light)', 'var(--accent)', 'เพิ่มพนักงานใหม่', 'กรอกข้อมูลพนักงานที่เพิ่งเข้าทำงาน', "closeModal();openAddEmployee()")}
@@ -9182,14 +9202,14 @@ function renderTrainings() {
       <select class="form-select" onchange="setTrainResultFilter(this.value)" style="max-width:240px">
         ${_resultOptionsHtml(_trainResultFilter)}
       </select>
-      <span class="cat-tabs" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+      <span class="cat-tabs tv-toggle" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
         <button class="btn btn-sm ${_trainView==='record'?'btn-navy':'btn-outline'}" style="${_trainView==='record'?'':'background:transparent;border:0'}" onclick="setTrainView('record')">🗓 รายครั้ง</button>
         <button class="btn btn-sm ${_trainView==='person'?'btn-navy':'btn-outline'}" style="${_trainView==='person'?'':'background:transparent;border:0'}" onclick="setTrainView('person')">🙍 รายคน</button>
       </span>
     </div>
-    <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
-      <span style="font-size:12.5px;color:var(--text3);font-weight:700;white-space:nowrap">📅 ช่วงวันที่</span>
-      <span class="cat-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
+    <div class="filter-bar train-date-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border)">
+      <span class="tdb-label" style="font-size:12.5px;color:var(--text3);font-weight:700;white-space:nowrap">📅 ช่วงวันที่</span>
+      <span class="cat-tabs dq-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:10px">
         ${(() => {
           const today = new Date();
           const thisFrom = _ymdLocal(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -9203,8 +9223,8 @@ function renderTrainings() {
           return q(isAll,'ทุกช่วง','clear') + q(isThis,'เดือนนี้','this-month') + q(isLast,'เดือนที่แล้ว','last-month');
         })()}
       </span>
-      <span style="width:1px;height:20px;background:var(--border)"></span>
-      <div style="display:flex;align-items:center;gap:6px">
+      <span class="tdb-sep" style="width:1px;height:20px;background:var(--border)"></span>
+      <div class="tdb-dates" style="display:flex;align-items:center;gap:6px">
         <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateFrom}" onchange="setTrainDateRange(this.value,_trainDateTo)">
         <span style="color:var(--text3);font-size:12px">ถึง</span>
         <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
