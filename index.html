@@ -2113,6 +2113,37 @@
       border-top: none !important;
     }
 
+    /* มุมมอง "รายคน" หน้าบันทึกการสอนงาน — เดิมเป็นรายการ label:value เรียงยาว 7 บรรทัด อ่านยาก
+       จัดใหม่: ชื่อ+ตำแหน่งเป็นหัวการ์ด แล้วสถิติที่เหลือเป็นกริด 2 คอลัมน์ ปุ่ม "ดูประวัติ" เต็มความกว้างล่างสุด */
+    table.cards-on-mobile.person-summary-table tr {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 14px; row-gap: 10px;
+      padding: 14px;
+    }
+    table.cards-on-mobile.person-summary-table td {
+      display: block !important; padding: 0 !important; font-size: 12.5px; min-width: 0;
+      white-space: normal !important;
+    }
+    table.cards-on-mobile.person-summary-table td::before {
+      content: attr(data-label); display: block;
+      font-size: 10px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px;
+    }
+    table.cards-on-mobile.person-summary-table td > * { text-align: left !important; }
+    table.cards-on-mobile.person-summary-table td[data-label="พนักงาน"] {
+      grid-column: 1 / -1; padding-bottom: 10px !important; border-bottom: 1px dashed var(--border) !important;
+    }
+    table.cards-on-mobile.person-summary-table td[data-label="พนักงาน"]::before { display: none; }
+    table.cards-on-mobile.person-summary-table td[data-label="พนักงาน"] strong { font-size: 14.5px; display: block; }
+    table.cards-on-mobile.person-summary-table td[data-label="สาขา"] { grid-column: 1 / -1; }
+    table.cards-on-mobile.person-summary-table td[data-label="actions"] {
+      grid-column: 1 / -1; display: flex !important; justify-content: center;
+      padding-top: 10px !important; border-top: 1px solid var(--border) !important; margin-top: 2px;
+    }
+    table.cards-on-mobile.person-summary-table td[data-label="actions"]::before { display: none; }
+    table.cards-on-mobile.person-summary-table td[data-label="actions"] .btn { width: 100%; justify-content: center; }
+
     /* Course-history group card on mobile: 3 lines */
     table.cards-on-mobile.ch-table tr {
       display: grid !important;
@@ -2565,13 +2596,15 @@
     .tv-toggle .btn { flex: 1; justify-content: center }
     .dq-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
     .dq-tabs::-webkit-scrollbar { display: none; }
-    /* แถบ "ช่วงวันที่" ทั้งแถบ: จัดเป็นสแต็กเต็มความกว้างทีละแถว อ่านง่ายกว่าไหลชนกัน */
+    /* แถบ "ช่วงวันที่" ทั้งแถบ: จัดเป็นสแต็กเต็มความกว้างทีละแถว อ่านง่ายกว่าไหลชนกัน
+       ปุ่มลัดขึ้นก่อน (จัดกึ่งกลาง) แล้วค่อยตามด้วยป้าย "ช่วงวันที่" ใต้ปุ่ม (สลับลำดับด้วย order ไม่แตะ DOM) */
     .train-date-bar { align-items: flex-start !important; }
-    .train-date-bar .tdb-label { width: 100%; margin-bottom: 2px; }
+    .train-date-bar .dq-tabs { order: 1; width: 100%; justify-content: center; }
+    .train-date-bar .tdb-label { order: 2; width: 100%; text-align: center; margin: 2px 0; }
     .train-date-bar .tdb-sep { display: none; }
-    .train-date-bar .tdb-dates { width: 100%; }
+    .train-date-bar .tdb-dates { order: 3; width: 100%; }
     .train-date-bar .tdb-dates input[type=date] { flex: 1; width: auto !important; }
-    .train-date-bar #train-search { width: 100% !important; margin-left: 0 !important; }
+    .train-date-bar #train-search { order: 4; width: 100% !important; margin-left: 0 !important; }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
     /* Bottom nav: ทุกบทบาทเหลือไม่เกิน 5 แท็บ (ที่เหลืออยู่ในปุ่ม "อื่นๆ") — ไม่ต้องเลื่อนแนวนอน
@@ -3029,7 +3062,15 @@ body.admin-user .btn-navy{background:var(--primary)}
 .bu-opt-row,.emp-pick-row{transition:background .12s,border-color .12s}
 .bu-opt-row:hover,.emp-pick-row:hover{background:var(--surface2);border-color:var(--border2)}
 .bu-opt-row:active,.emp-pick-row:active{transform:scale(.99)}
-.bu-last-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
+.bu-last-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.bu-pill-short{display:none}
+@media (max-width:480px){
+  .emp-title-row{flex-wrap:nowrap}
+  .emp-title-text{font-size:15px!important;flex-shrink:0}
+  .bu-last-pill{padding:3px 9px;font-size:10.5px;gap:3px}
+  .bu-pill-full{display:none}
+  .bu-pill-short{display:inline}
+}
 /* หน้าสาขาของ admin — ผังเขต (สีจากตัวแปรของระบบ) */
 .zm-legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text2);margin:0 4px 12px}
 .zm-legend span{display:inline-flex;align-items:center;gap:7px}
@@ -8623,9 +8664,12 @@ function renderEmployees() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div class="page-hero-title" style="margin:0">จัดการรายชื่อพนักงาน</div>
-        <div class="bu-last-pill" style="${_buLast ? 'background:var(--green-light);color:var(--green)' : 'background:var(--accent-light);color:var(--accent)'}">🕐 ${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
+      <div class="emp-title-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="page-hero-title emp-title-text" style="margin:0">จัดการรายชื่อพนักงาน</div>
+        <div class="bu-last-pill" style="${_buLast ? 'background:var(--green-light);color:var(--green)' : 'background:var(--accent-light);color:var(--accent)'}">🕐
+          <span class="bu-pill-full">${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</span>
+          <span class="bu-pill-short">${_buLast ? fmtDateTime(_buLast.at) : 'ยังไม่อัพเดท'}</span>
+        </div>
       </div>
     </div>
     <button class="btn btn-accent" onclick="openBranchUpdateMenu()">🔄 อัพเดทข้อมูลพนักงาน</button>
@@ -16636,18 +16680,20 @@ function renderCoachingPlanPanel(bid) {
         const ok = _planItemDone(bid, ym, it);
         const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
         return `<div class="cp-item ${ok ? 'ok' : ''}">
-          <div class="cp-item-main">
+          <div class="cp-item-top">
             <div class="cp-item-name">${_escH(m.name || it.moduleId)}</div>
-            <div class="cp-item-meta">
-              ${(it.subtopics || []).length ? `<span>${it.subtopics.length} หัวข้อย่อย</span>` : ''}
-              ${names.length ? `<span>👤 ${_escH(names.join(', '))}</span>` : '<span>ยังไม่ระบุคน</span>'}
-              ${it.trainerName ? `<span>🧑‍🏫 ${_escH(it.trainerName)}</span>` : ''}
-              ${it.planDate ? `<span>📅 ${_escH(fmtDate(it.planDate))}</span>` : ''}
-              ${it.note ? `<span>📝 ${_escH(it.note)}</span>` : ''}
-            </div>
+            ${ok ? '<span class="badge badge-green" style="flex-shrink:0">✓ สอนแล้ว</span>' : ''}
           </div>
-          <div class="cp-item-side">
-            ${ok ? '<span class="badge badge-green">✓ สอนแล้ว</span>' : ''}
+          <div class="cp-item-people">
+            <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4)">—</span>'}</div>
+            <div><span class="cp-role-label">👤 ผู้เรียน</span>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4)">ยังไม่ระบุคน</span>'}</div>
+          </div>
+          <div class="cp-item-meta">
+            ${(it.subtopics || []).length ? `<span>${it.subtopics.length} หัวข้อย่อย</span>` : ''}
+            ${it.planDate ? `<span>📅 ${_escH(fmtDate(it.planDate))}</span>` : ''}
+            ${it.note ? `<span>📝 ${_escH(it.note)}</span>` : ''}
+          </div>
+          <div class="cp-item-actions">
             ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
             ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
           </div>
@@ -16658,30 +16704,29 @@ function renderCoachingPlanPanel(bid) {
   return `
   <style>
     .cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px}
-    .cp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-    .cp-title{font-size:16px;font-weight:800;color:var(--text);flex:1;min-width:200px}
-    .cp-title small{display:block;font-size:12px;font-weight:500;color:var(--text3);margin-top:2px}
-    .cp-month{display:flex;align-items:center;gap:6px}
-    .cp-month b{min-width:130px;text-align:center;font-size:14px}
+    .cp-top{display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+    .cp-month-frame{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:8px 18px}
+    .cp-month-frame b{min-width:130px;text-align:center;font-size:14px}
     .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .cp-col{background:var(--surface2);border-radius:12px;padding:12px}
     .cp-col-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
     .cp-col-title{font-weight:800;font-size:14px;flex:1}
     .cp-col-count{font-size:12px;color:var(--text2)}
     .cp-col-count b{color:var(--green)}
-    .cp-item{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:8px}
+    .cp-item{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:8px}
     .cp-item.ok{border-color:#BBE5C8}
-    .cp-item-main{flex:1;min-width:0}
+    .cp-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
     .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
-    .cp-item-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text3);margin-top:3px}
-    .cp-item-side{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .cp-item-people{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+    .cp-role-label{color:var(--text3);font-weight:700;margin-right:5px}
+    .cp-item-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--text3)}
+    .cp-item-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:2px}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
-    @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} .cp-item{flex-direction:column;align-items:stretch} .cp-item-side{justify-content:flex-start} }
+    @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
   </style>
   <div class="cp-card">
     <div class="cp-top">
-      <div class="cp-title">📅 แผนการสอนงานประจำเดือน</div>
-      <div class="cp-month">
+      <div class="cp-month-frame">
         <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
         <b>${_ymLabel(ym)}</b>
         <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
@@ -16701,7 +16746,6 @@ function renderCoachingPlanPage() {
   return `
   <div class="page-hero">
     <div class="page-hero-body"><div class="page-hero-title">แผนการสอนงาน</div></div>
-    <button class="btn btn-outline" onclick="showPage('trainings')">📚 ไปหน้าบันทึกการสอน</button>
   </div>
   ${renderCoachingPlanPanel(getBranchId())}`;
 }
