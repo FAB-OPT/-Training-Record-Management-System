@@ -3009,7 +3009,7 @@ body.admin-user .btn-navy{background:var(--primary)}
 /* คำขอย้ายสาขา — ใบละแถว · เส้นทางต้นทาง → ปลายทาง */
 .xr-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;margin-bottom:12px}
 .xr-pill{background:var(--accent);color:#fff;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:800}
-.xr-list{display:flex;flex-direction:column;gap:8px}
+.xr-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px;align-items:stretch}
 .xr-row{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
 .xr-row.pending{border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
 .xr-row.cancelled,.xr-row.rejected,.xr-row.reverted{opacity:.72}
