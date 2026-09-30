@@ -17129,7 +17129,7 @@ function openPlanItem(grp, itemId) {
   const plan = getCoachingPlan(bid, ym);
   const it = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
   const want = grp === 'kitchen' ? 'Cook' : 'Service';
-  const mods = Object.entries(MODULES).filter(([, m]) => m.group === want);
+  _cpGrp = grp;
   const empGrp = grp === 'kitchen' ? 'พนักงานครัว' : 'พนักงานบริการ';
   const otherGrp = grp === 'kitchen' ? 'พนักงานบริการ' : 'พนักงานครัว';
   /* คนในกลุ่มนั้นขึ้นก่อน ทีมผู้จัดการสาขาตามมา (สอนได้ทั้งสองฝั่ง) */
@@ -17148,6 +17148,8 @@ function openPlanItem(grp, itemId) {
   _cpCrossDept = _cpSelectedEmps.some(e => getPositionGroup(e.position) === otherGrp);
   _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
   const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
+  /* แผนเดิมที่ตั้ง Module ข้ามฝั่งไว้ ต้องเห็น Module นั้นในลิสต์ด้วย ไม่งั้นเปิดมาแล้วช่องว่าง */
+  const modOtherSide = !!(it && MODULES[it.moduleId] && MODULES[it.moduleId].group !== want);
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? 'ครัว' : 'บริการ'} · ${_ymLabel(ym)}`, `
     ${_cpBatchMode ? '' : `
     <div class="form-full">
@@ -17200,7 +17202,7 @@ function openPlanItem(grp, itemId) {
       <label class="form-label">Module <span class="req">*</span></label>
       <select class="form-select" id="cp-module" onchange="_cpSubtopics()">
         <option value="">— เลือก Module —</option>
-        ${mods.map(([id, m]) => `<option value="${id}"${it && it.moduleId === id ? ' selected' : ''}>${_escH(m.name)}</option>`).join('')}
+        ${_cpModuleOptionsHtml(it && it.moduleId, _cpCrossDept || modOtherSide)}
       </select>
     </div>
     <div class="form-full">
@@ -17219,7 +17221,12 @@ function openPlanItem(grp, itemId) {
     const subtopics = [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value);
     if (!subtopics.length) { notify('กรุณาเลือกหัวข้อย่อย', 'error'); return; }
     const empIds = cpSelectedEmpIds();
-    if (!empIds.length) { notify('กรุณาเลือกพนักงานที่จะสอน', 'error'); return; }
+    if (!empIds.length) {
+      _cpEmpNote('ต้องเลือกพนักงานที่จะสอนอย่างน้อย 1 คน');
+      const b = document.getElementById('cp-emp-select-box');
+      if (b) { b.style.borderColor = '#DC2626'; b.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      notify('กรุณาเลือกพนักงานที่จะสอน', 'error'); return;
+    }
     const planDate = document.getElementById('cp-date').value || '';
     if (!planDate) { notify('กรุณาเลือกวันที่วางแผนจะสอน', 'error'); return; }
     const evalDate = document.getElementById('cp-eval-date').value || '';
@@ -17335,6 +17342,25 @@ function editPlanItem(grp, itemId) {
 }
 let _cpCrossDept = false;
 let _cpMaxTrainees = MAX_TRAINEES;
+let _cpGrp = 'kitchen';
+/* ตัวเลือก Module ของฟอร์มแผน — ปกติเฉพาะฝั่งของฟอร์ม (ครัว=Cook · บริการ=Service)
+   ติ๊ก "สอนข้ามส่วนงาน" แล้วแสดงทั้งสองฝั่ง แยกหัวกลุ่มให้ชัด ฝั่งของฟอร์มขึ้นก่อน */
+function _cpModuleOptionsHtml(selId, both) {
+  const own = _cpGrp === 'kitchen' ? 'Cook' : 'Service', other = own === 'Cook' ? 'Service' : 'Cook';
+  const label = g => g === 'Cook' ? 'ครัว' : 'บริการ';
+  const opts = g => Object.entries(MODULES).filter(([, m]) => m.group === g)
+    .map(([id, m]) => `<option value="${id}"${selId === id ? ' selected' : ''}>${_escH(m.name)}</option>`).join('');
+  return '<option value="">— เลือก Module —</option>' + (both
+    ? `<optgroup label="── ${label(own)} ──">${opts(own)}</optgroup><optgroup label="── ${label(other)} ──">${opts(other)}</optgroup>`
+    : opts(own));
+}
+function _cpRefreshModules() {
+  const sel = document.getElementById('cp-module'); if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = _cpModuleOptionsHtml(prev, _cpCrossDept);
+  if (sel.value !== prev) { sel.value = ''; const subs = document.getElementById('cp-subs'); if (subs) subs.dataset.sel = '[]'; }
+  _cpSubtopics();
+}
 function _cpEmpOptionsHtml(emps, sel) {
   if (!emps.length) return '<div class="emp-no-result">ไม่มีพนักงานในกลุ่มนี้</div>';
   return emps.map(e => `
@@ -17363,6 +17389,7 @@ function cpToggleCrossDept() {
   const label = document.getElementById('cp-emp-max-label');
   if (label) label.textContent = `(สูงสุด ${_cpMaxTrainees} คน)`;
   _cpMarkFullEmpOptions();
+  _cpRefreshModules();
 }
 function cpFocusEmpSearch(ev) {
   if (ev) ev.stopPropagation();
@@ -17414,7 +17441,15 @@ function _cpEmpNote(msg) {
   clearTimeout(_cpEmpNote._t);
   _cpEmpNote._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
-function cpToggleEmp(id) {
+function _cpKeepScroll(fn) {
+  const body = document.querySelector('#modal-overlay .modal-body');
+  const top = body ? body.scrollTop : 0;
+  try { const a = document.activeElement; if (a && a.id === 'cp-emp-search-input') a.blur(); } catch (_) {}
+  fn();
+  if (body) { body.scrollTop = top; requestAnimationFrame(() => { body.scrollTop = top; setTimeout(() => { body.scrollTop = top; }, 120); }); }
+}
+function cpToggleEmp(id) { _cpKeepScroll(() => _cpToggleEmpInner(id)); }
+function _cpToggleEmpInner(id) {
   const idx = _cpSelectedEmps.findIndex(e => e.id === id);
   const opt = document.getElementById('cp-empopt-' + id);
   if (idx >= 0) {
@@ -17443,7 +17478,8 @@ function _cpMarkFullEmpOptions() {
     o.title = (full && !mine) ? `เลือกครบ ${_cpMaxTrainees} คนแล้ว` : '';
   });
 }
-function cpRemoveEmpChip(id) {
+function cpRemoveEmpChip(id) { _cpKeepScroll(() => _cpRemoveEmpChipInner(id)); }
+function _cpRemoveEmpChipInner(id) {
   _cpSelectedEmps = _cpSelectedEmps.filter(e => e.id !== id);
   const opt = document.getElementById('cp-empopt-' + id);
   if (opt) opt.classList.remove('selected');
@@ -17463,6 +17499,7 @@ function cpRenderEmpChips() {
     box.insertBefore(tag, placeholder);
   });
   if (placeholder) placeholder.style.display = _cpSelectedEmps.length ? 'none' : '';
+  if (_cpSelectedEmps.length) box.style.borderColor = '';
 }
 function cpSelectedEmpIds() { return _cpSelectedEmps.map(e => e.id); }
 function _cpSubtopics() {
