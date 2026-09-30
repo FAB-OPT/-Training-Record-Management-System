@@ -9142,7 +9142,6 @@ function renderTrainings() {
     </div>
     ${isEval ? '' : `<button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>`}
   </div>
-  ${isEval ? '' : renderPlanStrip(bid)}
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <div class="train-tabs-mobile cat-tabs" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -16658,18 +16657,6 @@ function renderCoachingPlanPage() {
     <button class="btn btn-outline" onclick="showPage('trainings')">📚 ไปหน้าบันทึกการสอน</button>
   </div>
   ${renderCoachingPlanPanel(getBranchId())}`;
-}
-/* แถบสั้นบนหน้าบันทึกการสอน — ความคืบหน้าแผนเดือนนี้ กดแล้วไปหน้าแผน */
-function renderPlanStrip(bid) {
-  if (!_coachingReady || !bid || bid === 'ALL') return '';
-  const ym = _ymNow(), items = getCoachingPlan(bid, ym).items || [];
-  const done = items.filter(it => _planItemDone(bid, ym, it)).length;
-  return `<div onclick="_planMonth='${ym}';showPage('coaching-plan')" style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-      background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 16px;margin-bottom:16px;font-size:13.5px">
-    <span style="font-weight:800">📅 แผนการสอนเดือน${_ymLabel(ym)}</span>
-    <span style="color:var(--text2)">${items.length ? `สอนแล้ว <b style="color:var(--green)">${done}</b> จาก ${items.length} แผน` : 'ยังไม่ได้วางแผนเดือนนี้'}</span>
-    <span style="margin-left:auto;color:var(--accent);font-weight:700">${items.length ? 'ดูแผน' : 'วางแผน'} →</span>
-  </div>`;
 }
 function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
 
