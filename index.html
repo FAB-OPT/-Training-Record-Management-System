@@ -16574,7 +16574,7 @@ function openPlanItem(grp, itemId) {
       </div>
     </div>
     <div class="form-full">
-      <label class="form-label">พนักงานที่จะสอน <span class="req">*</span></label>
+      <label class="form-label">พนักงานที่จะสอน <span class="req">*</span> <span style="color:var(--text3);font-weight:400">(สูงสุด ${MAX_TRAINEES} คน)</span></label>
       <div class="emp-multiselect" id="cp-emp-multiselect">
         <div class="emp-select-box" id="cp-emp-select-box" onclick="cpFocusEmpSearch(event)">
           <span id="cp-emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length === 0 ? 'ไม่มีพนักงานในกลุ่มนี้' : 'ค้นหาและเลือกพนักงาน...'}</span>
@@ -16593,6 +16593,7 @@ function openPlanItem(grp, itemId) {
               </div>`).join('')}
         </div>
       </div>
+      <div id="cp-emp-note" style="display:none;color:#DC2626;font-size:12.5px;margin-top:6px"></div>
     </div>
     <div class="form-full">
       <label class="form-label">Module <span class="req">*</span></label>
@@ -16634,6 +16635,7 @@ function openPlanItem(grp, itemId) {
   }, 'บันทึกแผน');
   _cpSubtopics();
   cpRenderEmpChips();
+  _cpMarkFullEmpOptions();
   document.addEventListener('click', cpCloseEmpDropdownOutside);
 }
 let _cpSelectedEmps = [];
@@ -16679,23 +16681,49 @@ function cpFilterEmpDropdown() {
     noRes.remove();
   }
 }
+function _cpEmpNote(msg) {
+  const el = document.getElementById('cp-emp-note');
+  if (!el) { notify(msg, 'error'); return; }
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+  clearTimeout(_cpEmpNote._t);
+  _cpEmpNote._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
 function cpToggleEmp(id) {
   const idx = _cpSelectedEmps.findIndex(e => e.id === id);
   const opt = document.getElementById('cp-empopt-' + id);
   if (idx >= 0) {
     _cpSelectedEmps.splice(idx, 1);
     if (opt) opt.classList.remove('selected');
-  } else if (opt) {
-    _cpSelectedEmps.push({ id, name: opt.dataset.name, position: opt.dataset.pos || '' });
-    opt.classList.add('selected');
+    cpRenderEmpChips();
+    _cpMarkFullEmpOptions();
+    return;
   }
+  if (!opt) return;
+  if (_cpSelectedEmps.length >= MAX_TRAINEES) {
+    _cpEmpNote(`เลือกได้สูงสุด ${MAX_TRAINEES} คนต่อแผน — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
+    return;
+  }
+  _cpSelectedEmps.push({ id, name: opt.dataset.name, position: opt.dataset.pos || '' });
+  opt.classList.add('selected');
   cpRenderEmpChips();
+  _cpMarkFullEmpOptions();
+  cpCloseEmpDropdown();
+}
+function _cpMarkFullEmpOptions() {
+  const full = _cpSelectedEmps.length >= MAX_TRAINEES;
+  document.querySelectorAll('#cp-emp-dropdown-list .emp-opt').forEach(o => {
+    const mine = _cpSelectedEmps.some(e => e.id === o.dataset.id);
+    o.style.opacity = (full && !mine) ? '.38' : '';
+    o.title = (full && !mine) ? `เลือกครบ ${MAX_TRAINEES} คนแล้ว` : '';
+  });
 }
 function cpRemoveEmpChip(id) {
   _cpSelectedEmps = _cpSelectedEmps.filter(e => e.id !== id);
   const opt = document.getElementById('cp-empopt-' + id);
   if (opt) opt.classList.remove('selected');
   cpRenderEmpChips();
+  _cpMarkFullEmpOptions();
 }
 function cpRenderEmpChips() {
   const box = document.getElementById('cp-emp-select-box');
