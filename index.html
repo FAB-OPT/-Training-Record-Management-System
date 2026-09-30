@@ -2132,10 +2132,17 @@
     }
     table.cards-on-mobile.person-summary-table td > * { text-align: left !important; }
     table.cards-on-mobile.person-summary-table td[data-label="พนักงาน"] {
-      grid-column: 1 / -1; padding-bottom: 10px !important; border-bottom: 1px dashed var(--border) !important;
+      grid-column: 1; grid-row: 1; padding-bottom: 10px !important; border-bottom: 1px dashed var(--border) !important;
     }
     table.cards-on-mobile.person-summary-table td[data-label="พนักงาน"]::before { display: none; }
     table.cards-on-mobile.person-summary-table td[data-label="พนักงาน"] strong { font-size: 14.5px; display: block; }
+    /* วันที่สอนล่าสุด — ย้ายมาไว้บรรทัดเดียวกับชื่อ (แถวเดียวกัน) แต่ชิดขวาแทนที่จะเป็นการ์ดสถิติแยก */
+    table.cards-on-mobile.person-summary-table td[data-label="สอนล่าสุด"] {
+      grid-column: 2; grid-row: 1; padding-bottom: 10px !important; border-bottom: 1px dashed var(--border) !important;
+      text-align: right; font-size: 11px !important; color: var(--text3);
+    }
+    table.cards-on-mobile.person-summary-table td[data-label="สอนล่าสุด"]::before { display: none; }
+    table.cards-on-mobile.person-summary-table td[data-label="สอนล่าสุด"] > * { text-align: right !important; }
     table.cards-on-mobile.person-summary-table td[data-label="สาขา"] { grid-column: 1 / -1; }
     table.cards-on-mobile.person-summary-table td[data-label="actions"] {
       grid-column: 1 / -1; display: flex !important; justify-content: center;
@@ -2327,11 +2334,14 @@
       font-size: 13px; color: var(--accent); font-weight: 700;
       text-align: left !important; line-height: 1.35;
     }
-    /* Line 4: ผู้สอน */
+    /* Line 4-5: ผู้สอน / ผลการประเมิน / ผลสอบ รวมเป็นแผงพื้นหลังเดียวกัน (เหมือนบล็อกผู้เรียน/ผู้สอน
+       ในหน้าแผนการสอนงาน) แทนที่จะลอยเป็นบรรทัดข้อความเปล่า ๆ บนพื้นขาว */
     table.cards-on-mobile.train-table td[data-label="ผู้สอน"] {
       grid-column: 1 / -1; grid-row: 4; justify-content: flex-start;
       font-size: 11.5px; color: var(--text2);
       text-align: left !important;
+      background: var(--surface2); border-radius: 8px 8px 0 0;
+      padding: 8px 10px 3px !important; margin-top: 2px;
     }
     table.cards-on-mobile.train-table td[data-label="ผู้สอน"]::before {
       content: 'ผู้สอน '; display: inline !important;
@@ -2341,7 +2351,8 @@
     table.cards-on-mobile.train-table td[data-label="สถานะ"] {
       grid-column: 1; grid-row: 5; justify-content: flex-start;
       gap: 6px; font-size: 12px;
-      padding-top: 4px !important;
+      background: var(--surface2); border-radius: 0 0 0 8px;
+      padding: 3px 10px 8px !important;
     }
     table.cards-on-mobile.train-table td[data-label="สถานะ"]::before {
       content: 'ผลการประเมิน '; display: inline !important;
@@ -2350,7 +2361,8 @@
     table.cards-on-mobile.train-table td[data-label="ผลสอบ"] {
       grid-column: 2; grid-row: 5; justify-content: flex-end;
       gap: 6px; font-size: 12px;
-      padding-top: 4px !important; white-space: nowrap;
+      background: var(--surface2); border-radius: 0 0 8px 0;
+      padding: 3px 10px 8px !important; white-space: nowrap;
     }
     table.cards-on-mobile.train-table td[data-label="ผลสอบ"]::before {
       content: 'ผลสอบ '; display: inline !important;
@@ -2606,8 +2618,13 @@
     /* หน้าประวัติอบรมหลักสูตร: ดรอปดาว (กลุ่มพนักงาน + เลือกหลักสูตร) จัดกึ่งกลางแถวของตัวเอง */
     .ch-filter-bar .cat-select-mobile { display: flex !important; margin: 0 auto !important; max-width: 320px; }
     .ch-filter-bar #ch-course-filter { margin: 0 auto !important; width: 92% !important; max-width: 320px; }
-    /* หน้าจัดการรายชื่อพนักงาน: ดรอปดาวประเภทพอดีตัวหนังสือ (ไม่ยืดเกิน) ให้ช่องค้นหากินพื้นที่ที่เหลือ */
-    .emp-filter-bar .cat-select-mobile { width: auto !important; max-width: 44% !important; flex: 0 1 auto !important; }
+    /* หน้าจัดการรายชื่อพนักงาน: ดรอปดาวประเภทพอดีตัวหนังสือ (ไม่ยืดเกิน) ให้ช่องค้นหากินพื้นที่ที่เหลือ
+       กรอบทั้งสองต้องหน้าตาเหมือนกัน (สีพื้น/ขอบ/มุมโค้ง) เพราะเดิมดรอปดาวใช้สไตล์ form-select (พื้นขาว มุม 10px)
+       ส่วนช่องค้นหาใช้สไตล์ search-input (พื้นเทาอ่อน มุม 6px) คนละชุดกัน ทำให้กรอบดูไม่เท่ากัน */
+    .emp-filter-bar .cat-select-mobile {
+      width: auto !important; max-width: 44% !important; flex: 0 1 auto !important;
+      background: var(--surface2) !important; border: 1.5px solid var(--border) !important; border-radius: 6px !important;
+    }
     .emp-filter-bar #emp-search { flex: 1 1 0% !important; min-width: 90px !important; margin-left: 0 !important; }
     /* Hide ขยายทั้งหมด / ย่อทั้งหมด text buttons on mobile (rare action; saves space) */
     .ch-expand-btn { display: none !important; }
@@ -9372,7 +9389,11 @@ function openAddTraining() {
       </div>
     </div>
     <div class="form-full">
-      <label class="form-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ต้องประเภทเดียวกัน) <span class="req">*</span></label>
+      <label class="form-label" id="emp-select-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ต้องประเภทเดียวกัน) <span class="req">*</span></label>
+      <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="tr-cross-dept" onchange="toggleCrossDeptMode()">
+        🔀 สอนข้ามแผนก (เช่นครัวสอนบริการ) — เลือกได้แค่ 1 คน
+      </label>
       <div class="emp-multiselect" id="emp-multiselect" data-emps='${empsJson.replace(/'/g,"&#39;")}'>
         <div class="emp-select-box" id="emp-select-box" onclick="focusEmpSearch(event)">
           <span id="emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length===0?'ไม่มีพนักงานในระบบ':'ค้นหาและเลือกพนักงาน (สูงสุด 2 คน)...'}</span>
@@ -9424,6 +9445,7 @@ function openAddTraining() {
 
   // Reset selected employees for fresh modal
   _selectedEmps = [];
+  _crossDeptMode = false;
 
   // Close dropdown on outside click
   setTimeout(()=>{
@@ -9558,6 +9580,7 @@ function pickTrainer(el) {
 }
 
 const MAX_TRAINEES = 2;   // สอนพร้อมกันได้ไม่เกิน 2 คน และต้องเป็นประเภทเดียวกัน
+let _crossDeptMode = false;   // ติ๊ก "สอนข้ามแผนก" — ปลดล็อกข้ามประเภทได้ แต่เลือกได้แค่ 1 คน
 
 /* เตือนเรื่องการเลือกพนักงาน ให้ขึ้นตรงใต้ช่องที่กำลังกดอยู่
    เดิมเด้งเป็นกล่องมุมขวาบน ซึ่งอยู่คนละที่กับสายตา และทับขอบจอบนมือถือ */
@@ -9568,6 +9591,23 @@ function _empNote(msg) {
   el.style.display = 'block';
   clearTimeout(_empNote._t);
   _empNote._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+/* ติ๊ก/ปลดติ๊ก "สอนข้ามแผนก" — ถ้าติ๊กตอนเลือกไว้เกิน 1 คนแล้ว ต้องตัดคนหลังออกให้เหลือคนแรกคนเดียว */
+function toggleCrossDeptMode() {
+  const box = document.getElementById('tr-cross-dept'); if (!box) return;
+  _crossDeptMode = box.checked;
+  const cap = _crossDeptMode ? 1 : MAX_TRAINEES;
+  if (_selectedEmps.length > cap) {
+    _selectedEmps.slice(cap).forEach(e => { const o = document.getElementById('empopt-' + e.id); if (o) o.classList.remove('selected'); });
+    _selectedEmps = _selectedEmps.slice(0, cap);
+    renderEmpTags();
+  }
+  updateModulesByTrainees();
+  const label = document.getElementById('emp-select-label');
+  if (label) label.innerHTML = `พนักงานที่เข้ารับการสอน (ไม่เกิน ${cap} คน${_crossDeptMode ? '' : ' · ต้องประเภทเดียวกัน'}) <span class="req">*</span>`;
+  const ph = document.getElementById('emp-placeholder');
+  if (ph && !_selectedEmps.length) ph.textContent = `ค้นหาและเลือกพนักงาน (สูงสุด ${cap} คน)...`;
+  _markIncompatibleEmpOptions();
 }
 
 function toggleEmpSelection(empId) {
@@ -9584,17 +9624,18 @@ function toggleEmpSelection(empId) {
 
   const pos = opt.dataset.pos || '';
   const grp = getPositionGroup(pos);
+  const cap = _crossDeptMode ? 1 : MAX_TRAINEES;
 
-  // ต้องเป็นประเภทเดียวกัน — ครัว / บริการ / ทีมผู้จัดการสาขา
-  if (_selectedEmps.length) {
+  // ต้องเป็นประเภทเดียวกัน — ครัว / บริการ / ทีมผู้จัดการสาขา (ยกเว้นติ๊ก "สอนข้ามแผนก" ไว้)
+  if (!_crossDeptMode && _selectedEmps.length) {
     const grp0 = getPositionGroup(_selectedEmps[0].position);
     if (grp !== grp0) {
-      _empNote(`เลือกพร้อมกันได้เฉพาะประเภทเดียวกัน — คนแรกเป็น "${grp0}" แต่คนนี้เป็น "${grp}"`);
+      _empNote(`เลือกพร้อมกันได้เฉพาะประเภทเดียวกัน — คนแรกเป็น "${grp0}" แต่คนนี้เป็น "${grp}" (ติ๊ก "สอนข้ามแผนก" ถ้าตั้งใจสอนข้ามประเภท)`);
       return;
     }
   }
-  if (_selectedEmps.length >= MAX_TRAINEES) {
-    _empNote(`เลือกได้สูงสุด ${MAX_TRAINEES} คนต่อการสอน 1 ครั้ง — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
+  if (_selectedEmps.length >= cap) {
+    _empNote(`เลือกได้สูงสุด ${cap} คนต่อการสอน 1 ครั้ง — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
     return;
   }
 
@@ -9606,16 +9647,17 @@ function toggleEmpSelection(empId) {
   closeEmpDropdown();   // เลือกได้คนแล้วปิดให้เลย ส่วนใหญ่สอนคนเดียว — อยากเพิ่มคนที่สองก็กดเปิดใหม่
 }
 
-/* ทำตัวเลือกที่คนละประเภทให้จางลง จะได้เห็นตั้งแต่ยังไม่กด ว่าเลือกคู่กันไม่ได้ */
+/* ทำตัวเลือกที่คนละประเภทให้จางลง จะได้เห็นตั้งแต่ยังไม่กด ว่าเลือกคู่กันไม่ได้ (ข้ามไปถ้าติ๊ก "สอนข้ามแผนก") */
 function _markIncompatibleEmpOptions() {
-  const base = _selectedEmps.length ? getPositionGroup(_selectedEmps[0].position) : null;
-  const full = _selectedEmps.length >= MAX_TRAINEES;
+  const base = (!_crossDeptMode && _selectedEmps.length) ? getPositionGroup(_selectedEmps[0].position) : null;
+  const cap = _crossDeptMode ? 1 : MAX_TRAINEES;
+  const full = _selectedEmps.length >= cap;
   document.querySelectorAll('.emp-opt').forEach(o => {
     const mine = _selectedEmps.some(e => e.id === o.dataset.id);
-    const bad = !mine && base && (getPositionGroup(o.dataset.pos || '') !== base || full);
+    const bad = !mine && ((base && getPositionGroup(o.dataset.pos || '') !== base) || full);
     o.style.opacity = bad ? '.38' : '';
     o.title = bad
-      ? (full ? 'เลือกครบ ' + MAX_TRAINEES + ' คนแล้ว' : 'คนละประเภทกับคนที่เลือกไว้')
+      ? (full ? 'เลือกครบ ' + cap + ' คนแล้ว' : 'คนละประเภทกับคนที่เลือกไว้')
       : '';
   });
 }
@@ -9670,7 +9712,8 @@ function updateModulesByTrainees() {
   const hasCook = groups.has('พนักงานครัว');
   const hasMgr = groups.has('ทีมผู้จัดการสาขา');
   let allowedGroup;
-  if ((hasService && hasCook) || hasMgr || (hasService && hasMgr) || (hasCook && hasMgr)) {
+  // ติ๊ก "สอนข้ามแผนก" ไว้ — เปิดให้เลือก Module ได้ทั้งสองฝั่ง ไม่ผูกกับแผนกเดิมของคนที่เลือก
+  if (_crossDeptMode || (hasService && hasCook) || hasMgr || (hasService && hasMgr) || (hasCook && hasMgr)) {
     allowedGroup = 'Both';
   } else if (hasService) {
     allowedGroup = 'Service';
@@ -10962,6 +11005,7 @@ function openEditTraining(id) {
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
   _selectedEmps = (t.traineeIds||[]).map(id=>{ const e=getEmployee(id); return e?{id:e.id,name:e.name,position:e.position}:null; }).filter(Boolean);
+  _crossDeptMode = false;   // ฟอร์มแก้ไขไม่มีตัวติ๊กนี้ กันสถานะเก่าจากฟอร์มเพิ่มครั้งก่อนหลุดมาปนกัน
   showModal('แก้ไขบันทึกการสอนงาน', `
     <div class="form-row">
       <div><label class="form-label">วันที่และเวลา <span class="req">*</span></label><input class="form-input" type="datetime-local" id="tr-date" value="${_isoToLocalInput(t.date)}"></div>
@@ -16659,12 +16703,14 @@ function renderCoachingPlanPanel(bid) {
   const ym = _planMonth, plan = getCoachingPlan(bid, ym);
   const items = plan.items || [];
   const canEdit = _coachingReady && (currentUser?.type === 'branch' || isAdminRole());
+  const colColor = { kitchen: '#EF4444', service: '#22C55E' };
   const col = (grp, icon, label) => {
     const list = items.filter(it => _planGroup(it.moduleId) === grp);
     const done = list.filter(it => _planItemDone(bid, ym, it)).length;
-    return `<div class="cp-col">
-      <div class="cp-col-head">
-        <span class="cp-col-title">${icon} ${label}</span>
+    const c = colColor[grp];
+    return `<div class="cp-col" style="border-left:4px solid ${c}">
+      <div class="cp-col-head" style="background:${c}14;margin:-12px -12px 8px;padding:10px 12px;border-radius:8px 8px 0 0">
+        <span class="cp-col-title" style="color:${c}">${icon} ${label}</span>
         <span class="cp-col-count">${list.length ? `สอนแล้ว <b>${done}</b>/${list.length}` : 'ยังไม่มีแผน'}</span>
         ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openPlanItem('${grp}')">+ เพิ่มแผน</button>` : ''}
       </div>
@@ -16674,14 +16720,14 @@ function renderCoachingPlanPanel(bid) {
         const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           ${ok ? '<span class="cp-ribbon-done">✓ สอนแล้ว</span>' : ''}
-          <div class="cp-item-date">📅 ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุวันที่</span>'}</div>
+          <div class="cp-item-date">📅 สอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุ</span>'}${it.evalDate ? ` <span style="color:var(--text3)">· 📝 ประเมิน ${_escH(fmtDate(it.evalDate))}</span>` : ''}</div>
           <div class="cp-item-people">
             <div><span class="cp-role-label">👤 ผู้เรียน</span>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4)">ยังไม่ระบุคน</span>'}</div>
             <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4)">—</span>'}</div>
           </div>
           <div class="cp-item-module">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
-            ${(it.subtopics || []).length ? `<span class="cp-item-sub-count">${it.subtopics.length} หัวข้อย่อย</span>` : ''}
+            ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย 🔍</span>` : ''}
           </div>
           ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
           <div class="cp-item-actions">
@@ -16695,10 +16741,11 @@ function renderCoachingPlanPanel(bid) {
   return `
   <style>
     .cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px}
-    .cp-month-frame{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:8px 18px;flex-shrink:0}
-    .cp-month-frame b{min-width:130px;text-align:center;font-size:14px}
-    .cp-month-frame .btn{width:auto!important;flex-shrink:0}
-    @media (max-width:600px){ .cp-month-frame{padding:6px 12px;gap:8px} .cp-month-frame b{min-width:0;font-size:13px} }
+    .cp-month-frame{display:flex;align-items:center;gap:12px;background:var(--surface2);border-radius:999px;padding:4px 6px;flex-shrink:0}
+    .cp-month-frame b{min-width:110px;text-align:center;font-size:13.5px;font-weight:800;color:var(--text)}
+    .cp-month-btn{width:30px;height:30px;flex-shrink:0;border:none;border-radius:50%;background:var(--surface);color:var(--text2);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+    .cp-month-btn:hover{background:var(--accent-light);color:var(--accent)}
+    @media (max-width:600px){ .cp-month-frame{padding:3px 5px;gap:8px} .cp-month-frame b{min-width:0;font-size:13px} }
     .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .cp-col{background:var(--surface2);border-radius:12px;padding:12px}
     .cp-col-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
@@ -16714,7 +16761,7 @@ function renderCoachingPlanPanel(bid) {
     .cp-role-label{color:var(--text3);font-weight:700;margin-right:5px}
     .cp-item-module{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
-    .cp-item-sub-count{font-size:10.5px;font-weight:700;color:var(--text2);background:var(--surface2);padding:2px 9px;border-radius:999px;white-space:nowrap}
+    .cp-item-sub-count{font-size:10.5px;font-weight:700;color:var(--text2);background:var(--surface2);padding:2px 9px;border-radius:999px;white-space:nowrap;cursor:pointer}
     .cp-item-note{font-size:11.5px;color:var(--text3)}
     .cp-item-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:2px}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
@@ -16735,18 +16782,29 @@ function renderCoachingPlanPage() {
   if (!_planMonth) _planMonth = _ymNow();
   return `
   <div class="page-hero">
-    <div class="page-hero-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div class="page-hero-body" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
       <div class="page-hero-title" style="margin:0">แผนการสอนงาน</div>
       <div class="cp-month-frame">
-        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
+        <button class="cp-month-btn" onclick="setPlanMonth(-1)" title="เดือนก่อน">‹</button>
         <b>${_ymLabel(_planMonth)}</b>
-        <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
+        <button class="cp-month-btn" onclick="setPlanMonth(1)" title="เดือนถัดไป">›</button>
       </div>
     </div>
   </div>
   ${renderCoachingPlanPanel(getBranchId())}`;
 }
 function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
+/* กางดูรายชื่อหัวข้อย่อยของแผนข้อนี้ — กดที่ป้าย "N หัวข้อย่อย" บนการ์ด */
+function _cpShowSubtopics(itemId) {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const plan = getCoachingPlan(bid, ym);
+  const it = (plan.items || []).find(x => x.id === itemId); if (!it) return;
+  const m = MODULES[it.moduleId] || {};
+  showModal(`หัวข้อย่อย · ${_escH(m.name || it.moduleId)}`, `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(it.subtopics || []).map(s => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">${_escH(s)}</div>`).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
+    </div>`, null, 'ปิด');
+}
 
 /* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
 function openPlanItem(grp, itemId) {
@@ -16757,17 +16815,32 @@ function openPlanItem(grp, itemId) {
   const want = grp === 'kitchen' ? 'Cook' : 'Service';
   const mods = Object.entries(MODULES).filter(([, m]) => m.group === want);
   const empGrp = grp === 'kitchen' ? 'พนักงานครัว' : 'พนักงานบริการ';
+  const otherGrp = grp === 'kitchen' ? 'พนักงานบริการ' : 'พนักงานครัว';
   /* คนในกลุ่มนั้นขึ้นก่อน ทีมผู้จัดการสาขาตามมา (สอนได้ทั้งสองฝั่ง) */
-  const emps = getBranchEmployees(bid).filter(_isEmpEnabled)
+  const allEnabled = getBranchEmployees(bid).filter(_isEmpEnabled);
+  _cpEmpsOwnGroup = allEnabled
     .filter(e => [empGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
     .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
+  /* โหมดสอนข้ามแผนก — เปิดให้เลือกจากกลุ่มตรงข้ามได้ด้วย (เช่นครัวจะสอนบริการ) แต่ล็อกได้แค่ 1 คน */
+  _cpEmpsAllGroups = allEnabled
+    .filter(e => [empGrp, otherGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
+    .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : getPositionGroup(a.position) === otherGrp ? 1 : 2)
+                  - (getPositionGroup(b.position) === empGrp ? 0 : getPositionGroup(b.position) === otherGrp ? 1 : 2));
   const sel = new Set((it && it.empIds) || []);
-  _cpSelectedEmps = emps.filter(e => sel.has(e.id)).map(e => ({ id: e.id, name: e.name, position: e.position || '' }));
+  _cpSelectedEmps = allEnabled.filter(e => sel.has(e.id)).map(e => ({ id: e.id, name: e.name, position: e.position || '' }));
+  // แก้แผนที่เคยเลือกข้ามแผนกไว้แล้ว ให้ติ๊กโหมดนี้ไว้ล่วงหน้าเลย ไม่งั้นเปิดมาจะไม่เห็นชื่อในดรอปดาว
+  _cpCrossDept = _cpSelectedEmps.some(e => getPositionGroup(e.position) === otherGrp);
+  _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
+  const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
     <div class="form-row">
       <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
         <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
-      <div><label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label>
+      <div><label class="form-label">วันที่ต้องการประเมิน</label>
+        <input class="form-input" type="date" id="cp-eval-date" value="${(it && it.evalDate) || ''}"></div>
+    </div>
+    <div class="form-full">
+      <label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label>
         <div class="emp-multiselect" id="trainer-multiselect">
           <div class="emp-select-box" id="trainer-select-box" onclick="openTrainerDropdown()">
             <input type="text" id="tr-trainer" placeholder="พิมพ์เพื่อค้นหา หรือพิมพ์ชื่อใหม่" autocomplete="off" value="${_escH((it && it.trainerName) || '')}"
@@ -16786,27 +16859,19 @@ function openPlanItem(grp, itemId) {
                 </div>`).join('')}
           </div>
         </div>
-      </div>
     </div>
     <div class="form-full">
-      <label class="form-label">พนักงานที่จะสอน <span class="req">*</span> <span style="color:var(--text3);font-weight:400">(สูงสุด ${MAX_TRAINEES} คน)</span></label>
+      <label class="form-label">พนักงานที่จะสอน <span class="req">*</span> <span id="cp-emp-max-label" style="color:var(--text3);font-weight:400">(สูงสุด ${_cpMaxTrainees} คน)</span></label>
+      <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="cp-cross-dept" onchange="cpToggleCrossDept()"${_cpCrossDept ? ' checked' : ''}>
+        🔀 สอนข้ามแผนก (เช่น${grp === 'kitchen' ? 'ครัวจะสอนบริการ' : 'บริการจะสอนครัว'}) — เลือกได้แค่ 1 คน
+      </label>
       <div class="emp-multiselect" id="cp-emp-multiselect">
         <div class="emp-select-box" id="cp-emp-select-box" onclick="cpFocusEmpSearch(event)">
           <span id="cp-emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length === 0 ? 'ไม่มีพนักงานในกลุ่มนี้' : 'ค้นหาและเลือกพนักงาน...'}</span>
           <input type="text" id="cp-emp-search-input" style="display:none" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="cpFilterEmpDropdown()" onkeydown="if(event.key==='Escape')cpCloseEmpDropdown()">
         </div>
-        <div class="emp-dropdown-list" id="cp-emp-dropdown-list">
-          ${emps.length === 0
-            ? '<div class="emp-no-result">ไม่มีพนักงานในกลุ่มนี้</div>'
-            : emps.map(e => `
-              <div class="emp-opt${sel.has(e.id) ? ' selected' : ''}" id="cp-empopt-${e.id}" data-id="${e.id}" data-name="${_escH(e.name)}" data-pos="${_escH(e.position || '')}" onclick="cpToggleEmp('${e.id}')">
-                <div>
-                  <div>${_escH(e.name)}</div>
-                  <div class="emp-opt-pos">${_escH(e.position || '')}</div>
-                </div>
-                <span class="emp-opt-check">✓</span>
-              </div>`).join('')}
-        </div>
+        <div class="emp-dropdown-list" id="cp-emp-dropdown-list">${_cpEmpOptionsHtml(emps, sel)}</div>
       </div>
       <div id="cp-emp-note" style="display:none;color:#DC2626;font-size:12.5px;margin-top:6px"></div>
     </div>
@@ -16835,10 +16900,11 @@ function openPlanItem(grp, itemId) {
     if (!empIds.length) { notify('กรุณาเลือกพนักงานที่จะสอน', 'error'); return; }
     const planDate = document.getElementById('cp-date').value || '';
     if (!planDate) { notify('กรุณาเลือกวันที่วางแผนจะสอน', 'error'); return; }
+    const evalDate = document.getElementById('cp-eval-date').value || '';
     const trainerName = (document.getElementById('tr-trainer').value || '').trim();
     if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
     const rec = {
-      id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, trainerName,
+      id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName,
       note: (document.getElementById('cp-note').value || '').trim()
     };
     const p = getCoachingPlan(bid, ym);
@@ -16854,6 +16920,39 @@ function openPlanItem(grp, itemId) {
   document.addEventListener('click', cpCloseEmpDropdownOutside);
 }
 let _cpSelectedEmps = [];
+let _cpEmpsOwnGroup = [];
+let _cpEmpsAllGroups = [];
+let _cpCrossDept = false;
+let _cpMaxTrainees = MAX_TRAINEES;
+function _cpEmpOptionsHtml(emps, sel) {
+  if (!emps.length) return '<div class="emp-no-result">ไม่มีพนักงานในกลุ่มนี้</div>';
+  return emps.map(e => `
+    <div class="emp-opt${sel.has(e.id) ? ' selected' : ''}" id="cp-empopt-${e.id}" data-id="${e.id}" data-name="${_escH(e.name)}" data-pos="${_escH(e.position || '')}" onclick="cpToggleEmp('${e.id}')">
+      <div>
+        <div>${_escH(e.name)}</div>
+        <div class="emp-opt-pos">${_escH(e.position || '')}</div>
+      </div>
+      <span class="emp-opt-check">✓</span>
+    </div>`).join('');
+}
+/* ติ๊ก "สอนข้ามแผนก" — สลับรายชื่อในดรอปดาวเป็นทั้งสองแผนก แต่ล็อกเลือกได้แค่ 1 คน
+   ถ้าติ๊กตอนเลือกไว้เกิน 1 คนแล้ว ต้องตัดคนหลังออกให้เหลือคนแรกคนเดียว */
+function cpToggleCrossDept() {
+  const box = document.getElementById('cp-cross-dept'); if (!box) return;
+  _cpCrossDept = box.checked;
+  _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
+  if (_cpSelectedEmps.length > _cpMaxTrainees) {
+    _cpSelectedEmps.slice(_cpMaxTrainees).forEach(e => { const opt = document.getElementById('cp-empopt-' + e.id); if (opt) opt.classList.remove('selected'); });
+    _cpSelectedEmps = _cpSelectedEmps.slice(0, _cpMaxTrainees);
+    cpRenderEmpChips();
+  }
+  const list = document.getElementById('cp-emp-dropdown-list');
+  const sel = new Set(_cpSelectedEmps.map(e => e.id));
+  if (list) list.innerHTML = _cpEmpOptionsHtml(_cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup, sel);
+  const label = document.getElementById('cp-emp-max-label');
+  if (label) label.textContent = `(สูงสุด ${_cpMaxTrainees} คน)`;
+  _cpMarkFullEmpOptions();
+}
 function cpFocusEmpSearch(ev) {
   if (ev) ev.stopPropagation();
   const list = document.getElementById('cp-emp-dropdown-list');
@@ -16915,8 +17014,8 @@ function cpToggleEmp(id) {
     return;
   }
   if (!opt) return;
-  if (_cpSelectedEmps.length >= MAX_TRAINEES) {
-    _cpEmpNote(`เลือกได้สูงสุด ${MAX_TRAINEES} คนต่อแผน — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
+  if (_cpSelectedEmps.length >= _cpMaxTrainees) {
+    _cpEmpNote(`เลือกได้สูงสุด ${_cpMaxTrainees} คนต่อแผน — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
     return;
   }
   _cpSelectedEmps.push({ id, name: opt.dataset.name, position: opt.dataset.pos || '' });
@@ -16926,11 +17025,11 @@ function cpToggleEmp(id) {
   cpCloseEmpDropdown();
 }
 function _cpMarkFullEmpOptions() {
-  const full = _cpSelectedEmps.length >= MAX_TRAINEES;
+  const full = _cpSelectedEmps.length >= _cpMaxTrainees;
   document.querySelectorAll('#cp-emp-dropdown-list .emp-opt').forEach(o => {
     const mine = _cpSelectedEmps.some(e => e.id === o.dataset.id);
     o.style.opacity = (full && !mine) ? '.38' : '';
-    o.title = (full && !mine) ? `เลือกครบ ${MAX_TRAINEES} คนแล้ว` : '';
+    o.title = (full && !mine) ? `เลือกครบ ${_cpMaxTrainees} คนแล้ว` : '';
   });
 }
 function cpRemoveEmpChip(id) {
