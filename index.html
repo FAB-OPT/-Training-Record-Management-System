@@ -16736,6 +16736,23 @@ function _planUnreadItems() {
   });
   return out;
 }
+// รายการที่ "ยังไม่ได้กดรับทราบจริง" (ต่างจาก _planUnreadItems ที่อิงแค่ localStorage ต่อเครื่อง)
+// ใช้ it.updatedAt เทียบ it.bzmAckAt ตรง ๆ จากข้อมูลจริง — ปิดป็อปอัพไปก็ยังตามมากดรับทราบทีหลังได้ ไม่หายไปไหน
+function _planItemsNeedingAck() {
+  if (!currentUser) return [];
+  const acc = new Set(getAccessibleBranches());
+  const ym = _ymNow();
+  const out = [];
+  Object.values(DB.coachingPlans || {}).forEach(p => {
+    if (p.month !== ym || !acc.has(p.branchId)) return;
+    (p.items || []).forEach(it => {
+      const updated = new Date(it.updatedAt || it.createdAt || 0).getTime();
+      const acked = it.bzmAckAt ? new Date(it.bzmAckAt).getTime() : 0;
+      if (updated > acked) out.push({ ...it, _branchId: p.branchId });
+    });
+  });
+  return out;
+}
 function refreshPlanBadge() {
   document.querySelectorAll('[data-plan-badge]').forEach(el => el.remove());
   if (!isBzmRole()) return;   // เฉพาะหน้า BZM ตามที่ขอ
@@ -16784,6 +16801,7 @@ function _ackPlanUpdates(items) {
   });
   refreshPlanBadge();
   closeModal();
+  if (currentPage === 'admin-plan-overview' || currentPage === 'admin-trainings') showPage(currentPage);
 }
 function _showPlanUpdateModal(items) {
   const byBranch = {};
@@ -17352,9 +17370,11 @@ function _planAudit(bid, ym) {
 
 function renderAdminPlanOverview() {
   if (!_planMonth) _planMonth = _ymNow();
-  // BZM มาเห็นหน้านี้แล้วถือว่ารับทราบ — เคลียร์ badge/ไม่เด้ง toast ซ้ำจนกว่าจะมีอัปเดตใหม่จริง
+  // มาเห็นหน้านี้แล้ว badge/toast เงียบไป (ไม่เด้งซ้ำ) แต่ "รับทราบ" จริง (ที่สาขาเห็น) ต้องกดปุ่มด้านล่างเท่านั้น
+  // แยกสองอย่างนี้ออกจากกันตั้งใจ — ไม่งั้นแค่เปิดหน้ามาดูเฉย ๆ ก็จะถือว่ารับทราบไปเลยโดยสาขาไม่มีทางรู้
   _markPlansViewed();
   setTimeout(refreshPlanBadge, 0);
+  const needAck = _planItemsNeedingAck();
   const ym = _planMonth;
   const bids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
   const rows = bids.map(bid => {
@@ -17379,6 +17399,10 @@ function renderAdminPlanOverview() {
       <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
     </div>
+    ${needAck.length ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <span style="flex:1;min-width:200px;font-size:12.5px;color:#1E40AF">🔔 มีแผน ${needAck.length} รายการที่ยังไม่ได้กด "รับทราบ" — สาขาจะยังไม่เห็นว่าคุณดูแล้ว</span>
+      <button class="btn btn-sm btn-accent" onclick="_ackPlanUpdates(_planItemsNeedingAck())">✅ รับทราบทั้งหมด (${needAck.length})</button>
+    </div>` : ''}
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
     rows.length ? `<div class="table-wrap" style="max-height:340px;overflow:auto"><table>
       <thead><tr><th>สาขา</th><th style="text-align:center">👨‍🍳 ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">🍽 บริการ<br><small>สอนแล้ว/แผน</small></th>
