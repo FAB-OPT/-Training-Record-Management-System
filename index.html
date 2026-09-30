@@ -8598,13 +8598,16 @@ function renderEmployees() {
   const mgr = enabled.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา');
   const cook = enabled.filter(e => getPositionGroup(e.position) === 'พนักงานครัว');
   const svc = enabled.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ');
+  // ประวัติย้ายออก — คนที่เคยอยู่สาขานี้แล้วย้ายไปที่อื่น (ไม่ได้อยู่ใน emps ของสาขานี้แล้ว จึงต้องดึงจาก transferRequests แยก)
+  const xferOut = (DB.transferRequests || []).filter(r => r.fromBranch === bid)
+    .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || String(b.requestedAt).localeCompare(String(a.requestedAt)));
   let rows = enabled;
   if (_empGroupFilter === 'mgr') rows = mgr;
   else if (_empGroupFilter === 'cook') rows = cook;
   else if (_empGroupFilter === 'svc') rows = svc;
   else if (_empGroupFilter === 'disabled') rows = disabled;
 
-  const tabColors = { all: 'var(--accent)', mgr: 'var(--blue)', cook: 'var(--red)', svc: 'var(--green)', disabled: 'var(--text3)' };
+  const tabColors = { all: 'var(--accent)', mgr: 'var(--blue)', cook: 'var(--red)', svc: 'var(--green)', disabled: 'var(--text3)', xferout: 'var(--text3)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
     const active = _empGroupFilter === key;
@@ -8627,6 +8630,7 @@ function renderEmployees() {
         ${tabBtn('cook','พนักงานครัว',cook.length)}
         ${tabBtn('svc','พนักงานบริการ',svc.length)}
         ${disabled.length?tabBtn('disabled','🚫 ปิดใช้งาน',disabled.length):''}
+        ${xferOut.length?tabBtn('xferout','🔁 ย้ายออก',xferOut.length):''}
       </div>
       <select class="form-select cat-select-mobile" onchange="setEmpGroupFilter(this.value)">
         <option value="all"${_empGroupFilter==='all'?' selected':''}>ทั้งหมด (${enabled.length})</option>
@@ -8634,9 +8638,13 @@ function renderEmployees() {
         <option value="cook"${_empGroupFilter==='cook'?' selected':''}>พนักงานครัว (${cook.length})</option>
         <option value="svc"${_empGroupFilter==='svc'?' selected':''}>พนักงานบริการ (${svc.length})</option>
         ${disabled.length?`<option value="disabled"${_empGroupFilter==='disabled'?' selected':''}>🚫 ปิดใช้งาน (${disabled.length})</option>`:''}
+        ${xferOut.length?`<option value="xferout"${_empGroupFilter==='xferout'?' selected':''}>🔁 ย้ายออก (${xferOut.length})</option>`:''}
       </select>
-      <input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:160px;margin-left:auto">
+      ${_empGroupFilter!=='xferout'?`<input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:160px;margin-left:auto">`:''}
     </div>
+    ${_empGroupFilter==='xferout' ? (xferOut.length
+      ? `<div class="xr-list">${xferOut.map(r => _xferRow(r, { bid })).join('')}</div>`
+      : '<div style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติย้ายออก</div>') : `
     <div class="table-wrap"><table class="cards-on-mobile emp-table">
       <thead><tr>
         ${_sortHeader('empCode','รหัสพนักงาน',_empSort,'setEmpSort')}
@@ -8648,7 +8656,7 @@ function renderEmployees() {
         <th style="text-align:right">จัดการ</th>
       </tr></thead>
       <tbody id="emp-tbody">${renderEmpRows(_sortEmps(rows))}</tbody>
-    </table></div>
+    </table></div>`}
   </div>`;
 }
 
@@ -16967,8 +16975,10 @@ function _xferRow(r, side) {
   const dir = side.bid ? (r.fromBranch === side.bid ? '<span class="xr-dir">ขาออก</span>' : '<span class="xr-dir in">ขาเข้า</span>') : '';
   const meta = [_escH(r.position || ''), r.empCode ? _escH(r.empCode) : ''].filter(Boolean).join(' · ');
   const acts = side.admin
-    ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
-       <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>`
+    ? (r.status === 'pending'
+        ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
+           <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>`
+        : `<span class="xr-st ${r.status}">${st[0]}</span>`)
     : `<span class="xr-st ${r.status}">${st[0]}</span>${r.status === 'pending' && r.fromBranch === side.bid
         ? `<button class="xr-cancel" onclick="cancelTransferRequest('${r.id}')">ยกเลิกคำขอ</button>` : ''}`;
   return `<div class="xr-row ${r.status}">
@@ -16996,15 +17006,19 @@ function renderBranchTransferCard(bid) {
   </div>`;
 }
 
-/* การ์ดคำขอที่รออนุมัติ — ขึ้นบนหน้าแดชบอร์ดและหน้าจัดการของ admin */
+/* การ์ดคำขอย้ายสาขา — ขึ้นบนหน้าแดชบอร์ดและหน้าจัดการของ admin
+   โชว์ทั้งที่รออนุมัติ (บนสุด) และประวัติที่ตัดสินไปแล้ว (อนุมัติ/ไม่อนุมัติ) กันข้อมูลหายไปเงียบๆ
+   เหมือนที่เคยเกิดกับฝั่งสาขา — admin ต้องย้อนดูได้ว่าใครขอ ใครตัดสิน เมื่อไหร่ */
 function renderAdminTransferCard() {
   if (!isAdminRole() || !_xferReady) return '';
   const acc = new Set(getAccessibleBranches());
-  const list = (DB.transferRequests || []).filter(r => r.status === 'pending' && (acc.has(r.fromBranch) || acc.has(r.toBranch)))
-    .sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-  if (!list.length) return '';
+  const all = (DB.transferRequests || []).filter(r => acc.has(r.fromBranch) || acc.has(r.toBranch));
+  if (!all.length) return '';
+  const pending = all.filter(r => r.status === 'pending').sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+  const decided = all.filter(r => r.status !== 'pending').sort((a, b) => String(b.decidedAt || b.requestedAt).localeCompare(String(a.decidedAt || a.requestedAt)));
+  const list = [...pending, ...decided];
   return `<div class="card xr-card xr-admin" style="margin-bottom:16px">
-    <div class="xr-head">🔁 คำขอย้ายสาขารออนุมัติ <span class="xr-pill">${list.length}</span></div>
+    <div class="xr-head">🔁 คำขอย้ายสาขา ${pending.length ? `<span class="xr-pill">รออนุมัติ ${pending.length}</span>` : ''}</div>
     <div class="xr-list">${list.map(r => _xferRow(r, { admin: true })).join('')}</div>
   </div>`;
 }
