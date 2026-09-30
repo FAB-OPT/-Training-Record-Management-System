@@ -17114,7 +17114,8 @@ function openPlanItem(grp, itemId) {
       <label class="form-label">หมายเหตุ</label>
       <input class="form-input" id="cp-note" value="${_escH((it && it.note) || '')}" placeholder="เช่น สอนช่วงบ่ายหลังปิดรอบ">
     </div>
-    ${itemId ? `<div style="margin-top:12px"><button type="button" class="btn btn-sm btn-danger" onclick="deletePlanItem('${itemId}')">ลบแผนข้อนี้</button></div>` : ''}
+    ${itemId && _canDeletePlanItem(bid, ym, it) ? `<div style="margin-top:12px"><button type="button" class="btn btn-sm btn-danger" onclick="deletePlanItem('${itemId}')">ลบแผนข้อนี้</button></div>`
+      : itemId ? `<div style="margin-top:12px;font-size:12px;color:var(--text3)">🔒 แผนข้อนี้สอนไปแล้ว จึงลบไม่ได้ (ลบได้เฉพาะ Admin)</div>` : ''}
   `, () => {
     const moduleId = document.getElementById('cp-module').value;
     if (!moduleId) { notify('กรุณาเลือก Module', 'error'); return; }
@@ -17376,9 +17377,15 @@ function _cpSubtopics() {
   box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item${pre.includes(s) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}</label>`).join('')
     : '<span class="text-muted">เลือก Module ก่อน</span>';
 }
+/* แผนที่สอนไปแล้วลบไม่ได้ (กันประวัติการสอนกับแผนไม่ตรงกัน) · Admin ลบได้ทุกรายการ */
+function _canDeletePlanItem(bid, ym, it) {
+  if (isAdminRole()) return true;
+  return !!it && !_planItemDone(bid, ym, it);
+}
 function deletePlanItem(itemId) {
   const bid = getBranchId(), ym = _planMonth || _ymNow();
   const p = getCoachingPlan(bid, ym);
+  if (!_canDeletePlanItem(bid, ym, (p.items || []).find(x => x.id === itemId))) { notify('แผนข้อนี้สอนไปแล้ว ลบไม่ได้ — ให้ Admin เป็นผู้ลบ', 'error'); return; }
   _savePlan(bid, ym, (p.items || []).filter(x => x.id !== itemId));
   closeModal(); showPage(currentPage); notify('ลบแผนแล้ว');
 }
