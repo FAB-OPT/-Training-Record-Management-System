@@ -10886,9 +10886,15 @@ function renderManual() {
 }
 
 // ==================== COURSE HISTORY (ประวัติการอบรมหลักสูตร) ====================
+/* สาขาปัจจุบันของเจ้าของประวัตินี้ — ถ้าเชื่อมกับพนักงานที่มีอยู่จริงได้ ใช้สาขาปัจจุบันของเขา (ย้ายสาขามาแล้วประวัติต้องตามมาด้วย)
+   เชื่อมไม่ได้ (ประวัติเก่าที่ import มาแบบไม่มี empId ตรงกับใครในระบบ) ค่อย fallback ไปสาขาที่บันทึกไว้ตอนนั้น */
+function _courseHistoryBranchId(c) {
+  const e = getEmployee(c.empId);
+  return (e && e.branchId) || c.branchId;
+}
 function _branchCourseHistory(bid) {
   if (bid === 'ALL') return DB.courseHistory.slice();
-  return DB.courseHistory.filter(c => c.branchId === bid);
+  return DB.courseHistory.filter(c => _courseHistoryBranchId(c) === bid);
 }
 
 let _chGroupFilter = 'all';
@@ -10947,7 +10953,7 @@ function _chGetGroupedFiltered() {
     g.empCode = (e&&e.empCode) || g.items[0].empCode || '—';
     g.empName = (e&&e.name) || g.items[0].empName || '—';
     g.position = (e&&e.position) || g.items[0].position || '—';
-    g.branchId = g.items[0].branchId;
+    g.branchId = (e&&e.branchId) || g.items[0].branchId;
     g.latestDate = g.items[0].courseDate || '';
     groups.push(g);
   });
@@ -11051,7 +11057,7 @@ function renderCourseHistoryGroupedRows(groups) {
     const canEdit = isAdminRole();
     const courseList = g.items.map((c)=>`
       <div class="ch-course-item${canEdit ? ' has-act' : ''}">
-        <span class="ch-course-name">${c.courseName||'—'}</span>
+        <span class="ch-course-name">${c.courseName||'—'}${c.branchId && c.branchId !== g.branchId ? ` <span class="badge badge-navy" style="font-size:10px;font-weight:600" title="อบรมจากสาขานี้ก่อนย้ายเข้ามา">🔁 ${_escH(c.branchId)}</span>` : ''}</span>
         <span class="ch-course-batch">รุ่น ${c.batchNo||'—'}</span>
         <span class="ch-course-date">${fmtDate(c.courseDate)}</span>
         ${canEdit ? `<span class="ch-course-act">
