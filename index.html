@@ -16946,7 +16946,7 @@ function _xferTable(list, side) {
     <tbody>${list.map(r => {
       const st = _XFER_ST[r.status] || [r.status, ''];
       const isOut = side.bid && r.fromBranch === side.bid;
-      const dir = side.bid ? `<span class="badge ${isOut ? 'badge-navy' : 'badge-green'}" style="margin-left:6px;font-size:10.5px">${isOut ? '↗ ขาออก' : '↙ ขาเข้า'}</span>` : '';
+      const dir = side.bid ? `<span class="badge ${isOut ? 'badge-navy' : 'badge-green'}" style="margin-left:6px;font-size:10.5px">${isOut ? '↗ ย้ายออก' : '↙ ย้ายเข้า'}</span>` : '';
       const acts = side.admin
         ? (r.status === 'pending'
             ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
