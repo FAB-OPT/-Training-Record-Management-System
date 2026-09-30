@@ -16781,10 +16781,9 @@ function _maybeNotifyPlanUpdates() {
   try { lastNotified = Number(localStorage.getItem(k) || 0); } catch (_) {}
   if (maxTs <= lastNotified) return;
   try { localStorage.setItem(k, String(maxTs)); } catch (_) {}
-  setTimeout(() => _showPlanUpdateModal(items), 1500);
+  // ไม่ใช้ popup บังคับกดแล้ว — เด้ง toast เฉย ๆ ให้รู้ตัว แล้วไปกดรับทราบจริงที่เมนู "แผนการสอนงาน" (กดดูรายละเอียดรายสาขาก่อน แล้วค่อยกดรับทราบตรงนั้น)
+  setTimeout(() => notify(`📅 มีแผนการสอนงานใหม่/อัปเดต ${items.length} รายการในเขตของคุณ — ดูที่เมนู "แผนการสอนงาน"`), 1500);
 }
-// ให้ BZM กด "รับทราบ" จริง ๆ แทนที่จะแค่เด้ง toast เฉย ๆ — badge จะเคลียร์ก็ต่อเมื่อกดปุ่มนี้ หรือเข้าไปดูหน้าแผนการสอนงานเอง
-// "ปิดไว้ก่อน" (ปุ่มยกเลิกของ showModal) แค่ปิด popup เฉย ๆ ไม่ได้พาไปหน้าไหน badge ยังค้างจนกว่าจะรับทราบจริง
 // กดรับทราบแล้ว สติกชื่อ+เวลาไว้ในแต่ละรายการ แล้วเขียนกลับไปที่แผนของสาขานั้น ๆ ให้สาขาเห็นว่า BZM รับทราบแล้วเมื่อไหร่
 function _ackPlanUpdates(items) {
   _markPlansViewed();
@@ -16803,19 +16802,9 @@ function _ackPlanUpdates(items) {
   closeModal();
   if (currentPage === 'admin-plan-overview' || currentPage === 'admin-trainings') showPage(currentPage);
 }
-function _showPlanUpdateModal(items) {
-  const byBranch = {};
-  items.forEach(it => { (byBranch[it._branchId] = byBranch[it._branchId] || []).push(it); });
-  const rows = Object.keys(byBranch).map(bid => `<div style="margin-bottom:12px">
-    <div style="font-weight:800;color:var(--accent);margin-bottom:4px">🏠 ${_escH(_bName(bid))}</div>
-    ${byBranch[bid].map(it => `<div style="font-size:13px;color:var(--text2);padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:4px">
-      📘 ${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)}${it.trainerName ? ` · ผู้สอน ${_escH(it.trainerName)}` : ''}
-      <div style="font-size:11.5px;color:var(--text3);margin-top:2px">โดย ${_escH(it.createdBy || it.updatedBy || '—')} · ${fmtDate(it.updatedAt || it.createdAt)}</div>
-    </div>`).join('')}
-  </div>`).join('');
-  showModal(`📅 มีแผนการสอนงานใหม่/อัปเดต ${items.length} รายการ`,
-    `<div style="font-size:13px;color:var(--text3);margin-bottom:12px">จากสาขาในเขตของคุณ</div>${rows}`,
-    () => _ackPlanUpdates(items), 'รับทราบ', 'ปิดไว้ก่อน');
+// รับทราบเฉพาะของสาขาเดียว (กดจากในหน้าต่างรายละเอียด "ดู" ของแต่ละสาขา)
+function _ackBranchPlan(bid) {
+  _ackPlanUpdates(_planItemsNeedingAck().filter(it => it._branchId === bid));
 }
 // สาขาฝั่งตรงข้าม — เด้ง toast ครั้งเดียวต่อรอบเมื่อ BZM กด "รับทราบ" แผนของสาขานี้ ไม่เด้งซ้ำเรื่องเดิม (ลอจิกเดียวกับฝั่ง BZM)
 function _branchAckLastNotifyKey() {
@@ -17374,7 +17363,8 @@ function renderAdminPlanOverview() {
   // แยกสองอย่างนี้ออกจากกันตั้งใจ — ไม่งั้นแค่เปิดหน้ามาดูเฉย ๆ ก็จะถือว่ารับทราบไปเลยโดยสาขาไม่มีทางรู้
   _markPlansViewed();
   setTimeout(refreshPlanBadge, 0);
-  const needAck = _planItemsNeedingAck();
+  const needAckByBranch = {};
+  _planItemsNeedingAck().forEach(it => { needAckByBranch[it._branchId] = (needAckByBranch[it._branchId] || 0) + 1; });
   const ym = _planMonth;
   const bids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
   const rows = bids.map(bid => {
@@ -17399,10 +17389,6 @@ function renderAdminPlanOverview() {
       <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
     </div>
-    ${needAck.length ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 12px;margin-bottom:12px">
-      <span style="flex:1;min-width:200px;font-size:12.5px;color:#1E40AF">🔔 มีแผน ${needAck.length} รายการที่ยังไม่ได้กด "รับทราบ" — สาขาจะยังไม่เห็นว่าคุณดูแล้ว</span>
-      <button class="btn btn-sm btn-accent" onclick="_ackPlanUpdates(_planItemsNeedingAck())">✅ รับทราบทั้งหมด (${needAck.length})</button>
-    </div>` : ''}
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
     rows.length ? `<div class="table-wrap" style="max-height:340px;overflow:auto"><table>
       <thead><tr><th>สาขา</th><th style="text-align:center">👨‍🍳 ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">🍽 บริการ<br><small>สอนแล้ว/แผน</small></th>
@@ -17412,7 +17398,7 @@ function renderAdminPlanOverview() {
         <td style="text-align:center">${cell(r.k, r.kd)}</td><td style="text-align:center">${cell(r.s, r.sd)}</td>
         <td style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
         <td style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>
-        <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
+        <td style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
       </tr>`).join('')}</tbody>
     </table></div>` : '<div style="font-size:13px;color:var(--text3)">เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน</div>'}
   </div>`;
@@ -17432,9 +17418,14 @@ function renderAdminPlanOverviewPage() {
 function openPlanAudit(bid) {
   const ym = _planMonth || _ymNow();
   const a = _planAudit(bid, ym);
+  const needAck = _planItemsNeedingAck().filter(it => it._branchId === bid);
   const emp = ids => (ids || []).map(id => (getEmployee(id) || {}).name || id).join(', ') || '—';
   const mod = id => _escH((MODULES[id] || {}).name || id);
   showModal(`ตรวจการสอนเทียบแผน · ${_escH(_bName(bid))} · ${_ymLabel(ym)}`, `
+    ${needAck.length ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <span style="flex:1;min-width:180px;font-size:12.5px;color:#1E40AF">🔔 แผน ${needAck.length} รายการยังไม่ได้กด "รับทราบ" — สาขาจะยังไม่เห็นว่าคุณดูแล้ว</span>
+      <button class="btn btn-sm btn-accent" onclick="_ackBranchPlan('${bid}')">✅ รับทราบ (${needAck.length})</button>
+    </div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px">
       <span class="badge">แผน ${a.items.length} ข้อ</span><span class="badge">บันทึก ${a.recs.length} ครั้ง</span>
       <span class="badge ${a.off.length ? 'badge-yellow' : 'badge-green'}">นอกแผน ${a.off.length}</span>
