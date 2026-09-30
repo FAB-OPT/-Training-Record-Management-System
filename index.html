@@ -16455,6 +16455,7 @@ function renderCoachingPlanPanel(bid) {
             <div class="cp-item-meta">
               ${(it.subtopics || []).length ? `<span>${it.subtopics.length} หัวข้อย่อย</span>` : ''}
               ${names.length ? `<span>👤 ${_escH(names.join(', '))}</span>` : '<span>ยังไม่ระบุคน</span>'}
+              ${it.trainerName ? `<span>🧑‍🏫 ${_escH(it.trainerName)}</span>` : ''}
               ${it.planDate ? `<span>📅 ${_escH(fmtDate(it.planDate))}</span>` : ''}
               ${it.note ? `<span>📝 ${_escH(it.note)}</span>` : ''}
             </div>
@@ -16547,6 +16548,30 @@ function openPlanItem(grp, itemId) {
     .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
   const sel = new Set((it && it.empIds) || []);
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
+    <div class="form-row">
+      <div><label class="form-label">วันที่วางแผนจะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+        <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
+      <div><label class="form-label">ชื่อผู้สอนงาน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
+        <div class="emp-multiselect" id="trainer-multiselect">
+          <div class="emp-select-box" id="trainer-select-box" onclick="openTrainerDropdown()">
+            <input type="text" id="tr-trainer" placeholder="พิมพ์เพื่อค้นหา หรือพิมพ์ชื่อใหม่" autocomplete="off" value="${_escH((it && it.trainerName) || '')}"
+                   oninput="filterTrainerDropdown()" onfocus="openTrainerDropdown()" onkeydown="onTrainerKey(event)">
+          </div>
+          <div class="emp-dropdown-list" id="trainer-dropdown-list">
+            ${emps.length === 0
+              ? '<div class="emp-no-result">ไม่มีพนักงานในสาขา — พิมพ์ชื่อผู้สอนเองได้</div>'
+              : emps.map(e => `
+                <div class="emp-opt trn-opt" data-name="${String(e.name).replace(/"/g,'&quot;')}" data-pos="${String(e.position||'').replace(/"/g,'&quot;')}"
+                     onclick="pickTrainer(this)">
+                  <div>
+                    <div>${e.name}</div>
+                    <div class="emp-opt-pos">${e.position||''}</div>
+                  </div>
+                </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="form-full">
       <label class="form-label">Module <span class="req">*</span></label>
       <select class="form-select" id="cp-module" onchange="_cpSubtopics()">
@@ -16565,11 +16590,9 @@ function openPlanItem(grp, itemId) {
           : '<span class="text-muted">ไม่มีพนักงานในกลุ่มนี้</span>'}
       </div>
     </div>
-    <div class="form-row">
-      <div><label class="form-label">วันที่วางแผนจะสอน <span style="font-weight:500;color:var(--text3)">(ไม่บังคับ)</span></label>
-        <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
-      <div><label class="form-label">หมายเหตุ</label>
-        <input class="form-input" id="cp-note" value="${_escH((it && it.note) || '')}" placeholder="เช่น สอนช่วงบ่ายหลังปิดรอบ"></div>
+    <div class="form-full">
+      <label class="form-label">หมายเหตุ</label>
+      <input class="form-input" id="cp-note" value="${_escH((it && it.note) || '')}" placeholder="เช่น สอนช่วงบ่ายหลังปิดรอบ">
     </div>
     ${itemId ? `<div style="margin-top:12px"><button type="button" class="btn btn-sm btn-danger" onclick="deletePlanItem('${itemId}')">ลบแผนข้อนี้</button></div>` : ''}
   `, () => {
@@ -16580,6 +16603,7 @@ function openPlanItem(grp, itemId) {
       subtopics: [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value),
       empIds: [...document.querySelectorAll('.cp-emp:checked')].map(c => c.value),
       planDate: document.getElementById('cp-date').value || '',
+      trainerName: (document.getElementById('tr-trainer').value || '').trim(),
       note: (document.getElementById('cp-note').value || '').trim()
     };
     const p = getCoachingPlan(bid, ym);
@@ -16619,6 +16643,8 @@ function startTrainingFromPlan(itemId) {
   const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
   openAddTraining();
   setTimeout(() => {
+    const trainerInp = document.getElementById('tr-trainer');
+    if (trainerInp && it.trainerName) trainerInp.value = it.trainerName;
     (it.empIds || []).slice(0, 2).forEach(id => { if (document.getElementById('empopt-' + id)) toggleEmpSelection(id); });
     const sel = document.getElementById('tr-module');
     if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
