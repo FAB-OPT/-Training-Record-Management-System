@@ -7381,7 +7381,7 @@ const _SIDEBAR_LABELS = {
   'admin-manage':         { admin: 'จัดการสาขา & พนักงาน',           bzm: 'สาขาในโซน',                  exec: 'เรียกดูสาขา' },
   'admin-transfers':      { admin: 'โยกย้ายสาขา',                    bzm: '',                            exec: '' },
   'admin-branch-updates': { admin: 'ประวัติการอัพเดทพนักงาน',          bzm: '',                            exec: '' },
-  'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
+  'admin-trainings':      { admin: 'บันทึกการสอนและประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
   'admin-plan-overview':  { admin: 'แผนการสอนงาน',                   bzm: 'แผนการสอนงานในโซน',           exec: 'แผนการสอนงาน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
@@ -7417,7 +7417,7 @@ const NAV_SECTION = {
 function buildAdminNav() {
   /* จัดเมนูเป็น 4 กลุ่ม (ภาพรวม · คนและสาขา · การสอนและประเมิน · ระบบ) — เรียงตามกลุ่ม คงลำดับเดิมในกลุ่ม */
   const items = getActiveNavItems().map((it, i) => ({ it, i }))
-    .sort((a, b) => (_navGroupOf(a.it.page) - _navGroupOf(b.it.page)) || (a.i - b.i)).map(x => x.it);
+    .sort((a, b) => (_navGroupOf(a.it.page) - _navGroupOf(b.it.page)) || (_navRank(a.it.page) - _navRank(b.it.page)) || (a.i - b.i)).map(x => x.it);
   let html = '';
   let lastSection = null;
   items.forEach(it => {
@@ -18021,10 +18021,13 @@ function deleteTransferRequestRow(id) {
 // + แถบ "งานที่รอคุณ" บนแดชบอร์ด · ฝั่งสาขาไม่เปลี่ยน
 const NAV_GROUP_V2 = [
   ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
-  ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'admin-branch-updates', 'exec-leaderboard', 'admin-users']],
-  ['การสอนและประเมิน',   ['admin-trainings', 'admin-plan-overview', 'admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
-  ['ระบบ',              ['admin-cases', 'admin-reports', 'admin-chat-logs']],
+  ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'admin-branch-updates']],
+  ['การสอนงาน',          ['admin-trainings', 'admin-plan-overview']],
+  ['อบรมและข้อสอบ',      ['admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
+  ['ติดตามและรายงาน',    ['exec-leaderboard', 'admin-cases', 'admin-reports']],
+  ['ระบบ',              ['admin-users', 'admin-chat-logs']],
 ];
+const _navRank = page => { const g = NAV_GROUP_V2.find(x => x[1].includes(page)); return g ? g[1].indexOf(page) : 0; };
 const _navGroupOf = page => { const i = NAV_GROUP_V2.findIndex(g => g[1].includes(page)); return i < 0 ? NAV_GROUP_V2.length : i; };
 
 /* งานค้างที่ admin ต้องลงมือ — ใช้ทั้งตัวเลขที่เมนูและแถบบนแดชบอร์ด */
@@ -18344,7 +18347,7 @@ function renderAdminTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">${isAnyAdminRole() && !isAdminRole() ? 'ติดตามการสอน' : 'บันทึกการสอน &amp; ประเมินผล'}</div>
+      <div class="page-hero-title">${isAnyAdminRole() && !isAdminRole() ? 'ติดตามการสอน' : 'บันทึกการสอนและประเมินผล'}</div>
     </div>
   </div>
   <div class="card">
