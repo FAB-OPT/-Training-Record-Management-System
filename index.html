@@ -19254,17 +19254,31 @@ function refreshCaseBadge() {
     if (el) el.insertAdjacentHTML('beforeend', html);
   });
 }
+function _caseLastNotifyKey() {
+  if (!currentUser) return null;
+  if (currentUser.type === 'branch') return 'opt_cases_lastnotify_branch_' + currentUser.branchId;
+  return 'opt_cases_lastnotify_admin_' + (currentUser.code || currentUser.name || 'unknown');
+}
 // On app load: if there's anything to see, show a one-shot toast
+// "one-shot" ต้องแปลว่าเด้งครั้งเดียวต่อเรื่องเดิมจริง ๆ ไม่ใช่เด้งซ้ำทุกครั้งที่เปิดแอป —
+// เดิมเช็คแค่ตัวนับ "ยังไม่ได้อ่าน" ซึ่งจะไม่ลดจนกว่าจะเข้าไปที่หน้าเคสเอง ถ้าเผลอปิด toast โดยไม่ได้กดเข้าไปดู
+// พอรีเฟรช/เปิดแอปใหม่รอบหน้าก็จะเด้งเรื่องเดิมซ้ำอีกไม่รู้จบ จึงจำ "เวลาที่อัปเดตล่าสุดที่เคยเด้งแจ้งไปแล้ว" แยกไว้
+// เด้งซ้ำเฉพาะตอนมีอัปเดตใหม่จริง ๆ หลังจากนั้น (badge นับยังไม่อ่านยังทำงานตามเดิม ไม่กระทบ)
 function _maybeNotifyCaseUpdates() {
   const n = _caseUnreadCount();
-  if (n > 0) {
-    setTimeout(() => {
-      const msg = currentUser?.type === 'branch'
-        ? `📨 มี ${n} เคสมีการอัปเดตจาก Admin`
-        : `📨 มี ${n} เคสรอตอบรับ / มีข้อความใหม่`;
-      notify(msg);
-    }, 1500);
-  }
+  if (n <= 0) return;
+  const k = _caseLastNotifyKey(); if (!k) return;
+  const maxUpdated = Math.max(0, ..._accessibleCases().map(c => new Date(c.updatedAt || c.createdAt || 0).getTime() || 0));
+  let lastNotified = 0;
+  try { lastNotified = Number(localStorage.getItem(k) || 0); } catch (_) {}
+  if (maxUpdated <= lastNotified) return;   // เด้งไปแล้วสำหรับอัปเดตชุดนี้ ไม่ต้องเด้งซ้ำ
+  try { localStorage.setItem(k, String(maxUpdated)); } catch (_) {}
+  setTimeout(() => {
+    const msg = currentUser?.type === 'branch'
+      ? `📨 มี ${n} เคสมีการอัปเดตจาก Admin`
+      : `📨 มี ${n} เคสรอตอบรับ / มีข้อความใหม่`;
+    notify(msg);
+  }, 1500);
 }
 
 // ==================== CASES (branch ↔ admin communication) ====================
