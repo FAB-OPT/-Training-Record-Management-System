@@ -16780,6 +16780,12 @@ function _planItemDone(bid, ym, it) {
     t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
     (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
 }
+/* แผนข้อนี้ประเมินผลแล้วไหม — มีบันทึกการสอนที่ตรงแผนและถูกประเมินแล้วอย่างน้อย 1 ครั้ง */
+function _planItemEvaluated(bid, ym, it) {
+  return (DB.trainings || []).some(t => t.eval &&
+    t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+}
 
 // ==================== BZM "เด้งให้รับทราบ" แผนการสอนงานของสาขาในเขต ====================
 // เหมือนระบบเคส (badge นับ + toast one-shot) แต่ดูจากแผนการสอนงาน (coaching_plans) แทน
@@ -16920,24 +16926,28 @@ function renderCoachingPlanPanel(bid) {
       ${list.length ? list.map(it => {
         const m = MODULES[it.moduleId] || {};
         const ok = _planItemDone(bid, ym, it);
+        const ev = ok && _planItemEvaluated(bid, ym, it);
         const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
+        const shortD = d => d ? _escH(fmtDate(d).replace(/\s*\d{4}$/, '')) : '—';
         return `<div class="cp-item ${ok ? 'ok' : ''}">
-          <div class="cp-item-dates">
-            <div class="cp-item-date">📅 สอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '<span style="color:var(--text4)">ยังไม่ระบุ</span>'} ${ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}</div>
-            ${it.evalDate ? `<div class="cp-item-date" style="color:var(--text3);font-weight:600">📝 ประเมิน ${_escH(fmtDate(it.evalDate))}</div>` : ''}
-          </div>
-          <div class="cp-item-people">
-            <div><span class="cp-role-label">👤 ผู้เรียน</span>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4)">ยังไม่ระบุคน</span>'}</div>
-            <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4)">—</span>'}</div>
-          </div>
-          <div class="cp-item-module">
+          <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
             ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย 🔍</span>` : ''}
+            ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
+          </div>
+          <div class="cp-step">
+            <div class="cp-step-line ${ev ? 'full' : ok ? 'half' : ''}"></div>
+            <div class="cp-step-pt l ${ok ? 'done' : ''}"><i></i><span>สอน</span><b>${shortD(it.planDate)}</b></div>
+            <div class="cp-step-pt r ${ev ? 'done' : ''}"><i></i><span>ประเมิน</span><b>${shortD(it.evalDate)}</b></div>
+          </div>
+          <div class="cp-item-people">
+            <div><span class="cp-role-label">👤 ผู้เรียน</span><b>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4);font-weight:500">ยังไม่ระบุคน</span>'}</b></div>
+            <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span><b>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4);font-weight:500">—</span>'}</b></div>
           </div>
           <div class="cp-item-notes">
-            ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
-            ${it.createdBy ? `<div class="cp-item-note" style="color:var(--text4)">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
-            ${it.bzmAckBy ? `<div class="cp-item-note" style="color:var(--green)">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</div>` : ''}
+            ${it.note ? `<span class="cp-item-note">📝 ${_escH(it.note)}</span>` : ''}
+            ${it.createdBy ? `<span class="cp-item-note">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</span>` : ''}
+            ${it.bzmAckBy ? `<span class="cp-item-note" style="color:var(--green);font-weight:600">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</span>` : ''}
           </div>
           <div class="cp-item-actions">
             ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
@@ -16961,32 +16971,41 @@ function renderCoachingPlanPanel(bid) {
     .cp-col-title{font-weight:800;font-size:14px;flex:1}
     .cp-col-count{font-size:12px;color:var(--text2)}
     .cp-col-count b{color:var(--green)}
-    .cp-item{position:relative;display:flex;flex-direction:column;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:8px}
+    .cp-col{container-type:inline-size}
+    .cp-item{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) auto;grid-template-areas:"head head act" "step people act" "notes notes act";column-gap:22px;row-gap:10px;align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-top:10px}
     .cp-item.ok{border-color:#BBE5C8}
-    .cp-status-tag{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text3);background:var(--surface2);padding:2px 9px;border-radius:999px;margin-left:6px;white-space:nowrap;vertical-align:1px}
-    .cp-status-tag.ok{color:#fff;background:var(--green)}
-    .cp-item-date{font-weight:700;font-size:12.5px;color:var(--text)}
-    .cp-item-people{display:flex;flex-direction:column;gap:3px;font-size:12.5px;background:var(--surface2);border-radius:8px;padding:8px 10px}
-    .cp-role-label{color:var(--text3);font-weight:700;margin-right:5px}
-    .cp-item-module{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-    .cp-item-name{font-weight:700;font-size:13.5px;color:var(--text)}
+    .cp-item-head{grid-area:head;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .cp-item-name{font-weight:800;font-size:14.5px;color:var(--text)}
     .cp-item-sub-count{font-size:10.5px;font-weight:700;color:var(--text2);background:var(--surface2);padding:2px 9px;border-radius:999px;white-space:nowrap;cursor:pointer}
-    .cp-item-notes{display:flex;flex-direction:column;gap:3px}
+    .cp-status-tag{display:inline-block;font-size:11px;font-weight:800;color:var(--text3);background:var(--surface2);padding:3px 10px;border-radius:999px;white-space:nowrap}
+    .cp-status-tag.ok{color:#fff;background:var(--green)}
+    .cp-step{grid-area:step;position:relative;display:flex;justify-content:space-between;align-items:flex-start}
+    .cp-step-line{position:absolute;top:6px;left:7px;right:7px;height:2px;background:var(--border)}
+    .cp-step-line.half{background:linear-gradient(90deg,var(--green),var(--border))}
+    .cp-step-line.full{background:var(--green)}
+    .cp-step-pt{position:relative;display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--text3);background:transparent}
+    .cp-step-pt.l{align-items:flex-start;text-align:left}
+    .cp-step-pt.r{align-items:flex-end;text-align:right}
+    .cp-step-pt i{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--border);background:var(--surface);margin-bottom:3px;box-sizing:border-box}
+    .cp-step-pt.done i{border-color:var(--green);background:var(--green)}
+    .cp-step-pt b{font-size:12.5px;color:var(--text)}
+    .cp-item-people{grid-area:people;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+    .cp-item-people > div{background:var(--surface2);border-radius:9px;padding:7px 10px;min-width:0;font-size:12.5px}
+    .cp-role-label{display:block;color:var(--text3);font-weight:700;font-size:10.5px;margin-bottom:2px}
+    .cp-item-notes{grid-area:notes;display:flex;flex-wrap:wrap;gap:4px 16px;border-top:1px solid var(--border);padding-top:8px;min-width:0}
+    .cp-item-notes:empty{display:none}
     .cp-item-note{font-size:11.5px;color:var(--text3)}
-    .cp-item-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+    .cp-item-actions{grid-area:act;display:flex;flex-direction:column;gap:8px;min-width:130px}
+    .cp-item-actions .btn{width:100%}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
     @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
-    /* จอกว้าง (คอมพิวเตอร์) ไม่จำเป็นต้องเรียงเป็นการ์ดสแต็กแนวตั้งเหมือนมือถือ — ใช้พื้นที่แนวนอนที่มี
-       ให้เป็น 3 คอลัมน์: วันที่ (ซ้าย) · ผู้เรียน/ผู้สอน/Module (กลาง) · ปุ่มจัดการ (ขวา) หนาแน่นกว่าเดิม */
-    @media (min-width:1000px){
-      .cp-item{display:grid;grid-template-columns:150px 1fr auto;column-gap:18px;row-gap:5px;align-items:start;padding:14px 18px}
-      .cp-item-dates{grid-column:1;grid-row:1/4;padding-right:0;border-right:1px dashed var(--border)}
-      .cp-item-people{grid-column:2;grid-row:1;margin:0}
-      .cp-item-module{grid-column:2;grid-row:2}
-      .cp-item-notes{grid-column:2;grid-row:3}
-      .cp-item-actions{grid-column:3;grid-row:1/4;flex-direction:column;justify-content:flex-start;align-items:stretch;min-width:130px}
-      .cp-item-actions .btn{width:100%}
+    /* คอลัมน์แคบ (มือถือ หรือจอคอมที่ครัว/บริการอยู่ข้างกัน) เรียงการ์ดแนวตั้ง ปุ่มอยู่ล่างเต็มแถว — คอลัมน์กว้างถึงใช้ 3 ช่อง */
+    @container (max-width:600px){
+      .cp-item{grid-template-columns:1fr;grid-template-areas:"head" "step" "people" "notes" "act";padding:12px 14px;row-gap:10px}
+      .cp-item-actions{flex-direction:row;min-width:0}
+      .cp-item-actions .btn{flex:1;padding:10px}
     }
+    @container (max-width:290px){ .cp-item-people{grid-template-columns:1fr} }
   </style>
   <div class="cp-card">
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:10px">
