@@ -11321,10 +11321,11 @@ function _covHasPassed(e, p) {
    items: [{v, label, group?}] · onChange: ชื่อฟังก์ชันที่จะเรียกเมื่อเปลี่ยน */
 function _mselHTML(id, items, opts) {
   opts = opts || {};
+  const selected = opts.selected ? new Set(opts.selected.map(String)) : null;
   let body = '', lastGrp = null;
   items.forEach(it => {
     if (it.group && it.group !== lastGrp) { body += `<div class="msel-grp" data-grp="1">${it.group}</div>`; lastGrp = it.group; }
-    const ck = opts.allChecked ? ' checked' : '';
+    const ck = selected ? (selected.has(String(it.v)) ? ' checked' : '') : (opts.allChecked ? ' checked' : '');
     body += `<label class="msel-opt" data-k="${String(it.label).toLowerCase().replace(/"/g,'&quot;')}"><input type="checkbox" class="msel-chk" value="${String(it.v).replace(/"/g,'&quot;')}"${ck} onchange="_mselSync('${id}')"> <span>${it.label}</span></label>`;
   });
   // ใส่ช่องค้นหาเมื่อรายการเยอะพอที่จะเลื่อนหาไม่ไหว (สาขามี 60 กว่าแห่ง)
@@ -11385,7 +11386,7 @@ function _mselAll(id, on) {
   });
   _mselSync(id);
 }
-function _mselSync(id) {
+function _mselSync(id, skipOnChange) {
   const w = document.getElementById(id + '-wrap'); if (!w) return;
   const all = document.querySelectorAll('#' + id + '-panel .msel-chk');
   const sel = Array.from(all).filter(c => c.checked);
@@ -11400,6 +11401,7 @@ function _mselSync(id) {
   if (btn) btn.classList.toggle('msel-empty', !sel.length);
   const allBox = w.querySelector('.msel-all');
   if (allBox) allBox.checked = all.length > 0 && sel.length === all.length;
+  if (skipOnChange) return;   // ใช้ตอนซิงก์ caption ครั้งแรกหลังวาด DOM — ไม่ต้องยิง onChange ซ้ำ (บางหน้า onChange รีเรนเดอร์ widget นี้เองด้วย จะวนไม่รู้จบ)
   const fn = w.dataset.onchange;
   if (fn && typeof window[fn] === 'function') window[fn]();
 }
@@ -17529,11 +17531,16 @@ function adminEditEmp(empId, bid) {
 }
 
 let _adminTrainFilter = 'all';
-let _adminTrainBranch = '';
+let _adminTrainBranch = [];   // เลือกได้หลายสาขา — ว่าง = ทุกสาขา
 let _adminTrainModule = '';
 let _adminTrainResult = '';
 let _adminTrainSort = { key: 'date', dir: 'desc' };
 let _adminTrainView = 'person';  // ค่าเริ่มต้นเป็นรายคน เหมือนฝั่งสาขา
+/* ประวัติทั้งชีวิตของคนที่ "ปัจจุบัน" สังกัดสาขาใดสาขาหนึ่งในกลุ่มที่เลือกไว้ — เวอร์ชันหลายสาขาของ getPersonScopeTrainings */
+function getPersonScopeTrainingsMulti(bids) {
+  const empIds = new Set(bids.flatMap(bid => getBranchEmployees(bid).map(e => String(e.id))));
+  return DB.trainings.filter(t => (t.traineeIds || []).some(id => empIds.has(String(id))));
+}
 function setAdminTrainFilter(f) { _adminTrainFilter = f; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function setAdminTrainView(v) { _adminTrainView = v; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
 function setAdminTrainSort(key) { _toggleSort(_adminTrainSort, key); document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
@@ -17562,34 +17569,36 @@ function _sortAdminTrainings(list) {
   });
 }
 function applyAdminTrainFilters() {
-  _adminTrainBranch = document.getElementById('at-branch')?.value || '';
+  _adminTrainBranch = _mselValues('at-branch');
   _adminTrainModule = document.getElementById('at-module')?.value || '';
   _adminTrainResult = document.getElementById('at-result')?.value || '';
   document.getElementById('main-content').innerHTML = renderAdminTrainings();
 }
 function _filteredAdminTrainings(base) {
   let rows = base ? base.slice() : DB.trainings.slice();
-  if (!base && _adminTrainBranch) rows = rows.filter(t => String(t.branchId) === _adminTrainBranch);
+  if (!base && _adminTrainBranch.length) { const set = new Set(_adminTrainBranch); rows = rows.filter(t => set.has(String(t.branchId))); }
   if (_adminTrainModule) rows = rows.filter(t => t.moduleId === _adminTrainModule);
   if (_adminTrainResult === 'pass') rows = rows.filter(t => t.eval && isEvalPass(t.eval.result));
   else if (_adminTrainResult === 'fail') rows = rows.filter(t => t.eval && !isEvalPass(t.eval.result));
   else if (_adminTrainResult) rows = rows.filter(t => t.eval && String(t.eval.result) === _adminTrainResult);
   return rows;
 }
-/* มุมมอง "รายคน" ฝั่งแอดมิน — ถ้าเลือกกรองสาขาใดสาขาหนึ่ง ต้องอิงประวัติทั้งชีวิตของคนที่สังกัดสาขานั้นตอนนี้
+/* มุมมอง "รายคน" ฝั่งแอดมิน — ถ้าเลือกกรองสาขาไว้ ต้องอิงประวัติทั้งชีวิตของคนที่สังกัดสาขาเหล่านั้นตอนนี้
    เหมือนฝั่งสาขา ไม่งั้นพนักงานที่ย้ายเข้ามาจะดูเหมือนไม่มีประวัติ ทั้งที่มีประวัติจากสาขาเดิม */
 function _adminPersonScopeRows(filter) {
-  const base = _adminTrainBranch ? getPersonScopeTrainings(_adminTrainBranch) : null;
+  const base = _adminTrainBranch.length ? getPersonScopeTrainingsMulti(_adminTrainBranch) : null;
   let rows = _filteredAdminTrainings(base);
   if (filter === 'pending') rows = rows.filter(t => !t.eval && !isEvalDeadlinePassed(t.date));
   else if (filter === 'done') rows = rows.filter(t => t.eval);
   else if (filter === 'expired') rows = rows.filter(t => !t.eval && isEvalDeadlinePassed(t.date));
   // กันคนอื่นที่ร่วมคลาสเดียวกันแต่ไม่ได้สังกัดสาขาที่กรองไว้หลุดเข้ามาด้วย (เหมือนฝั่งสาขา)
-  const onlyEmpIds = _adminTrainBranch ? new Set(getBranchEmployees(_adminTrainBranch).map(e => String(e.id))) : null;
+  const onlyEmpIds = _adminTrainBranch.length ? new Set(_adminTrainBranch.flatMap(bid => getBranchEmployees(bid).map(e => String(e.id)))) : null;
   return { rows, onlyEmpIds };
 }
 
 function renderAdminTrainings() {
+  // msel ต้องซิงก์ caption เองหลังแทรก DOM (เกิดหลังฟังก์ชันนี้ return) ไม่งั้นตัวหนังสือในปุ่มว่างจนกว่าจะคลิก
+  setTimeout(() => _mselSync('at-branch', true), 0);
   const all = _filteredAdminTrainings();
   const pending = all.filter(t => !t.eval && !isEvalDeadlinePassed(t.date));
   const done = all.filter(t => t.eval);
@@ -17604,7 +17613,7 @@ function renderAdminTrainings() {
   rows = _sortAdminTrainings(rows);
   const personScope = _adminTrainView === 'person' ? _adminPersonScopeRows(filter) : { rows: [], onlyEmpIds: null };
 
-  const branchOptions = getAccessibleBranches().slice().sort().map(id => `<option value="${id}"${id===_adminTrainBranch?' selected':''}>${id} · ${BRANCH_MASTER[id].name.replace(id+' ','')}</option>`).join('');
+  const branchMselItems = getAccessibleBranches().slice().sort().map(id => ({ v: id, label: id + ' · ' + BRANCH_MASTER[id].name.replace(id+' ','') }));
   const _svcMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
   const _cookMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Cook');
   const _modOpt = ([k,m]) => `<option value="${k}"${k===_adminTrainModule?' selected':''}>${m.name}</option>`;
@@ -17638,7 +17647,7 @@ function renderAdminTrainings() {
         <option value="done"${filter==='done'?' selected':''}>ประเมินแล้ว (${done.length})</option>
         <option value="expired"${filter==='expired'?' selected':''}>หมดเวลาการประเมิน (${expired.length})</option>
       </select>
-      <select class="form-select" id="at-branch" onchange="applyAdminTrainFilters()" style="width:200px"><option value="">— ทุกสาขา —</option>${branchOptions}</select>
+      <div style="width:220px">${_mselHTML('at-branch', branchMselItems, { onChange: 'applyAdminTrainFilters', noneText: '— ทุกสาขา —', selected: _adminTrainBranch })}</div>
       <select class="form-select" id="at-module" onchange="applyAdminTrainFilters()" style="width:200px"><option value="">— ทุก Module —</option>${moduleOptions}</select>
       <select class="form-select" id="at-result" onchange="applyAdminTrainFilters()" style="width:200px">
         <option value=""${!_adminTrainResult?' selected':''}>— ทุกผล —</option>
@@ -17658,7 +17667,7 @@ function renderAdminTrainings() {
         <button class="btn btn-sm ${_adminTrainView==='person'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='person'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('person')">🙍 รายคน</button>
       </span>
     </div>
-    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personScope.rows, personScope.onlyEmpIds), {showBranch: !_adminTrainBranch}) : `
+    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personScope.rows, personScope.onlyEmpIds), {showBranch: _adminTrainBranch.length !== 1}) : `
     <div class="table-wrap"><table class="cards-on-mobile admin-train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
