@@ -16989,7 +16989,6 @@ function _xferRow(r, side) {
   return `<div class="xr-row ${r.status}">
     ${band}
     <div class="xr-body">
-      <span class="xr-av">${_escH(String(r.empName || '?').trim().charAt(0))}</span>
       <div style="flex:1;min-width:220px">
         <div class="xr-nm">${_escH(r.empName)}</div>
         ${meta ? `<div class="xr-meta">${meta}</div>` : ''}
