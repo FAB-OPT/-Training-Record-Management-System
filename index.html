@@ -8950,8 +8950,8 @@ function renderPersonSummaryTable(rows, opts) {
    เพราะอยากเห็นภาพรวมทั้งหมดของคนคนนี้จริง ๆ ไม่ใช่แค่ส่วนที่กรองอยู่ตอนนั้น */
 function openPersonTrainingHistory(empId) {
   const emp = getEmployee(empId); if (!emp) return;
-  const ownOnly = currentUser?.type === 'branch';                 // สาขาเห็นแค่ของตัวเอง · แอดมิน/BZM/exec เป็นผู้สังเกตการณ์ทั้งระบบ
-  const list = DB.trainings.filter(t => (!ownOnly || t.branchId === currentUser.branchId) && (t.traineeIds || []).includes(empId))
+  // ดูประวัติทั้งชีวิตของคนคนนี้เสมอ ไม่ผูกกับสาขาที่ผู้ดูสังกัด — ย้ายสาขามาแล้วประวัติสาขาเก่าต้องตามมาด้วย
+  const list = DB.trainings.filter(t => (t.traineeIds || []).includes(empId))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   showModal(`ประวัติการสอน · ${emp.name}`, `
     <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">${emp.position||''} · ${BRANCH_MASTER[emp.branchId]?.name || emp.branchId} · ทั้งหมด ${list.length} ครั้ง</div>
@@ -8974,8 +8974,8 @@ function openPersonTrainingHistory(empId) {
 /* กางดูรายโมดูลของคนคนหนึ่ง — โมดูลไหนสะสมครบแล้ว โมดูลไหนยังขาดกี่หัวข้อ */
 function showPersonModuleBreakdown(empId) {
   const emp = getEmployee(empId); if (!emp) return;
-  const ownOnly = currentUser?.type === 'branch';
-  const list = DB.trainings.filter(t => (!ownOnly || t.branchId === currentUser.branchId) && (t.traineeIds || []).includes(empId));
+  // สะสมโมดูลทั้งชีวิตของคนคนนี้เสมอ ไม่ผูกกับสาขาที่ผู้ดูสังกัด — ย้ายสาขามาแล้วความคืบหน้าสาขาเก่าต้องตามมาด้วย
+  const list = DB.trainings.filter(t => (t.traineeIds || []).includes(empId));
   const modKeys = new Set(list.map(t => t.branchId + '|' + t.moduleId));
   const modList = [...modKeys].map(k => {
     const [bid, mid] = k.split('|');
