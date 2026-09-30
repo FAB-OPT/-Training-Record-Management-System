@@ -7846,7 +7846,6 @@ function renderDashboard() {
   <div class="page-hero dash-mob-title">
     <div class="page-hero-body">
       <div class="page-hero-title">ภาพรวมการสอนงานของสาขา</div>
-      <div class="page-hero-sub">อัปเดต ${fmtDate(new Date().toISOString())}</div>
     </div>
   </div>
   ${(()=>{
@@ -8892,10 +8891,12 @@ function _filterEmpPicker(action) {
 let _trainFilter = 'all';
 let _trainModuleFilter = '';
 let _trainResultFilter = '';
+let _trainSearch = '';
 let _trainSort = { key: 'date', dir: 'desc' };
 let _trainView = 'person';   // ค่าเริ่มต้นเป็นรายคน — อยากเห็นภาพรวมคนก่อน ค่อยกดดูรายละเอียดทีหลัง
-let _trainDateFrom = '';
-let _trainDateTo = '';
+// ค่าเริ่มต้นโชว์เดือนปัจจุบันเสมอ ทั้งบันทึกการสอนงานและประเมินผล (ทั้งคอมและมือถือ ใช้ฟังก์ชันเรนเดอร์เดียวกัน)
+let _trainDateFrom = _ymdLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+let _trainDateTo = _ymdLocal(new Date());
 function setTrainFilter(f) { _trainFilter = f; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainView(v) { _trainView = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
 function setTrainModuleFilter(v) { _trainModuleFilter = v; document.getElementById('main-content').innerHTML = renderTrainings(); }
@@ -9105,16 +9106,16 @@ function showPersonModuleBreakdown(empId) {
     </div>`, null, 'ปิด');
 }
 
-function renderTrainings() {
-  const isEval = currentPage === 'evaluations';
-  // เดิมอิง getBranchTrainings(bid) (log ว่าสอนจริงที่ไหน) เปลี่ยนมาอิงคนที่ "ปัจจุบัน" สังกัดสาขานี้แทน
-  // ทั้งมุมมองรายครั้งและรายคน — ย้ายสาขามาแล้วประวัติสอนงาน/อบรมต้องตามมาด้วยทั้งสองมุมมอง
+/* เตรียมข้อมูลหน้าบันทึกการสอนงาน/ประเมินผล — แยกออกมาเพื่อให้ช่องค้นหาอัพเดทแค่ตาราง
+   ไม่ต้องวาดทั้งหน้าใหม่ (วาดทั้งหน้าใหม่ทุกตัวอักษรที่พิมพ์ ทำให้โฟกัส/เคอร์เซอร์หลุดจากช่อง) */
+function _trainPageData() {
   const bid = getBranchId(); const trains = getPersonScopeTrainings(bid);
   const pending = trains.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
   const done = trains.filter(t=>t.eval);
   const expired = trains.filter(t=>!t.eval && isEvalDeadlinePassed(t.date));
   const filter = _trainFilter;
-  const _applyTrainFilters = list => {
+  const q = (_trainSearch||'').trim().toLowerCase();
+  const _applyBaseFilters = list => {
     let out = list;
     if (filter === 'pending') out = out.filter(t=>!t.eval && !isEvalDeadlinePassed(t.date));
     else if (filter === 'done') out = out.filter(t=>t.eval);
@@ -9125,10 +9126,32 @@ function renderTrainings() {
     if (_trainDateTo) out = out.filter(t => (t.date||'') <= _trainDateTo + 'T23:59:59');
     return out;
   };
-  let rows = _sortTrainings(_applyTrainFilters(trains));
+  const filtered = _applyBaseFilters(trains);
+  // มุมมอง "รายครั้ง" ค้นด้วยเนื้อหาทั้ง session (ใครร่วมด้วย/Module/ผู้สอน) — แสดงแถวเดิมทั้งแถวสมเหตุสมผล
+  const matchesSessionSearch = t => {
+    if (!q) return true;
+    const names = (t.traineeIds||[]).map(id => (getEmployee(id)||{}).name || '').join(' ');
+    const hay = [names, MODULES[t.moduleId]?.name||t.moduleId, t.trainerName||''].join(' ').toLowerCase();
+    return hay.includes(q);
+  };
+  const rows = _sortTrainings(filtered.filter(matchesSessionSearch));
   // onlyEmpIds กันคนอื่นที่ร่วมคลาสเดียวกันแต่ไม่ได้สังกัดสาขานี้ ไม่ให้มีแถวสรุปของตัวเองในมุมมองรายคน
   const _bidEmpIds = new Set(getBranchEmployees(bid).map(e => String(e.id)));
-  const personRows = _trainView === 'person' ? rows : [];
+  // มุมมอง "รายคน" ค้นด้วยชื่อ/ตำแหน่งของเจ้าของแถวเอง — ไม่งั้นคนอื่นที่ร่วมคลาสเดียวกับคนที่ค้นหาจะติดมาด้วย
+  const personRows = _trainView === 'person'
+    ? _personSummaryRows(filtered, _bidEmpIds).filter(r => !q || (r.emp.name||'').toLowerCase().includes(q) || (r.emp.position||'').toLowerCase().includes(q))
+    : [];
+  return { bid, trains, pending, done, expired, filter, rows, personRows, _bidEmpIds };
+}
+function filterTrainSearch() {
+  _trainSearch = document.getElementById('train-search').value || '';
+  const d = _trainPageData();
+  document.getElementById('train-table-area').innerHTML = _trainTableHtml(d);
+}
+function renderTrainings() {
+  const isEval = currentPage === 'evaluations';
+  const d = _trainPageData();
+  const { bid, trains, pending, done, expired, filter } = d;
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
   const tabBtn = (key, label, count) => {
     const c = tabColors[key];
@@ -9189,8 +9212,14 @@ function renderTrainings() {
         <span style="color:var(--text3);font-size:12px">ถึง</span>
         <input type="date" class="form-input" style="width:140px;padding:6px 10px;font-size:12.5px" value="${_trainDateTo}" onchange="setTrainDateRange(_trainDateFrom,this.value)">
       </div>
+      <input class="search-input" id="train-search" placeholder="🔍 ค้นหาชื่อพนักงาน / Module / ผู้สอน..." oninput="filterTrainSearch()" value="${_escH(_trainSearch)}" style="flex:1;min-width:180px;margin-left:auto">
     </div>
-    ${_trainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personRows, _bidEmpIds), {showBranch:false}) : `
+    <div id="train-table-area">${_trainTableHtml(d)}</div>
+  </div>`;
+}
+function _trainTableHtml(d) {
+  const { bid, rows, personRows } = d;
+  return `${_trainView === 'person' ? renderPersonSummaryTable(personRows, {showBranch:false}) : `
     <div class="table-wrap"><table class="cards-on-mobile train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_trainSort,'setTrainSort')}
@@ -9239,8 +9268,7 @@ function renderTrainings() {
           </td>
         </tr>`;}).join('')}
       </tbody>
-    </table></div>`}
-  </div>`;
+    </table></div>`}`;
 }
 
 function getPositionGroup(posName) {
