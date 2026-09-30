@@ -532,6 +532,7 @@
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .form-full { margin-bottom: 14px; }
   .form-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 700; display: block; text-transform: uppercase; letter-spacing: 0.4px; }
+  .modal .form-label, .pop-sub { font-size: 15.5px; font-weight: 800; -webkit-text-stroke: 0.3px currentColor; color: var(--text); text-transform: none; letter-spacing: 0; }
   .req { color: var(--accent); font-style: normal; }
   /* iOS date/datetime inputs: prevent overflowing container */
   input[type="date"], input[type="datetime-local"] {
@@ -17545,16 +17546,16 @@ function openPlanAudit(bid) {
       <span class="badge ${a.notYet.length ? '' : 'badge-green'}">สอนแล้ว ${a.items.length - a.notYet.length}/${a.items.length}</span>
       ${bzm ? '' : `<span class="badge">บันทึก ${a.recs.length} ครั้ง</span><span class="badge ${a.off.length ? 'badge-yellow' : 'badge-green'}">นอกแผน ${a.off.length}</span>`}
     </div>
-    <div style="font-weight:800;margin:4px 0 6px">รายละเอียดแผน</div>
+    <div class="pop-sub" style="margin:4px 0 8px">รายละเอียดแผน</div>
     ${_planItemDetailListHtml(bid, ym, a.items)}
-    ${bzm ? '' : `<div style="font-weight:800;margin:16px 0 6px">บันทึกที่ไม่ตรงแผน</div>
+    ${bzm ? '' : `<div class="pop-sub" style="margin:16px 0 8px">บันทึกที่ไม่ตรงแผน</div>
     ${a.off.length ? `<div class="table-wrap"><table>
       <thead><tr><th>วันที่</th><th>Module</th><th>พนักงาน</th><th>ผู้สอน</th><th>ไม่ตรงเพราะ</th></tr></thead>
       <tbody>${a.off.map(o => `<tr><td style="white-space:nowrap">${_escH(fmtDate(o.t.date))}</td><td>${mod(o.t.moduleId)}</td>
         <td>${_escH(emp(o.t.traineeIds))}</td><td>${_escH(o.t.trainerName || '—')}</td>
         <td><span class="badge badge-yellow" style="white-space:nowrap">${_escH(o.why)}</span></td></tr>`).join('')}</tbody>
     </table></div>` : '<div style="font-size:13px;color:var(--green);font-weight:700">✓ ทุกบันทึกตรงแผน</div>'}
-    <div style="font-weight:800;margin:16px 0 6px">แผนที่ยังไม่ได้สอน</div>
+    <div class="pop-sub" style="margin:16px 0 8px">แผนที่ยังไม่ได้สอน</div>
     ${a.notYet.length ? `<div class="table-wrap"><table>
       <thead><tr><th>Module</th><th>พนักงานในแผน</th><th>วันที่วางไว้</th><th>หมายเหตุ</th></tr></thead>
       <tbody>${a.notYet.map(it => `<tr><td>${mod(it.moduleId)}</td><td>${_escH(emp(it.empIds))}</td>
