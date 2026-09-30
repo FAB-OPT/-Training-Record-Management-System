@@ -428,6 +428,7 @@
   .dt-long { display: none; }
   .tf-m { display: none; }
   .train-table .btn .ico { display: none; }   /* ไอคอนแก้ไข/ลบ ใช้เฉพาะมือถือ */
+  .train-table .act-br { display: none; }
   @media (max-width: 768px) {
     .dt-short { display: none; }
     .dt-long { display: inline; }
@@ -2371,26 +2372,26 @@
     }
     table.cards-on-mobile.train-table td[data-label="พนักงาน"]::before { content: '👤 ผู้เรียน'; }
     table.cards-on-mobile.train-table td[data-label="ผู้สอน"]::before { content: '🧑‍🏫 ผู้สอน'; }
-    /* ปุ่ม: ปุ่มหลัก (ประเมิน/ทำข้อสอบ) กว้างกว่า · แก้ไข/ลบเป็นไอคอน เรียงแถวเดียวไม่ล้น */
+    /* ปุ่มบนการ์ด: แถวบน = ปุ่มหลัก (ข้อสอบ / ประเมิน / ดู) ห่างกัน 8px · แถวล่าง = แก้ไข / ลบ ครึ่งต่อครึ่งมีข้อความ ไม่ให้ชิดกัน */
     table.cards-on-mobile.train-table td[data-label="actions"], table.cards-on-mobile.admin-train-table td[data-label="actions"] {
-      display: flex !important; justify-content: stretch; gap: 6px; flex-wrap: nowrap; overflow: visible;
+      display: flex !important; justify-content: stretch; gap: 8px; flex-wrap: wrap; overflow: visible;
     }
-    table.cards-on-mobile.train-table td[data-label="actions"] { grid-column: 1 / -1; grid-row: 5; }
-    table.cards-on-mobile.admin-train-table td[data-label="actions"] { flex-wrap: wrap; padding-top: 10px !important; margin-top: 8px; border-top: 1px solid var(--border) !important; }
+    table.cards-on-mobile.train-table td[data-label="actions"] { grid-column: 1 / -1; grid-row: 5; padding-top: 2px !important; }
+    table.cards-on-mobile.admin-train-table td[data-label="actions"] { padding-top: 10px !important; margin-top: 8px; border-top: 1px solid var(--border) !important; }
     table.cards-on-mobile.train-table td[data-label="actions"] .btn, table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn {
       flex: 1 1 0; min-width: 0; margin: 0 !important;
-      min-height: 38px; padding: 8px 6px !important;
-      font-size: 12.5px !important; font-weight: 700;
+      min-height: 42px; padding: 8px 10px !important;
+      font-size: 13px !important; font-weight: 700;
       border-radius: 10px;
-      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       text-align: center; white-space: nowrap;
     }
-    table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn { min-width: 78px; padding: 8px 10px !important; }
+    table.cards-on-mobile.admin-train-table td[data-label="actions"] .btn { min-width: 78px; }
     table.cards-on-mobile.train-table td[data-label="actions"] .btn-accent, table.cards-on-mobile.train-table td[data-label="actions"] .btn-green { flex: 2 1 0; }
-    table.cards-on-mobile.train-table td[data-label="actions"] .btn.ic { flex: 0 0 44px; }
-    table.cards-on-mobile.train-table .btn .ico { display: none; }
-    table.cards-on-mobile.train-table .btn.ic .lbl { display: none; }
-    table.cards-on-mobile.train-table .btn.ic .ico { display: inline; }
+    table.cards-on-mobile.train-table td[data-label="actions"] .act-br { display: block; flex: 0 0 100%; height: 0; }
+    table.cards-on-mobile.train-table td[data-label="actions"] .btn.ic { flex: 1 1 calc(50% - 4px); }
+    table.cards-on-mobile.train-table .btn .ico { display: inline; }
+    table.cards-on-mobile.train-table td[data-label="actions"] .btn-view { padding: 4px 8px 12px !important; }
 
     /* ===== เคส/ติดต่อ Admin: แถบค้นหา + ตัวกรอง =====
        มือถือ: ช่องค้นหาอยู่บรรทัดของตัวเอง, ดรอปดาวลงบรรทัดถัดไปแบ่งครึ่ง — ไม่ล้นกรอบการ์ด */
@@ -2633,8 +2634,16 @@
     .train-date-bar .tdb-dates input[type=date] { flex: 1; width: auto !important; }
     .train-date-bar #train-search { order: 4; width: 100% !important; margin-left: 0 !important; }
     /* หน้าประวัติอบรมหลักสูตร: ดรอปดาว (กลุ่มพนักงาน + เลือกหลักสูตร) จัดกึ่งกลางแถวของตัวเอง */
-    .ch-filter-bar .cat-select-mobile { display: flex !important; margin: 0 auto !important; max-width: 320px; }
-    .ch-filter-bar #ch-course-filter { margin: 0 auto !important; width: 92% !important; max-width: 320px; }
+    .ch-filter-bar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+    .ch-filter-bar .cat-select-mobile, .ch-filter-bar #ch-course-filter, .ch-filter-bar #ch-search {
+      display: block !important; width: 100% !important; max-width: none !important; min-width: 0 !important; margin: 0 !important;
+      height: 38px !important; min-height: 38px !important; box-sizing: border-box !important; font-size: 13px !important;
+    }
+    .ch-filter-bar #ch-search { padding: 0 12px !important; border-radius: 10px !important; border: 1.5px solid var(--border) !important; background: var(--surface2) !important; }
+    .ch-filter-bar #ch-course-filter { order: 1; }
+    .ch-filter-bar .cat-select-mobile { order: 2; }
+    .ch-filter-bar #ch-found { order: 3; text-align: right; }
+    .ch-filter-bar #ch-search { order: 4; }
     /* หน้าจัดการรายชื่อพนักงาน: ดรอปดาวประเภทพอดีตัวหนังสือ (ไม่ยืดเกิน) ให้ช่องค้นหากินพื้นที่ที่เหลือ
        กรอบทั้งสองต้องหน้าตาเหมือนกัน (สีพื้น/ขอบ/มุมโค้ง) เพราะเดิมดรอปดาวใช้สไตล์ form-select (พื้นขาว มุม 10px)
        ส่วนช่องค้นหาใช้สไตล์ search-input (พื้นเทาอ่อน มุม 6px) คนละชุดกัน ทำให้กรอบดูไม่เท่ากัน */
@@ -9449,7 +9458,7 @@ function _trainTableHtml(d) {
               :isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:(!t.eval && !fromOtherBranch)?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
-            ${canEdit?`<button class="btn btn-sm btn-outline ic" style="margin-left:4px" title="แก้ไข" onclick="openEditTraining('${t.id}')"><span class="lbl">แก้ไข</span><span class="ico">✏️</span></button><button class="btn btn-sm btn-danger ic" style="margin-left:4px" title="ลบ" onclick="deleteTraining('${t.id}')"><span class="lbl">ลบ</span><span class="ico">🗑</span></button>`:''}
+            ${canEdit?`<span class="act-br"></span><button class="btn btn-sm btn-outline ic" style="margin-left:4px" title="แก้ไข" onclick="openEditTraining('${t.id}')"><span class="lbl">แก้ไข</span><span class="ico">✏️</span></button><button class="btn btn-sm btn-danger ic" style="margin-left:4px" title="ลบ" onclick="deleteTraining('${t.id}')"><span class="lbl">ลบ</span><span class="ico">🗑</span></button>`:''}
           </td>
         </tr>`;}).join('')}
       </tbody>
