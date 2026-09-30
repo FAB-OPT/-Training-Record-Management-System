@@ -16954,7 +16954,7 @@ function openPlanItem(grp, itemId) {
     <div class="form-row">
       <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
         <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
-      <div><label class="form-label">วันที่ต้องการประเมิน <span class="req">*</span></label>
+      <div><label class="form-label">วันที่ต้องการประเมิน <span class="req">*</span><br><span style="font-weight:500;color:var(--text3);font-size:11px">ต้องไม่เกิน 14 วันหลังวันที่วางแผนจะสอน</span></label>
         <input class="form-input" type="date" id="cp-eval-date" value="${(it && it.evalDate) || ''}"></div>
     </div>
     <div class="form-full">
