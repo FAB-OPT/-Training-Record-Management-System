@@ -2006,6 +2006,10 @@
     .modal-body { padding: 16px 18px; }
     .modal-footer { padding: 12px 18px; flex-direction: column-reverse; gap: 8px; }
     .modal-footer .btn { width: 100% !important; justify-content: center; min-height: 44px; }
+    /* ช่องเลือกชื่อ (ผู้สอน/ผู้เรียน) บนมือถือ: รายชื่อไหลอยู่ในเนื้อหาเลย ไม่ลอยทับ — เดิมลอยแล้วถูกปุ่มบันทึกด้านล่างบัง
+       และตอนคีย์บอร์ดขึ้น (.kb) ซ่อนปุ่มล่างชั่วคราวให้เห็นรายชื่อเต็มพื้นที่ */
+    .modal .emp-dropdown-list { position: static !important; margin-top: 4px; max-height: 240px; }
+    .modal-overlay.kb .modal-footer { display: none; }
 
     /* Eval methods */
     .eval-method { grid-template-columns: 1fr !important; }
@@ -9734,7 +9738,7 @@ function filterTrainerDropdown() {
 }
 function pickTrainer(el) {
   const inp = document.getElementById('tr-trainer');
-  if (inp) inp.value = el.dataset.name || '';
+  if (inp) { inp.value = el.dataset.name || ''; try { inp.blur(); } catch (_) {} }
   filterTrainerDropdown();
   closeTrainerDropdown();
 }
@@ -17002,7 +17006,6 @@ function renderCoachingPlanPanel(bid) {
         const m = MODULES[it.moduleId] || {};
         const ok = _planItemDone(bid, ym, it);
         const ev = ok && _planItemEvaluated(bid, ym, it);
-        const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
         const shortD = d => d ? _escH(fmtDate(d).replace(/\s*\d{4}$/, '')) : '—';
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
@@ -17016,7 +17019,7 @@ function renderCoachingPlanPanel(bid) {
             <div class="cp-step-pt r ${ev ? 'done' : ''}"><i></i><span>ประเมิน</span><b>${shortD(it.evalDate)}</b></div>
           </div>
           <div class="cp-item-people">
-            <div><span class="cp-role-label">👤 ผู้เรียน</span><b>${names.length ? _escH(names.join(', ')) : '<span style="color:var(--text4);font-weight:500">ยังไม่ระบุคน</span>'}</b></div>
+            <div><span class="cp-role-label">👤 ผู้เรียน</span>${_planLearnersHtml(it.empIds)}</div>
             <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span><b>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4);font-weight:500">—</span>'}</b></div>
           </div>
           <div class="cp-item-notes">
@@ -17065,6 +17068,8 @@ function renderCoachingPlanPanel(bid) {
     .cp-step-pt.done i{border-color:var(--green);background:var(--green)}
     .cp-step-pt b{font-size:12.5px;color:var(--text)}
     .cp-item-people{grid-area:people;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+    .cp-learner + .cp-learner{margin-top:5px;padding-top:5px;border-top:1px dashed var(--border)}
+    .cp-learner-meta{display:block;font-size:11px;font-weight:500;color:var(--text3);margin-top:1px;line-height:1.35}
     .cp-item-people > div{background:var(--surface2);border-radius:9px;padding:7px 10px;min-width:0;font-size:12.5px}
     .cp-role-label{display:block;color:var(--text3);font-weight:700;font-size:10.5px;margin-bottom:2px}
     .cp-item-notes{grid-area:notes;display:flex;flex-wrap:wrap;gap:4px 16px;border-top:1px solid var(--border);padding-top:8px;min-width:0}
@@ -17111,6 +17116,15 @@ function renderCoachingPlanPage() {
 }
 function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
 /* กางดูรายชื่อหัวข้อย่อยของแผนข้อนี้ — กดที่ป้าย "N หัวข้อย่อย" บนการ์ด */
+/* ผู้เรียนในการ์ดแผน: ชื่อ + รหัสพนักงาน · ตำแหน่ง · อายุงาน ใต้ชื่อ (ให้ BZM/แอดมินเห็นว่าใครเป็นใครโดยไม่ต้องเปิดทะเบียน) */
+function _planLearnersHtml(empIds) {
+  const rows = (empIds || []).map(id => getEmployee(id)).filter(Boolean);
+  if (!rows.length) return '<b><span style="color:var(--text4);font-weight:500">ยังไม่ระบุคน</span></b>';
+  return rows.map(e => {
+    const meta = [e.empCode ? 'รหัส ' + e.empCode : '', e.position || '', e.startDate ? 'อายุงาน ' + calcTenureShort(e.startDate) : ''].filter(Boolean);
+    return `<div class="cp-learner"><b>${_escH(e.name)}</b>${meta.length ? `<span class="cp-learner-meta">${meta.map(_escH).join(' · ')}</span>` : ''}</div>`;
+  }).join('');
+}
 function _cpShowSubtopics(itemId) {
   const bid = getBranchId(), ym = _planMonth || _ymNow();
   const plan = getCoachingPlan(bid, ym);
@@ -21572,6 +21586,20 @@ function downloadExcelTemplate() {
 
 // ==================== MODAL ====================
 /* ความสูงพื้นที่มองเห็นจริงของเบราว์เซอร์มือถือ (แถบ URL/แถบเครื่องมือล่างย่อ-ขยายได้) — ใช้แทน vh กับป็อปอัพ */
+/* คีย์บอร์ดขึ้นตอนกดช่องค้นหาชื่อ → ซ่อนปุ่มล่างของหน้าต่าง + เลื่อนช่องขึ้นบนสุดของเนื้อหา ให้เห็นรายชื่อ */
+document.addEventListener('focusin', function (e) {
+  const t = e.target; if (!t || !t.closest || !t.closest('.emp-select-box')) return;
+  const ov = document.getElementById('modal-overlay'); if (!ov || !ov.contains(t)) return;
+  ov.classList.add('kb');
+  setTimeout(function () {
+    const body = ov.querySelector('.modal-body'), box = t.closest('.emp-select-box'); if (!body || !box) return;
+    body.scrollTop += box.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
+  }, 320);
+});
+document.addEventListener('focusout', function (e) {
+  const t = e.target; if (!t || !t.closest || !t.closest('.emp-select-box')) return;
+  setTimeout(function () { const ov = document.getElementById('modal-overlay'); if (ov && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.emp-select-box'))) ov.classList.remove('kb'); }, 120);
+});
 function _setAppVh() { try { document.documentElement.style.setProperty('--app-vh', (window.innerHeight * 0.01) + 'px'); } catch (_) {} }
 window.addEventListener('resize', _setAppVh);
 window.addEventListener('orientationchange', _setAppVh);
