@@ -6257,7 +6257,7 @@ function startAutoSync() {
   const first = fresh ? Promise.resolve() : gsLoadOnce();
   first.then(() => {
     if (currentUser) showPage(currentPage);
-    setTimeout(() => { refreshCaseBadge(); _maybeNotifyCaseUpdates(); refreshPlanBadge(); _maybeNotifyPlanUpdates(); }, 1200);
+    setTimeout(() => { refreshCaseBadge(); _maybeNotifyCaseUpdates(); refreshPlanBadge(); _maybeNotifyPlanUpdates(); _maybeNotifyBranchAck(); }, 1200);
   });
   // ซิงค์เบื้องหลังทุก 3 นาที (เดิม 30 วินาที ซึ่งถี่เกินไปสำหรับข้อมูลขนาดนี้)
   _autoSyncTimer = setInterval(async () => {
@@ -16772,8 +16772,21 @@ function _maybeNotifyPlanUpdates() {
   setTimeout(() => _showPlanUpdateModal(items), 1500);
 }
 // ให้ BZM กด "รับทราบ" จริง ๆ แทนที่จะแค่เด้ง toast เฉย ๆ — badge จะเคลียร์ก็ต่อเมื่อกดปุ่มนี้ หรือเข้าไปดูหน้าแผนการสอนงานเอง
-function _ackPlanUpdates() {
+// "ปิดไว้ก่อน" (ปุ่มยกเลิกของ showModal) แค่ปิด popup เฉย ๆ ไม่ได้พาไปหน้าไหน badge ยังค้างจนกว่าจะรับทราบจริง
+// กดรับทราบแล้ว สติกชื่อ+เวลาไว้ในแต่ละรายการ แล้วเขียนกลับไปที่แผนของสาขานั้น ๆ ให้สาขาเห็นว่า BZM รับทราบแล้วเมื่อไหร่
+function _ackPlanUpdates(items) {
   _markPlansViewed();
+  const who = currentUser?.name || currentUser?.nick || 'BZM';
+  const now = new Date().toISOString();
+  const byBranch = {};
+  (items || []).forEach(it => { (byBranch[it._branchId] = byBranch[it._branchId] || []).push(it.id); });
+  const ym = _ymNow();
+  Object.keys(byBranch).forEach(bid => {
+    const ids = new Set(byBranch[bid]);
+    const p = getCoachingPlan(bid, ym);
+    const newItems = (p.items || []).map(it => ids.has(it.id) ? { ...it, bzmAckBy: who, bzmAckAt: now } : it);
+    _savePlan(bid, ym, newItems);
+  });
   refreshPlanBadge();
   closeModal();
 }
@@ -16789,7 +16802,26 @@ function _showPlanUpdateModal(items) {
   </div>`).join('');
   showModal(`📅 มีแผนการสอนงานใหม่/อัปเดต ${items.length} รายการ`,
     `<div style="font-size:13px;color:var(--text3);margin-bottom:12px">จากสาขาในเขตของคุณ</div>${rows}`,
-    _ackPlanUpdates, 'รับทราบ', 'ปิดไว้ก่อน');
+    () => _ackPlanUpdates(items), 'รับทราบ', 'ปิดไว้ก่อน');
+}
+// สาขาฝั่งตรงข้าม — เด้ง toast ครั้งเดียวต่อรอบเมื่อ BZM กด "รับทราบ" แผนของสาขานี้ ไม่เด้งซ้ำเรื่องเดิม (ลอจิกเดียวกับฝั่ง BZM)
+function _branchAckLastNotifyKey() {
+  const bid = getBranchId(); if (!bid) return null;
+  return 'opt_plan_ack_lastnotify_' + bid;
+}
+function _maybeNotifyBranchAck() {
+  if (currentUser?.type !== 'branch') return;
+  const bid = getBranchId(); if (!bid) return;
+  const acked = (getCoachingPlan(bid, _ymNow()).items || []).filter(it => it.bzmAckAt);
+  if (!acked.length) return;
+  const k = _branchAckLastNotifyKey(); if (!k) return;
+  const maxTs = Math.max(0, ...acked.map(it => new Date(it.bzmAckAt).getTime() || 0));
+  let lastNotified = 0;
+  try { lastNotified = Number(localStorage.getItem(k) || 0); } catch (_) {}
+  if (maxTs <= lastNotified) return;
+  try { localStorage.setItem(k, String(maxTs)); } catch (_) {}
+  const latest = acked.slice().sort((a, b) => new Date(b.bzmAckAt) - new Date(a.bzmAckAt))[0];
+  setTimeout(() => notify(`✅ BZM ${latest.bzmAckBy} รับทราบแผนการสอนงานแล้ว ${fmtDateTime(latest.bzmAckAt)}`), 1500);
 }
 
 function renderCoachingPlanPanel(bid) {
@@ -16828,6 +16860,7 @@ function renderCoachingPlanPanel(bid) {
           </div>
           ${it.note ? `<div class="cp-item-note">📝 ${_escH(it.note)}</div>` : ''}
           ${it.createdBy ? `<div class="cp-item-note" style="color:var(--text4)">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
+          ${it.bzmAckBy ? `<div class="cp-item-note" style="color:var(--green)">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</div>` : ''}
           <div class="cp-item-actions">
             ${currentUser?.type === 'branch' ? `<button class="btn btn-sm btn-accent" onclick="startTrainingFromPlan('${it.id}')">บันทึกการสอน</button>` : ''}
             ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
