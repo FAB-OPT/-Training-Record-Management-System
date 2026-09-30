@@ -3379,6 +3379,7 @@ function canEditPage(page) { return getPagePerm(page) === 'full'; }
 const ALL_ADMIN_PAGES = [
   { page: 'admin-dashboard',       icon: '🏠',  label: 'แดชบอร์ด' },
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการสาขา & พนักงาน' },
+  { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้ายสาขา' },
   { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
@@ -7170,6 +7171,7 @@ const BRANCH_NAV_ITEMS = [
 const ADMIN_NAV_ITEMS = [
   { page: 'admin-dashboard',       icon: '🏠',  label: 'หน้าหลัก' },
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการ' },
+  { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้าย' },
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
@@ -7288,6 +7290,7 @@ function buildBranchNav() {
 const _SIDEBAR_LABELS = {
   'admin-dashboard':      { admin: 'แดชบอร์ด',                     bzm: 'แดชบอร์ดโซน',                exec: 'แดชบอร์ดภาพรวม' },
   'admin-manage':         { admin: 'จัดการสาขา & พนักงาน',           bzm: 'สาขาในโซน',                  exec: 'เรียกดูสาขา' },
+  'admin-transfers':      { admin: 'โยกย้ายสาขา',                    bzm: '',                            exec: '' },
   'admin-trainings':      { admin: 'บันทึกการสอน & ประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
@@ -7360,7 +7363,7 @@ function showPage(page) {
     'trainings': renderTrainings, 'evaluations': renderTrainings, 'manual': renderManual, 'reports': renderReports,
     'coaching-plan': renderCoachingPlanPage,
     'course-history': renderCourseHistory,
-    'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage,
+    'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage, 'admin-transfers': renderAdminTransfers,
     'admin-branches': renderAdminManage, 'admin-employees': renderAdminManage,
     'admin-training-plan': renderTrainingPlan,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
@@ -7414,6 +7417,7 @@ function updateBottomNav(page) {
     // Admin
     'admin-dashboard':       'bnav-admin-dashboard',
     'admin-manage':          'bnav-admin-manage',
+    'admin-transfers':       'bnav-admin-transfers',
     'admin-branches':        'bnav-admin-manage',
     'admin-employees':       'bnav-admin-manage',
     'admin-trainings':       'bnav-admin-trainings',
@@ -8598,8 +8602,8 @@ function renderEmployees() {
   const mgr = enabled.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา');
   const cook = enabled.filter(e => getPositionGroup(e.position) === 'พนักงานครัว');
   const svc = enabled.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ');
-  // ประวัติย้ายออก — คนที่เคยอยู่สาขานี้แล้วย้ายไปที่อื่น (ไม่ได้อยู่ใน emps ของสาขานี้แล้ว จึงต้องดึงจาก transferRequests แยก)
-  const xferOut = (DB.transferRequests || []).filter(r => r.fromBranch === bid)
+  // ประวัติโยกย้าย — ทั้งคนที่ย้ายออกจากสาขานี้ (ไม่อยู่ใน emps แล้ว) และคนที่ย้ายเข้ามา (อยู่ใน emps ปกติ แต่โชว์ที่มาไว้ด้วย)
+  const xferHist = (DB.transferRequests || []).filter(r => r.fromBranch === bid || r.toBranch === bid)
     .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || String(b.requestedAt).localeCompare(String(a.requestedAt)));
   let rows = enabled;
   if (_empGroupFilter === 'mgr') rows = mgr;
@@ -8630,7 +8634,7 @@ function renderEmployees() {
         ${tabBtn('cook','พนักงานครัว',cook.length)}
         ${tabBtn('svc','พนักงานบริการ',svc.length)}
         ${disabled.length?tabBtn('disabled','🚫 ปิดใช้งาน',disabled.length):''}
-        ${xferOut.length?tabBtn('xferout','🔁 ย้ายออก',xferOut.length):''}
+        ${xferHist.length?tabBtn('xferout','🔁 โยกย้าย',xferHist.length):''}
       </div>
       <select class="form-select cat-select-mobile" onchange="setEmpGroupFilter(this.value)">
         <option value="all"${_empGroupFilter==='all'?' selected':''}>ทั้งหมด (${enabled.length})</option>
@@ -8638,13 +8642,13 @@ function renderEmployees() {
         <option value="cook"${_empGroupFilter==='cook'?' selected':''}>พนักงานครัว (${cook.length})</option>
         <option value="svc"${_empGroupFilter==='svc'?' selected':''}>พนักงานบริการ (${svc.length})</option>
         ${disabled.length?`<option value="disabled"${_empGroupFilter==='disabled'?' selected':''}>🚫 ปิดใช้งาน (${disabled.length})</option>`:''}
-        ${xferOut.length?`<option value="xferout"${_empGroupFilter==='xferout'?' selected':''}>🔁 ย้ายออก (${xferOut.length})</option>`:''}
+        ${xferHist.length?`<option value="xferout"${_empGroupFilter==='xferout'?' selected':''}>🔁 โยกย้าย (${xferHist.length})</option>`:''}
       </select>
       ${_empGroupFilter!=='xferout'?`<input class="search-input" id="emp-search" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="filterEmployees()" style="flex:1;min-width:160px;margin-left:auto">`:''}
     </div>
-    ${_empGroupFilter==='xferout' ? (xferOut.length
-      ? `<div class="xr-list">${xferOut.map(r => _xferRow(r, { bid })).join('')}</div>`
-      : '<div style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติย้ายออก</div>') : `
+    ${_empGroupFilter==='xferout' ? (xferHist.length
+      ? `<div class="xr-list">${xferHist.map(r => _xferRow(r, { bid })).join('')}</div>`
+      : '<div style="text-align:center;color:var(--text3);padding:32px">ยังไม่มีประวัติโยกย้าย</div>') : `
     <div class="table-wrap"><table class="cards-on-mobile emp-table">
       <thead><tr>
         ${_sortHeader('empCode','รหัสพนักงาน',_empSort,'setEmpSort')}
@@ -16917,7 +16921,7 @@ function openPlanAudit(bid) {
 // admin อนุมัติ → ย้ายด้วย _moveEmployee (ตัวเดียวกับที่ admin ย้ายเอง เก็บ transferHistory)
 // ตาราง transfer_requests (supabase-coaching-plan-transfer.sql)
 let _xferReady = false;
-const _XFER_ST = { pending:['รออนุมัติ','badge-yellow'], approved:['อนุมัติแล้ว','badge-green'], rejected:['ไม่อนุมัติ','badge-red'], cancelled:['ยกเลิกแล้ว',''] };
+const _XFER_ST = { pending:['รออนุมัติ','badge-yellow'], approved:['อนุมัติแล้ว','badge-green'], rejected:['ไม่อนุมัติ','badge-red'], cancelled:['ยกเลิกแล้ว',''], reverted:['ยกเลิกการย้ายแล้ว','badge-red'] };
 const _xferBadge = st => { const x = _XFER_ST[st] || [st, '']; return `<span class="badge ${x[1]}" style="white-space:nowrap">${x[0]}</span>`; };
 const _bName = bid => BRANCH_MASTER[bid] ? `${bid} ${String(BRANCH_MASTER[bid].name || '').replace(bid + ' ', '')}` : bid;
 
@@ -16978,7 +16982,9 @@ function _xferRow(r, side) {
     ? (r.status === 'pending'
         ? `<button class="btn btn-sm btn-green" onclick="decideTransferRequest('${r.id}',true)">อนุมัติ</button>
            <button class="btn btn-sm btn-outline" onclick="decideTransferRequest('${r.id}',false)">ไม่อนุมัติ</button>`
-        : `<span class="xr-st ${r.status}">${st[0]}</span>`)
+        : canRevertTransfer(r)
+          ? `<span class="xr-st ${r.status}">${st[0]}</span><button class="btn btn-sm btn-outline" style="margin-left:6px" onclick="revertTransferRequest('${r.id}')" title="ยังไม่มีประวัติที่สาขาปลายทาง ยกเลิกย้อนกลับได้">↩ ยกเลิกการย้าย</button>`
+          : `<span class="xr-st ${r.status}">${st[0]}</span>`)
     : `<span class="xr-st ${r.status}">${st[0]}</span>${r.status === 'pending' && r.fromBranch === side.bid
         ? `<button class="xr-cancel" onclick="cancelTransferRequest('${r.id}')">ยกเลิกคำขอ</button>` : ''}`;
   return `<div class="xr-row ${r.status}">
@@ -17023,6 +17029,51 @@ function renderAdminTransferCard() {
   </div>`;
 }
 
+/* หน้าเมนู "โยกย้ายสาขา" ของ admin — ประวัติคำขอย้ายทั้งหมดแบบไม่จำกัดจำนวน แยกจากการ์ดสรุปบนแดชบอร์ด */
+let _adminXferFilter = 'all';
+function setAdminXferFilter(f) { _adminXferFilter = f; document.getElementById('main-content').innerHTML = renderAdminTransfers(); }
+function renderAdminTransfers() {
+  if (!isAdminRole()) return '<div class="card">เฉพาะ Admin เท่านั้น</div>';
+  const acc = new Set(getAccessibleBranches());
+  const all = (DB.transferRequests || []).filter(r => acc.has(r.fromBranch) || acc.has(r.toBranch));
+  const pending = all.filter(r => r.status === 'pending');
+  const approved = all.filter(r => r.status === 'approved');
+  const rejected = all.filter(r => r.status === 'rejected');
+  const reverted = all.filter(r => r.status === 'reverted' || r.status === 'cancelled');
+  let rows = all;
+  if (_adminXferFilter === 'pending') rows = pending;
+  else if (_adminXferFilter === 'approved') rows = approved;
+  else if (_adminXferFilter === 'rejected') rows = rejected;
+  else if (_adminXferFilter === 'reverted') rows = reverted;
+  rows = [...rows].sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1)
+    || String(b.decidedAt || b.requestedAt).localeCompare(String(a.decidedAt || a.requestedAt)));
+  const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', approved: 'var(--green)', rejected: 'var(--red)', reverted: 'var(--text3)' };
+  const tabBtn = (key, label, count) => {
+    const c = tabColors[key];
+    const active = _adminXferFilter === key;
+    return `<button onclick="setAdminXferFilter('${key}')" style="border:none;background:transparent;color:${active?c:'var(--text2)'};padding:8px 14px;border-bottom:2px solid ${active?c:'transparent'};border-radius:0;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:${active?'800':'600'};cursor:pointer;display:inline-flex;align-items:center;gap:6px">${label}<span style="font-size:11px;color:${active?c:'var(--text3)'};font-weight:700">(${count})</span></button>`;
+  };
+  return `
+  <div class="page-hero">
+    <div class="page-hero-body">
+      <div class="page-hero-title">โยกย้ายสาขา</div>
+      <div class="page-hero-sub">ประวัติคำขอย้ายพนักงานข้ามสาขาทั้งหมด</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      ${tabBtn('all','ทั้งหมด',all.length)}
+      ${tabBtn('pending','รออนุมัติ',pending.length)}
+      ${tabBtn('approved','อนุมัติแล้ว',approved.length)}
+      ${tabBtn('rejected','ไม่อนุมัติ',rejected.length)}
+      ${tabBtn('reverted','ยกเลิกการย้าย',reverted.length)}
+    </div>
+    ${rows.length
+      ? `<div class="xr-list">${rows.map(r => _xferRow(r, { admin: true })).join('')}</div>`
+      : '<div style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</div>'}
+  </div>`;
+}
+
 function decideTransferRequest(id, approve) {
   if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่อนุมัติได้', 'error'); return; }
   const r = (DB.transferRequests || []).find(x => x.id === id); if (!r || r.status !== 'pending') return;
@@ -17051,13 +17102,36 @@ function decideTransferRequest(id, approve) {
   }, approve ? 'ยืนยันอนุมัติ' : 'ยืนยันไม่อนุมัติ');
 }
 
+/* ยกเลิกการย้ายที่อนุมัติไปแล้ว ให้ทำได้เฉพาะตอนที่ยังไม่มีร่องรอยที่สาขาปลายทาง
+   (ยังไม่มีการสอน/ประเมินใดๆ ผูกกับพนักงานคนนี้ที่สาขานั้น) — กันย้อนข้อมูลพังถ้าสาขาปลายทางเริ่มใช้งานคนนี้ไปแล้ว */
+function canRevertTransfer(r) {
+  if (!r || r.status !== 'approved') return false;
+  return !(DB.trainings || []).some(t => t.branchId === r.toBranch && (t.traineeIds || []).includes(r.empId));
+}
+async function revertTransferRequest(id) {
+  if (!isAdminRole()) { notify('เฉพาะ Admin เท่านั้นที่ยกเลิกการย้ายได้', 'error'); return; }
+  const r = (DB.transferRequests || []).find(x => x.id === id); if (!r) return;
+  if (!canRevertTransfer(r)) { notify('ยกเลิกไม่ได้ — พนักงานมีประวัติการสอน/ประเมินที่สาขาปลายทางแล้ว', 'error'); return; }
+  const e = getEmployee(r.empId);
+  if (!e) { notify('ไม่พบพนักงานคนนี้แล้ว — อาจถูกลบไป', 'error'); return; }
+  if (!confirm(`ยกเลิกการย้าย ${r.empName} — ย้ายกลับไป ${_bName(r.fromBranch)} ?`)) return;
+  const { error } = await _moveEmployee(r.empId, r.fromBranch, new Date().toISOString().slice(0, 10), 'ยกเลิกการย้าย (ไม่มีประวัติที่สาขาปลายทาง)');
+  if (error) { notify('ยกเลิกไม่สำเร็จ — ' + (error.message || 'ไม่ทราบสาเหตุ') + ' · ลองใหม่อีกครั้ง', 'error'); return; }
+  Object.assign(r, { status: 'reverted',
+    decisionNote: (r.decisionNote ? r.decisionNote + ' · ' : '') + `ยกเลิกการย้ายกลับโดย ${currentUser?.name || currentUser?.nick || '—'}`,
+    decidedBy: currentUser?.name || currentUser?.nick || '—', decidedAt: new Date().toISOString() });
+  gsSave('transferRequests', r.id, { ...r });
+  showPage(currentPage);
+  notify(`ยกเลิกการย้าย ${r.empName} แล้ว — กลับไป ${r.fromBranch}`);
+}
+
 // ==================== หน้า Admin แบบใหม่ · "ใบสั่งอาหาร" ====================
 // โทนสว่าง พื้นเทาอมเขียวแบบกระดาษบิลครัว ตัวหนังสือกราไฟต์ ส้มใช้เฉพาะจุดที่ต้องกด
 // สีทั้งหมดอยู่ที่ CSS (body.admin-user) · ตรงนี้คือโครง: เมนู 4 กลุ่ม + ตัวเลขงานค้าง
 // + แถบ "งานที่รอคุณ" บนแดชบอร์ด · ฝั่งสาขาไม่เปลี่ยน
 const NAV_GROUP_V2 = [
   ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
-  ['คนและสาขา',          ['admin-manage', 'exec-leaderboard', 'admin-users']],
+  ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'exec-leaderboard', 'admin-users']],
   ['การสอนและประเมิน',   ['admin-trainings', 'admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
   ['ระบบ',              ['admin-cases', 'admin-reports', 'admin-chat-logs']],
 ];
