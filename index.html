@@ -7142,7 +7142,6 @@ const BRANCH_NAV_ITEMS = [
   { page: 'employees',      icon: '👥',  label: 'พนักงาน' },
   { page: 'coaching-plan',  icon: '📅',  label: 'แผนสอน' },
   { page: 'trainings',      icon: '📚',  label: 'การสอน' },
-  { page: 'evaluations',    icon: '✅',  label: 'ประเมินผล' },
   { page: 'course-history', icon: '🎓',  label: 'หลักสูตร' },
   { page: 'cases',          icon: '📨',  label: 'เคส' },
   { page: 'reports',        icon: '📊',  label: 'รายงาน' },
@@ -7254,8 +7253,7 @@ function buildBranchNav() {
     <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span> แดชบอร์ด</div>
     <div class="nav-item" id="nav-employees" onclick="showPage('employees')"><span class="nav-icon">👥</span> รายชื่อพนักงาน</div>
     <div class="nav-item" id="nav-coaching-plan" onclick="showPage('coaching-plan')"><span class="nav-icon">📅</span> แผนการสอนงาน</div>
-    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอนงาน</div>
-    <div class="nav-item" id="nav-evaluations" onclick="showPage('evaluations')"><span class="nav-icon">✅</span> ประเมินผล</div>
+    <div class="nav-item" id="nav-trainings" onclick="showPage('trainings')"><span class="nav-icon">📚</span> บันทึกการสอนงานและประเมินผล</div>
     <div class="nav-item" id="nav-course-history" onclick="showPage('course-history')"><span class="nav-icon">🎓</span> ประวัติการอบรมหลักสูตร</div>
     <div class="nav-divider"></div>
     <div class="nav-section-label">การจัดการข้อมูล</div>
@@ -7326,6 +7324,7 @@ function buildAdminNav() {
 
 function showPage(page) {
   if (page === 'admin-evaluations') page = 'admin-trainings';
+  if (page === 'evaluations') page = 'trainings';
   if (page === 'admin-bzm') { _adminManageTab = 'bzm'; page = 'admin-manage'; }
   if (page === 'admin-employees') { _adminManageTab = 'employees'; page = 'admin-manage'; }
   if (page === 'admin-branches') { _adminManageTab = 'branches'; page = 'admin-manage'; }
@@ -7341,7 +7340,7 @@ function showPage(page) {
   if (navEl) navEl.classList.add('active');
   const pages = {
     'dashboard': renderDashboard, 'employees': renderEmployees,
-    'trainings': renderTrainings, 'evaluations': renderTrainings, 'manual': renderManual, 'reports': renderReports,
+    'trainings': renderTrainings, 'manual': renderManual, 'reports': renderReports,
     'coaching-plan': renderCoachingPlanPage,
     'course-history': renderCourseHistory,
     'admin-dashboard': renderAdminDashboard, 'admin-manage': renderAdminManage, 'admin-transfers': renderAdminTransfers,
@@ -7392,7 +7391,6 @@ function updateBottomNav(page) {
     'employees': 'bnav-employees',
     'trainings': 'bnav-trainings',
     'coaching-plan': 'bnav-coaching-plan',
-    'evaluations': 'bnav-evaluations',
     'course-history': 'bnav-course-history',
     'manual': 'bnav-trainings',
     'reports': 'bnav-reports',
@@ -9149,7 +9147,6 @@ function filterTrainSearch() {
   document.getElementById('train-table-area').innerHTML = _trainTableHtml(d);
 }
 function renderTrainings() {
-  const isEval = currentPage === 'evaluations';
   const d = _trainPageData();
   const { bid, trains, pending, done, expired, filter } = d;
   const tabColors = { all: 'var(--accent)', pending: 'var(--yellow)', done: 'var(--green)', expired: 'var(--red)' };
@@ -9161,9 +9158,9 @@ function renderTrainings() {
   return `
   <div class="page-hero">
     <div class="page-hero-body">
-      <div class="page-hero-title">${isEval ? 'ประเมินผล' : 'บันทึกการสอนงาน'}</div>
+      <div class="page-hero-title">บันทึกการสอนงานและประเมินผล</div>
     </div>
-    ${isEval ? '' : `<button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>`}
+    <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
   <div class="card">
     <div class="filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
@@ -13952,7 +13949,7 @@ function openEvalModal(trainingId) {
     if(!selectedEvalResult){notify('กรุณาเลือกผลการประเมิน','error');return;}
     t.eval = {method:selectedEvalMethod,result:selectedEvalResult,evalDate:new Date().toISOString(),note:document.getElementById('eval-note').value};
     gsSave('trainings', t.id, t);
-    closeModal(); showPage(currentPage === 'evaluations' ? 'evaluations' : 'trainings'); notify('บันทึกผลการประเมินสำเร็จ');
+    closeModal(); showPage('trainings'); notify('บันทึกผลการประเมินสำเร็จ');
     // ประเมินเสร็จแล้วข้อสอบจะปลดล็อก — เด้งถามให้ทำต่อทันที
     setTimeout(() => promptQuizAfterEval(t.id), 400);
   }, 'บันทึกผล');
