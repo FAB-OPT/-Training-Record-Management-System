@@ -16547,6 +16547,7 @@ function openPlanItem(grp, itemId) {
     .filter(e => [empGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
     .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
   const sel = new Set((it && it.empIds) || []);
+  _cpSelectedEmps = emps.filter(e => sel.has(e.id)).map(e => ({ id: e.id, name: e.name, position: e.position || '' }));
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? '👨‍🍳 ครัว' : '🍽 บริการ'} · ${_ymLabel(ym)}`, `
     <div class="form-row">
       <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
@@ -16574,9 +16575,23 @@ function openPlanItem(grp, itemId) {
     </div>
     <div class="form-full">
       <label class="form-label">พนักงานที่จะสอน <span class="req">*</span></label>
-      <div class="checkbox-group" style="max-height:190px;overflow:auto">
-        ${emps.length ? emps.map(e => `<label class="checkbox-item${sel.has(e.id) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-emp" value="${e.id}"${sel.has(e.id) ? ' checked' : ''}> ${_escH(e.name)} <span style="color:var(--text3);font-size:12px">· ${_escH(e.position || '')}</span></label>`).join('')
-          : '<span class="text-muted">ไม่มีพนักงานในกลุ่มนี้</span>'}
+      <div class="emp-multiselect" id="cp-emp-multiselect">
+        <div class="emp-select-box" id="cp-emp-select-box" onclick="cpFocusEmpSearch(event)">
+          <span id="cp-emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length === 0 ? 'ไม่มีพนักงานในกลุ่มนี้' : 'ค้นหาและเลือกพนักงาน...'}</span>
+          <input type="text" id="cp-emp-search-input" style="display:none" placeholder="ค้นหาชื่อ / ตำแหน่ง..." oninput="cpFilterEmpDropdown()" onkeydown="if(event.key==='Escape')cpCloseEmpDropdown()">
+        </div>
+        <div class="emp-dropdown-list" id="cp-emp-dropdown-list">
+          ${emps.length === 0
+            ? '<div class="emp-no-result">ไม่มีพนักงานในกลุ่มนี้</div>'
+            : emps.map(e => `
+              <div class="emp-opt${sel.has(e.id) ? ' selected' : ''}" id="cp-empopt-${e.id}" data-id="${e.id}" data-name="${_escH(e.name)}" data-pos="${_escH(e.position || '')}" onclick="cpToggleEmp('${e.id}')">
+                <div>
+                  <div>${_escH(e.name)}</div>
+                  <div class="emp-opt-pos">${_escH(e.position || '')}</div>
+                </div>
+                <span class="emp-opt-check">✓</span>
+              </div>`).join('')}
+        </div>
       </div>
     </div>
     <div class="form-full">
@@ -16600,7 +16615,7 @@ function openPlanItem(grp, itemId) {
     if (!moduleId) { notify('กรุณาเลือก Module', 'error'); return; }
     const subtopics = [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value);
     if (!subtopics.length) { notify('กรุณาเลือกหัวข้อย่อย', 'error'); return; }
-    const empIds = [...document.querySelectorAll('.cp-emp:checked')].map(c => c.value);
+    const empIds = cpSelectedEmpIds();
     if (!empIds.length) { notify('กรุณาเลือกพนักงานที่จะสอน', 'error'); return; }
     const planDate = document.getElementById('cp-date').value || '';
     if (!planDate) { notify('กรุณาเลือกวันที่วางแผนจะสอน', 'error'); return; }
@@ -16618,7 +16633,85 @@ function openPlanItem(grp, itemId) {
     closeModal(); showPage(currentPage); notify('บันทึกแผนการสอนแล้ว');
   }, 'บันทึกแผน');
   _cpSubtopics();
+  cpRenderEmpChips();
+  document.addEventListener('click', cpCloseEmpDropdownOutside);
 }
+let _cpSelectedEmps = [];
+function cpFocusEmpSearch(ev) {
+  if (ev) ev.stopPropagation();
+  const list = document.getElementById('cp-emp-dropdown-list');
+  const input = document.getElementById('cp-emp-search-input');
+  if (!list || !input) return;
+  input.style.display = '';
+  input.focus();
+  list.classList.add('open');
+}
+function cpCloseEmpDropdown() {
+  const list = document.getElementById('cp-emp-dropdown-list');
+  const input = document.getElementById('cp-emp-search-input');
+  if (list) list.classList.remove('open');
+  if (input) { input.style.display = 'none'; input.value = ''; cpFilterEmpDropdown(); }
+}
+function cpCloseEmpDropdownOutside(ev) {
+  const box = document.getElementById('cp-emp-multiselect');
+  if (!box) { document.removeEventListener('click', cpCloseEmpDropdownOutside); return; }
+  if (!box.contains(ev.target)) cpCloseEmpDropdown();
+}
+function cpFilterEmpDropdown() {
+  const input = document.getElementById('cp-emp-search-input');
+  const q = (input && input.value || '').trim().toLowerCase();
+  const opts = document.querySelectorAll('#cp-emp-dropdown-list .emp-opt');
+  let anyShown = false;
+  opts.forEach(o => {
+    const hit = !q || (o.dataset.name || '').toLowerCase().includes(q) || (o.dataset.pos || '').toLowerCase().includes(q);
+    o.style.display = hit ? '' : 'none';
+    if (hit) anyShown = true;
+  });
+  let noRes = document.querySelector('#cp-emp-dropdown-list .emp-no-result');
+  if (!anyShown && opts.length) {
+    if (!noRes) {
+      noRes = document.createElement('div');
+      noRes.className = 'emp-no-result';
+      noRes.textContent = 'ไม่พบพนักงาน';
+      document.getElementById('cp-emp-dropdown-list').appendChild(noRes);
+    }
+  } else if (noRes && opts.length) {
+    noRes.remove();
+  }
+}
+function cpToggleEmp(id) {
+  const idx = _cpSelectedEmps.findIndex(e => e.id === id);
+  const opt = document.getElementById('cp-empopt-' + id);
+  if (idx >= 0) {
+    _cpSelectedEmps.splice(idx, 1);
+    if (opt) opt.classList.remove('selected');
+  } else if (opt) {
+    _cpSelectedEmps.push({ id, name: opt.dataset.name, position: opt.dataset.pos || '' });
+    opt.classList.add('selected');
+  }
+  cpRenderEmpChips();
+}
+function cpRemoveEmpChip(id) {
+  _cpSelectedEmps = _cpSelectedEmps.filter(e => e.id !== id);
+  const opt = document.getElementById('cp-empopt-' + id);
+  if (opt) opt.classList.remove('selected');
+  cpRenderEmpChips();
+}
+function cpRenderEmpChips() {
+  const box = document.getElementById('cp-emp-select-box');
+  if (!box) return;
+  const input = document.getElementById('cp-emp-search-input');
+  const placeholder = document.getElementById('cp-emp-placeholder');
+  box.querySelectorAll('.emp-tag').forEach(t => t.remove());
+  _cpSelectedEmps.forEach(e => {
+    const tag = document.createElement('span');
+    tag.className = 'emp-tag';
+    tag.innerHTML = `${_escH(e.name)}<span class="emp-tag-remove" onclick="event.stopPropagation();cpRemoveEmpChip('${e.id}')">×</span>`;
+    box.insertBefore(tag, placeholder);
+  });
+  if (placeholder) placeholder.style.display = _cpSelectedEmps.length ? 'none' : '';
+}
+function cpSelectedEmpIds() { return _cpSelectedEmps.map(e => e.id); }
 function _cpSubtopics() {
   const box = document.getElementById('cp-subs'); if (!box) return;
   const m = MODULES[document.getElementById('cp-module').value];
