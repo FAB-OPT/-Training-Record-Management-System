@@ -9565,6 +9565,7 @@ function openAddTraining() {
 
   showModal('บันทึกการสอนงาน', `
     ${_planPickerHtml(bid)}
+    <div id="tr-form-rest" style="${_trGated ? 'display:none' : ''}">
     <div style="margin-bottom:14px">
       <button type="button" class="btn btn-outline" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openManualModal()">
         📖 ดูหัวข้อการสอนงาน
@@ -9634,6 +9635,7 @@ function openAddTraining() {
         <span id="sub-one-hint" style="display:none;font-weight:500;color:var(--text3);font-size:11px">— Module นี้เลือกได้ครั้งละหัวข้อเดียว เพราะมีข้อสอบประจำหัวข้อ</span>
         <span id="sub-missing-hint" style="display:none;font-weight:700;color:#B45309;font-size:11.5px"></span></label>
       <div class="checkbox-group" id="subtopics-container"><span class="text-muted">กรุณาเลือก Module ก่อน</span></div>
+    </div>
     </div>`, () => {
     const date = _localToISO(document.getElementById('tr-date').value);
     const trainer = document.getElementById('tr-trainer').value.trim();
@@ -9655,8 +9657,12 @@ function openAddTraining() {
       const subs = subtopics.filter(s => cov[id] && cov[id][s]);
       return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
     }).filter(Boolean);
-    if (dupLines.length) _confirmReviewTopics(dupLines, doSave); else doSave();
+    const proceed = () => { if (dupLines.length) _confirmReviewTopics(dupLines, doSave); else doSave(); };
+    const planSel = document.getElementById('tr-from-plan');
+    if (_coachingReady && (!planSel || planSel.value === '__none')) _confirmNoPlan(proceed); else proceed();
   }, 'ยืนยันการสอน');
+  // มีแผนให้เลือก → ซ่อนปุ่มยืนยันไว้จนกว่าจะเลือก (เลือกแล้วปุ่มและฟอร์มส่วนล่างขึ้นมาพร้อมกัน)
+  if (_trGated) { const _cb = document.querySelector('#modal-overlay .modal-footer .btn-navy'); if (_cb) _cb.style.display = 'none'; }
 
   // Reset selected employees for fresh modal
   _selectedEmps = [];
@@ -9693,6 +9699,32 @@ function _confirmReviewTopics(lines, onYes) {
   document.body.appendChild(ov);
   ov.querySelector('#rc-no').onclick = () => ov.remove();
   ov.querySelector('#rc-yes').onclick = () => { ov.remove(); onYes(); };
+}
+
+/* บันทึกการสอนที่ไม่ได้เลือกแผน — เตือนให้สาขาอัพเดท/จัดทำแผนการสอนด้วย (ยืนยันแล้วบันทึกต่อได้ ไม่ได้บล็อก) */
+function _confirmNoPlan(onYes) {
+  const old = document.getElementById('review-confirm-overlay'); if (old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'review-confirm-overlay'; ov.className = 'modal-overlay open'; ov.style.zIndex = '10000';
+  ov.innerHTML = `<div class="modal" style="max-width:420px">
+    <div class="modal-body" style="padding:24px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📅</div>
+        <div style="flex:1;min-width:0">
+          <div class="pop-title" style="margin-bottom:6px">การสอนงานนี้ไม่อยู่ในแผนการสอน</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px">สาขาควรอัพเดทหรือจัดทำแผนการสอนงานด้วย เพื่อให้ BZM และ Admin เห็นว่าสาขาวางแผนไว้อย่างไร</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--text)">ต้องการยืนยันการสอนนี้โดยไม่มีแผนใช่หรือไม่?</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="np-no">กลับไปแก้ไข</button>
+      <button class="btn btn-navy" id="np-yes">ยืนยันการสอน</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#np-no').onclick = () => ov.remove();
+  ov.querySelector('#np-yes').onclick = () => { ov.remove(); onYes(); };
 }
 
 // ==================== EMP MULTI-SELECT HELPERS ====================
@@ -17156,7 +17188,11 @@ function renderCoachingPlanPanel(bid) {
     .cp-item-notes:empty{display:none}
     .cp-item-note{font-size:11.5px;color:var(--text3)}
     .cp-item-actions{grid-area:act;display:flex;flex-direction:column;gap:8px;min-width:130px}
-    .cp-item-actions .btn{width:100%}
+    .cp-item-actions .btn{width:100%;display:inline-flex;align-items:center;justify-content:center;text-align:center}
+    .cp-item-actions{align-self:center}
+    /* ปุ่มแก้ไขแผน: สีส้มอ่อน ตัวหนา ข้อความอยู่กึ่งกลาง */
+    .cp-item-actions .btn-outline{background:var(--accent-light);border-color:var(--accent);color:var(--accent);font-weight:800}
+    .cp-item-actions .btn-outline:hover{background:var(--accent);color:#fff}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
     @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
     /* คอลัมน์แคบ (มือถือ หรือจอคอมที่ครัว/บริการอยู่ข้างกัน) เรียงการ์ดแนวตั้ง ปุ่มอยู่ล่างเต็มแถว — คอลัมน์กว้างถึงใช้ 3 ช่อง */
@@ -17745,7 +17781,9 @@ function _pendingPlanItems(bid) {
   months.forEach(ym => (getCoachingPlan(bid, ym).items || []).forEach(it => { if (!_planItemDone(bid, ym, it)) out.push({ ym, it }); }));
   return out;
 }
+let _trGated = false;   // true = ฟอร์มบันทึกการสอนซ่อนส่วนล่างไว้จนกว่าจะเลือกแผน (หรือเลือกไม่ใช้แผน)
 function _planPickerHtml(bid) {
+  _trGated = false;
   if (!_coachingReady) return '';
   const list = _pendingPlanItems(bid);
   if (!list.length) return `<div class="form-full" style="margin-bottom:14px;font-size:12.5px;color:var(--text3)">📅 ยังไม่มีแผนที่รอสอนในเดือนนี้ — บันทึกการสอนเองได้เลย</div>`;
@@ -17753,18 +17791,26 @@ function _planPickerHtml(bid) {
     const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean).join(', ');
     return `<option value="${_escH(ym + '|' + it.id)}">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} · ${_escH(names || 'ยังไม่ระบุคน')} · ${_escH(_ymLabel(ym))}</option>`;
   }).join('');
+  _trGated = true;
   return `<div class="form-full" style="margin-bottom:14px">
-    <label class="form-label">📅 บันทึกตามแผน <span style="font-weight:500;color:var(--text3);font-size:11px">(ไม่บังคับ — เลือกแล้วระบบเติมให้ แก้ได้ทุกช่อง)</span></label>
+    <label class="form-label">📅 บันทึกการสอน <span style="font-weight:500;color:var(--text3);font-size:11px">— เลือกแผนที่จะสอน ระบบเติมให้ แก้ได้ทุกช่อง</span></label>
     <select class="form-select" id="tr-from-plan" onchange="applyPlanToTrainingForm(this.value)">
-      <option value="">— ไม่ใช้แผน (กรอกเอง) —</option>${opts}
+      <option value="">— เลือกแผน หรือ ไม่ใช้แผน —</option>${opts}
+      <option value="__none">ไม่ใช้แผน (กรอกเอง)</option>
     </select>
     <div id="tr-plan-note" style="display:none;margin-top:6px;font-size:12px;font-weight:600;color:var(--green)"></div>
   </div>`;
 }
 /* เติมฟอร์มบันทึกการสอนจากแผนที่เลือก: ผู้สอน ผู้เรียน Module หัวข้อย่อย (ทุกช่องยังแก้ได้) */
+function _trRevealForm() {
+  const rest = document.getElementById('tr-form-rest'); if (rest) rest.style.display = '';
+  const cb = document.querySelector('#modal-overlay .modal-footer .btn-navy'); if (cb) cb.style.display = '';
+}
 function applyPlanToTrainingForm(val) {
   const note = document.getElementById('tr-plan-note');
   if (!val) { if (note) note.style.display = 'none'; return; }
+  _trRevealForm();
+  if (val === '__none') { if (note) note.style.display = 'none'; return; }
   const [ym, itemId] = String(val).split('|'), bid = getBranchId();
   const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
   const trainerInp = document.getElementById('tr-trainer');
