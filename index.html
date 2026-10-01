@@ -17083,7 +17083,7 @@ function renderCoachingPlanPanel(bid) {
         const m = MODULES[it.moduleId] || {};
         const ok = _planItemDone(bid, ym, it);
         const ev = ok && _planItemEvaluated(bid, ym, it);
-        const shortD = d => d ? _escH(fmtDate(d).replace(/\s*\d{4}$/, '')) : '—';
+        const shortD = d => d ? _escH(fmtDate(d)) : '—';   // แสดงปี พ.ศ. ด้วย (เดิมตัดปีออก)
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
