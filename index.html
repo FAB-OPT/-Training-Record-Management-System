@@ -18063,8 +18063,25 @@ function _planItemDetailListHtml(bid, ym, items) {
         ${it.note ? `<br>📝 ${_escH(it.note)}` : ''}
       </div>
       ${it.createdBy ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
+      ${isAdminRole() ? `<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn btn-sm btn-outline" onclick="adminEditPlanItem('${bid}','${ym}','${it.id}')">✏️ แก้ไข</button><button type="button" class="btn btn-sm btn-danger" onclick="adminDeletePlanItem('${bid}','${ym}','${it.id}')">🗑 ลบ</button></div>` : ''}
     </div>`;
   }).join('')}</div>`;
+}
+/* Admin แก้ไข/ลบแผนของสาขาได้ตลอด (แม้สอนไปแล้ว) — จากรายการแผนในหน้าแผนการสอนงานของ Admin */
+function adminEditPlanItem(bid, ym, itemId) {
+  if (!isAdminRole()) return;
+  const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
+  _viewBranchOverride = bid; _planMonth = ym;
+  closeModal();
+  editPlanItem(_planGroup(it.moduleId), itemId);
+}
+function adminDeletePlanItem(bid, ym, itemId) {
+  if (!isAdminRole()) return;
+  const p = getCoachingPlan(bid, ym), it = (p.items || []).find(x => x.id === itemId); if (!it) return;
+  showConfirm('ลบแผน "' + _escH((MODULES[it.moduleId] || {}).name || it.moduleId) + '" ของ ' + _escH(_bName(bid)) + ' ออกจากระบบ?<br><span style="font-size:12px;color:var(--text3)">ลบแล้วสาขาจะไม่เห็นแผนนี้อีก</span>', () => {
+    _savePlan(bid, ym, (p.items || []).filter(x => x.id !== itemId));
+    closeModal(); showPage(currentPage); notify('ลบแผนแล้ว');
+  }, { title: 'ลบแผนการสอน', confirmText: 'ลบ' });
 }
 
 function openPlanAudit(bid) {
