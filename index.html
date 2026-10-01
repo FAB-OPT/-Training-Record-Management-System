@@ -2680,6 +2680,9 @@
     .tf-m .tf-btn .n { background: var(--accent); color: #fff; border-radius: 999px; font-size: 10.5px; min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; }
     .tf-m .tf-chips, .tf-m .tf-dates { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
     .tf-m .tf-chips::-webkit-scrollbar, .tf-m .tf-dates::-webkit-scrollbar { display: none; }
+    /* แท็บสถานะ 2 บรรทัด กึ่งกลาง: (ทั้งหมด · รอประเมิน) / (ประเมินแล้ว · หมดเวลาประเมิน) ไม่ล้นขอบ */
+    .tf-m .tf-chips { flex-wrap: wrap; overflow: visible; justify-content: center; }
+    .tf-m .tf-chips .tf-br { flex-basis: 100%; height: 0; }
     .tf-m .tf-dates { flex-wrap: wrap; overflow: visible; }
     .tf-m .tf-chip { flex: 0 0 auto; border: 1.5px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 700; color: var(--text2); cursor: pointer; white-space: nowrap; }
     .tf-m .tf-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -9407,7 +9410,7 @@ function _trainFilterMobileHtml(d) {
       </span>
       <button class="tf-btn" onclick="toggleTrainFilterPanel()">⚙ ตัวกรอง${active ? ` <span class="n">${active}</span>` : ''} <span id="tf-arrow">${_trainFilterOpen ? '▴' : '▾'}</span></button>
     </div>
-    <div class="tf-chips">${tab('all', 'ทั้งหมด', trains.length)}${tab('pending', 'รอประเมิน', pending.length)}${tab('done', 'ประเมินแล้ว', done.length)}${tab('expired', 'หมดเวลาประเมิน', expired.length)}</div>
+    <div class="tf-chips">${tab('all', 'ทั้งหมด', trains.length)}${tab('pending', 'รอประเมิน', pending.length)}<span class="tf-br"></span>${tab('done', 'ประเมินแล้ว', done.length)}${tab('expired', 'หมดเวลาประเมิน', expired.length)}</div>
     <div class="tf-panel" id="tf-panel" style="display:${_trainFilterOpen ? 'flex' : 'none'}">
       <div class="tf-row2">
         <select class="form-select" onchange="setTrainModuleFilter(this.value)">${_moduleOptionsHtml(_trainModuleFilter)}</select>
