@@ -17537,13 +17537,6 @@ function _cpSyncEvalRange(check) {
   const p = (document.getElementById('cp-date') || {}).value || '', ev = document.getElementById('cp-eval-date'), hint = document.getElementById('cp-eval-hint');
   if (!ev) return;
   if (p) { ev.min = p; ev.max = _cpAddDays(p, 14); } else { ev.removeAttribute('min'); ev.removeAttribute('max'); }
-  const pd = document.getElementById('cp-date');
-  if (pd) {
-    let rn = document.getElementById('cp-retro-note');
-    const past = p && p < _ymdLocal(new Date());
-    if (past && !rn) { rn = document.createElement('div'); rn.id = 'cp-retro-note'; rn.style.cssText = 'margin-top:6px;font-size:11.5px;font-weight:600;color:#B45309;line-height:1.45'; pd.insertAdjacentElement('afterend', rn); }
-    if (rn) { rn.style.display = past ? '' : 'none'; rn.textContent = '↩ วันที่ผ่านมาแล้ว — แผนนี้จะติดป้าย "ทำย้อนหลัง" ให้ BZM และ Admin เห็น'; }
-  }
   if (hint) hint.textContent = p ? 'เลือกได้ตั้งแต่ ' + fmtDate(p) + ' ถึง ' + fmtDate(_cpAddDays(p, 14)) : 'ต้องไม่เกิน 14 วันหลังวันที่วางแผนจะสอน';
   if (check && ev.value) {
     const old = document.querySelector('#modal-overlay .cp-err[data-for="eval"]'); if (old) old.remove(); ev.classList.remove('cp-err-box');
