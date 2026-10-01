@@ -9516,7 +9516,8 @@ function _trainTableHtml(d) {
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="white-space:nowrap">หมดเวลา</span>' : '<span class="badge badge-yellow" style="white-space:nowrap">รอประเมิน</span>';
         const within7 = !isEvalDeadlinePassed(t.date);
         const fromOtherBranch = t.branchId !== bid;   // สอนจริงที่สาขาอื่นมาก่อนย้าย — ดูได้แต่แก้/ลบ/ประเมินจากที่นี่ไม่ได้
-        const canEdit = within7 && !t.eval && !fromOtherBranch;
+        const planLocked = currentUser?.type === 'branch' && _trainingFromPlan(t);
+        const canEdit = within7 && !t.eval && !fromOtherBranch && !planLocked;
         const canEval = !t.eval && within7 && !fromOtherBranch;
         const moduleComplete = isModuleComplete(t);
         const isQuizRow = isLatestCompletingTraining(t);
@@ -9545,6 +9546,7 @@ function _trainTableHtml(d) {
               :isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:(!t.eval && !fromOtherBranch)?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
+            ${planLocked?`<span class="act-br"></span><span class="badge badge-gray" style="margin-left:4px;font-size:11px;white-space:nowrap" title="บันทึกตามแผนแล้ว สาขาแก้ไข/ลบไม่ได้ — ให้ Admin เป็นผู้แก้">🔒 ตามแผน แก้ไขไม่ได้</span>`:''}
             ${canEdit?`<span class="act-br"></span><button class="btn btn-sm btn-outline ic" style="margin-left:4px" title="แก้ไข" onclick="openEditTraining('${t.id}')"><span class="lbl">แก้ไข</span><span class="ico">✏️</span></button><button class="btn btn-sm btn-danger ic" style="margin-left:4px" title="ลบ" onclick="deleteTraining('${t.id}')"><span class="lbl">ลบ</span><span class="ico">🗑</span></button>`:''}
           </td>
         </tr>`;}).join('')}
@@ -11202,6 +11204,7 @@ function deleteTraining(id) {
   const isAdmin = currentUser?.type === 'admin';
   const within7 = !isEvalDeadlinePassed(t.date);
   if (!isAdmin && (!within7 || t.eval)) { notify('ไม่สามารถลบได้','error'); return; }
+  if (currentUser?.type === 'branch' && _trainingFromPlan(t)) { notify('บันทึกตามแผนแล้ว สาขาลบไม่ได้ — ให้ Admin เป็นผู้ลบ','error'); return; }
   showModal('ยืนยันการลบ', `<p>ต้องการลบบันทึกการสอนงานนี้ใช่ไหม?</p><p style="color:var(--red);font-size:13px">การดำเนินการนี้ไม่สามารถยกเลิกได้</p>`, () => {
     DB.trainings = DB.trainings.filter(t=>t.id!==id);
     gsDel('trainings', id);
@@ -11280,6 +11283,7 @@ function adminDeleteEval(id) {
 
 function openEditTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
+  if (currentUser?.type === 'branch' && _trainingFromPlan(t)) { notify('บันทึกตามแผนแล้ว สาขาแก้ไขไม่ได้ — ให้ Admin เป็นผู้แก้', 'error'); return; }
   const bid = t.branchId;
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
@@ -17149,7 +17153,9 @@ function renderCoachingPlanPanel(bid) {
             ${it.bzmAckBy ? `<span class="cp-item-note" style="color:var(--green);font-weight:600">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</span>` : ''}
           </div>
           <div class="cp-item-actions">
-            ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>` : ''}
+            ${canEdit ? (ok && !isAdminRole()
+              ? `<button class="btn btn-sm btn-outline" disabled style="opacity:.6;cursor:not-allowed" title="สอนตามแผนแล้ว สาขาแก้ไขไม่ได้ — ให้ Admin เป็นผู้แก้">🔒 สอนแล้ว แก้ไขไม่ได้</button>`
+              : `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>`) : ''}
           </div>
         </div>`;
       }).join('') : `<div class="cp-empty">กด "+ เพิ่มแผนการสอน" ด้านบนเพื่อวางว่าเดือนนี้จะสอน Module ไหน</div>`}
@@ -17260,6 +17266,14 @@ function _planMatches(bid, ym, it) {
   return (DB.trainings || []).filter(t => t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
     (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))))
     .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+}
+/* บันทึกการสอนนี้ "ตามแผน" ไหม — มีแผนของเดือนเดียวกันที่ Module เดียวกันและผู้เรียนตรงกันอย่างน้อยหนึ่งคน
+   ตามแผนแล้ว สาขาแก้ไข/ลบไม่ได้ (Admin แก้ได้ทุกอย่าง) — ตาราง trainings ไม่มีคอลัมน์เก็บว่า "เลือกแผนไหน" จึงคำนวณจากการจับคู่เหมือนที่ใช้นับ "สอนแล้ว" */
+function _trainingFromPlan(t) {
+  if (!t) return false;
+  const items = getCoachingPlan(t.branchId, _ymOf(t.date)).items || [];
+  return items.some(it => it.moduleId === t.moduleId &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
 }
 /* ผลของการสอนครั้งหนึ่ง: ผลประเมิน · ข้อสอบ · ต้องสอนใหม่หรือไม่
    ต้องสอนใหม่เมื่อ ประเมินไม่ผ่าน (ระดับ 1-2) หรือ สอบไม่ผ่านจนครบจำนวนครั้งที่ทำได้ (ตามกติกาข้อสอบของระบบ) */
@@ -17606,6 +17620,9 @@ function _cpBatchSaveAll() {
 }
 /* เข้าฟอร์มแก้ไขแผนที่มีอยู่แล้วตรง ๆ (ไม่ใช่โหมดเพิ่มหลายรายการ) — กันสถานะโหมดชุดก่อนหน้าหลุดมาปน */
 function editPlanItem(grp, itemId) {
+  const _bid = getBranchId(), _ym = _planMonth || _ymNow();
+  const _it = (getCoachingPlan(_bid, _ym).items || []).find(x => x.id === itemId);
+  if (_it && !isAdminRole() && _planItemDone(_bid, _ym, _it)) { notify('สอนตามแผนแล้ว สาขาแก้ไขแผนไม่ได้ — ให้ Admin เป็นผู้แก้', 'error'); return; }
   _cpBatchMode = false;
   openPlanItem(grp, itemId);
 }
