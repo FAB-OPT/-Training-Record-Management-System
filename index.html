@@ -17148,7 +17148,7 @@ function renderCoachingPlanPanel(bid) {
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
             ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
-            ${_subsEff.length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${_subsEff.length} หัวข้อย่อย${_planTodoCount(bid, it, ym) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it, ym)}</b>` : ''} 🔍</span>` : ''}
+            ${_subsEff.length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${_subsEff.length} หัวข้อย่อย${_ms.length && _subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length ? ` <b style="color:#0369A1">(+${_subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length} เพิ่มตอนสอน)</b>` : ''}${_planTodoCount(bid, it, ym) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it, ym)}</b>` : ''} 🔍</span>` : ''}
             ${_retroTag(bid, ym, it)}
             ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
@@ -17375,9 +17375,17 @@ function _cpShowSubtopics(itemId) {
   const it = (plan.items || []).find(x => x.id === itemId); if (!it) return;
   const m = MODULES[it.moduleId] || {};
   const stMap = {}; _subStatusList(bid, it.moduleId, it.empIds || []).forEach(x => { stMap[x.s] = x.st; });
+  /* เทียบกับที่วางไว้ในแผนตอนแรก: เพิ่มตอนสอน = สอนจริงแต่ไม่ได้อยู่ในแผน · ไม่ได้สอน = อยู่ในแผนแต่ไม่ได้สอน (เทียบเมื่อมีการสอนตรงแผนแล้วเท่านั้น) */
+  const eff = _planSubsEffective(bid, ym, it), orig = it.subtopicsOrig || it.subtopics || [];
+  const taught = _planMatches(bid, ym, it).length > 0;
+  const added = taught ? eff.filter(x => !orig.includes(x)) : [], dropped = taught ? orig.filter(x => !eff.includes(x)) : [];
+  const tag = (txt, bg, fg) => `<span class="sub-tag" style="background:${bg};color:${fg}">${txt}</span>`;
+  const row = (s, right, extra) => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;${extra || ''}"><span>${_escH(s)}</span><span style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${right}</span></div>`;
   showModal(`หัวข้อย่อย · ${_escH(m.name || it.moduleId)}`, `
+    ${taught ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">วางแผนไว้ <b>${orig.length}</b> ข้อ · สอนจริง <b>${eff.length}</b> ข้อ${added.length ? ` · <b style="color:#0369A1">เพิ่มตอนสอน ${added.length}</b>` : ''}${dropped.length ? ` · <b style="color:#B45309">ไม่ได้สอนตามแผน ${dropped.length}</b>` : ''}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${_planSubsEffective(bid, ym, it).map(s => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${_escH(s)}</span>${(it.empIds || []).length && stMap[s] ? _subTag(stMap[s]) : ''}</div>`).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
+      ${eff.map(s => row(s, (added.includes(s) ? tag('+ เพิ่มตอนสอน', '#E0F2FE', '#0369A1') : '') + ((it.empIds || []).length && stMap[s] ? _subTag(stMap[s]) : ''))).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
+      ${dropped.map(s => row(s, tag('ไม่ได้สอนตามแผน', '#FEF3C7', '#B45309'), 'opacity:.7;text-decoration:line-through')).join('')}
     </div>`, null, 'ปิด');
 }
 
