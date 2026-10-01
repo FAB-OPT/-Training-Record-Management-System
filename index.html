@@ -17128,6 +17128,7 @@ function renderCoachingPlanPanel(bid) {
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
             ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
             ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย${_planTodoCount(bid, it) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it)}</b>` : ''} 🔍</span>` : ''}
+            ${_retroTag(bid, ym, it)}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
           <div class="cp-step">
@@ -17245,6 +17246,17 @@ function _planLearnersHtml(empIds) {
     return `<div class="cp-learner"><b>${_escH(e.name)}</b>${meta.length ? `<span class="cp-learner-meta">${meta.map(_escH).join(' · ')}</span>` : ''}</div>`;
   }).join('');
 }
+/* แผน "ทำย้อนหลัง" = จัดทำหลังวันที่วางแผนจะสอน หรือจัดทำหลังที่มีบันทึกการสอนตรงแผนไปแล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน)
+   คำนวณจากเวลาที่สร้างแผน (createdAt) — แผนเก่าที่ไม่มีเวลาสร้างจะไม่ถูกติดป้าย */
+function _planIsRetro(bid, ym, it) {
+  if (!it || !it.createdAt) return false;
+  const made = new Date(it.createdAt); if (isNaN(made)) return false;
+  if (it.planDate && it.planDate < _ymdLocal(made)) return true;
+  return (DB.trainings || []).some(t => t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
+    new Date(t.date) < made && (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+}
+const _retroTag = (bid, ym, it) => _planIsRetro(bid, ym, it)
+  ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="จัดทำแผนหลังวันที่สอน หรือหลังมีบันทึกการสอนแล้ว">↩ ทำย้อนหลัง</span>' : '';
 /* จำนวนหัวข้อในแผนข้อนี้ที่ผู้เรียนยังไม่เคยถูกสอน (ไม่นับรอประเมิน) */
 function _planTodoCount(bid, it) {
   if (!(it.empIds || []).length) return 0;
@@ -17465,6 +17477,13 @@ function _cpSyncEvalRange(check) {
   const p = (document.getElementById('cp-date') || {}).value || '', ev = document.getElementById('cp-eval-date'), hint = document.getElementById('cp-eval-hint');
   if (!ev) return;
   if (p) { ev.min = p; ev.max = _cpAddDays(p, 14); } else { ev.removeAttribute('min'); ev.removeAttribute('max'); }
+  const pd = document.getElementById('cp-date');
+  if (pd) {
+    let rn = document.getElementById('cp-retro-note');
+    const past = p && p < _ymdLocal(new Date());
+    if (past && !rn) { rn = document.createElement('div'); rn.id = 'cp-retro-note'; rn.style.cssText = 'margin-top:6px;font-size:11.5px;font-weight:600;color:#B45309;line-height:1.45'; pd.insertAdjacentElement('afterend', rn); }
+    if (rn) { rn.style.display = past ? '' : 'none'; rn.textContent = '↩ วันที่ผ่านมาแล้ว — แผนนี้จะติดป้าย "ทำย้อนหลัง" ให้ BZM และ Admin เห็น'; }
+  }
   if (hint) hint.textContent = p ? 'เลือกได้ตั้งแต่ ' + fmtDate(p) + ' ถึง ' + fmtDate(_cpAddDays(p, 14)) : 'ต้องไม่เกิน 14 วันหลังวันที่วางแผนจะสอน';
   if (check && ev.value) {
     const old = document.querySelector('#modal-overlay .cp-err[data-for="eval"]'); if (old) old.remove(); ev.classList.remove('cp-err-box');
@@ -17942,7 +17961,7 @@ function _planItemDetailListHtml(bid, ym, items) {
     const kitchen = _planGroup(it.moduleId) === 'kitchen';
     return `<div style="border:1px solid ${done ? '#BBE5C8' : 'var(--border)'};border-left:4px solid ${kitchen ? '#EF4444' : '#22C55E'};border-radius:10px;padding:10px 12px;background:var(--surface)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)}</span>
+        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} ${_retroTag(bid, ym, it)}</span>
         <span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;background:${done ? 'var(--green)' : 'var(--surface2)'};color:${done ? '#fff' : 'var(--text3)'}">${done ? '✓ สอนแล้ว' : 'ยังไม่สอน'}</span>
       </div>
       <div style="font-size:12px;color:var(--text2);line-height:1.65">
