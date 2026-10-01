@@ -17143,11 +17143,12 @@ function renderCoachingPlanPanel(bid) {
         const shortD = d => d ? _escH(fmtDate(d)) : '—';   // แสดงปี พ.ศ. ด้วย (เดิมตัดปีออก)
         const _ms = _planMatches(bid, ym, it), _tFirst = _ms[0], _eFirst = _ms.find(t => t.eval);
         const _actualHtml = _planActualHtml(bid, ym, it);
+        const _subsEff = _planSubsEffective(bid, ym, it);
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
             ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
-            ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย${_planTodoCount(bid, it) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it)}</b>` : ''} 🔍</span>` : ''}
+            ${_subsEff.length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${_subsEff.length} หัวข้อย่อย${_planTodoCount(bid, it, ym) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it, ym)}</b>` : ''} 🔍</span>` : ''}
             ${_retroTag(bid, ym, it)}
             ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
@@ -17355,11 +17356,18 @@ function _planIsRetro(bid, ym, it) {
 }
 const _retroTag = (bid, ym, it) => _planIsRetro(bid, ym, it)
   ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="จัดทำแผนหลังวันที่สอน หรือหลังมีบันทึกการสอนแล้ว">↩ ทำย้อนหลัง</span>' : '';
+function _planSubsEffective(bid, ym, it) {
+  const ms = _planMatches(bid, ym, it);
+  if (!ms.length) return it.subtopics || [];
+  const set = new Set(); ms.forEach(t => (t.subtopics || []).forEach(x => set.add(x)));
+  const order = (MODULES[it.moduleId] && MODULES[it.moduleId].subtopics) || [];
+  return [...set].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+}
 /* จำนวนหัวข้อในแผนข้อนี้ที่ผู้เรียนยังไม่เคยถูกสอน (ไม่นับรอประเมิน) */
-function _planTodoCount(bid, it) {
+function _planTodoCount(bid, it, ym) {
   if (!(it.empIds || []).length) return 0;
   const m = {}; _subStatusList(bid, it.moduleId, it.empIds).forEach(x => { m[x.s] = x.st; });
-  return (it.subtopics || []).filter(s => m[s] === 'todo' || m[s] === 'redo').length;
+  return (ym ? _planSubsEffective(bid, ym, it) : (it.subtopics || [])).filter(s => m[s] === 'todo' || m[s] === 'redo').length;
 }
 function _cpShowSubtopics(itemId) {
   const bid = getBranchId(), ym = _planMonth || _ymNow();
@@ -17369,7 +17377,7 @@ function _cpShowSubtopics(itemId) {
   const stMap = {}; _subStatusList(bid, it.moduleId, it.empIds || []).forEach(x => { stMap[x.s] = x.st; });
   showModal(`หัวข้อย่อย · ${_escH(m.name || it.moduleId)}`, `
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${(it.subtopics || []).map(s => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${_escH(s)}</span>${(it.empIds || []).length && stMap[s] ? _subTag(stMap[s]) : ''}</div>`).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
+      ${_planSubsEffective(bid, ym, it).map(s => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${_escH(s)}</span>${(it.empIds || []).length && stMap[s] ? _subTag(stMap[s]) : ''}</div>`).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
     </div>`, null, 'ปิด');
 }
 
@@ -18080,7 +18088,7 @@ function _planItemDetailListHtml(bid, ym, items) {
         📅 สอน <b>${it.planDate ? _escH(fmtDate(it.planDate)) : '—'}</b>${it.evalDate ? ` · 📝 ประเมิน <b>${_escH(fmtDate(it.evalDate))}</b>` : ''}<br>
         👤 ผู้เรียน ${_escH(emp(it.empIds))}<br>
         🧑‍🏫 ผู้สอน ${_escH(it.trainerName || '—')}
-        ${(it.subtopics || []).length ? `<br>🔍 หัวข้อย่อย: ${_escH(it.subtopics.join(', '))}` : ''}
+        ${_planSubsEffective(bid, ym, it).length ? `<br>🔍 หัวข้อย่อย: ${_escH(_planSubsEffective(bid, ym, it).join(', '))}` : ''}
         ${it.note ? `<br>📝 ${_escH(it.note)}` : ''}
       </div>
       ${it.createdBy ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
