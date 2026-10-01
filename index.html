@@ -11215,9 +11215,9 @@ function deleteTraining(id) {
 function markEvalEdited(t) {
   if (!t) return;
   const who = (currentUser && (currentUser.name || currentUser.nick || currentUser.code)) || 'ผู้ดูแลระบบ';
-  t.editedAt = new Date().toISOString();
-  t.editedBy = who;
-  if (t.eval) { t.eval.editedAt = t.editedAt; t.eval.editedBy = who; }
+  /* เก็บร่องรอยไว้ใน eval (คอลัมน์ jsonb) เท่านั้น — ตาราง trainings ใน Supabase ไม่มีคอลัมน์ edited_at/edited_by
+     เดิมเขียนลงระดับแถวด้วย ทำให้บันทึกไม่ผ่านด้วย error "Could not find the 'edited_at' column" */
+  if (t.eval) { t.eval.editedAt = new Date().toISOString(); t.eval.editedBy = who; }
 }
 
 /* แก้ผลการประเมิน — เฉพาะแอดมิน
