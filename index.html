@@ -9655,6 +9655,7 @@ function openAddTraining() {
       <div class="checkbox-group" id="subtopics-container"><span class="text-muted">กรุณาเลือก Module ก่อน</span></div>
     </div>
     </div>`, () => {
+    const _planVal = (document.getElementById('tr-from-plan') || {}).value || '';   // แผนที่เลือก (ym|id) — ว่าง/__none = ไม่ใช้แผน
     const date = _localToISO(document.getElementById('tr-date').value);
     const trainer = document.getElementById('tr-trainer').value.trim();
     const moduleId = document.getElementById('tr-module').value;
@@ -9667,6 +9668,7 @@ function openAddTraining() {
       if (moduleNeedsTrack(moduleId)) _nt.track = _selectedTrack;
       DB.trainings.push(_nt);
       gsSave('trainings', _nt.id, _nt);
+      try { _syncPlanFromTraining(_nt, _planVal); } catch (e) { console.warn('syncPlan', e); }
       closeModal(); showPage('trainings'); notify('บันทึกการสอนงานสำเร็จ');
     };
     // หัวข้อที่พนักงานคนนั้นเคยถูกสอนไปแล้ว (มีบันทึกการสอนอยู่แล้ว ไม่ว่าประเมินหรือยัง) → ถามก่อนว่าจะทบทวนไหม
@@ -17888,6 +17890,24 @@ function _savePlan(bid, ym, items) {
   gsSave('coachingPlans', rec.id, rec);
 }
 
+/* บันทึกการสอนตามแผนแล้ว เพิ่ม/ลดหัวข้อย่อยจากที่วางไว้ → แผนอัพเดทหัวข้อย่อยตามที่สอนจริง
+   (รวมหัวข้อของทุกครั้งที่สอนตรงแผนนี้ · เก็บหัวข้อเดิมของแผนไว้ใน subtopicsOrig ครั้งแรก · ถือเป็นการแก้แผน BZM จึงเห็นว่ามีอัพเดท) */
+function _syncPlanFromTraining(t, planVal) {
+  if (!planVal || planVal === '__none') return;
+  const [ym, itemId] = String(planVal).split('|');
+  const bid = t.branchId, p = getCoachingPlan(bid, ym), items = (p.items || []).slice();
+  const at = items.findIndex(x => x.id === itemId); if (at < 0) return;
+  const it = items[at];
+  const ms = _planMatches(bid, ym, it);
+  const set = new Set(); (ms.length ? ms : [t]).forEach(x => (x.subtopics || []).forEach(sub => set.add(sub)));
+  const order = (MODULES[it.moduleId] && MODULES[it.moduleId].subtopics) || [];
+  const next = [...set].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const cur = it.subtopics || [];
+  if (next.length === cur.length && next.every(x => cur.includes(x))) return;   // ไม่มีอะไรเปลี่ยน
+  const now = new Date().toISOString();
+  items[at] = Object.assign({}, it, { subtopics: next, subtopicsOrig: it.subtopicsOrig || cur, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง', updatedAt: now });
+  _savePlan(bid, ym, items);
+}
 /* "บันทึกตามแผน" อยู่ในฟอร์มบันทึกการสอนงาน — เลือกแผนที่ยังไม่ได้สอน (เดือนนี้ + เดือนที่แล้วที่ยังค้าง) */
 function _pendingPlanItems(bid) {
   const now = new Date(), prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
