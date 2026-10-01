@@ -17272,6 +17272,21 @@ function openPlanItem(grp, itemId) {
     if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
     const who = _cpBatchMode ? _cpBatchCreator : (document.getElementById('cp-creator').value || '').trim();
     if (!who) { notify('กรุณาระบุชื่อผู้จัดทำแผน', 'error'); return; }
+    /* วางแผนสอนหัวข้อที่ผู้เรียนเคยถูกสอนไปแล้ว → ถามยืนยันว่าเป็นการสอนทบทวน (เหมือนตอนบันทึกการสอนงาน)
+       แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
+    const same = (x, y) => JSON.stringify([...(x || [])].sort()) === JSON.stringify([...(y || [])].sort());
+    const unchanged = !!it && same(it.subtopics, subtopics) && same(it.empIds, empIds);
+    if (!window._cpReviewOk && !unchanged) {
+      const cov = getSubtopicCoverageMap(bid, moduleId, empIds);
+      const dupLines = empIds.map(id => {
+        const subs = subtopics.filter(x => cov[id] && cov[id][x]);
+        return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
+      }).filter(Boolean);
+      if (dupLines.length) {
+        _confirmReviewTopics(dupLines, () => { window._cpReviewOk = true; try { modalConfirm(); } finally { window._cpReviewOk = false; } });
+        return;
+      }
+    }
     if (!_cpBatchMode) { try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {} }
     const now = new Date().toISOString();
     const rec = {
