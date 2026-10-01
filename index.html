@@ -7876,8 +7876,10 @@ const _SUB_ST = { done: 'สอนแล้ว', wait: 'รอประเมิ
 const _subTag = st => `<span class="sub-tag ${st}">${_SUB_ST[st]}</span>`;
 function getSubtopicCoverageMap(branchId, moduleId, traineeIds) {
   const required = MODULES[moduleId]?.subtopics || [];
-  const sessions = getBranchTrainings(branchId)
-    .filter(t => t.moduleId === moduleId)
+  /* นับการสอนจากทุกสาขาที่เคยสอนคนนี้ (ไม่ผูกกับสาขาปัจจุบัน) — พนักงานโอนย้ายมาแล้วหัวข้อที่เคยเรียนที่สาขาเดิมยังนับ */
+  const want = new Set((traineeIds || []).map(String));
+  const sessions = DB.trainings
+    .filter(t => t.moduleId === moduleId && (t.traineeIds || []).some(id => want.has(String(id))))
     .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   const map = {};
   (traineeIds || []).forEach(empId => {
@@ -9156,11 +9158,12 @@ function _personSummaryRows(trains, onlyEmpIds) {
     const expired = list.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).length;
     // โมดูลสะสม — รวมทุก Module ที่เคยสอนคนนี้ (แยกตามสาขาด้วย เผื่อเคยย้ายสาขามา สะสมของสาขาเดิมไม่ปนกัน)
     const modKeys = new Set(list.map(t => t.branchId + '|' + t.moduleId));
-    let modDone = 0;
+    let modDone = 0, subTodo = 0;
     modKeys.forEach(k => {
       const [bid, mid] = k.split('|');
       const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
       if (prog.total > 0 && prog.done >= prog.total) modDone++;
+      subTodo += _subStatusList(bid, mid, [empId]).filter(x => x.st === 'todo').length;
     });
     let bestQuizPct = null;
     list.forEach(t => {
@@ -9173,7 +9176,7 @@ function _personSummaryRows(trains, onlyEmpIds) {
       empId, emp, trainings: list,
       count: list.length, last: list[0].date,
       pending, expired, done: list.length - pending - expired,
-      modDone, modTotal: modKeys.size,
+      modDone, modTotal: modKeys.size, subTodo,
       bestQuizPct,
     });
   });
@@ -9200,6 +9203,7 @@ function renderPersonSummaryTable(rows, opts) {
       const modBadge = r.modTotal
         ? `<span class="badge ${r.modDone===r.modTotal?'badge-green':'badge-navy'}" style="font-size:11px;font-weight:700;cursor:pointer" onclick="showPersonModuleBreakdown('${r.empId}')" title="กดดูรายโมดูล">${r.modDone}/${r.modTotal} Module${r.modDone===r.modTotal?' ✓':''}</span>`
         : '<span style="color:var(--text4)">—</span>';
+      const todoLine = r.subTodo ? `<div style="font-size:11px;font-weight:700;color:#B91C1C;margin-top:3px">ยังไม่สอน ${r.subTodo} หัวข้อ</div>` : '';
       const pendBits = [];
       if (r.pending) pendBits.push(`<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน ${r.pending}</span>`);
       if (r.expired) pendBits.push(`<span class="badge badge-red" style="font-size:10.5px">หมดเวลา ${r.expired}</span>`);
@@ -9212,7 +9216,7 @@ function renderPersonSummaryTable(rows, opts) {
         ${opts.showBranch ? `<td data-label="สาขา" style="font-size:12.5px;font-weight:600">${r.emp.branchId||''}</td>` : ''}
         <td data-label="สอนล่าสุด" style="font-size:12.5px;white-space:nowrap"><span class="dt-short">${fmtDateTime(r.last)}</span><span class="dt-long">${fmtDateTimeLong(r.last)}</span></td>
         <td data-label="จำนวนครั้ง" style="text-align:center;font-weight:700">${r.count}</td>
-        <td data-label="โมดูลสะสม" style="text-align:center">${modBadge}</td>
+        <td data-label="โมดูลสะสม" style="text-align:center">${modBadge}${todoLine}</td>
         <td data-label="ค้างอยู่" style="text-align:center;white-space:nowrap">${pendCell}</td>
         <td data-label="ผลสอบดีสุด" style="text-align:center">${quizCell}</td>
         <td data-label="actions" style="white-space:nowrap;text-align:right"><button class="btn btn-sm btn-view" onclick="openPersonTrainingHistory('${r.empId}')">ดูประวัติ</button></td>
@@ -9256,7 +9260,7 @@ function showPersonModuleBreakdown(empId) {
   const modList = [...modKeys].map(k => {
     const [bid, mid] = k.split('|');
     const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
-    return { name: MODULES[mid]?.name || mid, done: prog.done, total: prog.total };
+    return { name: MODULES[mid]?.name || mid, done: prog.done, total: prog.total, subs: _subStatusList(bid, mid, [empId]) };
   }).sort((a, b) => (a.total - a.done) - (b.total - b.done) || a.name.localeCompare(b.name, 'th'));
   showModal(`โมดูลของ ${emp.name}`, `
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -9269,6 +9273,7 @@ function showPersonModuleBreakdown(empId) {
           <span class="badge ${complete?'badge-green':'badge-navy'}" style="font-size:10.5px">${m.done}/${m.total} หัวข้อ${complete?' ✓':''}</span>
         </div>
         <div style="height:6px;border-radius:4px;background:var(--surface2);overflow:hidden"><div style="height:100%;width:${pct}%;background:${complete?'var(--green)':'var(--accent)'}"></div></div>
+        ${complete ? '' : `<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">${m.subs.filter(x => x.st !== 'done').map(x => `<div style="font-size:12px;display:flex;justify-content:space-between;gap:8px"><span>${_escH(x.s)}</span>${_subTag(x.st)}</div>`).join('')}</div>`}
       </div>`;
     }).join('') || '<div style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีข้อมูล Module</div>'}
     </div>`, null, 'ปิด');
@@ -17030,7 +17035,7 @@ function renderCoachingPlanPanel(bid) {
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
-            ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย 🔍</span>` : ''}
+            ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย${_planTodoCount(bid, it) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it)}</b>` : ''} 🔍</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
           <div class="cp-step">
@@ -17145,14 +17150,21 @@ function _planLearnersHtml(empIds) {
     return `<div class="cp-learner"><b>${_escH(e.name)}</b>${meta.length ? `<span class="cp-learner-meta">${meta.map(_escH).join(' · ')}</span>` : ''}</div>`;
   }).join('');
 }
+/* จำนวนหัวข้อในแผนข้อนี้ที่ผู้เรียนยังไม่เคยถูกสอน (ไม่นับรอประเมิน) */
+function _planTodoCount(bid, it) {
+  if (!(it.empIds || []).length) return 0;
+  const m = {}; _subStatusList(bid, it.moduleId, it.empIds).forEach(x => { m[x.s] = x.st; });
+  return (it.subtopics || []).filter(s => m[s] === 'todo').length;
+}
 function _cpShowSubtopics(itemId) {
   const bid = getBranchId(), ym = _planMonth || _ymNow();
   const plan = getCoachingPlan(bid, ym);
   const it = (plan.items || []).find(x => x.id === itemId); if (!it) return;
   const m = MODULES[it.moduleId] || {};
+  const stMap = {}; _subStatusList(bid, it.moduleId, it.empIds || []).forEach(x => { stMap[x.s] = x.st; });
   showModal(`หัวข้อย่อย · ${_escH(m.name || it.moduleId)}`, `
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${(it.subtopics || []).map(s => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">${_escH(s)}</div>`).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
+      ${(it.subtopics || []).map(s => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${_escH(s)}</span>${(it.empIds || []).length && stMap[s] ? _subTag(stMap[s]) : ''}</div>`).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
     </div>`, null, 'ปิด');
 }
 
