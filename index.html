@@ -680,6 +680,8 @@
   .notif.error { border-left: 4px solid var(--red); }
 
   /* ==================== EMP MULTI-SELECT ==================== */
+  .cp-err { color:#B91C1C; background:#FEF2F2; border:1px solid #FECACA; border-radius:8px; padding:7px 10px; font-size:12.5px; font-weight:600; margin-top:6px; line-height:1.5 }
+  .cp-err-box { border-color:#DC2626 !important; box-shadow:0 0 0 3px rgba(220,38,38,.12) !important }
   .sub-tag { display:inline-block; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; margin-left:6px; white-space:nowrap; vertical-align:middle }
   .sub-tag.done { background:#DCFCE7; color:#15803D }
   .sub-tag.wait { background:#FEF3C7; color:#B45309 }
@@ -17256,9 +17258,9 @@ function openPlanItem(grp, itemId) {
     </div>`}
     <div class="form-row">
       <div><label class="form-label">วันที่วางแผนจะสอน <span class="req">*</span></label>
-        <input class="form-input" type="date" id="cp-date" value="${(it && it.planDate) || ''}"></div>
-      <div><label class="form-label">วันที่ต้องการประเมิน <span class="req">*</span><br><span style="font-weight:500;color:var(--text3);font-size:11px">ต้องไม่เกิน 14 วันหลังวันที่วางแผนจะสอน</span></label>
-        <input class="form-input" type="date" id="cp-eval-date" value="${(it && it.evalDate) || ''}"></div>
+        <input class="form-input" type="date" id="cp-date" onchange="_cpSyncEvalRange(true)" value="${(it && it.planDate) || ''}"></div>
+      <div><label class="form-label">วันที่ต้องการประเมิน <span class="req">*</span><br><span id="cp-eval-hint" style="font-weight:500;color:var(--text3);font-size:11px">ต้องไม่เกิน 14 วันหลังวันที่วางแผนจะสอน</span></label>
+        <input class="form-input" type="date" id="cp-eval-date" onchange="_cpSyncEvalRange(true)" value="${(it && it.evalDate) || ''}"></div>
     </div>
     <div class="form-full">
       <label class="form-label">ชื่อผู้สอนงาน <span class="req">*</span></label>
@@ -17314,27 +17316,23 @@ function openPlanItem(grp, itemId) {
       : itemId ? `<div style="margin-top:12px;font-size:12px;color:var(--text3)">🔒 แผนข้อนี้สอนไปแล้ว จึงลบไม่ได้ (ลบได้เฉพาะ Admin)</div>` : ''}
   `, () => {
     const moduleId = document.getElementById('cp-module').value;
-    if (!moduleId) { notify('กรุณาเลือก Module', 'error'); return; }
     const subtopics = [...document.querySelectorAll('.cp-sub:checked')].map(c => c.value);
-    if (!subtopics.length) { notify('กรุณาเลือกหัวข้อย่อย', 'error'); return; }
     const empIds = cpSelectedEmpIds();
-    if (!empIds.length) {
-      _cpEmpNote('ต้องเลือกพนักงานที่จะสอนอย่างน้อย 1 คน');
-      const b = document.getElementById('cp-emp-select-box');
-      if (b) { b.style.borderColor = '#DC2626'; b.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-      notify('กรุณาเลือกพนักงานที่จะสอน', 'error'); return;
-    }
     const planDate = document.getElementById('cp-date').value || '';
-    if (!planDate) { notify('กรุณาเลือกวันที่วางแผนจะสอน', 'error'); return; }
     const evalDate = document.getElementById('cp-eval-date').value || '';
-    if (!evalDate) { notify('กรุณาเลือกวันที่ต้องการประเมิน', 'error'); return; }
-    const evalDays = (new Date(evalDate) - new Date(planDate)) / 86400000;
-    if (evalDays < 0) { notify('วันที่ประเมินต้องไม่ก่อนวันที่วางแผนจะสอน', 'error'); return; }
-    if (evalDays > 14) { notify('วันที่ประเมินต้องไม่เกิน 14 วันนับจากวันที่สอน', 'error'); return; }
     const trainerName = (document.getElementById('tr-trainer').value || '').trim();
-    if (!trainerName) { notify('กรุณาระบุชื่อผู้สอนงาน', 'error'); return; }
     const who = _cpBatchMode ? _cpBatchCreator : (document.getElementById('cp-creator').value || '').trim();
-    if (!who) { notify('กรุณาระบุชื่อผู้จัดทำแผน', 'error'); return; }
+    /* รวบรวมทุกช่องที่ยังไม่ผ่าน แล้วแสดงใต้ช่องนั้นเลย (เรียงจากบนลงล่าง) พร้อมเลื่อนไปช่องแรก — ไม่ใช้กล่องแจ้งเตือนมุมจอที่ไปทับหัวหน้าต่างบนมือถือ */
+    const errs = [];
+    if (!_cpBatchMode && !who) errs.push(['cp-creator', 'กรุณาระบุชื่อผู้จัดทำแผน']);
+    if (!planDate) errs.push(['cp-date', 'กรุณาเลือกวันที่วางแผนจะสอน']);
+    const de = _cpDateError(planDate, evalDate);
+    if (de) errs.push(['cp-eval-date', de]);
+    if (!trainerName) errs.push(['tr-trainer', 'กรุณาระบุชื่อผู้สอนงาน']);
+    if (!empIds.length) errs.push(['cp-emp-select-box', 'ต้องเลือกพนักงานที่จะสอนอย่างน้อย 1 คน']);
+    if (!moduleId) errs.push(['cp-module', 'กรุณาเลือก Module']);
+    else if (!subtopics.length) errs.push(['cp-subs', 'กรุณาเลือกหัวข้อย่อยอย่างน้อย 1 ข้อ']);
+    if (errs.length) { _cpShowErrs(errs); return; }
     /* วางแผนสอนหัวข้อที่ผู้เรียนเคยถูกสอนไปแล้ว → ถามยืนยันว่าเป็นการสอนทบทวน (เหมือนตอนบันทึกการสอนงาน)
        แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
     const same = (x, y) => JSON.stringify([...(x || [])].sort()) === JSON.stringify([...(y || [])].sort());
@@ -17377,9 +17375,58 @@ function openPlanItem(grp, itemId) {
   _cpSubtopics();
   cpRenderEmpChips();
   _cpMarkFullEmpOptions();
+  _cpSyncEvalRange(false);
+  const _mb = document.querySelector('#modal-overlay .modal-body');
+  if (_mb) ['input', 'change', 'click'].forEach(ev => _mb.addEventListener(ev, _cpClearErrOnEdit));
   document.addEventListener('click', cpCloseEmpDropdownOutside);
 }
 let _cpSelectedEmps = [];
+const _cpErrHost = id => { const el = document.getElementById(id); if (!el) return null; return el.closest('#trainer-multiselect') || el; };
+function _cpClearErrs() {
+  document.querySelectorAll('#modal-overlay .cp-err').forEach(e => e.remove());
+  document.querySelectorAll('#modal-overlay .cp-err-box').forEach(e => e.classList.remove('cp-err-box'));
+}
+/* แก้ช่องไหน ข้อความของช่องนั้นหาย (ช่องอื่นยังค้างไว้จนกว่าจะแก้) */
+function _cpClearErrOnEdit(ev) {
+  const t = ev.target; if (!t || !t.closest) return;
+  document.querySelectorAll('#modal-overlay .cp-err:not([data-for])').forEach(e => {
+    const host = e.previousElementSibling; if (host && (host === t || host.contains(t))) { host.classList.remove('cp-err-box'); e.remove(); }
+  });
+}
+function _cpShowErrs(errs) {
+  _cpClearErrs();
+  let first = null;
+  errs.forEach(([id, msg]) => {
+    const host = _cpErrHost(id); if (!host) { notify(msg, 'error'); return; }
+    host.classList.add('cp-err-box');
+    const d = document.createElement('div'); d.className = 'cp-err'; d.textContent = '⚠️ ' + msg;
+    host.insertAdjacentElement('afterend', d);
+    if (!first) first = host;
+  });
+  if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+/* วันที่ประเมินต้องไม่ก่อนวันสอน และไม่เกิน 14 วันหลังวันสอน — คืนข้อความผิดพลาด หรือ '' ถ้าผ่าน */
+function _cpDateError(planDate, evalDate) {
+  if (!evalDate) return 'กรุณาเลือกวันที่ต้องการประเมิน';
+  if (!planDate) return '';
+  const days = (new Date(evalDate) - new Date(planDate)) / 86400000;
+  if (days < 0) return 'วันที่ประเมินต้องไม่ก่อนวันที่วางแผนจะสอน (' + fmtDate(planDate) + ')';
+  if (days > 14) return 'วันที่ประเมินเกิน 14 วันนับจากวันที่สอน — เลือกได้ไม่เกิน ' + fmtDate(_cpAddDays(planDate, 14));
+  return '';
+}
+function _cpAddDays(ymd, k) { const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); }
+/* ผูกสองช่องวันที่: ตัวเลือกวันที่ประเมินจำกัดช่วงตามวันสอน + บอกวันสุดท้ายที่เลือกได้ */
+function _cpSyncEvalRange(check) {
+  const p = (document.getElementById('cp-date') || {}).value || '', ev = document.getElementById('cp-eval-date'), hint = document.getElementById('cp-eval-hint');
+  if (!ev) return;
+  if (p) { ev.min = p; ev.max = _cpAddDays(p, 14); } else { ev.removeAttribute('min'); ev.removeAttribute('max'); }
+  if (hint) hint.textContent = p ? 'เลือกได้ตั้งแต่ ' + fmtDate(p) + ' ถึง ' + fmtDate(_cpAddDays(p, 14)) : 'ต้องไม่เกิน 14 วันหลังวันที่วางแผนจะสอน';
+  if (check && ev.value) {
+    const old = document.querySelector('#modal-overlay .cp-err[data-for="eval"]'); if (old) old.remove(); ev.classList.remove('cp-err-box');
+    const msg = _cpDateError(p, ev.value);
+    if (msg) { ev.classList.add('cp-err-box'); const d = document.createElement('div'); d.className = 'cp-err'; d.dataset.for = 'eval'; d.textContent = '⚠️ ' + msg; ev.insertAdjacentElement('afterend', d); }
+  }
+}
 let _cpEmpsOwnGroup = [];
 let _cpEmpsAllGroups = [];
 // บัญชีสาขาล็อกอินร่วมกันทั้งสาขา ไม่มีชื่อรายคน — จำชื่อผู้จัดทำล่าสุดต่อสาขา/เครื่อง ไว้เติมให้อัตโนมัติครั้งถัดไป (แก้ไขได้เสมอ)
