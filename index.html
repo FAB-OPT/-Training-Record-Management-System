@@ -17123,6 +17123,8 @@ function renderCoachingPlanPanel(bid) {
         const ok = _planItemDone(bid, ym, it);
         const ev = ok && _planItemEvaluated(bid, ym, it);
         const shortD = d => d ? _escH(fmtDate(d)) : '—';   // แสดงปี พ.ศ. ด้วย (เดิมตัดปีออก)
+        const _ms = _planMatches(bid, ym, it), _tFirst = _ms[0], _eFirst = _ms.find(t => t.eval);
+        const _actualHtml = _planActualHtml(bid, ym, it);
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
@@ -17133,13 +17135,14 @@ function renderCoachingPlanPanel(bid) {
           </div>
           <div class="cp-step">
             <div class="cp-step-line ${ev ? 'full' : ok ? 'half' : ''}"></div>
-            <div class="cp-step-pt l ${ok ? 'done' : ''}"><i></i><span>สอน</span><b>${shortD(it.planDate)}</b></div>
-            <div class="cp-step-pt r ${ev ? 'done' : ''}"><i></i><span>ประเมิน</span><b>${shortD(it.evalDate)}</b></div>
+            <div class="cp-step-pt l ${ok ? 'done' : ''}"><i></i><span>${_tFirst ? 'สอนจริง' : 'สอน'}</span><b>${_tFirst ? _escH(fmtDate(_tFirst.date)) : shortD(it.planDate)}</b>${_tFirst ? `<small>แผน ${shortD(it.planDate)}</small>` : ''}</div>
+            <div class="cp-step-pt r ${ev ? 'done' : ''}"><i></i><span>${_eFirst ? 'ประเมินจริง' : 'ประเมิน'}</span><b>${_eFirst ? _escH(fmtDate(_eFirst.eval.evalDate || _eFirst.date)) : shortD(it.evalDate)}</b>${_eFirst ? `<small>แผน ${shortD(it.evalDate)}</small>` : ''}</div>
           </div>
           <div class="cp-item-people">
             <div><span class="cp-role-label">👤 ผู้เรียน</span>${_planLearnersHtml(it.empIds)}</div>
             <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span><b>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4);font-weight:500">—</span>'}</b></div>
           </div>
+          ${_actualHtml ? `<div class="cp-actual">${_actualHtml}</div>` : ''}
           <div class="cp-item-notes">
             ${it.note ? `<span class="cp-item-note">📝 ${_escH(it.note)}</span>` : ''}
             ${it.createdBy ? `<span class="cp-item-note">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</span>` : ''}
@@ -17167,7 +17170,7 @@ function renderCoachingPlanPanel(bid) {
     .cp-col-count{font-size:12px;color:var(--text2)}
     .cp-col-count b{color:var(--green)}
     .cp-col{container-type:inline-size}
-    .cp-item{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) auto;grid-template-areas:"head head act" "step people act" "notes notes act";column-gap:22px;row-gap:10px;align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-top:10px}
+    .cp-item{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) auto;grid-template-areas:"head head act" "step people act" "actual actual act" "notes notes act";column-gap:22px;row-gap:10px;align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-top:10px}
     .cp-item.ok{border-color:#BBE5C8}
     .cp-item-head{grid-area:head;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .cp-item-name{font-weight:800;font-size:14.5px;color:var(--text)}
@@ -17184,6 +17187,12 @@ function renderCoachingPlanPanel(bid) {
     .cp-step-pt i{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--border);background:var(--surface);margin-bottom:3px;box-sizing:border-box}
     .cp-step-pt.done i{border-color:var(--green);background:var(--green)}
     .cp-step-pt b{font-size:12.5px;color:var(--text)}
+    .cp-step-pt small{font-size:10.5px;font-weight:500;color:var(--text3)}
+    .cp-actual{grid-area:actual;display:flex;flex-direction:column;gap:8px;min-width:0}
+    .cp-act{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--surface)}
+    .cp-act-h{font-size:12px;color:var(--text2);line-height:1.5}
+    .cp-act-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    .cp-act-chips .badge{font-size:11px;white-space:normal;line-height:1.35}
     .cp-item-people{grid-area:people;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
     .cp-learner + .cp-learner{margin-top:5px;padding-top:5px;border-top:1px dashed var(--border)}
     .cp-learner-meta{display:block;font-size:11px;font-weight:500;color:var(--text3);margin-top:1px;line-height:1.35}
@@ -17202,7 +17211,7 @@ function renderCoachingPlanPanel(bid) {
     @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
     /* คอลัมน์แคบ (มือถือ หรือจอคอมที่ครัว/บริการอยู่ข้างกัน) เรียงการ์ดแนวตั้ง ปุ่มอยู่ล่างเต็มแถว — คอลัมน์กว้างถึงใช้ 3 ช่อง */
     @container (max-width:600px){
-      .cp-item{grid-template-columns:1fr;grid-template-areas:"head" "step" "people" "notes" "act";padding:12px 14px;row-gap:10px}
+      .cp-item{grid-template-columns:1fr;grid-template-areas:"head" "step" "people" "actual" "notes" "act";padding:12px 14px;row-gap:10px}
       .cp-item-actions{flex-direction:row;min-width:0}
       .cp-item-actions .btn{flex:1;padding:10px}
     }
@@ -17244,6 +17253,43 @@ function _planLearnersHtml(empIds) {
   return rows.map(e => {
     const meta = [e.empCode ? 'รหัส ' + e.empCode : '', e.position || '', e.startDate ? 'อายุงาน ' + calcTenureShort(e.startDate) : ''].filter(Boolean);
     return `<div class="cp-learner"><b>${_escH(e.name)}</b>${meta.length ? `<span class="cp-learner-meta">${meta.map(_escH).join(' · ')}</span>` : ''}</div>`;
+  }).join('');
+}
+/* บันทึกการสอนจริงที่ตรงแผน (สาขา + Module + เดือน + ผู้เรียนตรงแผนอย่างน้อยหนึ่งคน) เรียงตามวันที่สอน */
+function _planMatches(bid, ym, it) {
+  return (DB.trainings || []).filter(t => t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))))
+    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+}
+/* ผลของการสอนครั้งหนึ่ง: ผลประเมิน · ข้อสอบ · ต้องสอนใหม่หรือไม่
+   ต้องสอนใหม่เมื่อ ประเมินไม่ผ่าน (ระดับ 1-2) หรือ สอบไม่ผ่านจนครบจำนวนครั้งที่ทำได้ (ตามกติกาข้อสอบของระบบ) */
+function _trainingOutcome(t) {
+  const attempts = _quizAttemptsFor(t.id);
+  const pcts = attempts.map(r => (r.pct != null) ? r.pct : (r.total ? Math.round(r.score / r.total * 100) : 0));
+  const best = pcts.length ? Math.max.apply(null, pcts) : null;
+  const passed = best != null && best >= QUIZ_PASS_PCT;
+  let reteach = '';
+  if (t.eval && !isEvalPass(t.eval.result)) reteach = 'ประเมินไม่ผ่าน (ระดับ ' + t.eval.result + ')';
+  else if (!passed && attempts.length >= QUIZ_MAX_ATTEMPTS) reteach = 'สอบไม่ผ่านครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้ง (สูงสุด ' + best + '%)';
+  const waitingQuiz = !!t.eval && !attempts.length && isLatestCompletingTraining(t);
+  return { attempts: attempts.length, best, passed, reteach, waitingQuiz };
+}
+function _planActualHtml(bid, ym, it) {
+  const ms = _planMatches(bid, ym, it); if (!ms.length) return '';
+  const names = t => (t.traineeIds || []).filter(id => (it.empIds || []).includes(id)).map(id => (getEmployee(id) || {}).name).filter(Boolean).join(', ');
+  return ms.slice(0, 3).map(t => {
+    const o = _trainingOutcome(t);
+    const ev = t.eval
+      ? `<span class="badge ${isEvalPass(t.eval.result) ? 'badge-green' : 'badge-red'}">ประเมิน ${_escH(fmtDate(t.eval.evalDate || t.date))} · ${isEvalPass(t.eval.result) ? 'ผ่าน' : 'ไม่ผ่าน'} ระดับ ${_escH(t.eval.result)}</span>`
+      : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red">หมดเวลาประเมิน</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
+    const qz = o.attempts
+      ? `<span class="badge ${o.passed ? 'badge-green' : 'badge-red'}">ข้อสอบ ${o.best}% · ${o.passed ? 'ผ่าน' : 'ไม่ผ่าน'} (ทำ ${o.attempts}/${QUIZ_MAX_ATTEMPTS} ครั้ง)</span>`
+      : (o.waitingQuiz ? '<span class="badge badge-yellow">ข้อสอบ ยังไม่ได้ทำ</span>' : '');
+    const re = o.reteach ? `<span class="badge badge-red" style="font-weight:800">🔁 ต้องสอนใหม่ · ${_escH(o.reteach)}</span>` : '';
+    return `<div class="cp-act">
+      <div class="cp-act-h">📌 สอนจริง <b>${_escH(fmtDateTime(t.date))}</b>${t.trainerName ? ' · ผู้สอน <b>' + _escH(t.trainerName) + '</b>' : ''}${ms.length > 1 && names(t) ? ' · ' + _escH(names(t)) : ''}</div>
+      <div class="cp-act-chips">${ev}${qz}${re}</div>
+    </div>`;
   }).join('');
 }
 /* แผน "ทำย้อนหลัง" = จัดทำหลังวันที่วางแผนจะสอน หรือจัดทำหลังที่มีบันทึกการสอนตรงแผนไปแล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน)
