@@ -686,6 +686,7 @@
   .sub-tag.done { background:#DCFCE7; color:#15803D }
   .sub-tag.wait { background:#FEF3C7; color:#B45309 }
   .sub-tag.todo { background:#FEE2E2; color:#B91C1C }
+  .sub-tag.redo { background:#FFEDD5; color:#C2410C }
   .emp-multiselect { position: relative; }
   .emp-select-box {
     min-height: 42px; padding: 6px 10px; background: var(--white);
@@ -7870,14 +7871,14 @@ function showEvalExpiredWarning(trainingId) {
    คำนวณจากข้อมูลจริงทุกครั้ง ไม่ต้องเก็บแฟล็กเพิ่ม (ตาราง trainings ไม่มีคอลัมน์ให้เก็บ) — บันทึกเก่าก็ติดป้ายย้อนหลังได้ */
 function isReviewTraining(t) {
   if (!t || !t.moduleId || !(t.subtopics || []).length || !(t.traineeIds || []).length) return false;
-  const when = new Date(t.date || 0).getTime();
-  const mine = new Set(t.subtopics);
-  return DB.trainings.some(o => o.id !== t.id && o.moduleId === t.moduleId &&
-    new Date(o.date || 0).getTime() < when &&
-    (o.traineeIds || []).some(id => t.traineeIds.includes(id)) &&
-    (o.subtopics || []).some(sub => mine.has(sub)));
+  return _teachRound(t).review;
 }
-const reviewBadge = t => isReviewTraining(t) ? ' <span class="badge" style="font-size:10.5px;background:#E0F2FE;color:#0369A1;font-weight:700;white-space:nowrap" title="สอนหัวข้อที่เคยสอนไปแล้ว">🔁 ทบทวน</span>' : '';
+const reviewBadge = t => {
+  if (!t || !(t.subtopics || []).length || !(t.traineeIds || []).length) return '';
+  const r = _teachRound(t);
+  return (r.review ? ' <span class="badge" style="font-size:10.5px;background:#E0F2FE;color:#0369A1;font-weight:700;white-space:nowrap" title="สอนหัวข้อที่เคยสอนไปแล้ว">🔁 ทบทวน</span>' : '') +
+    (r.round > 1 ? ` <span class="badge" style="font-size:10.5px;background:#FFEDD5;color:#C2410C;font-weight:700;white-space:nowrap" title="สอนซ้ำเพราะครั้งก่อนประเมินหรือข้อสอบไม่ผ่าน — ไม่ใช่การทบทวน">↻ สอนครั้งที่ ${r.round}</span>` : '');
+};
 // Subtopics are only "accumulated" once a training has been evaluated (t.eval set).
 // Trainings that are recorded but pending evaluation don't contribute — they can
 // be deleted without affecting the historical tally. The optional includeIds list
@@ -7923,14 +7924,25 @@ function _subStatusList(branchId, moduleId, ids) {
   const subs = (MODULES[moduleId] && MODULES[moduleId].subtopics) || [];
   ids = (ids || []).filter(Boolean);
   if (!ids.length) return subs.map(s => ({ s, st: 'todo' }));
-  const cov = getSubtopicCoverageMap(branchId, moduleId, ids);
+  /* ต่อคนต่อหัวข้อ: done = มีครั้งที่ประเมินแล้วและไม่ตก · wait = สอนแล้วรอประเมิน · redo = สอนแล้วแต่ทุกครั้งตก ต้องสอนใหม่ · todo = ไม่เคยสอน
+     นับการสอนจากทุกสาขาที่เคยสอนคนนี้ */
+  const mine = (DB.trainings || []).filter(t => t.moduleId === moduleId && (t.traineeIds || []).some(id => ids.includes(id)));
+  const rank = { todo: 3, redo: 2, wait: 1, done: 0 };
   return subs.map(s => {
-    let st = 'done';
-    ids.forEach(id => { const c = cov[id] && cov[id][s]; if (!c) st = 'todo'; else if (!c.evaluated && st !== 'todo') st = 'wait'; });
-    return { s, st };
+    let worst = 'done';
+    ids.forEach(id => {
+      const ss = mine.filter(t => (t.traineeIds || []).includes(id) && (t.subtopics || []).includes(s));
+      let st;
+      if (!ss.length) st = 'todo';
+      else if (ss.some(t => t.eval && !_trainingFailed(t))) st = 'done';
+      else if (ss.some(t => !t.eval)) st = 'wait';
+      else st = 'redo';
+      if (rank[st] > rank[worst]) worst = st;
+    });
+    return { s, st: worst };
   });
 }
-const _SUB_ST = { done: 'สอนแล้ว', wait: 'รอประเมิน', todo: 'ยังไม่สอน' };
+const _SUB_ST = { done: 'สอนแล้ว', wait: 'รอประเมิน', todo: 'ยังไม่สอน', redo: 'ต้องสอนใหม่' };
 const _subTag = st => `<span class="sub-tag ${st}">${_SUB_ST[st]}</span>`;
 function getSubtopicCoverageMap(branchId, moduleId, traineeIds) {
   const required = MODULES[moduleId]?.subtopics || [];
@@ -9221,7 +9233,7 @@ function _personSummaryRows(trains, onlyEmpIds) {
       const [bid, mid] = k.split('|');
       const prog = getSubtopicProgress({ branchId: bid, moduleId: mid, traineeIds: [empId] });
       if (prog.total > 0 && prog.done >= prog.total) modDone++;
-      subTodo += _subStatusList(bid, mid, [empId]).filter(x => x.st === 'todo').length;
+      subTodo += _subStatusList(bid, mid, [empId]).filter(x => x.st === 'todo' || x.st === 'redo').length;
     });
     let bestQuizPct = null;
     list.forEach(t => {
@@ -9660,7 +9672,7 @@ function openAddTraining() {
     // หัวข้อที่พนักงานคนนั้นเคยถูกสอนไปแล้ว (มีบันทึกการสอนอยู่แล้ว ไม่ว่าประเมินหรือยัง) → ถามก่อนว่าจะทบทวนไหม
     const cov = getSubtopicCoverageMap(bid, moduleId, traineeIds);
     const dupLines = traineeIds.map(id => {
-      const subs = subtopics.filter(s => cov[id] && cov[id][s]);
+      const subs = _reviewSubs(id, moduleId, subtopics);
       return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
     }).filter(Boolean);
     const proceed = () => { if (dupLines.length) _confirmReviewTopics(dupLines, doSave); else doSave(); };
@@ -11096,9 +11108,9 @@ function updateSubtopics() {
   const ids = getSelectedEmpIds();
   const missing = new Set();
   if (ids.length) {
-    const cov = getSubtopicCoverageMap(getBranchId(), moduleId, ids);
+    const per = ids.map(id => _subStatusList(getBranchId(), moduleId, [id]));
     subs.forEach(s => {
-      if (ids.some(id => !(cov[id] && cov[id][s] && cov[id][s].evaluated))) missing.add(s);
+      if (per.some(l => ((l.find(x => x.s === s)) || {}).st !== 'done')) missing.add(s);
     });
   }
   const stMap = {}; if (ids.length) _subStatusList(getBranchId(), moduleId, ids).forEach(x => { stMap[x.s] = x.st; });
@@ -17306,6 +17318,29 @@ function _planActualHtml(bid, ym, it) {
     </div>`;
   }).join('');
 }
+/* การสอนครั้งหนึ่ง "ไม่ผ่าน" = ประเมินไม่ผ่าน หรือสอบไม่ผ่านจนครบจำนวนครั้ง (เงื่อนไขเดียวกับป้าย "ต้องสอนใหม่") */
+function _trainingFailed(o) { try { return !!_trainingOutcome(o).reteach; } catch (_) { return false; } }
+/* ประวัติการสอนหัวข้อหนึ่งของผู้เรียนคนหนึ่ง (ทุกสาขา) ก่อนเวลา before — n = จำนวนครั้งที่เคยสอน · allFailed = ทุกครั้งที่เคยสอนไม่ผ่านหมด */
+function _teachHistory(empId, moduleId, sub, before, excludeId) {
+  const list = (DB.trainings || []).filter(o => o.id !== excludeId && o.moduleId === moduleId &&
+    (o.traineeIds || []).includes(empId) && (o.subtopics || []).includes(sub) && (!before || new Date(o.date || 0) < before));
+  return { n: list.length, allFailed: list.length > 0 && list.every(_trainingFailed) };
+}
+/* หัวข้อที่ "สอนทบทวน" จริง ๆ = เคยสอนแล้วและครั้งก่อนไม่ได้ตก (ถ้าครั้งก่อนตกทั้งหมด การสอนใหม่นับเป็นการสอนครั้งที่ 2 ไม่ใช่ทบทวน) */
+function _reviewSubs(empId, moduleId, subs, before, excludeId) {
+  return (subs || []).filter(sub => { const h = _teachHistory(empId, moduleId, sub, before, excludeId); return h.n > 0 && !h.allFailed; });
+}
+/* บันทึกการสอนนี้เป็นครั้งที่เท่าไร + มีหัวข้อทบทวนไหม */
+function _teachRound(t) {
+  let round = 1, review = false;
+  if (!t || !t.moduleId) return { round, review };
+  const before = new Date(t.date || 0);
+  (t.traineeIds || []).forEach(id => (t.subtopics || []).forEach(sub => {
+    const h = _teachHistory(id, t.moduleId, sub, before, t.id);
+    if (h.n > 0) { if (h.allFailed) round = Math.max(round, h.n + 1); else review = true; }
+  }));
+  return { round, review };
+}
 /* แผน "ทำย้อนหลัง" = จัดทำหลังวันที่วางแผนจะสอน หรือจัดทำหลังที่มีบันทึกการสอนตรงแผนไปแล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน)
    คำนวณจากเวลาที่สร้างแผน (createdAt) — แผนเก่าที่ไม่มีเวลาสร้างจะไม่ถูกติดป้าย */
 function _planIsRetro(bid, ym, it) {
@@ -17321,7 +17356,7 @@ const _retroTag = (bid, ym, it) => _planIsRetro(bid, ym, it)
 function _planTodoCount(bid, it) {
   if (!(it.empIds || []).length) return 0;
   const m = {}; _subStatusList(bid, it.moduleId, it.empIds).forEach(x => { m[x.s] = x.st; });
-  return (it.subtopics || []).filter(s => m[s] === 'todo').length;
+  return (it.subtopics || []).filter(s => m[s] === 'todo' || m[s] === 'redo').length;
 }
 function _cpShowSubtopics(itemId) {
   const bid = getBranchId(), ym = _planMonth || _ymNow();
@@ -17456,7 +17491,7 @@ function openPlanItem(grp, itemId) {
     if (!window._cpReviewOk && !unchanged) {
       const cov = getSubtopicCoverageMap(bid, moduleId, empIds);
       const dupLines = empIds.map(id => {
-        const subs = subtopics.filter(x => cov[id] && cov[id][x]);
+        const subs = _reviewSubs(id, moduleId, subtopics);
         return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
       }).filter(Boolean);
       if (dupLines.length) {
@@ -17827,7 +17862,7 @@ function _cpSubtopics() {
   } else box.innerHTML = (m.subtopics || []).map(chip).join('');
   const lg = document.getElementById('cp-sub-legend');
   if (lg) {
-    const todo = Object.values(st).filter(v => v === 'todo').length, tot = Object.keys(st).length;
+    const todo = Object.values(st).filter(v => v === 'todo' || v === 'redo').length, tot = Object.keys(st).length;
     lg.style.color = todo ? '#B91C1C' : '#15803D';
     lg.textContent = !tot ? '' : todo ? `— ยังไม่สอน ${todo} จาก ${tot} หัวข้อ` : '— สอนครบทุกหัวข้อแล้ว';
   }
