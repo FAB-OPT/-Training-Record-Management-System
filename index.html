@@ -9437,10 +9437,7 @@ function renderTrainings() {
     <div class="page-hero-body">
       <div class="page-hero-title">บันทึกการสอนและประเมินผล</div>
     </div>
-    <div class="hero-btns" style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline" onclick="openPickPlan()">📅 บันทึกตามแผน</button>
-      <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
-    </div>
+    <button class="btn btn-accent" onclick="openAddTraining()">+ บันทึกการสอนงาน</button>
   </div>
   <div class="card">
     ${_trainFilterMobileHtml(d)}
@@ -9567,6 +9564,7 @@ function openAddTraining() {
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
 
   showModal('บันทึกการสอนงาน', `
+    ${_planPickerHtml(bid)}
     <div style="margin-bottom:14px">
       <button type="button" class="btn btn-outline" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openManualModal()">
         📖 ดูหัวข้อการสอนงาน
@@ -9658,7 +9656,7 @@ function openAddTraining() {
       return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
     }).filter(Boolean);
     if (dupLines.length) _confirmReviewTopics(dupLines, doSave); else doSave();
-  });
+  }, 'ยืนยันการสอน');
 
   // Reset selected employees for fresh modal
   _selectedEmps = [];
@@ -17706,55 +17704,65 @@ function _savePlan(bid, ym, items) {
   gsSave('coachingPlans', rec.id, rec);
 }
 
-/* ปุ่ม "บันทึกตามแผน" (หน้าบันทึกการสอนและประเมินผล) — เลือกแผนที่ยังไม่ได้สอน (เดือนนี้ + เดือนที่แล้วที่ยังค้าง)
-   แล้วเปิดฟอร์มบันทึกการสอนที่เติมผู้สอน ผู้เรียน Module หัวข้อย่อยจากแผนให้ */
-function openPickPlan() {
-  if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
-  const bid = getBranchId(); if (!bid || bid === 'ALL') return;
+/* "บันทึกตามแผน" อยู่ในฟอร์มบันทึกการสอนงาน — เลือกแผนที่ยังไม่ได้สอน (เดือนนี้ + เดือนที่แล้วที่ยังค้าง) */
+function _pendingPlanItems(bid) {
   const now = new Date(), prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const months = [_ymNow(), prev.getFullYear() + '-' + String(prev.getMonth() + 1).padStart(2, '0')];
-  const groups = months.map(ym => ({ ym, items: (getCoachingPlan(bid, ym).items || []).filter(it => !_planItemDone(bid, ym, it)) })).filter(g => g.items.length);
-  const row = (ym, it) => {
-    const m = MODULES[it.moduleId] || {};
-    const c = _planGroup(it.moduleId) === 'kitchen' ? '#EF4444' : '#22C55E';
-    const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean);
-    return `<button type="button" onclick="closeModal();startTrainingFromPlan('${it.id}','${ym}')" style="display:flex;align-items:stretch;gap:10px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer;font-family:inherit">
-      <span style="width:5px;border-radius:4px;background:${c};flex:0 0 auto"></span>
-      <span style="flex:1;min-width:0">
-        <span style="display:block;font-weight:800;font-size:14px;color:var(--text)">${_escH(m.name || it.moduleId)}</span>
-        <span style="display:block;font-size:12px;color:var(--text2);margin-top:2px">👤 ${names.length ? _escH(names.join(', ')) : 'ยังไม่ระบุคน'}${it.trainerName ? ' · ผู้สอน ' + _escH(it.trainerName) : ''}</span>
-        <span style="display:block;font-size:11.5px;color:var(--text3);margin-top:2px">📅 วางแผนสอน ${it.planDate ? _escH(fmtDate(it.planDate)) : '—'}${(it.subtopics || []).length ? ' · ' + it.subtopics.length + ' หัวข้อย่อย' : ''}</span>
-      </span>
-      <span style="align-self:center;color:var(--accent);font-weight:800;font-size:13px;white-space:nowrap">เลือก ›</span>
-    </button>`;
-  };
-  showModal('📅 บันทึกตามแผน', groups.length
-    ? `<div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">เลือกแผนที่จะบันทึกการสอน ระบบจะเติมผู้สอน ผู้เรียน Module และหัวข้อย่อยให้ ยังแก้ได้ทุกช่อง</div>` +
-      groups.map(g => `<div style="font-size:12px;font-weight:800;color:var(--text2);margin:12px 0 6px">${_escH(_ymLabel(g.ym))}</div><div style="display:flex;flex-direction:column;gap:8px">${g.items.map(it => row(g.ym, it)).join('')}</div>`).join('')
-    : `<div style="text-align:center;padding:18px 6px;color:var(--text2);line-height:1.6">ยังไม่มีแผนที่รอสอน<br><span style="font-size:12.5px;color:var(--text3)">เดือนนี้และเดือนที่แล้วสอนครบตามแผนแล้ว หรือยังไม่ได้วางแผน</span><div style="margin-top:12px"><button type="button" class="btn btn-outline" onclick="closeModal();showPage('coaching-plan')">ไปหน้าแผนการสอนงาน</button></div></div>`,
-    null, 'ปิด');
+  const out = [];
+  months.forEach(ym => (getCoachingPlan(bid, ym).items || []).forEach(it => { if (!_planItemDone(bid, ym, it)) out.push({ ym, it }); }));
+  return out;
 }
-
-/* กด "บันทึกการสอน" จากแผน → เปิดหน้าต่างบันทึกเดิม แล้วเติมคนกับ Module ให้
-   ยังแก้ได้ทุกช่อง — บันทึกจริงไม่ต้องตรงแผน */
-function startTrainingFromPlan(itemId, ymArg) {
-  const bid = getBranchId(), ym = ymArg || _planMonth || _ymNow();
+function _planPickerHtml(bid) {
+  if (!_coachingReady) return '';
+  const list = _pendingPlanItems(bid);
+  if (!list.length) return `<div class="form-full" style="margin-bottom:14px;font-size:12.5px;color:var(--text3)">📅 ยังไม่มีแผนที่รอสอนในเดือนนี้ — บันทึกการสอนเองได้เลย</div>`;
+  const opts = list.map(({ ym, it }) => {
+    const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean).join(', ');
+    return `<option value="${_escH(ym + '|' + it.id)}">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} · ${_escH(names || 'ยังไม่ระบุคน')} · ${_escH(_ymLabel(ym))}</option>`;
+  }).join('');
+  return `<div class="form-full" style="margin-bottom:14px">
+    <label class="form-label">📅 บันทึกตามแผน <span style="font-weight:500;color:var(--text3);font-size:11px">(ไม่บังคับ — เลือกแล้วระบบเติมให้ แก้ได้ทุกช่อง)</span></label>
+    <select class="form-select" id="tr-from-plan" onchange="applyPlanToTrainingForm(this.value)">
+      <option value="">— ไม่ใช้แผน (กรอกเอง) —</option>${opts}
+    </select>
+    <div id="tr-plan-note" style="display:none;margin-top:6px;font-size:12px;font-weight:600;color:var(--green)"></div>
+  </div>`;
+}
+/* เติมฟอร์มบันทึกการสอนจากแผนที่เลือก: ผู้สอน ผู้เรียน Module หัวข้อย่อย (ทุกช่องยังแก้ได้) */
+function applyPlanToTrainingForm(val) {
+  const note = document.getElementById('tr-plan-note');
+  if (!val) { if (note) note.style.display = 'none'; return; }
+  const [ym, itemId] = String(val).split('|'), bid = getBranchId();
   const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
-  openAddTraining();
-  setTimeout(() => {
-    const trainerInp = document.getElementById('tr-trainer');
-    if (trainerInp && it.trainerName) trainerInp.value = it.trainerName;
-    (it.empIds || []).slice(0, 2).forEach(id => { if (document.getElementById('empopt-' + id)) toggleEmpSelection(id); });
-    const sel = document.getElementById('tr-module');
-    if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
-      sel.value = it.moduleId;
-      try { updateSubtopics(); } catch (_) {}
-      setTimeout(() => (it.subtopics || []).forEach(s => {
-        const c = [...document.querySelectorAll('.sub-check')].find(x => x.value === s);
-        if (c && !c.checked && !c.disabled) c.click();
-      }), 60);
-    }
-  }, 80);
+  const trainerInp = document.getElementById('tr-trainer');
+  if (trainerInp) { trainerInp.value = it.trainerName || ''; try { filterTrainerDropdown(); } catch (_) {} }
+  // ล้างผู้เรียนที่เลือกไว้ก่อน แล้วใส่ตามแผน
+  _selectedEmps.forEach(e => { const o = document.getElementById('empopt-' + e.id); if (o) o.classList.remove('selected'); });
+  _selectedEmps = []; renderEmpTags();
+  const want = MODULES[it.moduleId] ? MODULES[it.moduleId].group : '';
+  const empObjs = (it.empIds || []).map(id => getEmployee(id)).filter(e => e && document.getElementById('empopt-' + e.id));
+  const crossNeeded = empObjs.some(e => {
+    const g = getPositionGroup(e.position);
+    return g !== 'ทีมผู้จัดการสาขา' && ((want === 'Cook' && g !== 'พนักงานครัว') || (want === 'Service' && g !== 'พนักงานบริการ'));
+  });
+  const box = document.getElementById('tr-cross-dept');
+  if (box && box.checked !== crossNeeded) { box.checked = crossNeeded; toggleCrossDeptMode(); }
+  empObjs.slice(0, crossNeeded ? 1 : MAX_TRAINEES).forEach(e => toggleEmpSelection(e.id));
+  const sel = document.getElementById('tr-module');
+  if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
+    sel.value = it.moduleId;
+    try { updateSubtopics(); } catch (_) {}
+    (it.subtopics || []).forEach(sub => {
+      const c = [...document.querySelectorAll('.sub-check')].find(x => x.value === sub);
+      if (c && !c.checked && !c.disabled) c.click();
+    });
+  }
+  if (note) {
+    const skipped = (it.empIds || []).length - empObjs.length;
+    note.style.display = '';
+    note.style.color = skipped > 0 ? '#B45309' : 'var(--green)';
+    note.textContent = '✓ เติมตามแผนแล้ว — แก้ไขได้ทุกช่อง' + (skipped > 0 ? ` (ผู้เรียนในแผน ${skipped} คนไม่อยู่ในรายชื่อที่เปิดใช้งาน ต้องเลือกเอง)` : '');
+  }
 }
 
 /* ภาพรวมแผนทุกสาขา + ตรวจการสอนที่ไม่ตรงแผน (หน้าบันทึกการสอนของ admin)
