@@ -2681,8 +2681,9 @@
     .tf-m .tf-chips, .tf-m .tf-dates { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
     .tf-m .tf-chips::-webkit-scrollbar, .tf-m .tf-dates::-webkit-scrollbar { display: none; }
     /* แท็บสถานะ 2 บรรทัด กึ่งกลาง: (ทั้งหมด · รอประเมิน) / (ประเมินแล้ว · หมดเวลาประเมิน) ไม่ล้นขอบ */
-    .tf-m .tf-chips { flex-wrap: wrap; overflow: visible; justify-content: center; }
-    .tf-m .tf-chips .tf-br { flex-basis: 100%; height: 0; }
+    .tf-m .tf-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow: visible; }
+    .tf-m .tf-chips .tf-br { display: none; }
+    .tf-m .tf-chips .tf-chip { width: 100%; text-align: center; padding: 8px 6px; }
     .tf-m .tf-dates { flex-wrap: wrap; overflow: visible; }
     .tf-m .tf-chip { flex: 0 0 auto; border: 1.5px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 700; color: var(--text2); cursor: pointer; white-space: nowrap; }
     .tf-m .tf-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
