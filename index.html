@@ -17090,6 +17090,7 @@ function renderCoachingPlanPanel(bid) {
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
+            ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
             ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย${_planTodoCount(bid, it) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it)}</b>` : ''} 🔍</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
@@ -17230,6 +17231,7 @@ function openPlanItem(grp, itemId) {
   const it = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
   const want = grp === 'kitchen' ? 'Cook' : 'Service';
   _cpGrp = grp;
+  _cpTrack = (it && it.track) || '';
   const empGrp = grp === 'kitchen' ? 'พนักงานครัว' : 'พนักงานบริการ';
   const otherGrp = grp === 'kitchen' ? 'พนักงานบริการ' : 'พนักงานครัว';
   /* คนในกลุ่มนั้นขึ้นก่อน ทีมผู้จัดการสาขาตามมา (สอนได้ทั้งสองฝั่ง) */
@@ -17304,6 +17306,7 @@ function openPlanItem(grp, itemId) {
         ${_cpModuleOptionsHtml(it && it.moduleId, _cpCrossDept || modOtherSide)}
       </select>
     </div>
+    <div class="form-full" id="cp-track-box" style="display:none"></div>
     <div class="form-full">
       <label class="form-label">หัวข้อย่อย <span class="req">*</span> <span id="cp-sub-legend" style="font-weight:700;font-size:11.5px"></span></label>
       <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify((it && it.subtopics) || []).replace(/'/g, '&#39;')}'></div>
@@ -17331,7 +17334,8 @@ function openPlanItem(grp, itemId) {
     if (!trainerName) errs.push(['tr-trainer', 'กรุณาระบุชื่อผู้สอนงาน']);
     if (!empIds.length) errs.push(['cp-emp-select-box', 'ต้องเลือกพนักงานที่จะสอนอย่างน้อย 1 คน']);
     if (!moduleId) errs.push(['cp-module', 'กรุณาเลือก Module']);
-    else if (!subtopics.length) errs.push(['cp-subs', 'กรุณาเลือกหัวข้อย่อยอย่างน้อย 1 ข้อ']);
+    if (moduleId && moduleNeedsTrack(moduleId) && !_cpTrack) errs.push(['cp-track-box', 'กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า']);
+    if (moduleId && !subtopics.length) errs.push(['cp-subs', 'กรุณาเลือกหัวข้อย่อยอย่างน้อย 1 ข้อ']);
     if (errs.length) { _cpShowErrs(errs); return; }
     /* วางแผนสอนหัวข้อที่ผู้เรียนเคยถูกสอนไปแล้ว → ถามยืนยันว่าเป็นการสอนทบทวน (เหมือนตอนบันทึกการสอนงาน)
        แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
@@ -17352,6 +17356,7 @@ function openPlanItem(grp, itemId) {
     const now = new Date().toISOString();
     const rec = {
       id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName,
+      ...(moduleNeedsTrack(moduleId) ? { track: _cpTrack } : {}),
       note: (document.getElementById('cp-note').value || '').trim(),
       // ผู้จัดทำ (ล็อกครั้งแรกที่สร้าง — คงเดิมแม้แก้ไขภายหลัง) · ผู้แก้ไขล่าสุด (อัปเดตทุกครั้งที่บันทึก — ใช้เช็คว่ามีอะไรใหม่ให้ BZM ดูไหมด้วย)
       // ต้องให้กรอกเอง เพราะบัญชีสาขาล็อกอินร่วมกันทั้งสาขา ไม่มีชื่อรายคนผูกกับ currentUser ให้สติกอัตโนมัติได้
@@ -17662,6 +17667,25 @@ function cpRenderEmpChips() {
   _cpResyncSubs();
 }
 function cpSelectedEmpIds() { return _cpSelectedEmps.map(e => e.id); }
+let _cpTrack = '';
+function _cpRenderTrack(mid) {
+  const box = document.getElementById('cp-track-box'); if (!box) return;
+  if (!moduleNeedsTrack(mid)) { box.style.display = 'none'; box.innerHTML = ''; _cpTrack = ''; return; }
+  box.style.display = '';
+  box.innerHTML = `<label class="form-label">เลือกหน้างาน <span class="req">*</span> <span style="font-weight:500;color:var(--text3);font-size:11px">— เนื้อหาสอนเหมือนกัน ต่างกันที่ชุดข้อสอบ</span></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${TRACKS.map(t => `<button type="button" class="cp-track-btn" data-track="${t.key}" onclick="_cpSelectTrack('${t.key}')"
+      style="flex:1;min-width:140px;padding:11px 14px;border:1.5px solid var(--border2);border-radius:11px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">${t.label}</button>`).join('')}</div>`;
+  _cpPaintTrack();
+}
+function _cpPaintTrack() {
+  document.querySelectorAll('.cp-track-btn').forEach(b => {
+    const on = b.dataset.track === _cpTrack, t = TRACKS.find(x => x.key === b.dataset.track) || {};
+    b.style.background = on ? (t.color || 'var(--accent)') : 'var(--surface)';
+    b.style.color = on ? '#fff' : 'var(--text)';
+    b.style.borderColor = on ? 'transparent' : 'var(--border2)';
+  });
+}
+function _cpSelectTrack(k) { _cpTrack = k; _cpPaintTrack(); }
 function _cpResyncSubs() {
   const box = document.getElementById('cp-subs'); if (!box || !document.getElementById('cp-module')) return;
   if (box.querySelector('.cp-sub')) box.dataset.sel = JSON.stringify([...box.querySelectorAll('.cp-sub:checked')].map(c => c.value));
@@ -17675,8 +17699,17 @@ function _cpSubtopics() {
   const midSel = document.getElementById('cp-module').value, ids = cpSelectedEmpIds();
   /* ติดป้ายสถานะตามผู้เรียนที่เลือก (ต้องเลือกคนก่อนถึงจะบอกได้) */
   const st = {}; if (m && ids.length) _subStatusList(getBranchId(), midSel, ids).forEach(x => { st[x.s] = x.st; });
-  box.innerHTML = m ? (m.subtopics || []).map(s => `<label class="checkbox-item${pre.includes(s) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}${st[s] ? _subTag(st[s]) : ''}</label>`).join('')
-    : '<span class="text-muted">เลือก Module ก่อน</span>';
+  _cpRenderTrack(midSel);
+  const chip = s => `<label class="checkbox-item${pre.includes(s) ? ' checked' : ''}" onclick="toggleCheck(this)"><input type="checkbox" class="cp-sub" value="${_escH(s)}"${pre.includes(s) ? ' checked' : ''}> ${_escH(s)}${st[s] ? _subTag(st[s]) : ''}</label>`;
+  if (!m) box.innerHTML = '<span class="text-muted">เลือก Module ก่อน</span>';
+  else if (moduleHasSubtopicTracks(midSel)) {
+    /* Module ที่หัวข้อย่อยแยกหน้างานอยู่ในตัว (เช่น Module 4 ครัว) — แยกหมวดสเต็ก/พาสต้าให้เห็นเหมือนฟอร์มบันทึกการสอน */
+    const subs = m.subtopics || [];
+    const groups = TRACKS.map(t => ({ t, items: subs.filter(x => subtopicTrack(midSel, x) === t.key) })).filter(g => g.items.length);
+    const rest = subs.filter(x => !subtopicTrack(midSel, x));
+    box.innerHTML = groups.map(g => `<div style="width:100%;margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:${g.t.color};margin-bottom:6px">${g.t.label}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${g.items.map(chip).join('')}</div></div>`).join('') +
+      (rest.length ? `<div style="width:100%"><div style="font-size:12px;font-weight:800;color:var(--text3);margin-bottom:6px">ทั่วไป</div><div style="display:flex;flex-wrap:wrap;gap:8px">${rest.map(chip).join('')}</div></div>` : '');
+  } else box.innerHTML = (m.subtopics || []).map(chip).join('');
   const lg = document.getElementById('cp-sub-legend');
   if (lg) {
     const todo = Object.values(st).filter(v => v === 'todo').length, tot = Object.keys(st).length;
@@ -17752,6 +17785,7 @@ function applyPlanToTrainingForm(val) {
   if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
     sel.value = it.moduleId;
     try { updateSubtopics(); } catch (_) {}
+    if (it.track && moduleNeedsTrack(it.moduleId)) { try { selectTrack(it.track); } catch (_) {} }
     (it.subtopics || []).forEach(sub => {
       const c = [...document.querySelectorAll('.sub-check')].find(x => x.value === sub);
       if (c && !c.checked && !c.disabled) c.click();
