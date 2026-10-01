@@ -17147,6 +17147,7 @@ function renderCoachingPlanPanel(bid) {
             ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
             ${(it.subtopics || []).length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${it.subtopics.length} หัวข้อย่อย${_planTodoCount(bid, it) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it)}</b>` : ''} 🔍</span>` : ''}
             ${_retroTag(bid, ym, it)}
+            ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
           <div class="cp-step">
@@ -17303,7 +17304,7 @@ function _trainingOutcome(t) {
 function _planActualHtml(bid, ym, it) {
   const ms = _planMatches(bid, ym, it); if (!ms.length) return '';
   const names = t => (t.traineeIds || []).filter(id => (it.empIds || []).includes(id)).map(id => (getEmployee(id) || {}).name).filter(Boolean).join(', ');
-  return ms.slice(0, 3).map(t => {
+  return ms.map((t, i) => {
     const o = _trainingOutcome(t);
     const ev = t.eval
       ? `<span class="badge ${isEvalPass(t.eval.result) ? 'badge-green' : 'badge-red'}">ประเมิน ${_escH(fmtDate(t.eval.evalDate || t.date))} · ${isEvalPass(t.eval.result) ? 'ผ่าน' : 'ไม่ผ่าน'} ระดับ ${_escH(t.eval.result)}</span>`
@@ -17313,8 +17314,8 @@ function _planActualHtml(bid, ym, it) {
       : (o.waitingQuiz ? '<span class="badge badge-yellow">ข้อสอบ ยังไม่ได้ทำ</span>' : '');
     const re = o.reteach ? `<span class="badge badge-red" style="font-weight:800">🔁 ต้องสอนใหม่ · ${_escH(o.reteach)}</span>` : '';
     return `<div class="cp-act">
-      <div class="cp-act-h">📌 สอนจริง <b>${_escH(fmtDateTime(t.date))}</b>${t.trainerName ? ' · ผู้สอน <b>' + _escH(t.trainerName) + '</b>' : ''}${ms.length > 1 && names(t) ? ' · ' + _escH(names(t)) : ''}</div>
-      <div class="cp-act-chips">${ev}${qz}${re}</div>
+      <div class="cp-act-h">📌 สอนจริง${ms.length > 1 ? ` <b>ครั้งที่ ${i + 1}</b>` : ''} <b>${_escH(fmtDateTime(t.date))}</b>${t.trainerName ? ' · ผู้สอน <b>' + _escH(t.trainerName) + '</b>' : ''}${ms.length > 1 && names(t) ? ' · ' + _escH(names(t)) : ''}</div>
+      <div class="cp-act-chips">${reviewBadge(t).trim()}${ev}${qz}${re}</div>
     </div>`;
   }).join('');
 }
