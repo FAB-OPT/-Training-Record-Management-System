@@ -17304,6 +17304,7 @@ function renderCoachingPlanPanel(bid) {
             ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
+          ${it.moduleIdOrig ? `<div style="margin:6px 0 2px;padding:8px 10px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:12px;line-height:1.55">📌 <b>แผนเดิม:</b> ${_escH((MODULES[it.moduleIdOrig] || {}).name || it.moduleIdOrig)}${(it.subtopicsOrig || []).length ? ' · ' + (it.subtopicsOrig || []).map(_escH).join(', ') : ''}<br><b>สอนจริง:</b> ${_escH(m.name || it.moduleId)}${_subsEff.length ? ' · ' + _subsEff.map(_escH).join(', ') : ''}</div>` : (_ms.length && (it.subtopicsOrig || []).length && _subsEff.some(x => !it.subtopicsOrig.includes(x)) ? `<div style="margin:6px 0 2px;padding:6px 10px;border-radius:8px;background:#F0F9FF;color:#0369A1;font-size:12px;line-height:1.55">📌 <b>แผนเดิมวางหัวข้อ:</b> ${it.subtopicsOrig.map(_escH).join(', ')}</div>` : '')}
           <div class="cp-step">
             <div class="cp-step-line ${ev ? 'full' : ok ? 'half' : ''}"></div>
             <div class="cp-step-pt l ${ok ? 'done' : ''}"><i></i><span>${_tFirst ? 'สอนจริง' : 'สอน'}</span><b>${_tFirst ? _escH(fmtDate(_tFirst.date)) : shortD(it.planDate)}</b>${_tFirst ? `<small>แผน ${shortD(it.planDate)}</small>` : ''}</div>
@@ -17463,7 +17464,7 @@ function _syncPlanLearnersAfterEdit(t, oldIds, linked) {
     let next = cur.filter(x => !removed.includes(x)).concat(added.filter(x => !cur.includes(x)));
     if (!next.length) next = (t.traineeIds || []).slice();
     if (next.length === cur.length && next.every(x => cur.includes(x))) return;
-    items[at] = Object.assign({}, items[at], { empIds: next, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการแก้บันทึกการสอน', updatedAt: new Date().toISOString() });
+    items[at] = Object.assign({}, items[at], { history: _planHistoryNext(items[at], Object.assign({}, items[at], { empIds: next }), _planActor(), 'ตามการแก้บันทึกการสอน'), empIds: next, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการแก้บันทึกการสอน', updatedAt: new Date().toISOString() });
     changed = true;
   });
   if (changed) _savePlan(t.branchId, linked.ym, items);
@@ -17528,6 +17529,7 @@ function _planIsRetro(bid, ym, it) {
   if (!it || !it.createdAt) return false;
   const made = new Date(it.createdAt); if (isNaN(made)) return false;
   if (it.planDate && it.planDate < _ymdLocal(made)) return true;
+  if (it.moduleIdOrig) return false;   // ทำแผนไว้ก่อนแล้ว แค่เปลี่ยน Module ตามที่สอนจริง ไม่ใช่ย้อนหลัง
   return (DB.trainings || []).some(t => t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
     new Date(t.date) < made && (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
 }
@@ -17704,8 +17706,10 @@ function openPlanItem(grp, itemId, restricted) {
     const unchanged = !!it && same(it.subtopics, subtopics) && same(it.empIds, empIds);
     if (!window._cpReviewOk && !unchanged) {
       const cov = getSubtopicCoverageMap(bid, moduleId, empIds);
+      /* ทำแผนย้อนหลัง: มีบันทึกการสอนตรงแผนนี้อยู่แล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน) → หัวข้อที่บันทึกนั้นสอนไปคือการสอนของแผนนี้เอง ไม่ใช่การทบทวน ไม่ต้องถามยืนยัน */
+      const _own = _planMatches(bid, ym, { moduleId, empIds });
       const dupLines = empIds.map(id => {
-        const subs = _reviewSubs(id, moduleId, subtopics);
+        const subs = _reviewSubs(id, moduleId, subtopics).filter(sub => !_own.some(t => (t.subtopics || []).includes(sub)));
         return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
       }).filter(Boolean);
       if (dupLines.length) {
@@ -17724,6 +17728,13 @@ function openPlanItem(grp, itemId, restricted) {
       createdBy: (it && it.createdBy) || who, createdAt: (it && it.createdAt) || now,
       updatedBy: who, updatedAt: now,
     };
+    if (it) {
+      /* ค่าที่ฟอร์มไม่ได้แก้ (แผนเดิมที่เปลี่ยนตามการสอนจริง ฯลฯ) ต้องไม่หาย */
+      if (it.moduleId === moduleId) { if (it.moduleIdOrig) rec.moduleIdOrig = it.moduleIdOrig; if (it.subtopicsOrig) rec.subtopicsOrig = it.subtopicsOrig; }
+      rec.history = _planHistoryNext(it, rec, who + (isAnyAdminRole() ? ' (Admin ' + _planActor() + ')' : ''), 'แก้ไขแผน');
+    } else {
+      rec.history = [{ at: now, by: who, src: 'จัดทำแผน', lines: ['จัดทำแผนใหม่'] }];
+    }
     if (_cpBatchMode) {
       _cpBatchItems.push({ ...rec, grp, empNames: _cpSelectedEmps.map(e => e.name) });
       _cpBatchMode = false;
@@ -18117,6 +18128,33 @@ function deletePlanItem(itemId) {
   _savePlan(bid, ym, (p.items || []).filter(x => x.id !== itemId));
   closeModal(); showPage(currentPage); notify('ลบแผนแล้ว');
 }
+/* ประวัติการแก้ไขแผน (เก็บใน item.history · Admin ดูได้) — เทียบแผนก่อน/หลังแล้วจดว่าแก้อะไร */
+function _planDiffLines(a, b) {
+  const L = [], mn = id => (MODULES[id] || {}).name || id, cut = x => { x = String(x || '').replace(/\s+/g, ' ').trim(); return x.length > 60 ? x.slice(0, 60) + '…' : (x || '—'); };
+  const nm = ids => (ids || []).map(i => (getEmployee(i) || {}).name || i);
+  if (a.moduleId !== b.moduleId) L.push('Module: ' + mn(a.moduleId) + ' → ' + mn(b.moduleId));
+  const sa = a.subtopics || [], sb = b.subtopics || [];
+  const add = sb.filter(x => !sa.includes(x)), rem = sa.filter(x => !sb.includes(x));
+  if (add.length) L.push('เพิ่มหัวข้อย่อย: ' + add.join(', '));
+  if (rem.length) L.push('ตัดหัวข้อย่อย: ' + rem.join(', '));
+  if ((a.planDate || '') !== (b.planDate || '')) L.push('วันที่สอน: ' + (a.planDate ? fmtDate(a.planDate) : '—') + ' → ' + (b.planDate ? fmtDate(b.planDate) : '—'));
+  if ((a.evalDate || '') !== (b.evalDate || '')) L.push('วันที่ประเมิน: ' + (a.evalDate ? fmtDate(a.evalDate) : '—') + ' → ' + (b.evalDate ? fmtDate(b.evalDate) : '—'));
+  if ((a.trainerName || '') !== (b.trainerName || '')) L.push('ผู้สอน: ' + cut(a.trainerName) + ' → ' + cut(b.trainerName));
+  const ea = a.empIds || [], eb = b.empIds || [];
+  const eadd = eb.filter(x => !ea.includes(x)), erem = ea.filter(x => !eb.includes(x));
+  if (eadd.length) L.push('เพิ่มผู้เรียน: ' + nm(eadd).join(', '));
+  if (erem.length) L.push('เอาผู้เรียนออก: ' + nm(erem).join(', '));
+  if ((a.track || '') !== (b.track || '')) L.push('หน้างาน: ' + ((TRACKS.find(t => t.key === a.track) || {}).label || '—') + ' → ' + ((TRACKS.find(t => t.key === b.track) || {}).label || '—'));
+  if ((a.details || '') !== (b.details || '')) L.push('รายละเอียดการสอนงาน: "' + cut(a.details) + '" → "' + cut(b.details) + '"');
+  if ((a.note || '') !== (b.note || '')) L.push('หมายเหตุ: "' + cut(a.note) + '" → "' + cut(b.note) + '"');
+  return L;
+}
+function _planHistoryNext(a, b, by, src) {
+  const lines = _planDiffLines(a, b), h = (a.history || []).slice();
+  if (lines.length) h.push({ at: new Date().toISOString(), by: by || '—', src: src || '', lines });
+  return h.slice(-60);
+}
+const _planActor = () => (currentUser && (currentUser.name || currentUser.nick)) || '—';
 function _savePlan(bid, ym, items) {
   const rec = { id: _planId(bid, ym), branchId: bid, month: ym, items,
     updatedBy: currentUser?.name || currentUser?.nick || '—', updatedAt: new Date().toISOString() };
@@ -18142,6 +18180,7 @@ function _syncPlanFromTraining(t, planVal) {
     if (orig === t.moduleId) { delete nxt.moduleIdOrig; nxt.subtopicsOrig = origSubs; } else { nxt.moduleIdOrig = orig; nxt.subtopicsOrig = origSubs; }
     if (moduleNeedsTrack(t.moduleId)) nxt.track = t.track || nxt.track || ''; else delete nxt.track;
     nxt.updatedBy = (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง'; nxt.updatedAt = new Date().toISOString();
+    nxt.history = _planHistoryNext(it, nxt, _planActor(), 'ตามบันทึกการสอนจริง');
     items[at] = nxt; it = nxt;
     _savePlan(bid, ym, items);
     return;
@@ -18153,7 +18192,9 @@ function _syncPlanFromTraining(t, planVal) {
   const cur = it.subtopics || [];
   if (next.length === cur.length && next.every(x => cur.includes(x))) return;   // ไม่มีอะไรเปลี่ยน
   const now = new Date().toISOString();
-  items[at] = Object.assign({}, it, { subtopics: next, subtopicsOrig: it.subtopicsOrig || cur, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง', updatedAt: now });
+  const _nx = Object.assign({}, it, { subtopics: next, subtopicsOrig: it.subtopicsOrig || cur, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง', updatedAt: now });
+  _nx.history = _planHistoryNext(it, _nx, _planActor(), 'ตามบันทึกการสอนจริง');
+  items[at] = _nx;
   _savePlan(bid, ym, items);
 }
 /* "บันทึกตามแผน" อยู่ในฟอร์มบันทึกการสอนงาน — เลือกแผนที่ยังไม่ได้สอน (เดือนนี้ + เดือนที่แล้วที่ยังค้าง) */
@@ -18361,11 +18402,24 @@ function _planItemDetailListHtml(bid, ym, items) {
         ${it.note ? `<br>📝 ${_escH(it.note)}` : ''}
       </div>
       ${it.createdBy || it.createdAt ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำ${it.createdBy ? 'โดย ' + _escH(it.createdBy) : ''}${it.createdAt ? ' เมื่อ ' + _escH(fmtDateTime(it.createdAt)) : ''}${it.updatedAt && it.createdAt && Math.abs(new Date(it.updatedAt) - new Date(it.createdAt)) > 60000 ? ` · แก้ล่าสุด ${_escH(fmtDateTime(it.updatedAt))}${it.updatedBy ? ' โดย ' + _escH(it.updatedBy) : ''}` : ''}</div>` : ''}
+      ${isAdminRole() ? _planHistoryHtml(it) : ''}
       ${isAdminRole() ? `<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn btn-sm btn-outline" onclick="adminEditPlanItem('${bid}','${ym}','${it.id}')">✏️ แก้ไข</button><button type="button" class="btn btn-sm btn-danger" onclick="adminDeletePlanItem('${bid}','${ym}','${it.id}')">🗑 ลบ</button></div>` : ''}
     </div>`;
   }).join('')}</div>`;
 }
 /* Admin แก้ไข/ลบแผนของสาขาได้ตลอด (แม้สอนไปแล้ว) — จากรายการแผนในหน้าแผนการสอนงานของ Admin */
+function _planHistoryHtml(it) {
+  const ents = (it.history || []).slice();
+  if (!ents.length) {   // แผนที่ทำก่อนมีระบบเก็บประวัติ — สรุปเท่าที่รู้
+    if (it.createdAt || it.createdBy) ents.push({ at: it.createdAt, by: it.createdBy, src: 'จัดทำแผน', lines: ['จัดทำแผน'] });
+    if (it.moduleIdOrig) ents.push({ at: it.updatedAt, by: it.updatedBy, src: 'ตามบันทึกการสอนจริง', lines: ['Module: ' + ((MODULES[it.moduleIdOrig] || {}).name || it.moduleIdOrig) + ' → ' + ((MODULES[it.moduleId] || {}).name || it.moduleId)] });
+    else if ((it.subtopicsOrig || []).length) ents.push({ at: it.updatedAt, by: it.updatedBy, src: 'ตามบันทึกการสอนจริง', lines: ['หัวข้อย่อยปรับตามที่สอนจริง (เดิม: ' + it.subtopicsOrig.join(', ') + ')'] });
+    else if (it.updatedAt && it.createdAt && Math.abs(new Date(it.updatedAt) - new Date(it.createdAt)) > 60000) ents.push({ at: it.updatedAt, by: it.updatedBy, src: 'แก้ไขแผน', lines: ['มีการแก้ไข (ไม่ได้เก็บรายละเอียดไว้)'] });
+  }
+  if (!ents.length) return '';
+  return '<details style="margin-top:8px;font-size:12px"><summary style="cursor:pointer;font-weight:700;color:var(--text2)">🕘 ประวัติการแก้ไข (' + ents.length + ')</summary><div style="margin-top:6px;display:flex;flex-direction:column;gap:6px">' +
+    ents.slice().reverse().map(e => '<div style="padding:6px 10px;border-left:3px solid var(--border2);background:var(--surface2);border-radius:0 8px 8px 0;line-height:1.6"><div style="color:var(--text3);font-size:11px">' + (e.at ? _escH(fmtDateTime(e.at)) : '—') + ' · ' + _escH(e.by || '—') + (e.src ? ' · ' + _escH(e.src) : '') + '</div>' + (e.lines || []).map(l => '<div>• ' + _escH(l) + '</div>').join('') + '</div>').join('') + '</div></details>';
+}
 function adminEditPlanItem(bid, ym, itemId) {
   if (!isAdminRole()) return;
   const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
