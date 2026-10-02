@@ -3221,6 +3221,150 @@ body.admin-user .btn-navy{background:var(--primary)}
   .zm-leaves{padding:12px}
 }
 </style>
+<style id="admin-mobile-css">
+/* ==========================================================================
+   หน้าตามือถือของ Admin / BZM (body.admin-user) — เน้นกระชับ ใช้เหมือนแอป
+   - ไม่แตะฝั่งสาขา (body.branch-user) · โทนสี/ฟอนต์/ตัวแปรเดิมของระบบ
+   - แถบบน 48px · เมนูล่าง 5 ช่องเต็มความกว้าง · หัวหน้าจอเล็กลง
+   - ตัวกรองเรียง 2 คอลัมน์ · การ์ดตัวเลขเป็นแถวเดียว · ตารางเป็นการ์ดแน่น
+   ========================================================================== */
+@media (max-width: 760px) {
+  /* ---- แถบบน ---- */
+  body.admin-user .mobile-topbar { height: 48px; padding: 0 8px 0 14px; gap: 4px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  body.admin-user .hamburger { display: none; }
+  body.admin-user .mobile-topbar-title { font-size: 15.5px; font-weight: 800; letter-spacing: -.2px; }
+  body.admin-user #topbar-hub-btn, body.admin-user #topbar-logout-btn { font-size: 12.5px; padding: 0 11px; min-height: 32px; border-radius: 999px; background: var(--surface2); }
+  body.admin-user #topbar-hub-btn { color: var(--text); }
+  body.admin-user #topbar-logout-btn { color: var(--red); }
+  body.admin-user .main { padding: 58px 12px 76px !important; }
+  body.admin-user:has(.mobile-bottom-nav:not(.hidden-always)) .main { padding-bottom: 76px !important; }
+
+  /* ---- หัวหน้าจอ: บรรทัดเดียว ---- */
+  body.admin-user .page-hero { padding: 0 2px !important; margin: 0 0 10px !important; }
+  body.admin-user .page-hero-title { font-size: 19px !important; letter-spacing: -.2px; line-height: 1.25; }
+  body.admin-user .page-hero-sub { font-size: 12px !important; margin-top: 2px !important; color: var(--text3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  body.admin-user .page-header { gap: 8px; margin-bottom: 10px; }
+
+  /* ---- เมนูล่าง ---- */
+  body.admin-user .mobile-bottom-nav { box-shadow: none; border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+  body.admin-user .mobile-bottom-nav-inner { height: 56px; padding: 4px 6px; width: 100%; min-width: 0; gap: 2px; }
+  body.admin-user .bottom-nav-item { flex: 1 1 0; min-width: 0; padding: 4px 2px; gap: 2px; border-radius: 10px; }
+  body.admin-user .bottom-nav-icon { font-size: 20px; }
+  body.admin-user .bottom-nav-label { font-size: 10.5px; font-weight: 700; max-width: 100%; }
+  body.admin-user .bottom-nav-item.active { background: var(--accent-light); }
+  body.admin-user #chatbot-fab { bottom: 66px; right: 12px; transform: scale(.82); transform-origin: bottom right; }
+
+  /* ---- การ์ด/กล่อง ---- */
+  body.admin-user .card { padding: 10px 12px !important; border-radius: 12px; margin-bottom: 10px; }
+  body.admin-user .card-header { margin-bottom: 8px; }
+
+  /* ---- การ์ดตัวเลข: ไอคอนซ้าย ตัวเลขขวา แถวเดียว ---- */
+  body.admin-user .stats-grid { gap: 8px !important; margin-bottom: 10px !important; }
+  body.admin-user .stat-card { padding: 9px 12px !important; flex-direction: row !important; align-items: center !important; text-align: left !important; gap: 10px !important; border-radius: 12px; }
+  body.admin-user .stat-card .stat-icon-wrap { width: 30px; height: 30px; font-size: 14px; flex: 0 0 auto; }
+  body.admin-user .stat-card > div:first-child:not(.stat-icon-wrap) { font-size: 20px !important; flex: 0 0 auto; }
+  body.admin-user .stat-card .stat-value { font-size: 20px !important; line-height: 1.1; }
+  body.admin-user .stat-card .stat-label { font-size: 11.5px !important; }
+  body.admin-user .stat-card div[style*="font-size:26px"] { font-size: 20px !important; }
+
+  /* ---- "งานที่รอคุณ" บนหน้าแรก ---- */
+  body.admin-user .tk2-wrap { margin-bottom: 10px; }
+  body.admin-user .tk2-grid { gap: 8px; }
+  body.admin-user .tk2 { min-height: 0; border-radius: 12px; }
+  body.admin-user .tk2-top { height: 3px; }
+  body.admin-user .tk2-b { padding: 8px 12px 2px; gap: 1px; }
+  body.admin-user .tk2-n { font-size: 22px; }
+  body.admin-user .tk2-l { font-size: 12.5px; }
+  body.admin-user .tk2-s { font-size: 11px; }
+  body.admin-user .tk2-go { margin: 4px 12px 10px; padding: 4px 10px; min-height: 30px; font-size: 12px; }
+  body.admin-user .tk2-done { margin: 4px 12px 10px; font-size: 11.5px; }
+
+  /* ---- ช่องกรอก/ตัวกรอง: เตี้ยลง (คง 16px กัน iOS ซูม) เรียง 2 คอลัมน์ ---- */
+  body.admin-user .form-input, body.admin-user .form-select { min-height: 40px; padding: 7px 12px !important; border-radius: 10px; }
+  body.admin-user .form-select { padding-right: 32px !important; }
+  body.admin-user .card div[style*="flex-wrap"]:has(> div > select, > div > input, > select, > input) { gap: 8px !important; }
+  body.admin-user .card div[style*="flex-wrap"]:has(> div > select, > div > input) > div { flex: 1 1 calc(50% - 8px) !important; min-width: 0 !important; }
+  body.admin-user .card div[style*="flex-wrap"]:has(> div > input[placeholder]) > div:has(> input[placeholder]) { flex-basis: 100% !important; }
+  body.admin-user .card div[style*="flex-wrap"] > div > select, body.admin-user .card div[style*="flex-wrap"] > div > input { width: 100%; min-width: 0 !important; }
+  body.admin-user .btn { min-height: 38px; padding: 8px 14px; }
+  body.admin-user .btn-sm { min-height: 32px; padding: 5px 11px; }
+
+  /* ---- ตารางที่เป็นการ์ด: แน่นขึ้น ชื่อบรรทัดแรก ที่เหลือเรียง 2 คอลัมน์ ---- */
+  body.admin-user table.cards-on-mobile:not(.xfer-table) tr {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px;
+    padding: 10px 12px; margin-bottom: 8px; border-radius: 12px; box-shadow: none;
+  }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td { display: block; padding: 1px 0 !important; min-width: 0; font-size: 13px; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td::before { display: block; font-size: 10.5px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text3); margin-bottom: 0; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td > * { text-align: left; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td:first-child { grid-column: 1 / -1; font-size: 14.5px; font-weight: 800; padding-bottom: 3px !important; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td:first-child::before { display: none; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td[data-label="actions"],
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td:last-child:has(> button) { grid-column: 1 / -1; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; padding-top: 8px !important; margin-top: 4px; border-top: 1px solid var(--border) !important; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td:last-child:has(> button)::before { display: none; }
+
+  /* ---- แถบตัวกรอง (.filter-bar): แท็บเลื่อนข้างได้ ช่องเลือกครึ่งแถว ---- */
+  body.admin-user .filter-bar { gap: 8px !important; margin-bottom: 10px !important; }
+  body.admin-user .filter-bar > select, body.admin-user .filter-bar > input, body.admin-user .filter-bar > label { flex: 1 1 calc(50% - 8px) !important; width: auto !important; min-width: 0 !important; max-width: none !important; }
+  body.admin-user .filter-bar > input[type="text"], body.admin-user .filter-bar > input[type="search"] { flex-basis: 100% !important; }
+  body.admin-user .filter-bar .cat-tabs { flex: 1 1 100%; flex-wrap: nowrap !important; overflow-x: auto; gap: 0 !important; border-bottom: 1px solid var(--border); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  body.admin-user .filter-bar .cat-tabs::-webkit-scrollbar { display: none; }
+  body.admin-user .train-tab, body.admin-user .filter-bar .cat-tabs > button { padding: 8px 11px !important; white-space: nowrap; flex: 0 0 auto; }
+  body.admin-user table.cards-on-mobile:not(.xfer-table) td { text-align: left !important; }
+  /* ---- แบ่งหน้ารายการยาว ---- */
+  body.admin-user .mp-hide, body.admin-user [class~="mp-hide"][class~="mp-hide"][class~="mp-hide"] { display: none !important; }
+  body.admin-user .mp-more { margin: 4px 0 12px; }
+  body.admin-user .mp-more button { width: 100%; min-height: 42px; border: 1px dashed var(--border2); background: var(--surface); color: var(--accent); border-radius: 12px; font: 700 13.5px Sarabun, sans-serif; }
+  body.admin-user .mp-more button:active { background: var(--accent-light); }
+  /* ---- กล่องที่พับได้ (แดชบอร์ด/สถิติ) ---- */
+  body.admin-user .mc-card .mc-head { cursor: pointer; position: relative; padding-right: 26px !important; min-height: 30px; }
+  body.admin-user .mc-card .mc-head::after { content: ''; position: absolute; right: 6px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--text3); border-bottom: 2px solid var(--text3); transform: translateY(-70%) rotate(45deg); transition: transform .15s; }
+  body.admin-user .mc-card.mc-closed .mc-head::after { transform: translateY(-50%) rotate(-45deg); }
+  body.admin-user .mc-card.mc-closed > *:not(.mc-head) { display: none !important; }
+  body.admin-user .mc-card.mc-closed { padding-top: 11px !important; padding-bottom: 11px !important; }
+  body.admin-user .mc-card.mc-closed .mc-head { margin: 0 !important; border: 0 !important; padding-bottom: 0 !important; }
+
+  /* ---- ตารางสรุปรายสาขา (แดชบอร์ด): ชื่อสาขาบนสุด ตัวเลข 5 ช่องมีป้ายกำกับ ---- */
+  body.admin-user table.cards-on-mobile.branch-summary-table tr { display: grid !important; grid-template-columns: repeat(5, 1fr); gap: 4px 4px; padding: 10px 10px; }
+  body.admin-user table.cards-on-mobile.branch-summary-table td { grid-column: auto !important; grid-row: auto !important; display: block !important; text-align: center !important; font-size: 15px !important; font-weight: 800 !important; padding: 2px 0 !important; justify-content: center !important; }
+  body.admin-user table.cards-on-mobile.branch-summary-table td:first-child { grid-column: 1 / -1 !important; text-align: left !important; font-size: 14px !important; }
+  body.admin-user table.cards-on-mobile.branch-summary-table td::before { display: block !important; content: attr(data-label) !important; font-size: 10px; line-height: 1.2; font-weight: 600; color: var(--text3); }
+  body.admin-user table.cards-on-mobile.branch-summary-table td:first-child::before { display: none !important; }
+  /* ---- การ์ดตัวเลขแดชบอร์ด (dash-stat-tile): เตี้ย ตัวเลขใหญ่ ---- */
+  body.admin-user .dash-stat-grid { gap: 8px !important; margin-bottom: 10px !important; }
+  body.admin-user .dash-stat-tile { padding: 10px 12px !important; border-radius: 12px; }
+  body.admin-user .dash-stat-tile:hover { transform: none; box-shadow: none; }
+  body.admin-user .dash-stat-head { margin-bottom: 4px !important; align-items: flex-start; }
+  body.admin-user .dash-stat-label { font-size: 11.5px !important; }
+  body.admin-user .dash-stat-icon { width: 24px !important; height: 24px !important; }
+  body.admin-user .dash-stat-icon svg { width: 22px !important; height: 22px !important; }
+  body.admin-user .dash-stat-value { font-size: 26px !important; margin-bottom: 2px !important; letter-spacing: -.6px !important; }
+  body.admin-user .dash-stat-sub { font-size: 11px !important; }
+  /* ---- สถิติข้อสอบ ---- */
+  body.admin-user .qs-tiles { grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; margin-bottom: 10px !important; }
+  body.admin-user .qs-tile { padding: 8px 6px !important; text-align: center; border-radius: 10px; }
+  body.admin-user .qs-tile-n { font-size: 18px !important; }
+  body.admin-user .qs-tile-l { font-size: 11px !important; margin-top: 2px !important; }
+  body.admin-user .qs-tile-s { display: none; }
+  body.admin-user .qs-filter { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px !important; }
+  body.admin-user .qs-filter .qs-view-tabs, body.admin-user .qs-filter .qs-filter-l { grid-column: 1 / -1; }
+  body.admin-user .qs-filter .qs-filter-l { display: none; }
+  body.admin-user .qs-filter .form-select { width: 100% !important; max-width: none !important; min-width: 0 !important; }
+  /* ---- แถวสถิติข้อสอบ (ของเดิมตัวเลขซ้อนกัน): ชื่อเต็มแถว · ครั้งสอบ/คะแนน/เวลา 3 ช่อง · แถบอัตราผ่าน · ปุ่ม ---- */
+  body.admin-user .qs-work .qs-row, body.admin-user .qs-row { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 4px 10px !important; padding: 10px 12px !important; }
+  body.admin-user .qs-row > div { text-align: left !important; min-width: 0; }
+  body.admin-user .qs-row > div:nth-child(1), body.admin-user .qs-row > div:nth-child(4), body.admin-user .qs-row > div:nth-child(6) { grid-column: 1 / -1 !important; }
+  body.admin-user .qs-row > div:nth-child(4) { order: 5; }
+  body.admin-user .qs-row > div:nth-child(5) { display: block !important; order: 3; }
+  body.admin-user .qs-row > div:nth-child(6) { order: 6; }
+  body.admin-user .qs-row > div:nth-child(6) .btn, body.admin-user .qs-row > div:nth-child(6) button { width: 100%; }
+  body.admin-user .qs-row > div:nth-child(2)::before, body.admin-user .qs-row > div:nth-child(3)::before, body.admin-user .qs-row > div:nth-child(4)::before, body.admin-user .qs-row > div:nth-child(5)::before { display: block; font-size: 10px; font-weight: 600; color: var(--text3); }
+  body.admin-user .qs-row > div:nth-child(2)::before { content: 'ครั้งที่สอบ'; }
+  body.admin-user .qs-row > div:nth-child(3)::before { content: 'คะแนนเฉลี่ย'; }
+  body.admin-user .qs-row > div:nth-child(5)::before { content: 'เวลาเฉลี่ย'; }
+  body.admin-user .qs-row > div:nth-child(4)::before { content: 'อัตราผ่าน'; }
+}
+</style>
 </head>
 <body>
 
@@ -7657,8 +7801,75 @@ function showPage(page) {
     renderDashMonthChart(getBranchId());
     renderDashPosPage(getBranchId());
   }
+  try { _mobAccordion(); _mobPaginate(); } catch (e) { console.warn('mobPaginate', e); }
   updateBottomNav(page);
 }
+
+/* มือถือ (Admin/BZM เท่านั้น): รายการยาว ๆ แสดงทีละ 20 + ปุ่ม "แสดงเพิ่ม" แทนการเลื่อนยาวหลายสิบหน้าจอ
+   - หาเองว่ากล่องไหนเป็นรายการ: มีลูก 30 ตัวขึ้นไป หน้าตาเหมือนกัน (แถวตาราง การ์ด ฯลฯ)
+   - พิมพ์ค้นหา = แสดงทั้งหมด (ตัวกรองบนหน้าทำงานกับทุกแถว) · ใส่ data-nopage ที่กล่องที่ไม่ต้องการแบ่งหน้า */
+/* มือถือ (Admin/BZM): หน้าที่มีหลายกล่อง (แดชบอร์ด/สถิติข้อสอบ) พับเป็นหัวข้อ แตะเพื่อเปิด — จำสถานะไว้ระหว่างอยู่ในแอป */
+const _mcOpen = {};
+const MOB_ACCORDION_PAGES = ['admin-dashboard', 'admin-quiz-stats', 'exec-leaderboard'];
+function _mobAccordion() {
+  if (!(currentUser && currentUser.type === 'admin') || window.innerWidth > 760 || !MOB_ACCORDION_PAGES.includes(currentPage)) return;
+  const main = document.getElementById('main-content'); if (!main) return;
+  main.querySelectorAll('.card, .adm-card').forEach(card => {
+    if (card.parentElement && card.parentElement.closest('.card, .adm-card')) return;
+    if (card.querySelector(':scope > select, :scope .qs-filter, :scope select')) return;   // กล่องตัวกรองต้องเปิดไว้
+    if (card.children.length < 2) return;
+    const head = card.firstElementChild;
+    const label = (head.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!label || head.querySelector('input,select,textarea')) return;
+    const key = currentPage + '|' + label;
+    card.classList.add('mc-card'); head.classList.add('mc-head');
+    card.classList.toggle('mc-closed', !_mcOpen[key]);
+    head.onclick = e => { if (e.target.closest('button,a,select,input')) return; card.classList.toggle('mc-closed'); _mcOpen[key] = !card.classList.contains('mc-closed'); };
+  });
+}
+const MOB_PAGE_SIZE = 20;
+function _mobPaginate() {
+  if (!(currentUser && currentUser.type === 'admin') || window.innerWidth > 760) return;
+  const main = document.getElementById('main-content'); if (!main) return;
+  main.querySelectorAll('.mp-more').forEach(e => e.remove());
+  const apply = (list, size) => {
+    const kids = [...list.children];
+    if (kids.length <= size) return;
+    list.dataset.mpDone = '1';
+    kids.forEach((k, i) => { k.classList.toggle('mp-hide', i >= size); });
+    const host = list.tagName === 'TBODY' ? (list.closest('table') || list) : list;
+    const btn = document.createElement('div');
+    btn.className = 'mp-more';
+    btn.innerHTML = '<button type="button"></button>';
+    const upd = () => {
+      const hidden = kids.filter(k => k.classList.contains('mp-hide')).length;
+      btn.style.display = hidden ? '' : 'none';
+      btn.firstChild.textContent = 'แสดงเพิ่ม ' + Math.min(MOB_PAGE_SIZE, hidden) + ' รายการ (เหลืออีก ' + hidden + ')';
+    };
+    btn.firstChild.onclick = () => { kids.filter(k => k.classList.contains('mp-hide')).slice(0, MOB_PAGE_SIZE).forEach(k => k.classList.remove('mp-hide')); upd(); };
+    upd();
+    host.insertAdjacentElement('afterend', btn);
+  };
+  /* กล่องที่กำหนดจำนวนเริ่มต้นเอง (data-mp-size) เช่น คำขอย้ายสาขา: รออนุมัติขึ้นก่อน ที่เหลือพับไว้ */
+  main.querySelectorAll('[data-mp-size]').forEach(box => { const tb = box.querySelector('tbody'); if (tb) apply(tb, Math.max(1, +box.dataset.mpSize || MOB_PAGE_SIZE)); });
+  main.querySelectorAll('tbody, div, section, ul').forEach(list => {
+    if (list.dataset.mpDone || list.closest('[data-nopage]') || list.closest('#modal-overlay')) return;
+    const kids = [...list.children];
+    if (kids.length < 30) return;
+    const sig = k => k.tagName + '|' + k.className;
+    const s0 = sig(kids[0]);
+    if (kids.filter(k => sig(k) === s0).length < kids.length * 0.8) return;
+    apply(list, MOB_PAGE_SIZE);
+  });
+}
+/* ค้นหา/กรองบนหน้า → ต้องเห็นทุกแถวที่ตรง ไม่ให้ถูกแบ่งหน้าบัง */
+document.addEventListener('input', ev => {
+  const t = ev.target;
+  if (!t || !t.closest || !t.closest('#main-content') || !/INPUT/.test(t.tagName)) return;
+  const mm = document.getElementById('main-content');
+  mm.querySelectorAll('.mp-hide').forEach(k => k.classList.remove('mp-hide'));
+  mm.querySelectorAll('.mp-more').forEach(b => { b.style.display = 'none'; });
+});
 
 function updateBottomNav(page) {
   // Page → bottom-nav id mapping. Aliases collapse related pages onto a single tab.
@@ -18628,7 +18839,7 @@ function renderAdminTransferCard() {
   const pending = all.filter(r => r.status === 'pending').sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
   const decided = all.filter(r => r.status !== 'pending').sort((a, b) => String(b.decidedAt || b.requestedAt).localeCompare(String(a.decidedAt || a.requestedAt)));
   const list = [...pending, ...decided];
-  return `<div class="card xr-card xr-admin" style="margin-bottom:16px">
+  return `<div class="card xr-card xr-admin" data-mp-size="${Math.max(3, pending.length)}" style="margin-bottom:16px">
     <div class="xr-head">🔁 คำขอย้ายสาขา ${pending.length ? `<span class="xr-pill">รออนุมัติ ${pending.length}</span>` : ''}</div>
     ${_xferTable(list, { admin: true })}
   </div>`;
@@ -18680,17 +18891,24 @@ function renderAdminTransfers() {
 /* หน้าแอดมิน "ประวัติการอัพเดทพนักงาน" — 1 สาขา 1 แถว โชว์อัพเดทล่าสุด กดดูประวัติย้อนหลังทั้งหมดได้
    ข้อมูลมาจากปุ่ม "อัพเดทข้อมูลพนักงาน" หน้าสาขา (เพิ่ม/แก้ไข/ขอย้าย/ยืนยันไม่มีการเปลี่ยนแปลง) */
 let _buF = { q: '', zone: '', st: '' };   // ตัวกรองหน้าประวัติการอัพเดทพนักงาน (กรองบนหน้าเลย ไม่วาดใหม่ ช่องค้นหาจึงไม่เสียโฟกัส)
-function _buApplyFilter() {
+let _buLimit = 20;   // มือถือ: แสดงทีละ 20 สาขา
+function _buApplyFilter(keepLimit) {
+  if (!keepLimit) _buLimit = 20;
   const q = (_buF.q || '').trim().toLowerCase();
-  let shown = 0, total = 0;
+  const mob = window.innerWidth <= 760 && !q;
+  let shown = 0, total = 0, matched = 0;
   document.querySelectorAll('#bu-rows tr').forEach(tr => {
     total++;
     const ok = (!q || (tr.dataset.text || '').includes(q)) && (!_buF.zone || tr.dataset.zone === _buF.zone) && (!_buF.st || tr.dataset.st === _buF.st);
-    tr.style.display = ok ? '' : 'none';
-    if (ok) shown++;
+    if (ok) matched++;
+    const vis = ok && (!mob || matched <= _buLimit);
+    tr.style.display = vis ? '' : 'none';
+    if (vis) shown++;
   });
-  const c = document.getElementById('bu-count'); if (c) c.textContent = 'แสดง ' + shown + ' จาก ' + total + ' สาขา';
-  const e = document.getElementById('bu-empty'); if (e) e.style.display = shown ? 'none' : '';
+  const more = document.getElementById('bu-more');
+  if (more) { const left = matched - shown; more.style.display = left > 0 ? '' : 'none'; if (left > 0) more.firstChild.textContent = 'แสดงเพิ่ม ' + Math.min(20, left) + ' สาขา (เหลืออีก ' + left + ')'; }
+  const c = document.getElementById('bu-count'); if (c) c.textContent = 'แสดง ' + matched + ' จาก ' + total + ' สาขา';
+  const e = document.getElementById('bu-empty'); if (e) e.style.display = matched ? 'none' : '';
   document.querySelectorAll('.bu-sumcard').forEach(el => { el.style.borderColor = (el.dataset.st || '') === (_buF.st || '') ? 'var(--accent)' : ''; });
 }
 function _buSet(k, v) { _buF[k] = v; const sel = document.getElementById('bu-f-' + k); if (sel && sel.value !== v) sel.value = v; _buApplyFilter(); }
@@ -18749,7 +18967,7 @@ function renderAdminBranchUpdates() {
         <th>สาขา</th><th>อัพเดทล่าสุด</th><th>การกระทำล่าสุด</th><th>โดย</th>
         <th style="text-align:center">จำนวนครั้ง</th><th style="text-align:right">จัดการ</th>
       </tr></thead>
-      <tbody id="bu-rows">${rows.map(r => {
+      <tbody id="bu-rows" data-nopage="1">${rows.map(r => {
         const nm = _bName(r.bid) || r.bid;
         const act = r.last ? (_BU_ACTION[r.last.action] || [r.last.action, '']) : null;
         const text = (r.bid + ' ' + nm + ' ' + (r.last ? (r.last.by || '') + ' ' + (r.last.empName || '') + ' ' + act[0] : '') + ' ' + r.zone).toLowerCase();
@@ -18763,6 +18981,7 @@ function renderAdminBranchUpdates() {
         </tr>`;
       }).join('')}</tbody>
     </table></div>
+    <div id="bu-more" class="mp-more" style="display:none"><button type="button" onclick="_buLimit += 20; _buApplyFilter(true)"></button></div>
     <div id="bu-empty" style="display:none;text-align:center;color:var(--text3);padding:24px;font-size:13px">ไม่พบสาขาตามตัวกรองที่เลือก</div>
   </div>`;
 }
