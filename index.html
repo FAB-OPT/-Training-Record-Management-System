@@ -11374,7 +11374,9 @@ function openEditTraining(id) {
     const details = ((document.getElementById('tr-details') || {}).value || '').trim();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     if (_trDetailsCol && !restricted && !details) { notify('กรุณาระบุรายละเอียดการสอนงาน', 'error'); return; }
+    const _oldIds = (t.traineeIds || []).slice(), _linked = _linkedPlanItemIds(t);   // ก่อนแก้ — ใช้หาแผนที่ผูกกันอยู่
     t.trainerName=trainer; t.traineeIds=traineeIds;
+    try { _syncPlanLearnersAfterEdit(t, _oldIds, _linked); } catch (e) { console.warn('syncPlanLearners', e); }
     if (!restricted) { t.date=date; t.moduleId=moduleId; t.subtopics=subtopics; if (_trDetailsCol) t.details=details; }
     if(isAnyAdminRole()) markEvalEdited(t);   /* แอดมินแก้ของสาขา ต้องมีร่องรอยว่าใครแก้ */
     gsSave('trainings', t.id, t);
@@ -17322,6 +17324,31 @@ function _trainingFromPlan(t) {
   return items.some(it => it.moduleId === t.moduleId &&
     (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
 }
+/* แผนที่ตรงกับบันทึกการสอนนี้ (Module + เดือนเดียวกัน + ผู้เรียนซ้อนกัน) — ใช้ตอนแก้ผู้เรียนของบันทึก */
+function _linkedPlanItemIds(t) {
+  const ym = _ymOf(t.date);
+  return { ym, ids: (getCoachingPlan(t.branchId, ym).items || []).filter(it => it.moduleId === t.moduleId &&
+    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)))).map(it => it.id) };
+}
+/* แก้ผู้เรียนของบันทึกตามแผนแล้ว → ผู้เรียนในแผนตามไปด้วย (เอาคนที่ถูกถอดออก ใส่คนที่เพิ่มเข้า)
+   ไม่งั้นไม่มีผู้เรียนตรงกับแผนอีก บันทึกจะหลุดจาก "ตามแผน" และแผนกลับไปขึ้นว่ายังไม่สอน */
+function _syncPlanLearnersAfterEdit(t, oldIds, linked) {
+  const removed = oldIds.filter(id => !(t.traineeIds || []).includes(id));
+  const added = (t.traineeIds || []).filter(id => !oldIds.includes(id));
+  if (!linked.ids.length || (!removed.length && !added.length)) return;
+  const p = getCoachingPlan(t.branchId, linked.ym), items = (p.items || []).slice();
+  let changed = false;
+  linked.ids.forEach(id => {
+    const at = items.findIndex(x => x.id === id); if (at < 0) return;
+    const cur = items[at].empIds || [];
+    let next = cur.filter(x => !removed.includes(x)).concat(added.filter(x => !cur.includes(x)));
+    if (!next.length) next = (t.traineeIds || []).slice();
+    if (next.length === cur.length && next.every(x => cur.includes(x))) return;
+    items[at] = Object.assign({}, items[at], { empIds: next, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการแก้บันทึกการสอน', updatedAt: new Date().toISOString() });
+    changed = true;
+  });
+  if (changed) _savePlan(t.branchId, linked.ym, items);
+}
 /* ผลของการสอนครั้งหนึ่ง: ผลประเมิน · ข้อสอบ · ต้องสอนใหม่หรือไม่
    ต้องสอนใหม่เมื่อ ประเมินไม่ผ่าน (ระดับ 1-2) หรือ สอบไม่ผ่านจนครบจำนวนครั้งที่ทำได้ (ตามกติกาข้อสอบของระบบ) */
 function _trainingOutcome(t) {
@@ -17543,6 +17570,11 @@ function openPlanItem(grp, itemId, restricted) {
     if (moduleId && moduleNeedsTrack(moduleId) && !_cpTrack) errs.push(['cp-track-box', 'กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า']);
     if (moduleId && !subtopics.length) errs.push(['cp-subs', 'กรุณาเลือกหัวข้อย่อยอย่างน้อย 1 ข้อ']);
     if (!details && !restricted) errs.push(['cp-details', 'กรุณาระบุรายละเอียดการสอนงาน']);
+    if (restricted && itemId && empIds.length) {
+      /* แผนนี้มีบันทึกการสอนตรงกันอยู่ — ผู้เรียนใหม่ต้องยังตรงกับบันทึกนั้นอย่างน้อย 1 คน ไม่งั้นบันทึกจะหลุดจากแผน (ถ้าเปลี่ยนคนที่สอนจริง ให้แก้ที่บันทึกการสอน แผนจะตามเอง) */
+      const ms = _planMatches(bid, ym, it);
+      if (ms.length && !ms.some(m => (m.traineeIds || []).some(id => empIds.includes(id)))) errs.push(['cp-emp-select-box', 'ผู้เรียนต้องมีอย่างน้อย 1 คนที่ตรงกับบันทึกการสอนที่ทำไปแล้ว — ถ้าสอนคนอื่น ให้แก้ผู้เรียนที่บันทึกการสอน (แผนจะเปลี่ยนตามเอง)']);
+    }
     if (errs.length) { _cpShowErrs(errs); return; }
     /* วางแผนสอนหัวข้อที่ผู้เรียนเคยถูกสอนไปแล้ว → ถามยืนยันว่าเป็นการสอนทบทวน (เหมือนตอนบันทึกการสอนงาน)
        แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
