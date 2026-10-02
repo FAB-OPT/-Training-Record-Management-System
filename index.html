@@ -17530,7 +17530,7 @@ function openPlanItem(grp, itemId, restricted) {
   // แก้แผนที่เคยเลือกข้ามแผนกไว้แล้ว ให้ติ๊กโหมดนี้ไว้ล่วงหน้าเลย ไม่งั้นเปิดมาจะไม่เห็นชื่อในดรอปดาว
   _cpCrossDept = _cpSelectedEmps.some(e => getPositionGroup(e.position) === otherGrp);
   _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
-  const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
+  const emps = _cpEmpsAllGroups;   // รายชื่อผู้เรียนขึ้นทุกคนในร้าน · เลือกพร้อมกันได้เฉพาะตำแหน่งเดียวกัน (ยกเว้นติ๊กสอนข้ามส่วนงาน)
   /* แผนเดิมที่ตั้ง Module ข้ามฝั่งไว้ ต้องเห็น Module นั้นในลิสต์ด้วย ไม่งั้นเปิดมาแล้วช่องว่าง */
   const modOtherSide = !!(it && MODULES[it.moduleId] && MODULES[it.moduleId].group !== want);
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? 'ครัว' : 'บริการ'} · ${_ymLabel(ym)}`, `
@@ -17846,7 +17846,7 @@ function cpToggleCrossDept() {
   }
   const list = document.getElementById('cp-emp-dropdown-list');
   const sel = new Set(_cpSelectedEmps.map(e => e.id));
-  if (list) list.innerHTML = _cpEmpOptionsHtml(_cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup, sel);
+  if (list) list.innerHTML = _cpEmpOptionsHtml(_cpEmpsAllGroups, sel);
   const label = document.getElementById('cp-emp-max-label');
   if (label) label.textContent = `(สูงสุด ${_cpMaxTrainees} คน)`;
   _cpMarkFullEmpOptions();
@@ -17925,6 +17925,11 @@ function _cpToggleEmpInner(id) {
     _cpEmpNote(`เลือกได้สูงสุด ${_cpMaxTrainees} คนต่อแผน — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
     return;
   }
+  const g0 = _cpSelectedEmps.length ? getPositionGroup(_cpSelectedEmps[0].position) : null, g1 = getPositionGroup(opt.dataset.pos || '');
+  if (!_cpCrossDept && g0 && g0 !== g1) {
+    _cpEmpNote(`เลือกพร้อมกันได้เฉพาะตำแหน่งเดียวกัน — คนแรกเป็น "${g0}" แต่คนนี้เป็น "${g1}" ถ้าคนละตำแหน่งให้แยกเป็นอีกแผน (หรือติ๊ก "สอนข้ามส่วนงาน" ถ้าตั้งใจสอนข้าม)`);
+    return;
+  }
   _cpSelectedEmps.push({ id, name: opt.dataset.name, position: opt.dataset.pos || '' });
   opt.classList.add('selected');
   cpRenderEmpChips();
@@ -17935,8 +17940,10 @@ function _cpMarkFullEmpOptions() {
   const full = _cpSelectedEmps.length >= _cpMaxTrainees;
   document.querySelectorAll('#cp-emp-dropdown-list .emp-opt').forEach(o => {
     const mine = _cpSelectedEmps.some(e => e.id === o.dataset.id);
-    o.style.opacity = (full && !mine) ? '.38' : '';
-    o.title = (full && !mine) ? `เลือกครบ ${_cpMaxTrainees} คนแล้ว` : '';
+    const g0 = _cpSelectedEmps.length ? getPositionGroup(_cpSelectedEmps[0].position) : null;
+    const diff = !_cpCrossDept && !mine && g0 && getPositionGroup(o.dataset.pos || '') !== g0;
+    o.style.opacity = ((full && !mine) || diff) ? '.38' : '';
+    o.title = (full && !mine) ? `เลือกครบ ${_cpMaxTrainees} คนแล้ว` : diff ? `คนละตำแหน่งกับที่เลือกไว้ — ต้องแยกเป็นอีกแผน` : '';
   });
 }
 function cpRemoveEmpChip(id) { _cpKeepScroll(() => _cpRemoveEmpChipInner(id)); }
