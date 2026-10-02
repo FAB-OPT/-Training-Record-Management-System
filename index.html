@@ -18657,29 +18657,81 @@ function renderAdminTransfers() {
 
 /* หน้าแอดมิน "ประวัติการอัพเดทพนักงาน" — 1 สาขา 1 แถว โชว์อัพเดทล่าสุด กดดูประวัติย้อนหลังทั้งหมดได้
    ข้อมูลมาจากปุ่ม "อัพเดทข้อมูลพนักงาน" หน้าสาขา (เพิ่ม/แก้ไข/ขอย้าย/ยืนยันไม่มีการเปลี่ยนแปลง) */
+let _buF = { q: '', zone: '', st: '' };   // ตัวกรองหน้าประวัติการอัพเดทพนักงาน (กรองบนหน้าเลย ไม่วาดใหม่ ช่องค้นหาจึงไม่เสียโฟกัส)
+function _buApplyFilter() {
+  const q = (_buF.q || '').trim().toLowerCase();
+  let shown = 0, total = 0;
+  document.querySelectorAll('#bu-rows tr').forEach(tr => {
+    total++;
+    const ok = (!q || (tr.dataset.text || '').includes(q)) && (!_buF.zone || tr.dataset.zone === _buF.zone) && (!_buF.st || tr.dataset.st === _buF.st);
+    tr.style.display = ok ? '' : 'none';
+    if (ok) shown++;
+  });
+  const c = document.getElementById('bu-count'); if (c) c.textContent = 'แสดง ' + shown + ' จาก ' + total + ' สาขา';
+  const e = document.getElementById('bu-empty'); if (e) e.style.display = shown ? 'none' : '';
+  document.querySelectorAll('.bu-sumcard').forEach(el => { el.style.borderColor = (el.dataset.st || '') === (_buF.st || '') ? 'var(--accent)' : ''; });
+}
+function _buSet(k, v) { _buF[k] = v; const sel = document.getElementById('bu-f-' + k); if (sel && sel.value !== v) sel.value = v; _buApplyFilter(); }
+function _buClearFilter() {
+  _buF = { q: '', zone: '', st: '' };
+  ['q', 'zone', 'st'].forEach(k => { const el = document.getElementById('bu-f-' + k); if (el) el.value = ''; });
+  _buApplyFilter();
+}
 function renderAdminBranchUpdates() {
   if (!isAdminRole()) return '<div class="card">เฉพาะ Admin เท่านั้น</div>';
   const branches = getAccessibleBranches().slice().sort();
-  const rows = branches.map(bid => ({ bid, last: getLastBranchUpdate(bid), count: getBranchUpdateHistory(bid).length }));
-  // สาขาที่ยังไม่เคยอัพเดท หรืออัพเดทนานสุด ขึ้นก่อน — ต้องตามงานสาขาไหนก่อน
-  rows.sort((a, b) => (a.last ? new Date(a.last.at).getTime() : -1) - (b.last ? new Date(b.last.at).getTime() : -1));
+  const ymNow = _ymNow();
+  const rows = branches.map(bid => {
+    const last = getLastBranchUpdate(bid);
+    const st = !last ? 'never' : (_ymOf(last.at) === ymNow ? 'month' : 'stale');
+    return { bid, last, count: getBranchUpdateHistory(bid).length, st, zone: (BRANCH_MASTER[bid] || {}).manager || '' };
+  });
+  // อัพเดทล่าสุดอยู่บนสุด · สาขาที่ยังไม่เคยอัพเดทอยู่ท้ายสุด
+  rows.sort((a, b) => (b.last ? new Date(b.last.at).getTime() : -1) - (a.last ? new Date(a.last.at).getTime() : -1) || a.bid.localeCompare(b.bid));
+  const cnt = k => rows.filter(r => r.st === k).length;
+  const zones = [...new Set(rows.map(r => r.zone).filter(Boolean))].sort();
+  const newest = rows.find(r => r.last);
+  setTimeout(_buApplyFilter, 0);
+  const card = (st, icon, label, n, color) => `<div class="stat-card bu-sumcard" data-st="${st}" style="cursor:pointer;border:1px solid var(--border)" onclick="_buSet('st','${st}')">
+      <div style="font-size:22px">${icon}</div>
+      <div><div class="stat-label" style="font-size:12px;color:var(--text3)">${label}</div><div style="font-size:26px;font-weight:800;line-height:1.1;color:${color}">${n}</div></div>
+    </div>`;
   return `
   <div class="page-hero">
     <div class="page-hero-body">
       <div class="page-hero-title">ประวัติการอัพเดทพนักงาน</div>
-      <div class="page-hero-sub">แต่ละสาขาอัพเดทข้อมูลพนักงานล่าสุดเมื่อไหร่ ${_branchUpdatesReady ? '' : '· ระบบยังไม่เปิดใช้งาน (ยังไม่ได้รัน supabase-branch-updates.sql)'}</div>
+      <div class="page-hero-sub">แต่ละสาขาอัพเดทข้อมูลพนักงานล่าสุดเมื่อไหร่ ${_branchUpdatesReady ? '' : '· ระบบยังไม่เปิดใช้งาน (รัน supabase-branch-updates.sql)'}</div>
     </div>
   </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+    ${card('', '🏪', 'สาขาทั้งหมด', rows.length, 'var(--text)')}
+    ${card('month', '✅', 'อัพเดทแล้วเดือนนี้', cnt('month'), 'var(--green)')}
+    ${card('stale', '⏳', 'ยังไม่อัพเดทเดือนนี้', cnt('stale'), '#B45309')}
+    ${card('never', '⚠️', 'ยังไม่เคยอัพเดท', cnt('never'), 'var(--red)')}
+  </div>
+  ${newest ? `<div style="font-size:12.5px;color:var(--text3);margin:-8px 0 14px">🕘 อัพเดทล่าสุด: <b style="color:var(--text2)">${_escH(newest.bid)} ${_escH((_bName(newest.bid) || '').replace(newest.bid + ' ', ''))}</b> · ${fmtDateTime(newest.last.at)} · โดย ${_escH(newest.last.by || '—')}</div>` : ''}
   <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      <div style="flex:1;min-width:220px"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">ค้นหา</div>
+        <input class="form-input" id="bu-f-q" placeholder="รหัสสาขา / ชื่อสาขา / ผู้อัพเดท / ชื่อพนักงาน..." value="${_escH(_buF.q)}" oninput="_buF.q=this.value;_buApplyFilter()"></div>
+      ${zones.length > 1 ? `<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">โซน / BZM</div>
+        <select class="form-select" id="bu-f-zone" style="min-width:170px" onchange="_buSet('zone',this.value)"><option value="">ทุกโซน</option>${zones.map(z => `<option value="${_escH(z)}"${_buF.zone === z ? ' selected' : ''}>${_escH(z)}</option>`).join('')}</select></div>` : ''}
+      <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">สถานะ</div>
+        <select class="form-select" id="bu-f-st" style="min-width:170px" onchange="_buSet('st',this.value)">
+          <option value="">ทั้งหมด</option><option value="month"${_buF.st === 'month' ? ' selected' : ''}>อัพเดทแล้วเดือนนี้</option><option value="stale"${_buF.st === 'stale' ? ' selected' : ''}>ยังไม่อัพเดทเดือนนี้</option><option value="never"${_buF.st === 'never' ? ' selected' : ''}>ยังไม่เคยอัพเดท</option></select></div>
+      <button class="btn btn-sm btn-outline" onclick="_buClearFilter()">ล้างตัวกรอง</button>
+    </div>
+    <div id="bu-count" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
     <div class="table-wrap"><table class="cards-on-mobile">
       <thead><tr>
         <th>สาขา</th><th>อัพเดทล่าสุด</th><th>การกระทำล่าสุด</th><th>โดย</th>
         <th style="text-align:center">จำนวนครั้ง</th><th style="text-align:right">จัดการ</th>
       </tr></thead>
-      <tbody>${rows.map(r => {
+      <tbody id="bu-rows">${rows.map(r => {
         const nm = _bName(r.bid) || r.bid;
         const act = r.last ? (_BU_ACTION[r.last.action] || [r.last.action, '']) : null;
-        return `<tr>
+        const text = (r.bid + ' ' + nm + ' ' + (r.last ? (r.last.by || '') + ' ' + (r.last.empName || '') + ' ' + act[0] : '') + ' ' + r.zone).toLowerCase();
+        return `<tr data-text="${_escH(text)}" data-zone="${_escH(r.zone)}" data-st="${r.st}">
           <td data-label="สาขา"><b>${_escH(r.bid)}</b> ${_escH(nm.replace(r.bid + ' ', ''))}</td>
           <td data-label="อัพเดทล่าสุด" style="white-space:nowrap">${r.last ? fmtDateTime(r.last.at) : '<span class="badge badge-red">ยังไม่เคยอัพเดท</span>'}</td>
           <td data-label="การกระทำล่าสุด" style="font-size:12.5px">${act ? `${act[1]} ${act[0]}${r.last.empName ? ' · ' + _escH(r.last.empName) : ''}` : '—'}</td>
@@ -18689,6 +18741,7 @@ function renderAdminBranchUpdates() {
         </tr>`;
       }).join('')}</tbody>
     </table></div>
+    <div id="bu-empty" style="display:none;text-align:center;color:var(--text3);padding:24px;font-size:13px">ไม่พบสาขาตามตัวกรองที่เลือก</div>
   </div>`;
 }
 function openBranchUpdateHistoryModal(bid) {
