@@ -9634,7 +9634,7 @@ function getPositionGroup(posName) {
 }
 
 function openAddTraining() {
-  _trUnlocked = false;
+  _trUnlocked = true;   // ไม่ล็อกตำแหน่งผู้เรียนและ Module ทุกกรณี (ทั้งตามแผนและกรอกเอง)
   const bid = getBranchId();
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const now = _isoToLocalInput(new Date().toISOString());
@@ -9675,8 +9675,8 @@ function openAddTraining() {
       </div>
     </div>
     <div class="form-full">
-      <label class="form-label" id="emp-select-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ต้องประเภทเดียวกัน) <span class="req">*</span></label>
-      <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
+      <label class="form-label" id="emp-select-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ตำแหน่งใดก็ได้) <span class="req">*</span></label>
+      <label style="display:none;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
         <input type="checkbox" id="tr-cross-dept" onchange="toggleCrossDeptMode()">
         🔀 สอนข้ามส่วนงาน (เช่นตำแหน่งครัว สอนบริการ) — เลือกได้แค่ 1 คน
       </label>
@@ -11369,7 +11369,7 @@ function openEditTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
   /* ตามแผนแล้ว: สาขาแก้ได้เฉพาะผู้สอนงานกับผู้เรียน (ใครสอนก็ได้ ผู้เรียนไม่ล็อก) · ลบไม่ได้ · Admin แก้ได้ทุกอย่าง */
   const restricted = currentUser?.type === 'branch' && _trainingFromPlan(t);
-  _trUnlocked = restricted;   // บันทึกตามแผน: ผู้เรียนไม่ล็อกตำแหน่ง
+  _trUnlocked = true;   // ไม่ล็อกตำแหน่งผู้เรียน
   const bid = t.branchId;
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
@@ -17494,7 +17494,8 @@ function _cpShowSubtopics(itemId) {
   const taught = _planMatches(bid, ym, it).length > 0;
   const added = taught ? eff.filter(x => !orig.includes(x)) : [], dropped = taught ? orig.filter(x => !eff.includes(x)) : [];
   const tag = (txt, bg, fg) => `<span class="sub-tag" style="background:${bg};color:${fg}">${txt}</span>`;
-  const row = (s, right, extra) => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;${extra || ''}"><span>${_escH(s)}</span><span style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${right}</span></div>`;
+  const _whoAdd = s => { if (!added.includes(s)) return ''; const a = (it.subAdds || {})[s]; const t0 = a ? null : _planMatches(bid, ym, it).filter(x => (x.subtopics || []).includes(s)).sort((p, q) => String(p.date).localeCompare(String(q.date)))[0]; const d = a ? a.date : t0 && t0.date, w = a ? a.trainer : t0 && t0.trainerName; const by = a && a.by && a.by !== '—' ? ' · บันทึกโดย ' + a.by : ''; const at = a && a.at ? ' เมื่อ ' + fmtDateTime(a.at) : ''; return (d || w || by) ? `<div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:2px">${d ? 'สอนวันที่ ' + _escH(fmtDate(d)) : ''}${w ? ' · ผู้สอน ' + _escH(w) : ''}${_escH(by)}${_escH(at)}</div>` : ''; };
+  const row = (s, right, extra) => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;${extra || ''}"><span>${_escH(s)}${_whoAdd(s)}</span><span style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${right}</span></div>`;
   showModal(`หัวข้อย่อย · ${_escH(m.name || it.moduleId)}`, `
     ${taught ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">วางแผนไว้ <b>${orig.length}</b> ข้อ · สอนจริง <b>${eff.length}</b> ข้อ${added.length ? ` · <b style="color:#0369A1">เพิ่มตอนสอน ${added.length}</b>` : ''}${dropped.length ? ` · <b style="color:#B45309">ไม่ได้สอนตามแผน ${dropped.length}</b>` : ''}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -17589,7 +17590,8 @@ function openPlanItem(grp, itemId, restricted) {
     <div class="form-full" id="cp-track-box" style="display:none"></div>
     <div class="form-full">
       <label class="form-label">หัวข้อย่อย <span class="req">*</span> <span id="cp-sub-legend" style="font-weight:700;font-size:11.5px"></span></label>
-      <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify((it && it.subtopics) || []).replace(/'/g, '&#39;')}'></div>
+      <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify(it ? _planSubsEffective(bid, ym, it) : []).replace(/'/g, '&#39;')}'></div>
+      ${it && _planMatches(bid, ym, it).length ? '<div style="font-size:11.5px;color:#0369A1;margin-top:6px">ติ๊กตามหัวข้อที่สอนจริงแล้ว (รวมที่เพิ่มตอนสอน)</div>' : ''}
     </div>
     <div class="form-full">
       <label class="form-label">รายละเอียดการสอนงาน <span class="req">*</span></label>
@@ -18058,7 +18060,10 @@ function _syncPlanFromTraining(t, planVal) {
   const cur = it.subtopics || [];
   if (next.length === cur.length && next.every(x => cur.includes(x))) return;   // ไม่มีอะไรเปลี่ยน
   const now = new Date().toISOString();
-  items[at] = Object.assign({}, it, { subtopics: next, subtopicsOrig: it.subtopicsOrig || cur, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง', updatedAt: now });
+  const subAdds = Object.assign({}, it.subAdds || {});
+  const origSet = it.subtopicsOrig || cur;
+  next.forEach(x => { if (!cur.includes(x) && !origSet.includes(x)) subAdds[x] = { by: (currentUser && (currentUser.name || currentUser.nick)) || '—', at: now, date: t.date || '', trainer: t.trainerName || '' }; });
+  items[at] = Object.assign({}, it, { subAdds, subtopics: next, subtopicsOrig: it.subtopicsOrig || cur, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง', updatedAt: now });
   _savePlan(bid, ym, items);
 }
 /* "บันทึกตามแผน" อยู่ในฟอร์มบันทึกการสอนงาน — เลือกแผนที่ยังไม่ได้สอน (เดือนนี้ + เดือนที่แล้วที่ยังค้าง) */
@@ -18100,7 +18105,7 @@ function applyPlanToTrainingForm(val) {
   const note = document.getElementById('tr-plan-note');
   if (!val) { if (note) note.style.display = 'none'; return; }
   _trRevealForm();
-  if (val === '__none') { _trUnlocked = false; if (note) note.style.display = 'none'; return; }
+  if (val === '__none') { if (note) note.style.display = 'none'; return; }
   const [ym, itemId] = String(val).split('|'), bid = getBranchId();
   const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
   const trainerInp = document.getElementById('tr-trainer');
@@ -18223,9 +18228,10 @@ function _planItemDetailListHtml(bid, ym, items) {
   return `<div style="display:flex;flex-direction:column;gap:8px">${sorted.map(it => {
     const done = _planItemDone(bid, ym, it);
     const kitchen = _planGroup(it.moduleId) === 'kitchen';
+    const _actualHtml = _planActualHtml(bid, ym, it), _redo = _planMatches(bid, ym, it).some(_trainingFailed);
     return `<div style="border:1px solid ${done ? '#BBE5C8' : 'var(--border)'};border-left:4px solid ${kitchen ? '#EF4444' : '#22C55E'};border-radius:10px;padding:10px 12px;background:var(--surface)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} ${_retroTag(bid, ym, it)}</span>
+        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} ${_retroTag(bid, ym, it)}${_redo ? ' <span class="badge badge-red" style="font-weight:800">🔁 ต้องสอนใหม่</span>' : ''}</span>
         <span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;background:${done ? 'var(--green)' : 'var(--surface2)'};color:${done ? '#fff' : 'var(--text3)'}">${done ? '✓ สอนแล้ว' : 'ยังไม่สอน'}</span>
       </div>
       <div style="font-size:12px;color:var(--text2);line-height:1.65">
@@ -18236,6 +18242,7 @@ function _planItemDetailListHtml(bid, ym, items) {
         ${it.details ? `<br>📋 รายละเอียด: ${_escH(it.details)}` : ''}
         ${it.note ? `<br>📝 ${_escH(it.note)}` : ''}
       </div>
+      ${_actualHtml ? `<div class="cp-actual" style="margin-top:6px">${_actualHtml}</div>` : ''}
       ${it.createdBy ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
       ${isAdminRole() ? `<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn btn-sm btn-outline" onclick="adminEditPlanItem('${bid}','${ym}','${it.id}')">✏️ แก้ไข</button><button type="button" class="btn btn-sm btn-danger" onclick="adminDeletePlanItem('${bid}','${ym}','${it.id}')">🗑 ลบ</button></div>` : ''}
     </div>`;
