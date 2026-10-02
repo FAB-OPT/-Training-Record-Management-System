@@ -9581,6 +9581,7 @@ function getPositionGroup(posName) {
 }
 
 function openAddTraining() {
+  _trUnlocked = false;
   const bid = getBranchId();
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const now = _isoToLocalInput(new Date().toISOString());
@@ -9888,6 +9889,7 @@ function pickTrainer(el) {
 }
 
 const MAX_TRAINEES = 2;   // สอนพร้อมกันได้ไม่เกิน 2 คน และต้องเป็นประเภทเดียวกัน
+let _trUnlocked = false;      // true = บันทึกตามแผน/แก้บันทึกตามแผน: ไม่ล็อกตำแหน่งผู้เรียน (ผสมครัว/บริการได้ 2 คน) และเลือก Module ได้ทั้งสองฝั่ง
 let _crossDeptMode = false;   // ติ๊ก "สอนข้ามแผนก" — ปลดล็อกข้ามประเภทได้ แต่เลือกได้แค่ 1 คน
 
 /* เตือนเรื่องการเลือกพนักงาน ให้ขึ้นตรงใต้ช่องที่กำลังกดอยู่
@@ -9932,10 +9934,10 @@ function toggleEmpSelection(empId) {
 
   const pos = opt.dataset.pos || '';
   const grp = getPositionGroup(pos);
-  const cap = _crossDeptMode ? 1 : MAX_TRAINEES;
+  const cap = (_crossDeptMode && !_trUnlocked) ? 1 : MAX_TRAINEES;
 
-  // ต้องเป็นประเภทเดียวกัน — ครัว / บริการ / ทีมผู้จัดการสาขา (ยกเว้นติ๊ก "สอนข้ามแผนก" ไว้)
-  if (!_crossDeptMode && _selectedEmps.length) {
+  // ต้องเป็นประเภทเดียวกัน — ครัว / บริการ / ทีมผู้จัดการสาขา (ยกเว้นติ๊ก "สอนข้ามแผนก" ไว้ หรือเป็นการสอนตามแผน)
+  if (!_crossDeptMode && !_trUnlocked && _selectedEmps.length) {
     const grp0 = getPositionGroup(_selectedEmps[0].position);
     if (grp !== grp0) {
       _empNote(`เลือกพร้อมกันได้เฉพาะประเภทเดียวกัน — คนแรกเป็น "${grp0}" แต่คนนี้เป็น "${grp}" (ติ๊ก "สอนข้ามแผนก" ถ้าตั้งใจสอนข้ามประเภท)`);
@@ -9957,8 +9959,8 @@ function toggleEmpSelection(empId) {
 
 /* ทำตัวเลือกที่คนละประเภทให้จางลง จะได้เห็นตั้งแต่ยังไม่กด ว่าเลือกคู่กันไม่ได้ (ข้ามไปถ้าติ๊ก "สอนข้ามแผนก") */
 function _markIncompatibleEmpOptions() {
-  const base = (!_crossDeptMode && _selectedEmps.length) ? getPositionGroup(_selectedEmps[0].position) : null;
-  const cap = _crossDeptMode ? 1 : MAX_TRAINEES;
+  const base = (!_crossDeptMode && !_trUnlocked && _selectedEmps.length) ? getPositionGroup(_selectedEmps[0].position) : null;
+  const cap = (_crossDeptMode && !_trUnlocked) ? 1 : MAX_TRAINEES;
   const full = _selectedEmps.length >= cap;
   document.querySelectorAll('.emp-opt').forEach(o => {
     const mine = _selectedEmps.some(e => e.id === o.dataset.id);
@@ -10020,7 +10022,7 @@ function updateModulesByTrainees() {
   const hasMgr = groups.has('ทีมผู้จัดการสาขา');
   let allowedGroup;
   // ติ๊ก "สอนข้ามแผนก" ไว้ — เปิดให้เลือก Module ได้ทั้งสองฝั่ง ไม่ผูกกับแผนกเดิมของคนที่เลือก
-  if (_crossDeptMode || (hasService && hasCook) || hasMgr || (hasService && hasMgr) || (hasCook && hasMgr)) {
+  if (_trUnlocked || _crossDeptMode || (hasService && hasCook) || hasMgr || (hasService && hasMgr) || (hasCook && hasMgr)) {
     allowedGroup = 'Both';
   } else if (hasService) {
     allowedGroup = 'Service';
@@ -11314,6 +11316,7 @@ function openEditTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
   /* ตามแผนแล้ว: สาขาแก้ได้เฉพาะผู้สอนงานกับผู้เรียน (ใครสอนก็ได้ ผู้เรียนไม่ล็อก) · ลบไม่ได้ · Admin แก้ได้ทุกอย่าง */
   const restricted = currentUser?.type === 'branch' && _trainingFromPlan(t);
+  _trUnlocked = restricted;   // บันทึกตามแผน: ผู้เรียนไม่ล็อกตำแหน่ง
   const bid = t.branchId;
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
@@ -17466,8 +17469,8 @@ function openPlanItem(grp, itemId, restricted) {
     .filter(e => [empGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
     .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
   /* โหมดสอนข้ามแผนก — เปิดให้เลือกจากกลุ่มตรงข้ามได้ด้วย (เช่นครัวจะสอนบริการ) แต่ล็อกได้แค่ 1 คน */
-  _cpEmpsAllGroups = allEnabled
-    .filter(e => [empGrp, otherGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
+  /* ไม่ล็อกตำแหน่ง: ผู้เรียนเลือกได้ทุกตำแหน่งในสาขา (ฝั่งของฟอร์มขึ้นก่อน แล้วอีกฝั่ง แล้วผู้จัดการ แล้วที่เหลือ) */
+  _cpEmpsAllGroups = allEnabled.slice()
     .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : getPositionGroup(a.position) === otherGrp ? 1 : 2)
                   - (getPositionGroup(b.position) === empGrp ? 0 : getPositionGroup(b.position) === otherGrp ? 1 : 2));
   /* ผู้สอนงานใครสอนก็ได้ — รายชื่อผู้สอนเป็นพนักงานทุกตำแหน่งในสาขา (ฝั่งของแผนขึ้นก่อน) พิมพ์ชื่อคนนอกสาขาเองได้ */
@@ -17475,9 +17478,9 @@ function openPlanItem(grp, itemId, restricted) {
   const sel = new Set((it && it.empIds) || []);
   _cpSelectedEmps = allEnabled.filter(e => sel.has(e.id)).map(e => ({ id: e.id, name: e.name, position: e.position || '' }));
   // แก้แผนที่เคยเลือกข้ามแผนกไว้แล้ว ให้ติ๊กโหมดนี้ไว้ล่วงหน้าเลย ไม่งั้นเปิดมาจะไม่เห็นชื่อในดรอปดาว
-  _cpCrossDept = _cpSelectedEmps.some(e => getPositionGroup(e.position) === otherGrp);
-  _cpMaxTrainees = _cpCrossDept ? 1 : MAX_TRAINEES;
-  const emps = _cpCrossDept ? _cpEmpsAllGroups : _cpEmpsOwnGroup;
+  _cpCrossDept = false;            // เลิกโหมด "สอนข้ามส่วนงาน" — ไม่ล็อกตำแหน่งแล้ว จึงไม่ต้องติ๊ก และเลือกผู้เรียนได้ครบ 2 คนเสมอ
+  _cpMaxTrainees = MAX_TRAINEES;
+  const emps = _cpEmpsAllGroups;
   /* แผนเดิมที่ตั้ง Module ข้ามฝั่งไว้ ต้องเห็น Module นั้นในลิสต์ด้วย ไม่งั้นเปิดมาแล้วช่องว่าง */
   const modOtherSide = !!(it && MODULES[it.moduleId] && MODULES[it.moduleId].group !== want);
   showModal(`${itemId ? 'แก้ไข' : 'เพิ่ม'}แผนการสอน · ${grp === 'kitchen' ? 'ครัว' : 'บริการ'} · ${_ymLabel(ym)}`, `
@@ -17515,10 +17518,6 @@ function openPlanItem(grp, itemId, restricted) {
     </div>
     <div class="form-full">
       <label class="form-label">พนักงานที่จะสอน <span class="req">*</span> <span id="cp-emp-max-label" style="color:var(--text3);font-weight:400">(สูงสุด ${_cpMaxTrainees} คน)</span></label>
-      <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
-        <input type="checkbox" id="cp-cross-dept" onchange="cpToggleCrossDept()"${_cpCrossDept ? ' checked' : ''}>
-        🔀 สอนข้ามส่วนงาน (เช่น${grp === 'kitchen' ? 'ตำแหน่งครัว สอนบริการ' : 'ตำแหน่งบริการ สอนครัว'}) — เลือกได้แค่ 1 คน
-      </label>
       <div class="emp-multiselect" id="cp-emp-multiselect">
         <div class="emp-select-box" id="cp-emp-select-box" onclick="cpFocusEmpSearch(event)">
           <span id="cp-emp-placeholder" style="color:var(--text3);font-size:14px;padding:2px 4px">${emps.length === 0 ? 'ไม่มีพนักงานในกลุ่มนี้' : 'ค้นหาและเลือกพนักงาน...'}</span>
@@ -17531,7 +17530,7 @@ function openPlanItem(grp, itemId, restricted) {
     <div class="form-full">
       <label class="form-label">Module <span class="req">*</span></label>
       <select class="form-select" id="cp-module" onchange="_cpSubtopics()">
-        ${_cpModuleOptionsHtml(it && it.moduleId, _cpCrossDept || modOtherSide)}
+        ${_cpModuleOptionsHtml(it && it.moduleId, true)}
       </select>
     </div>
     <div class="form-full" id="cp-track-box" style="display:none"></div>
@@ -17765,7 +17764,7 @@ function _cpModuleOptionsHtml(selId, both) {
 function _cpRefreshModules() {
   const sel = document.getElementById('cp-module'); if (!sel) return;
   const prev = sel.value;
-  sel.innerHTML = _cpModuleOptionsHtml(prev, _cpCrossDept);
+  sel.innerHTML = _cpModuleOptionsHtml(prev, true);
   if (sel.value !== prev) { sel.value = ''; const subs = document.getElementById('cp-subs'); if (subs) subs.dataset.sel = '[]'; }
   _cpSubtopics();
 }
@@ -18048,7 +18047,7 @@ function applyPlanToTrainingForm(val) {
   const note = document.getElementById('tr-plan-note');
   if (!val) { if (note) note.style.display = 'none'; return; }
   _trRevealForm();
-  if (val === '__none') { if (note) note.style.display = 'none'; return; }
+  if (val === '__none') { _trUnlocked = false; if (note) note.style.display = 'none'; return; }
   const [ym, itemId] = String(val).split('|'), bid = getBranchId();
   const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
   const trainerInp = document.getElementById('tr-trainer');
@@ -18056,15 +18055,12 @@ function applyPlanToTrainingForm(val) {
   // ล้างผู้เรียนที่เลือกไว้ก่อน แล้วใส่ตามแผน
   _selectedEmps.forEach(e => { const o = document.getElementById('empopt-' + e.id); if (o) o.classList.remove('selected'); });
   _selectedEmps = []; renderEmpTags();
-  const want = MODULES[it.moduleId] ? MODULES[it.moduleId].group : '';
   const empObjs = (it.empIds || []).map(id => getEmployee(id)).filter(e => e && document.getElementById('empopt-' + e.id));
-  const crossNeeded = empObjs.some(e => {
-    const g = getPositionGroup(e.position);
-    return g !== 'ทีมผู้จัดการสาขา' && ((want === 'Cook' && g !== 'พนักงานครัว') || (want === 'Service' && g !== 'พนักงานบริการ'));
-  });
+  /* สอนตามแผน: ไม่ล็อกตำแหน่ง — ผู้เรียนผสมครัว/บริการได้ครบ 2 คน และ Module เลือกได้ทั้งสองฝั่ง ไม่ต้องติ๊กสอนข้ามส่วนงาน */
+  _trUnlocked = true;
   const box = document.getElementById('tr-cross-dept');
-  if (box && box.checked !== crossNeeded) { box.checked = crossNeeded; toggleCrossDeptMode(); }
-  empObjs.slice(0, crossNeeded ? 1 : MAX_TRAINEES).forEach(e => toggleEmpSelection(e.id));
+  if (box && box.checked) { box.checked = false; toggleCrossDeptMode(); }
+  empObjs.slice(0, MAX_TRAINEES).forEach(e => toggleEmpSelection(e.id));
   const sel = document.getElementById('tr-module');
   if (sel && [...sel.options].some(o => o.value === it.moduleId)) {
     sel.value = it.moduleId;
