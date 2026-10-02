@@ -3523,8 +3523,8 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการสาขา & พนักงาน' },
   { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้ายสาขา' },
   { page: 'admin-branch-updates',  icon: '🔄',  label: 'ประวัติการอัพเดทพนักงาน' },
-  { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนการสอนงาน' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'จัดการข้อสอบ' },
@@ -7383,8 +7383,8 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการ' },
   { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้าย' },
   { page: 'admin-branch-updates',  icon: '🔄',  label: 'อัพเดทพนักงาน' },
-  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนสอน' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
   { page: 'admin-quiz',            icon: '📝',  label: 'ข้อสอบ' },
@@ -7398,8 +7398,8 @@ const ADMIN_NAV_ITEMS = [
 const BZM_NAV_ITEMS = [
   { page: 'admin-dashboard',       icon: '🏠',  label: 'หน้าหลัก' },
   { page: 'admin-manage',          icon: '👥',  label: 'สาขา' },
-  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนการสอน' },
+  { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-cases',           icon: '📨',  label: 'เคส' },
   { page: 'exec-alerts',           icon: '🚨',  label: 'แจ้งเตือน' },
@@ -18197,6 +18197,9 @@ function _planAudit(bid, ym) {
   return { items, recs, off, notYet };
 }
 
+let _planF = { zone: '', branch: '', from: '', to: '' };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
+function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = ''; showPage(currentPage); }
+function _planClearFilter() { _planF = { zone: '', branch: '', from: '', to: '' }; showPage(currentPage); }
 function renderAdminPlanOverview() {
   if (!_planMonth) _planMonth = _ymNow();
   // มาเห็นหน้านี้แล้ว badge/toast เงียบไป (ไม่เด้งซ้ำ) แต่ "รับทราบ" จริง (ที่สาขาเห็น) ต้องกดปุ่มด้านล่างเท่านั้น
@@ -18207,7 +18210,14 @@ function renderAdminPlanOverview() {
   const needAckByBranch = {};
   _planItemsNeedingAck().forEach(it => { needAckByBranch[it._branchId] = (needAckByBranch[it._branchId] || 0) + 1; });
   const ym = _planMonth;
-  const bids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
+  const allBids = getAccessibleBranches().filter(b => BRANCH_MASTER[b]);
+  const zones = [...new Set(allBids.map(b => BRANCH_MASTER[b].manager || '').filter(Boolean))].sort();
+  if (_planF.zone && !zones.includes(_planF.zone)) _planF.zone = '';
+  const zoneBids = allBids.filter(b => !_planF.zone || (BRANCH_MASTER[b].manager || '') === _planF.zone);
+  if (_planF.branch && !zoneBids.includes(_planF.branch)) _planF.branch = '';
+  const bids = zoneBids.filter(b => !_planF.branch || b === _planF.branch);
+  const inRange = d => (!_planF.from || (d && d >= _planF.from)) && (!_planF.to || (d && d <= _planF.to));
+  const filtering = !!(_planF.zone || _planF.branch || _planF.from || _planF.to);
   const rows = bids.map(bid => {
     const a = _planAudit(bid, ym);
     const k = a.items.filter(it => _planGroup(it.moduleId) === 'kitchen');
@@ -18216,6 +18226,7 @@ function renderAdminPlanOverview() {
     return { bid, name: (BRANCH_MASTER[bid].name || bid).replace(bid + ' ', ''), a,
       k: k.length, kd: d(k), s: s.length, sd: d(s) };
   }).filter(r => bzm ? r.a.items.length : (r.a.items.length || r.a.recs.length))
+    .filter(r => !(_planF.from || _planF.to) || r.a.items.some(it => inRange(it.planDate)))
     .sort((x, y) => bzm ? x.bid.localeCompare(y.bid) : ((y.a.off.length - x.a.off.length) || x.bid.localeCompare(y.bid)));
   const withPlan = rows.filter(r => r.a.items.length).length;
   const offTotal = rows.reduce((n, r) => n + r.a.off.length, 0);
@@ -18241,8 +18252,15 @@ function renderAdminPlanOverview() {
       <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      ${zones.length > 1 ? `<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">โซน / BZM</div><select class="form-select" style="min-width:170px" onchange="_planSetFilter('zone', this.value)"><option value="">ทุกโซน</option>${zones.map(z => `<option value="${_escH(z)}"${_planF.zone === z ? ' selected' : ''}>${_escH(z)}</option>`).join('')}</select></div>` : ''}
+      ${allBids.length > 1 ? `<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">สาขา</div><select class="form-select" style="min-width:170px" onchange="_planSetFilter('branch', this.value)"><option value="">ทุกสาขา</option>${zoneBids.slice().sort().map(b => `<option value="${b}"${_planF.branch === b ? ' selected' : ''}>${_escH(_bName(b))}</option>`).join('')}</select></div>` : ''}
+      <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">วันที่วางแผนสอน ตั้งแต่</div><input type="date" class="form-input" value="${_planF.from}" onchange="_planSetFilter('from', this.value)"></div>
+      <div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">ถึง</div><input type="date" class="form-input" value="${_planF.to}" onchange="_planSetFilter('to', this.value)"></div>
+      ${filtering ? `<button class="btn btn-sm btn-outline" onclick="_planClearFilter()">ล้างตัวกรอง</button>` : ''}
+    </div>
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
-    rows.length ? `<div class="table-wrap" style="max-height:340px;overflow:auto"><table>
+    rows.length ? `<div class="table-wrap"><table>
       <thead><tr><th>สาขา</th><th style="text-align:center">ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">บริการ<br><small>สอนแล้ว/แผน</small></th>
         <th>วันที่วางแผนสอน</th><th>สาขาจัดทำเมื่อ</th><th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
       <tbody>${rows.map(r => `<tr>
@@ -18254,7 +18272,7 @@ function renderAdminPlanOverview() {
         ${bzm ? '' : `<td style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>`}
         <td style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
       </tr>`).join('')}</tbody>
-    </table></div>` : '<div style="font-size:13px;color:var(--text3)">เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน</div>'}
+    </table></div>` : '<div style="font-size:13px;color:var(--text3)">' + (filtering ? 'ไม่พบสาขาตามตัวกรองที่เลือก' : 'เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน') + '</div>'}
   </div>`;
 }
 // เมนูเต็มหน้า (แยกจากวิดเจ็ตที่แทรกในหน้า "การสอน") — ให้ BZM เข้าถึงแผนการสอนงานทั้งโซนได้ตรง ๆ จากเมนู
@@ -18663,7 +18681,7 @@ function deleteTransferRequestRow(id) {
 const NAV_GROUP_V2 = [
   ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
   ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'admin-branch-updates']],
-  ['การสอนงาน',          ['admin-trainings', 'admin-plan-overview']],
+  ['การสอนงาน',          ['admin-plan-overview', 'admin-trainings']],
   ['อบรมและข้อสอบ',      ['admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
   ['ติดตามและรายงาน',    ['exec-leaderboard', 'admin-cases', 'admin-reports']],
   ['ระบบ',              ['admin-users', 'admin-chat-logs']],
