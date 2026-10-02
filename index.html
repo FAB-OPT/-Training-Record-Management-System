@@ -9779,6 +9779,7 @@ function openAddTraining() {
       DB.trainings.push(_nt);
       gsSave('trainings', _nt.id, _nt);
       try { _syncPlanFromTraining(_nt, _planVal); } catch (e) { console.warn('syncPlan', e); }
+      if (!_planVal || _planVal === '__none') _freezePlanLinks(_nt);
       closeModal(); showPage('trainings'); notify('บันทึกการสอนงานสำเร็จ');
     };
     // หัวข้อที่พนักงานคนนั้นเคยถูกสอนไปแล้ว (มีบันทึกการสอนอยู่แล้ว ไม่ว่าประเมินหรือยัง) → ถามก่อนว่าจะทบทวนไหม
@@ -17138,16 +17139,19 @@ function getCoachingPlan(bid, ym) {
 /* แผนข้อนี้มีบันทึกการสอนตรงกันไหม — เดือนเดียวกัน Module เดียวกัน
    ถ้าแผนระบุคนไว้ ต้องมีคนในแผนอยู่ในบันทึกอย่างน้อย 1 คน
    ใช้แค่ขึ้นเครื่องหมาย ไม่ใช่ตัวตัดสินอะไร */
+/* บันทึกการสอน t "ตรงแผน it" ไหม
+   - แผนใหม่ (มี it.linked): ผูกเฉพาะบันทึกที่เลือกจากแผนนี้ หรือที่มีอยู่แล้วตอนทำแผนย้อนหลัง · บันทึกที่ "ไม่ใช้แผน" ไม่ถูกดึงเข้าแผนเอง
+   - แผนเก่า (ไม่มี linked): เทียบ Module + เดือน + ผู้เรียนซ้อนกันแบบเดิม */
+function _planBase(it, t) {
+  return t.moduleId === it.moduleId && (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)));
+}
+const _planTie = (it, t) => _planBase(it, t) && (!Array.isArray(it.linked) || it.linked.includes(t.id));
 function _planItemDone(bid, ym, it) {
-  return (DB.trainings || []).some(t =>
-    t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
-    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+  return (DB.trainings || []).some(t => t.branchId === bid && _ymOf(t.date) === ym && _planTie(it, t));
 }
 /* แผนข้อนี้ประเมินผลแล้วไหม — มีบันทึกการสอนที่ตรงแผนและถูกประเมินแล้วอย่างน้อย 1 ครั้ง */
 function _planItemEvaluated(bid, ym, it) {
-  return (DB.trainings || []).some(t => t.eval &&
-    t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
-    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+  return (DB.trainings || []).some(t => t.eval && t.branchId === bid && _ymOf(t.date) === ym && _planTie(it, t));
 }
 
 // ==================== BZM "เด้งให้รับทราบ" แผนการสอนงานของสาขาในเขต ====================
@@ -17294,6 +17298,7 @@ function renderCoachingPlanPanel(bid) {
         const _ms = _planMatches(bid, ym, it), _tFirst = _ms[0], _eFirst = _ms.find(t => t.eval);
         const _actualHtml = _planActualHtml(bid, ym, it);
         const _subsEff = _planSubsEffective(bid, ym, it);
+        const _origBox = it.moduleIdOrig ? `<div style="padding:8px 10px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:12px;line-height:1.55">📌 <b>แผนเดิม:</b> ${_escH((MODULES[it.moduleIdOrig] || {}).name || it.moduleIdOrig)}${(it.subtopicsOrig || []).length ? ' · ' + (it.subtopicsOrig || []).map(_escH).join(', ') : ''}<br><b>สอนจริง:</b> ${_escH(m.name || it.moduleId)}${_subsEff.length ? ' · ' + _subsEff.map(_escH).join(', ') : ''}</div>` : (_ms.length && (it.subtopicsOrig || []).length && _subsEff.some(x => !it.subtopicsOrig.includes(x)) ? `<div style="padding:6px 10px;border-radius:8px;background:#F0F9FF;color:#0369A1;font-size:12px;line-height:1.55">📌 <b>แผนเดิมวางหัวข้อ:</b> ${it.subtopicsOrig.map(_escH).join(', ')}</div>` : '');
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
@@ -17304,7 +17309,6 @@ function renderCoachingPlanPanel(bid) {
             ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
-          ${it.moduleIdOrig ? `<div style="margin:6px 0 2px;padding:8px 10px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:12px;line-height:1.55">📌 <b>แผนเดิม:</b> ${_escH((MODULES[it.moduleIdOrig] || {}).name || it.moduleIdOrig)}${(it.subtopicsOrig || []).length ? ' · ' + (it.subtopicsOrig || []).map(_escH).join(', ') : ''}<br><b>สอนจริง:</b> ${_escH(m.name || it.moduleId)}${_subsEff.length ? ' · ' + _subsEff.map(_escH).join(', ') : ''}</div>` : (_ms.length && (it.subtopicsOrig || []).length && _subsEff.some(x => !it.subtopicsOrig.includes(x)) ? `<div style="margin:6px 0 2px;padding:6px 10px;border-radius:8px;background:#F0F9FF;color:#0369A1;font-size:12px;line-height:1.55">📌 <b>แผนเดิมวางหัวข้อ:</b> ${it.subtopicsOrig.map(_escH).join(', ')}</div>` : '')}
           <div class="cp-step">
             <div class="cp-step-line ${ev ? 'full' : ok ? 'half' : ''}"></div>
             <div class="cp-step-pt l ${ok ? 'done' : ''}"><i></i><span>${_tFirst ? 'สอนจริง' : 'สอน'}</span><b>${_tFirst ? _escH(fmtDate(_tFirst.date)) : shortD(it.planDate)}</b>${_tFirst ? `<small>แผน ${shortD(it.planDate)}</small>` : ''}</div>
@@ -17314,7 +17318,7 @@ function renderCoachingPlanPanel(bid) {
             <div><span class="cp-role-label">👤 ผู้เรียน</span>${_planLearnersHtml(it.empIds)}</div>
             <div><span class="cp-role-label">🧑‍🏫 ผู้สอน</span><b>${it.trainerName ? _escH(it.trainerName) : '<span style="color:var(--text4);font-weight:500">—</span>'}</b></div>
           </div>
-          ${_actualHtml ? `<div class="cp-actual">${_actualHtml}</div>` : ''}
+          ${(_origBox || _actualHtml) ? `<div class="cp-actual">${_origBox}${_actualHtml}</div>` : ''}
           <div class="cp-item-notes">
             ${it.details ? `<span class="cp-item-note" style="flex-basis:100%;color:var(--text2);line-height:1.5">📋 <b>รายละเอียด</b> ${_escH(it.details)}</span>` : ''}
             ${it.note ? `<span class="cp-item-note">📝 ${_escH(it.note)}</span>` : ''}
@@ -17432,8 +17436,7 @@ function _planLearnersHtml(empIds) {
 }
 /* บันทึกการสอนจริงที่ตรงแผน (สาขา + Module + เดือน + ผู้เรียนตรงแผนอย่างน้อยหนึ่งคน) เรียงตามวันที่สอน */
 function _planMatches(bid, ym, it) {
-  return (DB.trainings || []).filter(t => t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
-    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))))
+  return (DB.trainings || []).filter(t => t.branchId === bid && _ymOf(t.date) === ym && _planTie(it, t))
     .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
 }
 /* บันทึกการสอนนี้ "ตามแผน" ไหม — มีแผนของเดือนเดียวกันที่ Module เดียวกันและผู้เรียนตรงกันอย่างน้อยหนึ่งคน
@@ -17441,14 +17444,12 @@ function _planMatches(bid, ym, it) {
 function _trainingFromPlan(t) {
   if (!t) return false;
   const items = getCoachingPlan(t.branchId, _ymOf(t.date)).items || [];
-  return items.some(it => it.moduleId === t.moduleId &&
-    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+  return items.some(it => _planTie(it, t));
 }
 /* แผนที่ตรงกับบันทึกการสอนนี้ (Module + เดือนเดียวกัน + ผู้เรียนซ้อนกัน) — ใช้ตอนแก้ผู้เรียนของบันทึก */
 function _linkedPlanItemIds(t) {
   const ym = _ymOf(t.date);
-  return { ym, ids: (getCoachingPlan(t.branchId, ym).items || []).filter(it => it.moduleId === t.moduleId &&
-    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)))).map(it => it.id) };
+  return { ym, ids: (getCoachingPlan(t.branchId, ym).items || []).filter(it => _planTie(it, t)).map(it => it.id) };
 }
 /* แก้ผู้เรียนของบันทึกตามแผนแล้ว → ผู้เรียนในแผนตามไปด้วย (เอาคนที่ถูกถอดออก ใส่คนที่เพิ่มเข้า)
    ไม่งั้นไม่มีผู้เรียนตรงกับแผนอีก บันทึกจะหลุดจาก "ตามแผน" และแผนกลับไปขึ้นว่ายังไม่สอน */
@@ -17730,6 +17731,8 @@ function openPlanItem(grp, itemId, restricted) {
       createdBy: (it && it.createdBy) || who, createdAt: (it && it.createdAt) || now,
       updatedBy: who, updatedAt: now,
     };
+    if (!it) rec.linked = _planMatches(bid, ym, { moduleId, empIds }).map(t => t.id);   // ทำแผนย้อนหลัง: บันทึกการสอนที่มีอยู่แล้วเป็นของแผนนี้
+    else if (Array.isArray(it.linked)) rec.linked = it.linked;
     if (it) {
       /* ค่าที่ฟอร์มไม่ได้แก้ (แผนเดิมที่เปลี่ยนตามการสอนจริง ฯลฯ) ต้องไม่หาย */
       if (it.moduleId === moduleId) { if (it.moduleIdOrig) rec.moduleIdOrig = it.moduleIdOrig; if (it.subtopicsOrig) rec.subtopicsOrig = it.subtopicsOrig; }
@@ -18167,15 +18170,34 @@ function _savePlan(bid, ym, items) {
 
 /* บันทึกการสอนตามแผนแล้ว เพิ่ม/ลดหัวข้อย่อยจากที่วางไว้ → แผนอัพเดทหัวข้อย่อยตามที่สอนจริง
    (รวมหัวข้อของทุกครั้งที่สอนตรงแผนนี้ · เก็บหัวข้อเดิมของแผนไว้ใน subtopicsOrig ครั้งแรก · ถือเป็นการแก้แผน BZM จึงเห็นว่ามีอัพเดท) */
+/* บันทึกการสอนที่ "ไม่ใช้แผน" ห้ามไปอัปเดตแผนที่ทำไว้ — ล็อกแผนเก่าที่เคยจับคู่แบบเดาไว้ ให้ผูกเฉพาะบันทึกที่มีอยู่ก่อนหน้านี้ */
+function _freezePlanLinks(t) {
+  try {
+    const ym = _ymOf(t.date), p = getCoachingPlan(t.branchId, ym), items = (p.items || []).slice();
+    let ch = false;
+    items.forEach((it, i) => {
+      if (Array.isArray(it.linked) || !_planBase(it, t)) return;
+      items[i] = Object.assign({}, it, { linked: _planMatches(t.branchId, ym, it).filter(x => x.id !== t.id).map(x => x.id) });
+      ch = true;
+    });
+    if (ch) _savePlan(t.branchId, ym, items);
+  } catch (e) { console.warn('freezePlanLinks', e); }
+}
 function _syncPlanFromTraining(t, planVal) {
   if (!planVal || planVal === '__none') return;
   const [ym, itemId] = String(planVal).split('|');
   const bid = t.branchId, p = getCoachingPlan(bid, ym), items = (p.items || []).slice();
   const at = items.findIndex(x => x.id === itemId); if (at < 0) return;
   let it = items[at];
+  /* ผูกบันทึกนี้เข้าแผน (แผนเก่าที่ยังไม่มี linked: ล็อกบันทึกที่จับคู่อยู่เดิมไว้ด้วย) */
+  let linkChanged = false;
+  if (!Array.isArray(it.linked) || !it.linked.includes(t.id)) {
+    const prev = Array.isArray(it.linked) ? it.linked : _planMatches(bid, ym, it).filter(x => x.id !== t.id).map(x => x.id);
+    it = Object.assign({}, it, { linked: prev.concat(t.id) }); items[at] = it; linkChanged = true;
+  }
   if (t.moduleId && it.moduleId !== t.moduleId) {
     /* สอนคนละ Module กับที่วางแผนไว้ → แผนเปลี่ยนตามที่สอนจริง (เก็บ Module/หัวข้อที่วางไว้เดิมไว้โชว์เทียบ) — ถ้ายังมีบันทึกอื่นตรงกับ Module เดิมอยู่ ไม่เปลี่ยน */
-    if (_planMatches(bid, ym, it).some(x => x !== t && x.id !== t.id)) return;
+    if (_planMatches(bid, ym, it).some(x => x !== t && x.id !== t.id)) { if (linkChanged) _savePlan(bid, ym, items); return; }
     const orig = it.moduleIdOrig || it.moduleId;
     const origSubs = it.moduleIdOrig ? (it.subtopicsOrig || []) : (it.subtopicsOrig || it.subtopics || []);
     const nxt = Object.assign({}, it, { moduleId: t.moduleId, subtopics: (t.subtopics || []).slice() });
@@ -18192,7 +18214,7 @@ function _syncPlanFromTraining(t, planVal) {
   const order = (MODULES[it.moduleId] && MODULES[it.moduleId].subtopics) || [];
   const next = [...set].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   const cur = it.subtopics || [];
-  if (next.length === cur.length && next.every(x => cur.includes(x))) return;   // ไม่มีอะไรเปลี่ยน
+  if (next.length === cur.length && next.every(x => cur.includes(x))) { if (linkChanged) _savePlan(bid, ym, items); return; }   // หัวข้อไม่เปลี่ยน (แต่ถ้าเพิ่งผูกบันทึกเข้าแผนต้องเก็บ)
   const now = new Date().toISOString();
   const _nx = Object.assign({}, it, { subtopics: next, subtopicsOrig: it.subtopicsOrig || cur, updatedBy: (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง', updatedAt: now });
   _nx.history = _planHistoryNext(it, _nx, _planActor(), 'ตามบันทึกการสอนจริง');
@@ -18279,8 +18301,7 @@ function applyPlanToTrainingForm(val) {
 function _planAudit(bid, ym) {
   const items = getCoachingPlan(bid, ym).items || [];
   const recs = (DB.trainings || []).filter(t => t.branchId === bid && _ymOf(t.date) === ym);
-  const matches = (t, it) => it.moduleId === t.moduleId &&
-    (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)));
+  const matches = (t, it) => _planTie(it, t);
   const off = recs.filter(t => !items.some(it => matches(t, it))).map(t => {
     /* บอกเหตุผลให้ตามต่อได้: Module นี้ไม่มีในแผนเลย หรือมีแต่สอนคนละคน */
     const sameMod = items.filter(it => it.moduleId === t.moduleId);
