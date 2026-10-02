@@ -17533,8 +17533,7 @@ function _planIsRetro(bid, ym, it) {
   const made = new Date(it.createdAt); if (isNaN(made)) return false;
   if (it.planDate && it.planDate < _ymdLocal(made)) return true;
   if (it.moduleIdOrig) return false;   // ทำแผนไว้ก่อนแล้ว แค่เปลี่ยน Module ตามที่สอนจริง ไม่ใช่ย้อนหลัง
-  return (DB.trainings || []).some(t => t.branchId === bid && t.moduleId === it.moduleId && _ymOf(t.date) === ym &&
-    new Date(t.date) < made && (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id))));
+  return (DB.trainings || []).some(t => t.branchId === bid && _ymOf(t.date) === ym && new Date(t.date) < made && _planTie(it, t));
 }
 const _retroTag = (bid, ym, it) => _planIsRetro(bid, ym, it)
   ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="จัดทำแผนหลังวันที่สอน หรือหลังมีบันทึกการสอนแล้ว">↩ ทำแผนย้อนหลัง</span>' : '';
