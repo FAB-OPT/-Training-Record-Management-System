@@ -9081,7 +9081,7 @@ function _commitAddEmployee(bid, empCode, name, pos, start, st) {
   if (st.status === 'resigned') _ne.disabledAt = new Date().toISOString();
   DB.employees[bid].push(_ne);
   gsSave('employees', _ne.id, _ne);
-  if (currentUser.type === 'branch') logBranchUpdate(bid, 'add', _ne.id, _ne.name);
+  if (currentUser.type === 'branch') logBranchUpdate(bid, 'add', _ne.id, _ne.name, ['ตำแหน่ง: ' + (_ne.position || '—'), 'วันเริ่มงาน: ' + (_ne.startDate ? fmtDate(_ne.startDate) : '—')].join(' · '));
   closeModal();
   showPage('employees');
   notify('เพิ่มพนักงานสำเร็จ');
@@ -18758,6 +18758,7 @@ function openBranchUpdateHistoryModal(bid) {
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;font-weight:700">${act[1]} ${act[0]}${u.empName ? ' · ' + _escH(u.empName) : ''}</div>
           <div style="font-size:11.5px;color:var(--text3)">${fmtDateTime(u.at)} · โดย ${_escH(u.by || '—')}${u.note ? ' · ' + _escH(u.note) : ''}</div>
+          ${!u.note && u.empId && (u.action === 'edit' || u.action === 'add') ? (() => { const e = getEmployee(u.empId); return e ? `<div style="font-size:11.5px;color:var(--text4);margin-top:2px">ข้อมูลปัจจุบัน: ${_escH(e.name || '')} · ${_escH(e.position || '—')} · เริ่มงาน ${e.startDate ? _escH(fmtDate(e.startDate)) : '—'} · ${_isEmpEnabled(e) ? 'เปิดใช้งาน' : 'ปิดใช้งาน' + (e.disabledReason ? ' (' + _escH(e.disabledReason) + ')' : '')} <i>— รายการนี้บันทึกก่อนมีระบบจดรายละเอียด จึงไม่ทราบว่าแก้ช่องไหน</i></div>` : ''; })() : ''}
         </div>
         ${isAdminRole() ? `<button class="btn btn-sm btn-danger" onclick="deleteBranchUpdates('${bid}','${u.id}')" title="ลบรายการนี้">🗑</button>` : ''}
       </div>`;
