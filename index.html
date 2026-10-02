@@ -475,6 +475,7 @@
   /* ใส่ฟอนต์ emoji ต่อท้าย — Sarabun ไม่มี emoji เบราว์เซอร์เลย fallback ทีละตัว ไอคอนออกมาคนละสไตล์ */
   .btn { padding: 10px 18px; border-radius: 10px; font-family: 'Sarabun', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; letter-spacing: -0.1px; }
   /* ปุ่มแอ็กชันในหัวหน้า — จัดเป็นกลุ่มแบบ segmented (โทนเดียวกับแท็บ) */
+  .emp-opt.is-trainer { display: none !important; }
   .chact { border: none; background: transparent; color: var(--text2); padding: 7px 13px; border-radius: 9px; font-family: 'Sarabun', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .chact:hover { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.10); }
   .chact-primary { background: var(--accent); color: #fff; font-weight: 800; }
@@ -9917,7 +9918,15 @@ function onTrainerKey(e) {
   if (e.key === 'Escape') closeTrainerDropdown();
   if (e.key === 'Enter') { e.preventDefault(); closeTrainerDropdown(); }
 }
+/* ผู้สอนงานที่เลือก/พิมพ์ไว้ ไม่ต้องขึ้นในรายชื่อผู้เรียน (ห้ามเป็นคนเดียวกัน) */
+function _hideTrainerFromLearners() {
+  const t = ((document.getElementById('tr-trainer') || {}).value || '').replace(/s+/g, ' ').trim().toLowerCase();
+  document.querySelectorAll('#emp-dropdown-list .emp-opt, #cp-emp-dropdown-list .emp-opt').forEach(o => {
+    o.classList.toggle('is-trainer', !!t && String(o.dataset.name || '').replace(/s+/g, ' ').trim().toLowerCase() === t);
+  });
+}
 function filterTrainerDropdown() {
+  try { _hideTrainerFromLearners(); } catch (_) {}
   const q = (document.getElementById('tr-trainer')?.value || '').toLowerCase().trim();
   const cur = q;
   let any = false;
@@ -17870,6 +17879,7 @@ function cpToggleCrossDept() {
   const list = document.getElementById('cp-emp-dropdown-list');
   const sel = new Set(_cpSelectedEmps.map(e => e.id));
   if (list) list.innerHTML = _cpEmpOptionsHtml(_cpEmpsAllGroups, sel);
+  try { _hideTrainerFromLearners(); } catch (_) {}
   const label = document.getElementById('cp-emp-max-label');
   if (label) label.textContent = `(สูงสุด ${_cpMaxTrainees} คน)`;
   _cpMarkFullEmpOptions();
