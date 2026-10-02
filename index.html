@@ -9110,6 +9110,7 @@ function openEditEmployee(id) {
     </div>`, () => {
     const st = _readEmpStatusForm(); if (!st) return;
     const wasEnabled = _isEmpEnabled(e);
+    const _before = { name: e.name, position: e.position, startDate: e.startDate, status: e.status, reason: e.disabledReason || '' };
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.positionGroup=getPositionGroup(e.position);
@@ -9120,7 +9121,16 @@ function openEditEmployee(id) {
     if (st.status === 'resigned' && wasEnabled) e.disabledAt = new Date().toISOString();
     else if (st.status === 'active') delete e.disabledAt;
     gsSave('employees', e.id, e);
-    if (currentUser.type === 'branch') logBranchUpdate(e.branchId, 'edit', e.id, e.name);
+    if (currentUser.type === 'branch') {
+      /* จดว่าแก้อะไรบ้าง (ค่าเดิม → ค่าใหม่) เพื่อให้ Admin ตรวจย้อนหลังได้ */
+      const d = x => x ? fmtDate(x) : '—', ch = [];
+      if (_before.name !== e.name) ch.push('ชื่อ: ' + (_before.name || '—') + ' → ' + (e.name || '—'));
+      if ((_before.position || '') !== (e.position || '')) ch.push('ตำแหน่ง: ' + (_before.position || '—') + ' → ' + (e.position || '—'));
+      if ((_before.startDate || '') !== (e.startDate || '')) ch.push('วันเริ่มงาน: ' + d(_before.startDate) + ' → ' + d(e.startDate));
+      if (_before.status !== e.status) ch.push('สถานะ: ' + (_before.status === 'resigned' ? 'ปิดใช้งาน' : 'เปิดใช้งาน') + ' → ' + (e.status === 'resigned' ? 'ปิดใช้งาน' : 'เปิดใช้งาน'));
+      if (e.status === 'resigned' && (_before.reason !== (e.disabledReason || ''))) ch.push('เหตุผลปิดใช้งาน: ' + (e.disabledReason || '—'));
+      logBranchUpdate(e.branchId, 'edit', e.id, e.name, ch.length ? ch.join(' · ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+    }
     closeModal(); showPage('employees'); notify('อัปเดตข้อมูลสำเร็จ');
   });
 }
