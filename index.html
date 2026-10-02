@@ -17494,6 +17494,8 @@ function _planActualHtml(bid, ym, it) {
       ? `<span class="badge ${o.passed ? 'badge-green' : 'badge-red'}">ข้อสอบ ${o.best}% · ${o.passed ? 'ผ่าน' : 'ไม่ผ่าน'} (ทำ ${o.attempts}/${QUIZ_MAX_ATTEMPTS} ครั้ง)</span>`
       : (o.waitingQuiz ? '<span class="badge badge-yellow">ข้อสอบ ยังไม่ได้ทำ</span>' : '');
     const re = o.reteach ? `<span class="badge badge-red" style="font-weight:800">🔁 ต้องสอนใหม่ · ${_escH(o.reteach)}</span>` : '';
+    /* ยังรอประเมินอย่างเดียว ไม่มีอะไรจะแสดงเพิ่ม (วันที่สอนจริงอยู่บนเส้นความคืบหน้าแล้ว) → ไม่ต้องมีกล่อง */
+    if (ms.length === 1 && !t.eval && !o.attempts && !o.waitingQuiz && !o.reteach && !reviewBadge(t).trim() && !isEvalDeadlinePassed(t.date)) return '';
     return `<div class="cp-act">
       <div class="cp-act-h">📌 สอนจริง${ms.length > 1 ? ` <b>ครั้งที่ ${i + 1}</b>` : ''} <b>${_escH(fmtDateTime(t.date))}</b>${t.trainerName ? ' · ผู้สอน <b>' + _escH(t.trainerName) + '</b>' : ''}${ms.length > 1 && names(t) ? ' · ' + _escH(names(t)) : ''}</div>
       <div class="cp-act-chips">${reviewBadge(t).trim()}${ev}${qz}${re}</div>
