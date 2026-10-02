@@ -18352,6 +18352,13 @@ function renderAdminPlanOverview() {
     .filter(r => !(_planF.from || _planF.to) || r.a.items.some(it => inRange(it.planDate)))
     .sort((x, y) => bzm ? x.bid.localeCompare(y.bid) : ((y.a.off.length - x.a.off.length) || x.bid.localeCompare(y.bid)));
   const withPlan = rows.filter(r => r.a.items.length).length;
+  /* การ์ดสรุป: นับจากสาขาที่แสดงอยู่ (ตามตัวกรอง) */
+  const _allItems = rows.flatMap(r => r.a.items.map(it => ({ bid: r.bid, it })));
+  const _taughtN = _allItems.filter(x => _planItemDone(x.bid, ym, x.it)).length;
+  const _redoN = _allItems.filter(x => _planMatches(x.bid, ym, x.it).some(_trainingFailed)).length;
+  const _evaluatedN = _allItems.filter(x => _planItemEvaluated(x.bid, ym, x.it)).length;
+  const _noPlanBranches = bids.filter(b => !rows.some(r => r.bid === b && r.a.items.length)).length;
+  const _sumCard = (icon, label, val, sub, color) => `<div class="stat-card" style="border:1px solid var(--border)"><div style="font-size:22px">${icon}</div><div><div class="stat-label" style="font-size:12px;color:var(--text3)">${label}</div><div style="font-size:26px;font-weight:800;line-height:1.1;color:${color || 'var(--text)'}">${val}</div>${sub ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${sub}</div>` : ''}</div></div>`;
   const offTotal = rows.reduce((n, r) => n + r.a.off.length, 0);
   const offBranches = rows.filter(r => r.a.off.length).length;
   const cell = (n, dn) => n ? `<b>${dn}</b>/${n}` : '<span style="color:var(--text4)">—</span>';
@@ -18374,6 +18381,14 @@ function renderAdminPlanOverview() {
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)">‹</button>
       <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+      ${_sumCard('🏪', 'สาขาที่วางแผนแล้ว', withPlan + '/' + bids.length, _noPlanBranches ? 'ยังไม่ทำแผน ' + _noPlanBranches + ' สาขา' : 'ครบทุกสาขา', _noPlanBranches ? '#B45309' : 'var(--green)')}
+      ${_sumCard('📋', 'แผนทั้งหมด', _allItems.length, 'ครัว ' + _allItems.filter(x => _planGroup(x.it.moduleId) === 'kitchen').length + ' · บริการ ' + _allItems.filter(x => _planGroup(x.it.moduleId) === 'service').length)}
+      ${_sumCard('✅', 'สอนแล้ว', _taughtN + '/' + _allItems.length, 'ประเมินแล้ว ' + _evaluatedN, 'var(--green)')}
+      ${_sumCard('⏳', 'ยังไม่สอน', _allItems.length - _taughtN, '', _allItems.length - _taughtN ? '#B45309' : 'var(--text)')}
+      ${_sumCard('🔁', 'ต้องสอนใหม่', _redoN, '', _redoN ? 'var(--red)' : 'var(--text)')}
+      ${bzm ? _sumCard('🔔', 'รอรับทราบ', rows.reduce((t, r) => t + (needAckByBranch[r.bid] || 0), 0), 'แผนใหม่/อัปเดต', '#2563EB') : _sumCard('⚠️', 'บันทึกนอกแผน', offTotal, 'ใน ' + offBranches + ' สาขา', offTotal ? '#B45309' : 'var(--green)')}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
       ${zones.length > 1 ? `<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">โซน / BZM</div><select class="form-select" style="min-width:170px" onchange="_planSetFilter('zone', this.value)"><option value="">ทุกโซน</option>${zones.map(z => `<option value="${_escH(z)}"${_planF.zone === z ? ' selected' : ''}>${_escH(z)}</option>`).join('')}</select></div>` : ''}
@@ -18754,11 +18769,28 @@ function openBranchUpdateHistoryModal(bid) {
     <div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto">
     ${hist.map(u => {
       const act = _BU_ACTION[u.action] || [u.action, ''];
-      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px">
+      const kv = (k, v) => `<div style="display:flex;gap:8px;font-size:12.5px;line-height:1.7"><span style="min-width:84px;color:var(--text3)">${k}</span><span style="color:var(--text);font-weight:600">${v}</span></div>`;
+      let detail = '';
+      if (u.note && (u.action === 'edit' || u.action === 'add')) {
+        /* รายการที่จดรายละเอียดไว้: แยกทีละช่อง  ชื่อช่อง | ค่าเดิม → ค่าใหม่ */
+        detail = u.note.split(' · ').map(p => {
+          const i = p.indexOf(': '); if (i < 0) return `<div style="font-size:12.5px;line-height:1.7">${_escH(p)}</div>`;
+          const k = p.slice(0, i), v = p.slice(i + 2), a = v.split(' → ');
+          return kv(_escH(k), a.length === 2 ? `<span style="color:var(--red);text-decoration:line-through;font-weight:500">${_escH(a[0])}</span> <span style="color:var(--text3)">→</span> <span style="color:var(--green)">${_escH(a[1])}</span>` : _escH(v));
+        }).join('');
+      } else if (u.note) {
+        detail = `<div style="font-size:12.5px">${_escH(u.note)}</div>`;
+      } else if (u.empId && (u.action === 'edit' || u.action === 'add')) {
+        const e = getEmployee(u.empId);
+        if (e) detail = kv('ชื่อ-นามสกุล', _escH(e.name || '—')) + kv('ตำแหน่ง', _escH(e.position || '—')) + kv('วันเริ่มงาน', e.startDate ? _escH(fmtDate(e.startDate)) : '—') +
+          kv('สถานะ', _isEmpEnabled(e) ? '<span style="color:var(--green)">เปิดใช้งาน</span>' : '<span style="color:var(--red)">ปิดใช้งาน</span>' + (e.disabledReason ? ' · ' + _escH(e.disabledReason) : '')) +
+          '<div style="font-size:11.5px;color:var(--text3);margin-top:4px">ค่าปัจจุบันของพนักงาน — รายการนี้บันทึกก่อนมีระบบจดรายละเอียด จึงไม่ทราบว่าแก้ช่องไหน</div>';
+      }
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:10px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;font-weight:700">${act[1]} ${act[0]}${u.empName ? ' · ' + _escH(u.empName) : ''}</div>
-          <div style="font-size:11.5px;color:var(--text3)">${fmtDateTime(u.at)} · โดย ${_escH(u.by || '—')}${u.note ? ' · ' + _escH(u.note) : ''}</div>
-          ${!u.note && u.empId && (u.action === 'edit' || u.action === 'add') ? (() => { const e = getEmployee(u.empId); return e ? `<div style="font-size:11.5px;color:var(--text4);margin-top:2px">ข้อมูลปัจจุบัน: ${_escH(e.name || '')} · ${_escH(e.position || '—')} · เริ่มงาน ${e.startDate ? _escH(fmtDate(e.startDate)) : '—'} · ${_isEmpEnabled(e) ? 'เปิดใช้งาน' : 'ปิดใช้งาน' + (e.disabledReason ? ' (' + _escH(e.disabledReason) + ')' : '')} <i>— รายการนี้บันทึกก่อนมีระบบจดรายละเอียด จึงไม่ทราบว่าแก้ช่องไหน</i></div>` : ''; })() : ''}
+          <div style="font-size:13.5px;font-weight:800">${act[1]} ${act[0]}${u.empName ? ' · ' + _escH(u.empName) : ''}</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:${detail ? '8px' : '0'}">${fmtDateTime(u.at)} · โดย ${_escH(u.by || '—')}</div>
+          ${detail ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 12px">${detail}</div>` : ''}
         </div>
         ${isAdminRole() ? `<button class="btn btn-sm btn-danger" onclick="deleteBranchUpdates('${bid}','${u.id}')" title="ลบรายการนี้">🗑</button>` : ''}
       </div>`;
