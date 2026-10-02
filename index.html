@@ -11491,10 +11491,11 @@ function openEditTraining(id) {
     if (_trDetailsCol && !restricted && !details) { notify('กรุณาระบุรายละเอียดการสอนงาน', 'error'); return; }
     const _selfT = _trainerIsLearner(trainer, traineeIds);
     if (_selfT) { notify('ผู้สอนงานกับผู้เรียนห้ามเป็นคนเดียวกัน — "' + _selfT + '" เป็นทั้งผู้สอนและผู้เรียน', 'error'); return; }
-    const _oldIds = (t.traineeIds || []).slice(), _linked = _linkedPlanItemIds(t);   // ก่อนแก้ — ใช้หาแผนที่ผูกกันอยู่
+    const _oldIds = (t.traineeIds || []).slice(), _linked = _linkedPlanItemIds(t), _oldMod = t.moduleId;   // ก่อนแก้ — ใช้หาแผนที่ผูกกันอยู่
     t.trainerName=trainer; t.traineeIds=traineeIds;
     try { _syncPlanLearnersAfterEdit(t, _oldIds, _linked); } catch (e) { console.warn('syncPlanLearners', e); }
     if (!restricted) { t.date=date; t.moduleId=moduleId; t.subtopics=subtopics; if (_trDetailsCol) t.details=details; }
+    if (!restricted && moduleId !== _oldMod && _linked.ids.length) _linked.ids.forEach(id => { try { _syncPlanFromTraining(t, _linked.ym + '|' + id); } catch (e) { console.warn('syncPlanModule', e); } });
     if(isAnyAdminRole()) markEvalEdited(t);   /* แอดมินแก้ของสาขา ต้องมีร่องรอยว่าใครแก้ */
     gsSave('trainings', t.id, t);
     /* กลับหน้าที่กดมา ของเดิมเด้งไปหน้าของสาขาเสมอ แอดมินแก้เสร็จแล้วจึงหลุดออกจากหน้าที่ทำอยู่ */
@@ -17296,8 +17297,9 @@ function renderCoachingPlanPanel(bid) {
         return `<div class="cp-item ${ok ? 'ok' : ''}">
           <div class="cp-item-head">
             <span class="cp-item-name">${_escH(m.name || it.moduleId)}</span>
+            ${it.moduleIdOrig ? `<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="แผนเดิมวางไว้ ${_escH((MODULES[it.moduleId] ? (MODULES[it.moduleIdOrig] || {}).name : '') || it.moduleIdOrig)}">เปลี่ยนจากแผน</span>` : ''}
             ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
-            ${_subsEff.length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${_subsEff.length} หัวข้อย่อย${_ms.length && _subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length ? ` <b style="color:#0369A1">(+${_subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length} เพิ่มตอนสอน)</b>` : ''}${_planTodoCount(bid, it, ym) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it, ym)}</b>` : ''} 🔍</span>` : ''}
+            ${_subsEff.length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${_subsEff.length} หัวข้อย่อย${_ms.length && !it.moduleIdOrig && _subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length ? ` <b style="color:#0369A1">(+${_subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length} เพิ่มตอนสอน)</b>` : ''}${_planTodoCount(bid, it, ym) ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it, ym)}</b>` : ''} 🔍</span>` : ''}
             ${_retroTag(bid, ym, it)}
             ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
             ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
@@ -17551,13 +17553,15 @@ function _cpShowSubtopics(itemId) {
   const m = MODULES[it.moduleId] || {};
   const stMap = {}; _subStatusList(bid, it.moduleId, it.empIds || []).forEach(x => { stMap[x.s] = x.st; });
   /* เทียบกับที่วางไว้ในแผนตอนแรก: เพิ่มตอนสอน = สอนจริงแต่ไม่ได้อยู่ในแผน · ไม่ได้สอน = อยู่ในแผนแต่ไม่ได้สอน (เทียบเมื่อมีการสอนตรงแผนแล้วเท่านั้น) */
-  const eff = _planSubsEffective(bid, ym, it), orig = it.subtopicsOrig || it.subtopics || [];
+  const eff = _planSubsEffective(bid, ym, it), orig = it.moduleIdOrig ? [] : (it.subtopicsOrig || it.subtopics || []);
   const taught = _planMatches(bid, ym, it).length > 0;
   const added = taught ? eff.filter(x => !orig.includes(x)) : [], dropped = taught ? orig.filter(x => !eff.includes(x)) : [];
+  const origModName = it.moduleIdOrig ? ((MODULES[it.moduleIdOrig] || {}).name || it.moduleIdOrig) : '';
   const tag = (txt, bg, fg) => `<span class="sub-tag" style="background:${bg};color:${fg}">${txt}</span>`;
   const row = (s, right, extra) => `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;${extra || ''}"><span>${_escH(s)}</span><span style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${right}</span></div>`;
   showModal(`หัวข้อย่อย · ${_escH(m.name || it.moduleId)}`, `
-    ${taught ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">วางแผนไว้ <b>${orig.length}</b> ข้อ · สอนจริง <b>${eff.length}</b> ข้อ${added.length ? ` · <b style="color:#0369A1">เพิ่มตอนสอน ${added.length}</b>` : ''}${dropped.length ? ` · <b style="color:#B45309">ไม่ได้สอนตามแผน ${dropped.length}</b>` : ''}</div>` : ''}
+    ${it.moduleIdOrig ? `<div style="font-size:12.5px;line-height:1.65;margin-bottom:10px;padding:10px 12px;border-radius:10px;background:#FEF3C7;color:#92400E">📌 <b>เปลี่ยนจากแผน</b><br>วางแผนไว้: <b>${_escH(origModName)}</b>${(it.subtopicsOrig || []).length ? ' · ' + (it.subtopicsOrig || []).map(_escH).join(', ') : ''}<br>สอนจริง: <b>${_escH(m.name || it.moduleId)}</b> · ${eff.length} หัวข้อ</div>` : ''}
+    ${taught && !it.moduleIdOrig ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">วางแผนไว้ <b>${orig.length}</b> ข้อ · สอนจริง <b>${eff.length}</b> ข้อ${added.length ? ` · <b style="color:#0369A1">เพิ่มตอนสอน ${added.length}</b>` : ''}${dropped.length ? ` · <b style="color:#B45309">ไม่ได้สอนตามแผน ${dropped.length}</b>` : ''}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px">
       ${eff.map(s => row(s, (added.includes(s) ? tag('+ เพิ่มตอนสอน', '#E0F2FE', '#0369A1') : '') + ((it.empIds || []).length && stMap[s] ? _subTag(stMap[s]) : ''))).join('') || '<div style="color:var(--text3)">ไม่มีหัวข้อย่อย</div>'}
       ${dropped.map(s => row(s, tag('ไม่ได้สอนตามแผน', '#FEF3C7', '#B45309'), 'opacity:.7;text-decoration:line-through')).join('')}
@@ -18128,7 +18132,20 @@ function _syncPlanFromTraining(t, planVal) {
   const [ym, itemId] = String(planVal).split('|');
   const bid = t.branchId, p = getCoachingPlan(bid, ym), items = (p.items || []).slice();
   const at = items.findIndex(x => x.id === itemId); if (at < 0) return;
-  const it = items[at];
+  let it = items[at];
+  if (t.moduleId && it.moduleId !== t.moduleId) {
+    /* สอนคนละ Module กับที่วางแผนไว้ → แผนเปลี่ยนตามที่สอนจริง (เก็บ Module/หัวข้อที่วางไว้เดิมไว้โชว์เทียบ) — ถ้ายังมีบันทึกอื่นตรงกับ Module เดิมอยู่ ไม่เปลี่ยน */
+    if (_planMatches(bid, ym, it).some(x => x !== t && x.id !== t.id)) return;
+    const orig = it.moduleIdOrig || it.moduleId;
+    const origSubs = it.moduleIdOrig ? (it.subtopicsOrig || []) : (it.subtopicsOrig || it.subtopics || []);
+    const nxt = Object.assign({}, it, { moduleId: t.moduleId, subtopics: (t.subtopics || []).slice() });
+    if (orig === t.moduleId) { delete nxt.moduleIdOrig; nxt.subtopicsOrig = origSubs; } else { nxt.moduleIdOrig = orig; nxt.subtopicsOrig = origSubs; }
+    if (moduleNeedsTrack(t.moduleId)) nxt.track = t.track || nxt.track || ''; else delete nxt.track;
+    nxt.updatedBy = (currentUser && (currentUser.name || currentUser.nick)) || 'ตามการสอนจริง'; nxt.updatedAt = new Date().toISOString();
+    items[at] = nxt; it = nxt;
+    _savePlan(bid, ym, items);
+    return;
+  }
   const ms = _planMatches(bid, ym, it);
   const set = new Set(); (ms.length ? ms : [t]).forEach(x => (x.subtopics || []).forEach(sub => set.add(sub)));
   const order = (MODULES[it.moduleId] && MODULES[it.moduleId].subtopics) || [];
@@ -18331,11 +18348,12 @@ function _planItemDetailListHtml(bid, ym, items) {
     const kitchen = _planGroup(it.moduleId) === 'kitchen';
     return `<div style="border:1px solid ${done ? '#BBE5C8' : 'var(--border)'};border-left:4px solid ${kitchen ? '#EF4444' : '#22C55E'};border-radius:10px;padding:10px 12px;background:var(--surface)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} ${_retroTag(bid, ym, it)}</span>
+        <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} ${it.moduleIdOrig ? '<span class="badge" style="background:#FEF3C7;color:#B45309">เปลี่ยนจากแผน</span>' : ''} ${_retroTag(bid, ym, it)}</span>
         <span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;background:${done ? 'var(--green)' : 'var(--surface2)'};color:${done ? '#fff' : 'var(--text3)'}">${done ? '✓ สอนแล้ว' : 'ยังไม่สอน'}</span>
       </div>
       <div style="font-size:12px;color:var(--text2);line-height:1.65">
         📅 สอน <b>${it.planDate ? _escH(fmtDate(it.planDate)) : '—'}</b>${it.evalDate ? ` · 📝 ประเมิน <b>${_escH(fmtDate(it.evalDate))}</b>` : ''}<br>
+        ${it.moduleIdOrig ? `📌 แผนเดิมวางไว้ <b>${_escH((MODULES[it.moduleIdOrig] || {}).name || it.moduleIdOrig)}</b>${(it.subtopicsOrig || []).length ? ' (' + (it.subtopicsOrig || []).map(_escH).join(', ') + ')' : ''} · สอนจริงเป็น Module นี้<br>` : ''}
         👤 ผู้เรียน ${_escH(emp(it.empIds))}<br>
         🧑‍🏫 ผู้สอน ${_escH(it.trainerName || '—')}
         ${_planSubsEffective(bid, ym, it).length ? `<br>🔍 หัวข้อย่อย: ${_escH(_planSubsEffective(bid, ym, it).join(', '))}` : ''}
