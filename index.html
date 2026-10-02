@@ -9633,6 +9633,13 @@ function getPositionGroup(posName) {
   return 'ทีมผู้จัดการสาขา';
 }
 
+/* ผู้สอนงานกับผู้เรียนห้ามเป็นคนเดียวกัน — คืนชื่อที่ซ้ำ (หรือ '' ถ้าไม่ซ้ำ) */
+function _trainerIsLearner(trainer, empIds) {
+  const norm = x => String(x || '').replace(/s+/g, ' ').trim().toLowerCase();
+  const t = norm(trainer); if (!t) return '';
+  const hit = (empIds || []).map(id => getEmployee(id)).find(e => e && norm(e.name) === t);
+  return hit ? hit.name : '';
+}
 function openAddTraining() {
   const bid = getBranchId();
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
@@ -9729,6 +9736,8 @@ function openAddTraining() {
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     if (_trDetailsCol && !details) { notify('กรุณาระบุรายละเอียดการสอนงาน', 'error'); const _d = document.getElementById('tr-details'); if (_d) { _d.focus(); _d.scrollIntoView({ block: 'center', behavior: 'smooth' }); } return; }
     if (moduleNeedsTrack(moduleId) && !_selectedTrack) { notify('กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า', 'error'); return; }
+    const _selfT = _trainerIsLearner(trainer, traineeIds);
+    if (_selfT) { notify('ผู้สอนงานกับผู้เรียนห้ามเป็นคนเดียวกัน — "' + _selfT + '" เป็นทั้งผู้สอนและผู้เรียน', 'error'); return; }
     const doSave = () => {
       const _nt={id:genId('T'),branchId:bid,date,moduleId,subtopics,traineeIds,trainerName:trainer,eval:null};
       if (moduleNeedsTrack(moduleId)) _nt.track = _selectedTrack;
@@ -11427,6 +11436,8 @@ function openEditTraining(id) {
     const details = ((document.getElementById('tr-details') || {}).value || '').trim();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     if (_trDetailsCol && !restricted && !details) { notify('กรุณาระบุรายละเอียดการสอนงาน', 'error'); return; }
+    const _selfT = _trainerIsLearner(trainer, traineeIds);
+    if (_selfT) { notify('ผู้สอนงานกับผู้เรียนห้ามเป็นคนเดียวกัน — "' + _selfT + '" เป็นทั้งผู้สอนและผู้เรียน', 'error'); return; }
     const _oldIds = (t.traineeIds || []).slice(), _linked = _linkedPlanItemIds(t);   // ก่อนแก้ — ใช้หาแผนที่ผูกกันอยู่
     t.trainerName=trainer; t.traineeIds=traineeIds;
     try { _syncPlanLearnersAfterEdit(t, _oldIds, _linked); } catch (e) { console.warn('syncPlanLearners', e); }
@@ -17618,6 +17629,7 @@ function openPlanItem(grp, itemId, restricted) {
     const de = _cpDateError(planDate, evalDate);
     if (de) errs.push(['cp-eval-date', de]);
     if (!trainerName) errs.push(['tr-trainer', 'กรุณาระบุชื่อผู้สอนงาน']);
+    else { const _self = _trainerIsLearner(trainerName, empIds); if (_self) errs.push(['tr-trainer', 'ผู้สอนงานกับพนักงานที่จะสอนห้ามเป็นคนเดียวกัน ("' + _self + '")']); }
     if (!empIds.length) errs.push(['cp-emp-select-box', 'ต้องเลือกพนักงานที่จะสอนอย่างน้อย 1 คน']);
     if (!moduleId) errs.push(['cp-module', 'กรุณาเลือก Module']);
     if (moduleId && moduleNeedsTrack(moduleId) && !_cpTrack) errs.push(['cp-track-box', 'กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า']);
@@ -18189,6 +18201,12 @@ function renderAdminPlanOverview() {
     if (!ds.length) return '<span style="color:var(--text4)">—</span>';
     return ds.slice(0, 3).map(d => _escH(fmtDate(d))).join(', ') + (ds.length > 3 ? ` <span style="color:var(--text3)">+${ds.length - 3}</span>` : '');
   };
+  /* วัน-เวลาที่สาขาจัดทำแผน: ข้อแรกที่สร้าง → ข้อล่าสุด (ข้อที่ไม่มีเวลาเก็บไว้ข้าม) */
+  const madeAt = r => {
+    const ts = r.a.items.map(it => it.createdAt).filter(x => x && !isNaN(new Date(x))).sort();
+    if (!ts.length) return '<span style="color:var(--text4)">—</span>';
+    return _escH(fmtDateTime(ts[0])) + (ts.length > 1 && fmtDateTime(ts[ts.length - 1]) !== fmtDateTime(ts[0]) ? `<br><span style="color:var(--text3)">ล่าสุด ${_escH(fmtDateTime(ts[ts.length - 1]))}</span>` : '');
+  };
   return `<div class="card" style="margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <div style="flex:1;min-width:240px;font-weight:800;font-size:15px">📅 แผนการสอนงาน${bzm ? '' : ' · ตรวจการสอนเทียบแผน'}
@@ -18201,11 +18219,12 @@ function renderAdminPlanOverview() {
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
     rows.length ? `<div class="table-wrap" style="max-height:340px;overflow:auto"><table>
       <thead><tr><th>สาขา</th><th style="text-align:center">ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">บริการ<br><small>สอนแล้ว/แผน</small></th>
-        <th>วันที่วางแผนสอน</th><th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
+        <th>วันที่วางแผนสอน</th><th>สาขาจัดทำเมื่อ</th><th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
       <tbody>${rows.map(r => `<tr>
         <td><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:10.5px">ยังไม่วางแผน</span>'}</td>
         <td style="text-align:center">${cell(r.k, r.kd)}</td><td style="text-align:center">${cell(r.s, r.sd)}</td>
         <td style="font-size:12px">${dates(r)}</td>
+        <td style="font-size:12px;white-space:nowrap">${madeAt(r)}</td>
         <td style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
         ${bzm ? '' : `<td style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>`}
         <td style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
@@ -18247,7 +18266,7 @@ function _planItemDetailListHtml(bid, ym, items) {
         ${it.details ? `<br>📋 รายละเอียด: ${_escH(it.details)}` : ''}
         ${it.note ? `<br>📝 ${_escH(it.note)}` : ''}
       </div>
-      ${it.createdBy ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
+      ${it.createdBy || it.createdAt ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำ${it.createdBy ? 'โดย ' + _escH(it.createdBy) : ''}${it.createdAt ? ' เมื่อ ' + _escH(fmtDateTime(it.createdAt)) : ''}${it.updatedAt && it.createdAt && Math.abs(new Date(it.updatedAt) - new Date(it.createdAt)) > 60000 ? ` · แก้ล่าสุด ${_escH(fmtDateTime(it.updatedAt))}${it.updatedBy ? ' โดย ' + _escH(it.updatedBy) : ''}` : ''}</div>` : ''}
       ${isAdminRole() ? `<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn btn-sm btn-outline" onclick="adminEditPlanItem('${bid}','${ym}','${it.id}')">✏️ แก้ไข</button><button type="button" class="btn btn-sm btn-danger" onclick="adminDeletePlanItem('${bid}','${ym}','${it.id}')">🗑 ลบ</button></div>` : ''}
     </div>`;
   }).join('')}</div>`;
