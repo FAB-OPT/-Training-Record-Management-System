@@ -9674,7 +9674,7 @@ function openAddTraining() {
       </div>
     </div>
     <div class="form-full">
-      <label class="form-label" id="emp-select-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน · ต้องประเภทเดียวกัน) <span class="req">*</span></label>
+      <label class="form-label" id="emp-select-label">พนักงานที่เข้ารับการสอน (ไม่เกิน 2 คน) <span class="req">*</span></label>
       <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12.5px;color:var(--text2);cursor:pointer">
         <input type="checkbox" id="tr-cross-dept" onchange="toggleCrossDeptMode()">
         🔀 สอนข้ามส่วนงาน (เช่นตำแหน่งครัว สอนบริการ) — เลือกได้แค่ 1 คน
@@ -9965,7 +9965,7 @@ function toggleCrossDeptMode() {
   }
   updateModulesByTrainees();
   const label = document.getElementById('emp-select-label');
-  if (label) label.innerHTML = `พนักงานที่เข้ารับการสอน (ไม่เกิน ${cap} คน${_crossDeptMode ? '' : ' · ต้องประเภทเดียวกัน'}) <span class="req">*</span>`;
+  if (label) label.innerHTML = `พนักงานที่เข้ารับการสอน (ไม่เกิน ${cap} คน) <span class="req">*</span>`;
   const ph = document.getElementById('emp-placeholder');
   if (ph && !_selectedEmps.length) ph.textContent = `ค้นหาและเลือกพนักงาน (สูงสุด ${cap} คน)...`;
   _markIncompatibleEmpOptions();
