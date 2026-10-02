@@ -5392,8 +5392,15 @@ function _initSb() {
         .then(function (r) { return !(r && r.error); })
         .catch(function () { return false; });
     } catch (e) { SB_AUTH = Promise.resolve(false); }
+    try { SB_AUTH.then(function (ok) { if (ok) _probeTrDetails(); }); } catch (e) {}
   }
   return SB;
+}
+/* รายละเอียดการสอนงาน (details) ในบันทึกการสอนต้องมีคอลัมน์ details ในตาราง trainings (supabase-training-details.sql)
+   ยังไม่มีคอลัมน์ = ซ่อนช่องนี้ในฟอร์มบันทึกการสอน (ไม่ให้บันทึกพังทั้งแถว) · ในแผนการสอนเก็บใน items (jsonb) ใช้ได้เลย */
+let _trDetailsCol = false;
+function _probeTrDetails() {
+  try { SB.from('trainings').select('details').limit(1).then(function (r) { _trDetailsCol = !(r && r.error); }, function () { _trDetailsCol = false; }); } catch (e) { _trDetailsCol = false; }
 }
 
 // camelCase ↔ snake_case mapping per collection (only fields that differ)
@@ -9529,7 +9536,7 @@ function _trainTableHtml(d) {
         const within7 = !isEvalDeadlinePassed(t.date);
         const fromOtherBranch = t.branchId !== bid;   // สอนจริงที่สาขาอื่นมาก่อนย้าย — ดูได้แต่แก้/ลบ/ประเมินจากที่นี่ไม่ได้
         const planLocked = currentUser?.type === 'branch' && _trainingFromPlan(t);
-        const canEdit = within7 && !t.eval && !fromOtherBranch && !planLocked;
+        const canEdit = within7 && !t.eval && !fromOtherBranch;
         const canEval = !t.eval && within7 && !fromOtherBranch;
         const moduleComplete = isModuleComplete(t);
         const isQuizRow = isLatestCompletingTraining(t);
@@ -9558,8 +9565,8 @@ function _trainTableHtml(d) {
               :isQuizRow&&!quizPassed&&quizLocked?`<button class="btn btn-sm btn-outline" style="opacity:.7" onclick="openQuiz('${t.id}')" title="ล็อก — กดดูรายละเอียด">🔒 ข้อสอบ</button>`:''}
             ${canEval?`<button class="btn btn-sm btn-accent" style="margin-left:4px" onclick="openEvalModal('${t.id}')">ประเมิน</button>`:(!t.eval && !fromOtherBranch)?`<button class="btn btn-sm btn-outline" style="margin-left:4px;opacity:.85" onclick="showEvalExpiredWarning('${t.id}')">ประเมิน ⚠</button>`:''}
             <button class="btn btn-sm btn-view" style="margin-left:4px" onclick="viewTraining('${t.id}')">ดู</button>
-            ${planLocked?`<span class="act-br"></span><span class="badge badge-gray" style="margin-left:4px;font-size:11px;white-space:nowrap" title="บันทึกตามแผนแล้ว สาขาแก้ไข/ลบไม่ได้ — ให้ Admin เป็นผู้แก้">🔒 ตามแผน แก้ไขไม่ได้</span>`:''}
-            ${canEdit?`<span class="act-br"></span><button class="btn btn-sm btn-outline ic" style="margin-left:4px" title="แก้ไข" onclick="openEditTraining('${t.id}')"><span class="lbl">แก้ไข</span><span class="ico">✏️</span></button><button class="btn btn-sm btn-danger ic" style="margin-left:4px" title="ลบ" onclick="deleteTraining('${t.id}')"><span class="lbl">ลบ</span><span class="ico">🗑</span></button>`:''}
+            ${planLocked?`<span class="act-br"></span><span class="badge badge-gray" style="margin-left:4px;font-size:11px;white-space:nowrap" title="บันทึกตามแผนแล้ว — สาขาแก้ได้เฉพาะผู้สอนงานและผู้เรียน ลบไม่ได้ (ให้ Admin เป็นผู้แก้ส่วนอื่น/ลบ)">🔒 ตามแผน</span>`:''}
+            ${canEdit?`<span class="act-br"></span><button class="btn btn-sm btn-outline ic" style="margin-left:4px" title="แก้ไข" onclick="openEditTraining('${t.id}')"><span class="lbl">แก้ไข</span><span class="ico">✏️</span></button>${planLocked?'':`<button class="btn btn-sm btn-danger ic" style="margin-left:4px" title="ลบ" onclick="deleteTraining('${t.id}')"><span class="lbl">ลบ</span><span class="ico">🗑</span></button>`}`:''}
           </td>
         </tr>`;}).join('')}
       </tbody>
@@ -9654,6 +9661,10 @@ function openAddTraining() {
         <span id="sub-missing-hint" style="display:none;font-weight:700;color:#B45309;font-size:11.5px"></span></label>
       <div class="checkbox-group" id="subtopics-container"><span class="text-muted">กรุณาเลือก Module ก่อน</span></div>
     </div>
+    ${_trDetailsCol ? `<div class="form-full">
+      <label class="form-label">รายละเอียดการสอนงาน <span class="req">*</span></label>
+      <textarea class="form-textarea" id="tr-details" rows="3" placeholder="สอนอะไร สอนอย่างไร เช่น สาธิตขั้นตอนล้างมือ 7 ขั้น แล้วให้ผู้เรียนทำตามทีละคน"></textarea>
+    </div>` : ''}
     </div>`, () => {
     const _planVal = (document.getElementById('tr-from-plan') || {}).value || '';   // แผนที่เลือก (ym|id) — ว่าง/__none = ไม่ใช้แผน
     const date = _localToISO(document.getElementById('tr-date').value);
@@ -9661,11 +9672,14 @@ function openAddTraining() {
     const moduleId = document.getElementById('tr-module').value;
     const subtopics = [...document.querySelectorAll('.sub-check:checked')].map(c=>c.value);
     const traineeIds = getSelectedEmpIds();
+    const details = ((document.getElementById('tr-details') || {}).value || '').trim();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
+    if (_trDetailsCol && !details) { notify('กรุณาระบุรายละเอียดการสอนงาน', 'error'); const _d = document.getElementById('tr-details'); if (_d) { _d.focus(); _d.scrollIntoView({ block: 'center', behavior: 'smooth' }); } return; }
     if (moduleNeedsTrack(moduleId) && !_selectedTrack) { notify('กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า', 'error'); return; }
     const doSave = () => {
       const _nt={id:genId('T'),branchId:bid,date,moduleId,subtopics,traineeIds,trainerName:trainer,eval:null};
       if (moduleNeedsTrack(moduleId)) _nt.track = _selectedTrack;
+      if (_trDetailsCol) _nt.details = details;
       DB.trainings.push(_nt);
       gsSave('trainings', _nt.id, _nt);
       try { _syncPlanFromTraining(_nt, _planVal); } catch (e) { console.warn('syncPlan', e); }
@@ -9990,7 +10004,7 @@ function updateModulesByTrainees() {
   const sel = document.getElementById('tr-module');
   const hint = document.getElementById('module-hint');
   const subtopicsContainer = document.getElementById('subtopics-container');
-  if (!sel) return;
+  if (!sel || !hint) return;   // ฟอร์มแก้ไขไม่มีช่องคำใบ้ Module — เปลี่ยนผู้เรียนแล้วไม่ต้องสร้างรายการ Module ใหม่ (เดิมพังกลางคันและทับรายการ Module)
 
   if (_selectedEmps.length === 0) {
     sel.innerHTML = '<option value="">— กรุณาเลือกพนักงานก่อน —</option>';
@@ -11178,6 +11192,7 @@ function viewTraining(id) {
     <div class="detail-row"><div class="detail-key">Module</div><div class="detail-val"><strong>${MODULES[t.moduleId]?.name}</strong></div></div>
     <div class="detail-row"><div class="detail-key">วันที่สอน</div><div class="detail-val">${fmtDateTime(t.date)}</div></div>
     <div class="detail-row"><div class="detail-key">ผู้สอน</div><div class="detail-val">${t.trainerName}</div></div>
+    ${t.details ? `<div class="detail-row"><div class="detail-key">รายละเอียด</div><div class="detail-val" style="white-space:pre-wrap">${_escH(t.details)}</div></div>` : ''}
     <div class="detail-row"><div class="detail-key">พนักงาน</div><div class="detail-val">${(t.traineeIds||[]).map(id=>getEmployee(id)?.name||id).map(n=>`<span class="badge badge-navy" style="margin-right:4px">${n}</span>`).join('')}</div></div>
     <div class="detail-row"><div class="detail-key">หัวข้อย่อย</div><div class="detail-val">${t.subtopics.map(s=>`<span class="badge badge-blue" style="margin-right:4px;margin-bottom:4px">${s}</span>`).join('')}</div></div>
     <div class="detail-row"><div class="detail-key">สะสมหัวข้อ</div><div class="detail-val">${(()=>{const p=getSubtopicProgress(t);return p.done===p.total?'<span class="badge badge-green">ครบทุกหัวข้อ แล้ว</span>':`<span class="badge badge-yellow">สะสมแล้ว ${p.done}/${p.total} หัวข้อ</span>`;})()}</div></div>
@@ -11297,7 +11312,8 @@ function adminDeleteEval(id) {
 
 function openEditTraining(id) {
   const t = DB.trainings.find(t=>t.id===id); if(!t) return;
-  if (currentUser?.type === 'branch' && _trainingFromPlan(t)) { notify('บันทึกตามแผนแล้ว สาขาแก้ไขไม่ได้ — ให้ Admin เป็นผู้แก้', 'error'); return; }
+  /* ตามแผนแล้ว: สาขาแก้ได้เฉพาะผู้สอนงานกับผู้เรียน (ใครสอนก็ได้ ผู้เรียนไม่ล็อก) · ลบไม่ได้ · Admin แก้ได้ทุกอย่าง */
+  const restricted = currentUser?.type === 'branch' && _trainingFromPlan(t);
   const bid = t.branchId;
   const emps = getBranchEmployees(bid).filter(e=>e.status==='active');
   const empsJson = JSON.stringify(emps.map(e=>({id:e.id,name:e.name,position:e.position})));
@@ -11345,20 +11361,34 @@ function openEditTraining(id) {
           }).join('');
         })()}
       </div>
-    </div>`, () => {
+    </div>
+    ${_trDetailsCol ? `<div class="form-full">
+      <label class="form-label">รายละเอียดการสอนงาน <span class="req">*</span></label>
+      <textarea class="form-textarea" id="tr-details" rows="3" placeholder="สอนอะไร สอนอย่างไร">${_escH(t.details || '')}</textarea>
+    </div>` : ''}`, () => {
     const date = _localToISO(document.getElementById('tr-date').value);
     const trainer = document.getElementById('tr-trainer').value.trim();
     const moduleId = document.getElementById('tr-module').value;
     const subtopics = [...document.querySelectorAll('.sub-check:checked')].map(c=>c.value);
     const traineeIds = getSelectedEmpIds();
+    const details = ((document.getElementById('tr-details') || {}).value || '').trim();
     if(!date||!trainer||!moduleId||!subtopics.length||!traineeIds.length){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
-    t.date=date; t.trainerName=trainer; t.moduleId=moduleId; t.subtopics=subtopics; t.traineeIds=traineeIds;
+    if (_trDetailsCol && !restricted && !details) { notify('กรุณาระบุรายละเอียดการสอนงาน', 'error'); return; }
+    t.trainerName=trainer; t.traineeIds=traineeIds;
+    if (!restricted) { t.date=date; t.moduleId=moduleId; t.subtopics=subtopics; if (_trDetailsCol) t.details=details; }
     if(isAnyAdminRole()) markEvalEdited(t);   /* แอดมินแก้ของสาขา ต้องมีร่องรอยว่าใครแก้ */
     gsSave('trainings', t.id, t);
     /* กลับหน้าที่กดมา ของเดิมเด้งไปหน้าของสาขาเสมอ แอดมินแก้เสร็จแล้วจึงหลุดออกจากหน้าที่ทำอยู่ */
     closeModal(); showPage(currentPage); notify('แก้ไขบันทึกการสอนงานสำเร็จ');
   }, 'บันทึก');
-  setTimeout(()=>{ renderEmpTags(); document.addEventListener('click', closeEmpDropdownOutside); },100);
+  setTimeout(()=>{ renderEmpTags(); document.addEventListener('click', closeEmpDropdownOutside);
+    if (restricted) {
+      ['tr-date', 'tr-module', 'tr-details'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+      document.querySelectorAll('#subtopics-container .sub-check').forEach(c => { c.disabled = true; const l = c.closest('label'); if (l) { l.style.pointerEvents = 'none'; l.style.opacity = '.6'; } });
+      const body = document.querySelector('#modal-overlay .modal-body');
+      if (body) body.insertAdjacentHTML('afterbegin', '<div style="font-size:12.5px;font-weight:600;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.5">🔒 บันทึกตามแผนแล้ว — แก้ไขได้เฉพาะ ผู้สอนงาน และ พนักงาน (ส่วนอื่นให้ Admin เป็นผู้แก้)</div>');
+    }
+  },100);
 }
 
 // ==================== MANUAL ====================
@@ -17164,13 +17194,14 @@ function renderCoachingPlanPanel(bid) {
           </div>
           ${_actualHtml ? `<div class="cp-actual">${_actualHtml}</div>` : ''}
           <div class="cp-item-notes">
+            ${it.details ? `<span class="cp-item-note" style="flex-basis:100%;color:var(--text2);line-height:1.5">📋 <b>รายละเอียด</b> ${_escH(it.details)}</span>` : ''}
             ${it.note ? `<span class="cp-item-note">📝 ${_escH(it.note)}</span>` : ''}
             ${it.createdBy ? `<span class="cp-item-note">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</span>` : ''}
             ${it.bzmAckBy ? `<span class="cp-item-note" style="color:var(--green);font-weight:600">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</span>` : ''}
           </div>
           <div class="cp-item-actions">
             ${canEdit ? (ok && !isAdminRole()
-              ? `<button class="btn btn-sm btn-outline" disabled style="opacity:.6;cursor:not-allowed" title="สอนตามแผนแล้ว สาขาแก้ไขไม่ได้ — ให้ Admin เป็นผู้แก้">🔒 สอนแล้ว แก้ไขไม่ได้</button>`
+              ? `<button class="btn btn-sm btn-outline" title="สอนตามแผนแล้ว — แก้ได้เฉพาะผู้สอนงานและผู้เรียน" onclick="editPlanItem('${grp}','${it.id}')">✏️ แก้ผู้สอน/ผู้เรียน</button>`
               : `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>`) : ''}
           </div>
         </div>`;
@@ -17390,7 +17421,9 @@ function _cpShowSubtopics(itemId) {
 }
 
 /* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
-function openPlanItem(grp, itemId) {
+let _cpRestricted = false;   // true = แผนที่สอนแล้วฝั่งสาขา: แก้ได้เฉพาะผู้สอนงานกับผู้เรียน
+function openPlanItem(grp, itemId, restricted) {
+  _cpRestricted = !!restricted;
   if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
   const bid = getBranchId(), ym = _planMonth || _ymNow();
   const plan = getCoachingPlan(bid, ym);
@@ -17410,6 +17443,8 @@ function openPlanItem(grp, itemId) {
     .filter(e => [empGrp, otherGrp, 'ทีมผู้จัดการสาขา'].includes(getPositionGroup(e.position)))
     .sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : getPositionGroup(a.position) === otherGrp ? 1 : 2)
                   - (getPositionGroup(b.position) === empGrp ? 0 : getPositionGroup(b.position) === otherGrp ? 1 : 2));
+  /* ผู้สอนงานใครสอนก็ได้ — รายชื่อผู้สอนเป็นพนักงานทุกตำแหน่งในสาขา (ฝั่งของแผนขึ้นก่อน) พิมพ์ชื่อคนนอกสาขาเองได้ */
+  const trainerPool = allEnabled.slice().sort((a, b) => (getPositionGroup(a.position) === empGrp ? 0 : 1) - (getPositionGroup(b.position) === empGrp ? 0 : 1));
   const sel = new Set((it && it.empIds) || []);
   _cpSelectedEmps = allEnabled.filter(e => sel.has(e.id)).map(e => ({ id: e.id, name: e.name, position: e.position || '' }));
   // แก้แผนที่เคยเลือกข้ามแผนกไว้แล้ว ให้ติ๊กโหมดนี้ไว้ล่วงหน้าเลย ไม่งั้นเปิดมาจะไม่เห็นชื่อในดรอปดาว
@@ -17438,9 +17473,9 @@ function openPlanItem(grp, itemId) {
                    oninput="filterTrainerDropdown()" onfocus="openTrainerDropdown()" onkeydown="onTrainerKey(event)">
           </div>
           <div class="emp-dropdown-list" id="trainer-dropdown-list">
-            ${emps.length === 0
+            ${trainerPool.length === 0
               ? '<div class="emp-no-result">ไม่มีพนักงานในสาขา — พิมพ์ชื่อผู้สอนเองได้</div>'
-              : emps.map(e => `
+              : trainerPool.map(e => `
                 <div class="emp-opt trn-opt" data-name="${String(e.name).replace(/"/g,'&quot;')}" data-pos="${String(e.position||'').replace(/"/g,'&quot;')}"
                      onclick="pickTrainer(this)">
                   <div>
@@ -17478,6 +17513,10 @@ function openPlanItem(grp, itemId) {
       <div class="checkbox-group" id="cp-subs" data-sel='${JSON.stringify((it && it.subtopics) || []).replace(/'/g, '&#39;')}'></div>
     </div>
     <div class="form-full">
+      <label class="form-label">รายละเอียดการสอนงาน <span class="req">*</span></label>
+      <textarea class="form-textarea" id="cp-details" rows="3" placeholder="จะสอนอะไร สอนอย่างไร เช่น สาธิตขั้นตอนล้างมือ 7 ขั้น แล้วให้ผู้เรียนทำตามทีละคน">${_escH((it && it.details) || '')}</textarea>
+    </div>
+    <div class="form-full">
       <label class="form-label">หมายเหตุ</label>
       <input class="form-input" id="cp-note" value="${_escH((it && it.note) || '')}" placeholder="เช่น สอนช่วงบ่ายหลังปิดรอบ">
     </div>
@@ -17490,6 +17529,7 @@ function openPlanItem(grp, itemId) {
     const planDate = document.getElementById('cp-date').value || '';
     const evalDate = document.getElementById('cp-eval-date').value || '';
     const trainerName = (document.getElementById('tr-trainer').value || '').trim();
+    const details = ((document.getElementById('cp-details') || {}).value || '').trim();
     const who = _cpBatchMode ? _cpBatchCreator : (document.getElementById('cp-creator').value || '').trim();
     /* รวบรวมทุกช่องที่ยังไม่ผ่าน แล้วแสดงใต้ช่องนั้นเลย (เรียงจากบนลงล่าง) พร้อมเลื่อนไปช่องแรก — ไม่ใช้กล่องแจ้งเตือนมุมจอที่ไปทับหัวหน้าต่างบนมือถือ */
     const errs = [];
@@ -17502,6 +17542,7 @@ function openPlanItem(grp, itemId) {
     if (!moduleId) errs.push(['cp-module', 'กรุณาเลือก Module']);
     if (moduleId && moduleNeedsTrack(moduleId) && !_cpTrack) errs.push(['cp-track-box', 'กรุณาเลือกหน้างาน — สเต็ก หรือ พาสต้า']);
     if (moduleId && !subtopics.length) errs.push(['cp-subs', 'กรุณาเลือกหัวข้อย่อยอย่างน้อย 1 ข้อ']);
+    if (!details && !restricted) errs.push(['cp-details', 'กรุณาระบุรายละเอียดการสอนงาน']);
     if (errs.length) { _cpShowErrs(errs); return; }
     /* วางแผนสอนหัวข้อที่ผู้เรียนเคยถูกสอนไปแล้ว → ถามยืนยันว่าเป็นการสอนทบทวน (เหมือนตอนบันทึกการสอนงาน)
        แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
@@ -17521,7 +17562,7 @@ function openPlanItem(grp, itemId) {
     if (!_cpBatchMode) { try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {} }
     const now = new Date().toISOString();
     const rec = {
-      id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName,
+      id: itemId || genId('P'), moduleId, subtopics, empIds, planDate, evalDate, trainerName, details: details || (it && it.details) || '',
       ...(moduleNeedsTrack(moduleId) ? { track: _cpTrack } : {}),
       note: (document.getElementById('cp-note').value || '').trim(),
       // ผู้จัดทำ (ล็อกครั้งแรกที่สร้าง — คงเดิมแม้แก้ไขภายหลัง) · ผู้แก้ไขล่าสุด (อัปเดตทุกครั้งที่บันทึก — ใช้เช็คว่ามีอะไรใหม่ให้ BZM ดูไหมด้วย)
@@ -17547,6 +17588,7 @@ function openPlanItem(grp, itemId) {
   cpRenderEmpChips();
   _cpMarkFullEmpOptions();
   _cpSyncEvalRange(false);
+  if (_cpRestricted) _cpApplyRestricted();
   const _mb = document.querySelector('#modal-overlay .modal-body');
   if (_mb) ['input', 'change', 'click'].forEach(ev => _mb.addEventListener(ev, _cpClearErrOnEdit));
   document.addEventListener('click', cpCloseEmpDropdownOutside);
@@ -17669,9 +17711,10 @@ function _cpBatchSaveAll() {
 function editPlanItem(grp, itemId) {
   const _bid = getBranchId(), _ym = _planMonth || _ymNow();
   const _it = (getCoachingPlan(_bid, _ym).items || []).find(x => x.id === itemId);
-  if (_it && !isAdminRole() && _planItemDone(_bid, _ym, _it)) { notify('สอนตามแผนแล้ว สาขาแก้ไขแผนไม่ได้ — ให้ Admin เป็นผู้แก้', 'error'); return; }
+  /* สอนตามแผนแล้ว: สาขาแก้ได้เฉพาะผู้สอนงานกับผู้เรียน (Admin แก้ได้ทุกอย่าง) */
+  const restricted = !!(_it && !isAdminRole() && _planItemDone(_bid, _ym, _it));
   _cpBatchMode = false;
-  openPlanItem(grp, itemId);
+  openPlanItem(grp, itemId, restricted);
 }
 let _cpCrossDept = false;
 let _cpMaxTrainees = MAX_TRAINEES;
@@ -17836,6 +17879,15 @@ function cpRenderEmpChips() {
   _cpResyncSubs();
 }
 function cpSelectedEmpIds() { return _cpSelectedEmps.map(e => e.id); }
+/* ปิดช่องที่ล็อก (วันที่ · Module · หัวข้อย่อย · หน้างาน · รายละเอียด · หมายเหตุ) เหลือผู้สอนงานกับผู้เรียน */
+function _cpApplyRestricted() {
+  ['cp-date', 'cp-eval-date', 'cp-module', 'cp-note', 'cp-details', 'cp-cross-dept'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+  document.querySelectorAll('#cp-subs .cp-sub, .cp-track-btn').forEach(el => { el.disabled = true; const l = el.closest('label'); if (l) { l.style.pointerEvents = 'none'; l.style.opacity = '.6'; } });
+  if (!document.getElementById('cp-lock-note')) {
+    const body = document.querySelector('#modal-overlay .modal-body');
+    if (body) body.insertAdjacentHTML('afterbegin', '<div id="cp-lock-note" style="font-size:12.5px;font-weight:600;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.5">🔒 สอนตามแผนแล้ว — แก้ไขได้เฉพาะ ผู้สอนงาน และ ผู้เรียน (ส่วนอื่นให้ Admin เป็นผู้แก้)</div>');
+  }
+}
 let _cpTrack = '';
 function _cpRenderTrack(mid) {
   const box = document.getElementById('cp-track-box'); if (!box) return;
@@ -17845,6 +17897,7 @@ function _cpRenderTrack(mid) {
     <div style="display:flex;gap:8px;flex-wrap:wrap">${TRACKS.map(t => `<button type="button" class="cp-track-btn" data-track="${t.key}" onclick="_cpSelectTrack('${t.key}')"
       style="flex:1;min-width:140px;padding:11px 14px;border:1.5px solid var(--border2);border-radius:11px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">${t.label}</button>`).join('')}</div>`;
   _cpPaintTrack();
+  if (_cpRestricted) _cpApplyRestricted();
 }
 function _cpPaintTrack() {
   document.querySelectorAll('.cp-track-btn').forEach(b => {
@@ -17958,6 +18011,8 @@ function _trRevealForm() {
   const cb = document.querySelector('#modal-overlay .modal-footer .btn-navy'); if (cb) cb.style.display = '';
 }
 function applyPlanToTrainingForm(val) {
+  const _dt = document.getElementById('tr-details');   // เลือกแผน → เติมรายละเอียดจากแผนให้ (แก้ได้)
+  if (_dt && val && val !== '__none') { const _pi = (getCoachingPlan(getBranchId(), String(val).split('|')[0]).items || []).find(x => x.id === String(val).split('|')[1]); if (_pi && _pi.details) _dt.value = _pi.details; }
   const note = document.getElementById('tr-plan-note');
   if (!val) { if (note) note.style.display = 'none'; return; }
   _trRevealForm();
@@ -18097,6 +18152,7 @@ function _planItemDetailListHtml(bid, ym, items) {
         👤 ผู้เรียน ${_escH(emp(it.empIds))}<br>
         🧑‍🏫 ผู้สอน ${_escH(it.trainerName || '—')}
         ${_planSubsEffective(bid, ym, it).length ? `<br>🔍 หัวข้อย่อย: ${_escH(_planSubsEffective(bid, ym, it).join(', '))}` : ''}
+        ${it.details ? `<br>📋 รายละเอียด: ${_escH(it.details)}` : ''}
         ${it.note ? `<br>📝 ${_escH(it.note)}` : ''}
       </div>
       ${it.createdBy ? `<div style="font-size:11px;color:var(--text4);margin-top:4px">🧑‍💼 จัดทำโดย ${_escH(it.createdBy)}</div>` : ''}
