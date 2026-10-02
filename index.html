@@ -18778,13 +18778,21 @@ function openBranchUpdateHistoryModal(bid) {
           const k = p.slice(0, i), v = p.slice(i + 2), a = v.split(' → ');
           return kv(_escH(k), a.length === 2 ? `<span style="color:var(--red);text-decoration:line-through;font-weight:500">${_escH(a[0])}</span> <span style="color:var(--text3)">→</span> <span style="color:var(--green)">${_escH(a[1])}</span>` : _escH(v));
         }).join('');
+      } else if (u.action === 'transfer') {
+        /* ขอย้ายสาขา: ดึงรายละเอียดจากคำขอย้าย (ย้ายไปไหน เหตุผล วันที่ สถานะ) */
+        const rq = (DB.transferRequests || []).filter(r => r.empId === u.empId && r.fromBranch === bid && r.requestedAt)
+          .sort((a, b) => Math.abs(new Date(a.requestedAt) - new Date(u.at)) - Math.abs(new Date(b.requestedAt) - new Date(u.at)))[0];
+        const near = rq && Math.abs(new Date(rq.requestedAt) - new Date(u.at)) < 15 * 60 * 1000;
+        detail = near
+          ? kv('ย้ายไป', _escH(_bName(rq.toBranch) || rq.toBranch)) + kv('เหตุผล', _escH(rq.reason || '—')) + kv('วันที่ย้าย', rq.moveDate ? _escH(fmtDate(rq.moveDate)) : '—') + kv('สถานะคำขอ', _xferBadge(rq.status))
+          : (u.note ? `<div style="font-size:12.5px">${_escH(u.note)}</div>` : '');
       } else if (u.note) {
         detail = `<div style="font-size:12.5px">${_escH(u.note)}</div>`;
       } else if (u.empId && (u.action === 'edit' || u.action === 'add')) {
         const e = getEmployee(u.empId);
         if (e) detail = kv('ชื่อ-นามสกุล', _escH(e.name || '—')) + kv('ตำแหน่ง', _escH(e.position || '—')) + kv('วันเริ่มงาน', e.startDate ? _escH(fmtDate(e.startDate)) : '—') +
           kv('สถานะ', _isEmpEnabled(e) ? '<span style="color:var(--green)">เปิดใช้งาน</span>' : '<span style="color:var(--red)">ปิดใช้งาน</span>' + (e.disabledReason ? ' · ' + _escH(e.disabledReason) : '')) +
-          '<div style="font-size:11.5px;color:var(--text3);margin-top:4px">ค่าปัจจุบันของพนักงาน — รายการนี้บันทึกก่อนมีระบบจดรายละเอียด จึงไม่ทราบว่าแก้ช่องไหน</div>';
+          '<div style="font-size:11.5px;color:var(--text3);margin-top:4px">รายการนี้บันทึกก่อนมีระบบจดรายละเอียด</div>';
       }
       return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:10px">
         <div style="flex:1;min-width:0">
