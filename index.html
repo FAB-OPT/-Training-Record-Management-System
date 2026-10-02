@@ -9944,6 +9944,13 @@ function filterTrainerDropdown() {
 }
 function pickTrainer(el) {
   const inp = document.getElementById('tr-trainer');
+  const _nm = x => String(x || '').replace(/s+/g, ' ').trim().toLowerCase();
+  const _lr = document.getElementById('cp-emp-select-box') ? _cpSelectedEmps : _selectedEmps;
+  if (_lr.some(e => _nm(e.name) === _nm(el.dataset.name))) {
+    const msg = 'ผู้สอนงานกับผู้เรียนห้ามเป็นคนเดียวกัน — "' + el.dataset.name + '" ถูกเลือกเป็นผู้เรียนแล้ว';
+    if (document.getElementById('cp-emp-select-box')) _cpEmpNote(msg); else _empNote(msg);
+    closeTrainerDropdown(); return;
+  }
   if (inp) { inp.value = el.dataset.name || ''; try { inp.blur(); } catch (_) {} }
   filterTrainerDropdown();
   closeTrainerDropdown();
@@ -9992,6 +9999,10 @@ function toggleEmpSelection(empId) {
     return;
   }
 
+  const _tn = ((document.getElementById('tr-trainer') || {}).value || '').replace(/s+/g, ' ').trim().toLowerCase();
+  if (_tn && _tn === String(opt.dataset.name || '').replace(/s+/g, ' ').trim().toLowerCase()) {
+    _empNote('ผู้สอนงานกับผู้เรียนห้ามเป็นคนเดียวกัน — "' + opt.dataset.name + '" เป็นผู้สอนงานอยู่แล้ว'); return;
+  }
   const pos = opt.dataset.pos || '';
   const grp = getPositionGroup(pos);
   const cap = _crossDeptMode ? 1 : MAX_TRAINEES;
@@ -17936,6 +17947,10 @@ function _cpToggleEmpInner(id) {
   if (_cpSelectedEmps.length >= _cpMaxTrainees) {
     _cpEmpNote(`เลือกได้สูงสุด ${_cpMaxTrainees} คนต่อแผน — กด × ที่ชื่อเดิมออกก่อน ถ้าต้องการเปลี่ยนคน`);
     return;
+  }
+  const _tn = ((document.getElementById('tr-trainer') || {}).value || '').replace(/s+/g, ' ').trim().toLowerCase();
+  if (_tn && _tn === String(opt.dataset.name || '').replace(/s+/g, ' ').trim().toLowerCase()) {
+    _cpEmpNote('ผู้สอนงานกับพนักงานที่จะสอนห้ามเป็นคนเดียวกัน — "' + opt.dataset.name + '" เป็นผู้สอนงานอยู่แล้ว'); return;
   }
   const g0 = _cpSelectedEmps.length ? getPositionGroup(_cpSelectedEmps[0].position) : null, g1 = getPositionGroup(opt.dataset.pos || '');
   if (!_cpCrossDept && g0 && g0 !== g1) {
