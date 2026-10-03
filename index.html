@@ -3363,6 +3363,38 @@ body.admin-user .btn-navy{background:var(--primary)}
   body.admin-user .qs-row > div:nth-child(3)::before { content: 'คะแนนเฉลี่ย'; }
   body.admin-user .qs-row > div:nth-child(5)::before { content: 'เวลาเฉลี่ย'; }
   body.admin-user .qs-row > div:nth-child(4)::before { content: 'อัตราผ่าน'; }
+  /* ---- ปุ่มสลับมุมมอง รายครั้ง/รายบุคคล: แถบเต็มกว้างบนสุดของตัวกรอง ---- */
+  body.admin-user .filter-bar .view-seg { display: flex !important; order: -1; flex: 1 1 100%; margin: 0 !important; }
+  body.admin-user .filter-bar .view-seg .btn { flex: 1; justify-content: center; min-height: 36px; }
+
+  /* ---- กรอบทุกใบกว้างเท่ากัน หน้าตาเดียวกัน ---- */
+  body.admin-user .page-hero { padding: 0 !important; }
+  body.admin-user .tk2, body.admin-user .dash-stat-tile, body.admin-user .adm-card, body.admin-user .card, body.admin-user .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: none;
+  }
+  body.admin-user .adm-card { padding: 10px 12px; margin-bottom: 8px; }
+  body.admin-user .dash-wrap > div, body.admin-user .dash-top-grid, body.admin-user .dash-bot-grid, body.admin-user .grid-2 { gap: 8px !important; }
+  body.admin-user .mc-card.mc-closed { padding: 0 !important; margin-bottom: 8px; }
+  body.admin-user .mc-card.mc-closed .mc-head { min-height: 52px; display: flex !important; align-items: center; padding: 0 36px 0 14px !important; margin: 0 !important; gap: 8px; }
+  body.admin-user .mc-card.mc-closed .mc-head::after { right: 14px; }
+  body.admin-user .mc-card:not(.mc-closed) .mc-head { padding-right: 30px !important; }
+
+  /* ---- หน้าแผนการสอนงาน (Admin/BZM) ---- */
+  body.admin-user .po-card { padding: 10px 12px !important; }
+  body.admin-user .po-head { gap: 6px !important; }
+  body.admin-user .po-title { flex: 1 1 100% !important; min-width: 0 !important; font-size: 14px !important; }
+  body.admin-user .po-head > button { flex: 0 0 44px; min-height: 36px; }
+  body.admin-user .po-head > b { flex: 1; min-width: 0 !important; text-align: center; font-size: 15px; }
+  body.admin-user .stats-grid.sum3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 6px !important; margin-bottom: 10px !important; }
+  body.admin-user .stats-grid.sum3 .stat-card { flex-direction: column !important; align-items: flex-start !important; gap: 1px !important; padding: 8px 10px !important; }
+  body.admin-user .stats-grid.sum3 .stat-card > div:first-child { display: none; }
+  body.admin-user .stats-grid.sum3 .stat-card .stat-label { font-size: 11px !important; line-height: 1.25; }
+  body.admin-user .stats-grid.sum3 .stat-card div[style*="font-size:26px"] { font-size: 20px !important; }
+  body.admin-user .stats-grid.sum3 .stat-card div[style*="font-size:11px"] { font-size: 10px !important; line-height: 1.25; }
+  body.admin-user table.po-table td[data-label="วันที่วางแผนสอน"], body.admin-user table.po-table td[data-label="สาขาจัดทำเมื่อ"] { grid-column: 1 / -1; }
+  body.admin-user table.po-table td[data-label="actions"] { display: flex !important; align-items: center; justify-content: flex-end; }
+  body.admin-user .dash-stat-tile { display: flex; flex-direction: column; justify-content: space-between; min-height: 96px; }
+  body.admin-user .dash-stat-grid { align-items: stretch; }
 }
 </style>
 </head>
@@ -18591,16 +18623,16 @@ function renderAdminPlanOverview() {
     if (!ts.length) return '<span style="color:var(--text4)">—</span>';
     return _escH(fmtDateTime(ts[0])) + (ts.length > 1 && fmtDateTime(ts[ts.length - 1]) !== fmtDateTime(ts[0]) ? `<br><span style="color:var(--text3)">ล่าสุด ${_escH(fmtDateTime(ts[ts.length - 1]))}</span>` : '');
   };
-  return `<div class="card" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <div style="flex:1;min-width:240px;font-weight:800;font-size:15px">📅 แผนการสอนงาน${bzm ? '' : ' · ตรวจการสอนเทียบแผน'}
+  return `<div class="card po-card" style="margin-bottom:16px">
+    <div class="po-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="po-title" style="flex:1;min-width:240px;font-weight:800;font-size:15px">📅 แผนการสอนงาน${bzm ? '' : ' · ตรวจการสอนเทียบแผน'}
         <div style="font-size:12px;font-weight:500;color:var(--text3)">วางแผนแล้ว ${withPlan} จาก ${bids.length} สาขา${bzm ? '' : ` ·
           ${offTotal ? `<b style="color:var(--yellow)">บันทึกไม่ตรงแผน ${offTotal} ครั้ง ใน ${offBranches} สาขา</b>` : 'บันทึกทุกครั้งตรงแผน'}`}</div></div>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)">‹</button>
       <b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
     </div>
-    <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+    <div class="stats-grid sum3" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
       ${_sumCard('🏪', 'สาขาที่วางแผนแล้ว', withPlan + '/' + bids.length, _noPlanBranches ? 'ยังไม่ทำแผน ' + _noPlanBranches + ' สาขา' : 'ครบทุกสาขา', _noPlanBranches ? '#B45309' : 'var(--green)')}
       ${_sumCard('📋', 'แผนทั้งหมด', _allItems.length, 'ครัว ' + _allItems.filter(x => _planGroup(x.it.moduleId) === 'kitchen').length + ' · บริการ ' + _allItems.filter(x => _planGroup(x.it.moduleId) === 'service').length)}
       ${_sumCard('✅', 'สอนแล้ว', _taughtN + '/' + _allItems.length, 'ประเมินแล้ว ' + _evaluatedN, 'var(--green)')}
@@ -18616,17 +18648,17 @@ function renderAdminPlanOverview() {
       ${filtering ? `<button class="btn btn-sm btn-outline" onclick="_planClearFilter()">ล้างตัวกรอง</button>` : ''}
     </div>
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
-    rows.length ? `<div class="table-wrap"><table>
+    rows.length ? `<div class="table-wrap"><table class="cards-on-mobile po-table">
       <thead><tr><th>สาขา</th><th style="text-align:center">ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">บริการ<br><small>สอนแล้ว/แผน</small></th>
         <th>วันที่วางแผนสอน</th><th>สาขาจัดทำเมื่อ</th><th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
       <tbody>${rows.map(r => `<tr>
-        <td><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:10.5px">ยังไม่วางแผน</span>'}</td>
-        <td style="text-align:center">${cell(r.k, r.kd)}</td><td style="text-align:center">${cell(r.s, r.sd)}</td>
-        <td style="font-size:12px">${dates(r)}</td>
-        <td style="font-size:12px;white-space:nowrap">${madeAt(r)}</td>
-        <td style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
-        ${bzm ? '' : `<td style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>`}
-        <td style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
+        <td data-label="สาขา"><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:10.5px">ยังไม่วางแผน</span>'}</td>
+        <td data-label="ครัว สอนแล้ว/แผน" style="text-align:center">${cell(r.k, r.kd)}</td><td data-label="บริการ สอนแล้ว/แผน" style="text-align:center">${cell(r.s, r.sd)}</td>
+        <td data-label="วันที่วางแผนสอน" style="font-size:12px">${dates(r)}</td>
+        <td data-label="สาขาจัดทำเมื่อ" style="font-size:12px;white-space:nowrap">${madeAt(r)}</td>
+        <td data-label="ยังไม่สอน" style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
+        ${bzm ? '' : `<td data-label="บันทึกนอกแผน" style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>`}
+        <td data-label="actions" style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
       </tr>`).join('')}</tbody>
     </table></div>` : '<div style="font-size:13px;color:var(--text3)">' + (filtering ? 'ไม่พบสาขาตามตัวกรองที่เลือก' : 'เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน') + '</div>'}
   </div>`;
@@ -19495,7 +19527,7 @@ function renderAdminTrainings() {
           <option value="1"${_adminTrainResult==='1'?' selected':''}>ไม่ผ่าน 0-49%</option>
         </optgroup>
       </select>
-      <span class="cat-tabs" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
+      <span class="view-seg" style="display:flex;gap:4px;margin-left:auto;background:var(--surface2);padding:3px;border-radius:10px">
         <button class="btn btn-sm ${_adminTrainView==='record'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='record'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('record')">🗓 รายครั้ง</button>
         <button class="btn btn-sm ${_adminTrainView==='person'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='person'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('person')">🙍 รายบุคคล</button>
       </span>
