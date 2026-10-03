@@ -3395,6 +3395,10 @@ body.admin-user .btn-navy{background:var(--primary)}
   body.admin-user table.po-table td[data-label="actions"] { display: flex !important; align-items: center; justify-content: flex-end; }
   body.admin-user .dash-stat-tile { display: flex; flex-direction: column; justify-content: space-between; min-height: 96px; }
   body.admin-user .dash-stat-grid { align-items: stretch; }
+  /* ---- เมนูล่าง: ปุ่มที่เลือก/กำลังแตะมีพื้นสีส้มอ่อนเสมอ ---- */
+  body.admin-user .bottom-nav-item { -webkit-tap-highlight-color: transparent; }
+  body.admin-user .bottom-nav-item.active, body.admin-user .bottom-nav-item:active { background: var(--accent-light) !important; color: var(--accent) !important; }
+  body.admin-user .bottom-nav-item.active .bottom-nav-label { font-weight: 800; }
 }
 </style>
 </head>
@@ -7918,14 +7922,17 @@ function updateBottomNav(page) {
     'admin-dashboard':       'bnav-admin-dashboard',
     'admin-manage':          'bnav-admin-manage',
     'admin-transfers':       'bnav-admin-transfers',
-    'admin-branch-updates':  'bnav-admin-manage',
+    'admin-branch-updates':  'bnav-admin-branch-updates',
     'admin-branches':        'bnav-admin-manage',
     'admin-employees':       'bnav-admin-manage',
     'admin-trainings':       'bnav-admin-trainings',
     'admin-evaluations':     'bnav-admin-trainings',
     'admin-plan-overview':   'bnav-admin-plan-overview',
     'admin-course-history':  'bnav-admin-course-history',
+    'admin-training-plan':   'bnav-admin-training-plan',
     'admin-quiz':            'bnav-admin-quiz',
+    'admin-quiz-stats':      'bnav-admin-quiz-stats',
+    'admin-users':           'bnav-admin-users',
     'admin-reports':         'bnav-admin-reports',
     'admin-chat-logs':       'bnav-admin-chat-logs',
     'admin-cases':           'bnav-admin-cases',
@@ -7934,7 +7941,11 @@ function updateBottomNav(page) {
     'cases':                 'bnav-cases',
   };
   document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
-  let targetId = navMap[page];
+  let targetId = navMap[page] || ('bnav-' + page);
+  /* หน้าที่ไม่มีปุ่มของตัวเองในแถบล่าง (เช่น BZM ไม่มี "อัพเดทพนักงาน") ให้ไปติดที่กลุ่มที่ใกล้สุด */
+  if (!document.getElementById(targetId) && !_bnavMoreItems.some(it => 'bnav-' + it.page === targetId)) {
+    targetId = { 'bnav-admin-branch-updates': 'bnav-admin-manage' }[targetId] || targetId;
+  }
   // เมนูที่ถูกยุบไว้ใน "อื่นๆ" → ให้ปุ่ม "อื่นๆ" ติดสถานะแทน
   if (targetId && !document.getElementById(targetId) && _bnavMoreItems.some(it => 'bnav-' + it.page === targetId)) {
     targetId = 'bnav-more';
