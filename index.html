@@ -17858,17 +17858,28 @@ function _teachRound(t) {
 }
 /* แผน "ทำย้อนหลัง" = จัดทำหลังวันที่วางแผนจะสอน หรือจัดทำหลังที่มีบันทึกการสอนตรงแผนไปแล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน)
    คำนวณจากเวลาที่สร้างแผน (createdAt) — แผนเก่าที่ไม่มีเวลาสร้างจะไม่ถูกติดป้าย */
-function _planIsRetro(bid, ym, it) {
-  if (!it || !it.createdAt) return false;
-  const made = new Date(it.createdAt); if (isNaN(made)) return false;
-  /* กรณีที่ 1: ทำแผนย้อนหลังวันปัจจุบัน — วันที่วางแผนสอนเป็นวันที่ผ่านมาแล้วตอนที่จัดทำแผน */
-  if (it.planDate && it.planDate < _ymdLocal(made)) return true;
-  /* กรณีที่ 2: จัดทำหลังมีบันทึกการสอนตรงแผนแล้ว (ยึดจากบันทึกที่ทำไว้ก่อนทำแผน) */
-  if (it.moduleIdOrig) return false;   // ทำแผนไว้ก่อนแล้ว แค่เปลี่ยน Module ตามที่สอนจริง ไม่ใช่ย้อนหลัง
-  return (DB.trainings || []).some(t => t.branchId === bid && _ymOf(t.date) === ym && new Date(t.date) < made && _planTie(it, t));
+/* เหตุผลที่แผนนี้ถูกติดป้าย "ทำแผนย้อนหลัง" (ข้อความว่าง = ไม่ใช่แผนย้อนหลัง)
+   กรณีที่ 1 ย้อนหลังวันปัจจุบัน: วันที่วางแผนสอนเป็นวันที่ผ่านมาแล้วตอนจัดทำแผน
+   กรณีที่ 2 หลังมีบันทึกการสอน: มีบันทึกการสอนตรงแผนที่ทำไว้ก่อนเวลาจัดทำแผน — บันทึกที่เลือกจากแผนนี้ตอนบันทึก (fromPlan) ไม่นับ เพราะทำหลังแผนอยู่แล้ว */
+function _planRetroReason(bid, ym, it) {
+  if (!it || !it.createdAt) return '';
+  const made = new Date(it.createdAt); if (isNaN(made)) return '';
+  const madeTxt = fmtDateTime(it.createdAt);
+  if (it.planDate && it.planDate < _ymdLocal(made)) return 'ย้อนหลังวันปัจจุบัน — จัดทำแผนเมื่อ ' + madeTxt + ' แต่ระบุวันที่วางแผนสอนเป็น ' + fmtDate(it.planDate) + ' (เป็นวันที่ผ่านมาแล้ว)';
+  if (it.moduleIdOrig) return '';   // ทำแผนไว้ก่อนแล้ว แค่เปลี่ยน Module ตามที่สอนจริง ไม่ใช่ย้อนหลัง
+  const fromPlan = it.fromPlan || [];
+  const t = (DB.trainings || []).filter(x => x.branchId === bid && _ymOf(x.date) === ym && !fromPlan.includes(x.id) && new Date(x.date) < made && _planTie(it, x))
+    .sort((p, q) => new Date(p.date) - new Date(q.date))[0];
+  return t ? 'จัดทำแผนเมื่อ ' + madeTxt + ' หลังบันทึกการสอนวันที่ ' + fmtDateTime(t.date) + ' ที่มีอยู่แล้ว (ผู้สอน ' + (t.trainerName || '—') + ')' : '';
+}
+function _planIsRetro(bid, ym, it) { return !!_planRetroReason(bid, ym, it); }
+function _showRetroReason(bid, ym, itemId) {
+  const it = (getCoachingPlan(bid, ym).items || []).find(x => x.id === itemId); if (!it) return;
+  const r = _planRetroReason(bid, ym, it); if (!r) return;
+  showModal('ทำแผนย้อนหลัง', '<div style="font-size:13.5px;line-height:1.7">' + _escH(r) + '</div>', null, '', 'ปิด');
 }
 const _retroTag = (bid, ym, it) => _planIsRetro(bid, ym, it)
-  ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="จัดทำแผนหลังมีบันทึกการสอนแล้ว หรือวางแผนสอนเป็นวันที่ผ่านมาแล้ว">↩ ทำแผนย้อนหลัง</span>' : '';
+  ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309;cursor:pointer" title="' + _escH(_planRetroReason(bid, ym, it)) + '" onclick="_showRetroReason(\'' + bid + '\',\'' + ym + '\',\'' + it.id + '\')">↩ ทำแผนย้อนหลัง</span>' : '';
 function _planSubsEffective(bid, ym, it) {
   const ms = _planMatches(bid, ym, it);
   if (!ms.length) return it.subtopics || [];
@@ -18557,7 +18568,7 @@ function _syncPlanFromTraining(t, planVal) {
   let linkChanged = false;
   if (!Array.isArray(it.linked) || !it.linked.includes(t.id)) {
     const prev = Array.isArray(it.linked) ? it.linked : _planMatches(bid, ym, it).filter(x => x.id !== t.id).map(x => x.id);
-    it = Object.assign({}, it, { linked: prev.concat(t.id) }); items[at] = it; linkChanged = true;
+    it = Object.assign({}, it, { linked: prev.concat(t.id), fromPlan: (it.fromPlan || []).concat(t.id) }); items[at] = it; linkChanged = true;
   }
   if (t.moduleId && it.moduleId !== t.moduleId) {
     /* สอนคนละ Module กับที่วางแผนไว้ → แผนเปลี่ยนตามที่สอนจริง (เก็บ Module/หัวข้อที่วางไว้เดิมไว้โชว์เทียบ) — ถ้ายังมีบันทึกอื่นตรงกับ Module เดิมอยู่ ไม่เปลี่ยน */
