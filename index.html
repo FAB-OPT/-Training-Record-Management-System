@@ -17428,7 +17428,14 @@ function getCoachingPlan(bid, ym) {
 function _planBase(it, t) {
   return t.moduleId === it.moduleId && (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)));
 }
-const _planTie = (it, t) => _planBase(it, t) && (!Array.isArray(it.linked) || it.linked.includes(t.id));
+const _planTieRaw = (it, t) => _planBase(it, t) && (!Array.isArray(it.linked) || it.linked.includes(t.id));
+const _planTie = (it, t) => {
+  if (!_planTieRaw(it, t)) return false;
+  if (!it.createdAt) return true;
+  /* มีแผนที่สร้างก่อนหน้า (Module/ผู้เรียนเดียวกัน) ผูกกับบันทึกนี้อยู่แล้ว → แผนที่ทำทีหลังไม่นับบันทึกนี้ (เช่น ทำแผนซ้ำหลังประเมินไม่ผ่าน = แผนสอนใหม่ ไม่ใช่การสอนของแผนนั้น) */
+  const items = (getCoachingPlan(t.branchId, _ymOf(t.date)).items || []);
+  return !items.some(x => x !== it && x.id !== it.id && x.createdAt && x.createdAt < it.createdAt && _planTieRaw(x, t));
+};
 /* แผนข้อนี้ต้องสอนใหม่ไหม — การสอนครั้งล่าสุดที่ตรงแผนประเมินไม่ผ่าน/สอบตกครบครั้ง (ถ้าสอนใหม่แล้วผ่าน ถือว่าเรียบร้อย) */
 function _planNeedsRetake(bid, ym, it) {
   const ms = _planMatches(bid, ym, it);
@@ -18084,7 +18091,7 @@ function openPlanItem(grp, itemId, restricted) {
     if (_dupInfo.count) { rec.review = true; rec.reviewRound = _dupInfo.count + 1; }
     else if (_histLines.length && !unchanged) { rec.review = true; }
     else if (it0 && it0.review) { rec.review = it0.review; rec.reviewRound = it0.reviewRound; }
-    if (!it0) rec.linked = _planMatches(bid, ym, { moduleId, empIds }).map(t => t.id);   // ทำแผนย้อนหลัง: บันทึกการสอนที่มีอยู่แล้วเป็นของแผนนี้
+    if (!it0) rec.linked = _planMatches(bid, ym, { moduleId, empIds }).filter(t => !(getCoachingPlan(bid, _ymOf(t.date)).items || []).some(x => _planTieRaw(x, t))).map(t => t.id);   // ทำแผนย้อนหลัง: บันทึกการสอนที่มีอยู่แล้วเป็นของแผนนี้
     else if (Array.isArray(it0.linked)) rec.linked = it0.linked;
     if (it0) {
       /* ค่าที่ฟอร์มไม่ได้แก้ (แผนเดิมที่เปลี่ยนตามการสอนจริง ฯลฯ) ต้องไม่หาย */
