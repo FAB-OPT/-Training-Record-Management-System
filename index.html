@@ -3704,6 +3704,7 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้ายสาขา' },
   { page: 'admin-branch-updates',  icon: '🔄',  label: 'ประวัติการอัพเดทพนักงาน' },
   { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนการสอนงาน' },
+  { page: 'admin-plan-ack',        icon: '✅',  label: 'BZM รับทราบแผน' },
   { page: 'admin-trainings',       icon: '📚',  label: 'บันทึกการสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'ประวัติการอบรม' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
@@ -7332,7 +7333,7 @@ ${EVAL_RESULTS.map(r => `  - ${r.label}${isEvalPass(r.value) ? '  → ผ่า�
 • Module 3 (งานเตรียมวัตถุดิบ) ต้องเลือก "หน้างาน" สเต็กหรือพาสต้า · Module 4 หัวข้อย่อยแยกหมวดสเต็ก/พาสต้า
 • ป้ายหัวข้อย่อย (ขึ้นหลังเลือก Module และผู้เรียน): สอนแล้ว = ทุกคนประเมินแล้ว · รอประเมิน · ยังไม่สอน · ต้องสอนใหม่ = ครั้งก่อนประเมินไม่ผ่านหรือสอบตก (นับประวัติจากทุกสาขา)
 • BZM เห็นแผนของสาขาในเขตและกด "รับทราบ" สาขาจะเห็นป้าย "BZM รับทราบแล้ว" พร้อมเวลา
-• แผนที่จัดทำหลังมีบันทึกการสอนตรงแผนแล้ว (ยึดจากบันทึกการสอนที่ทำไว้ก่อนทำแผนเท่านั้น ไม่ดูวันที่วางแผน) ติดป้าย "↩ ทำแผนย้อนหลัง"
+• แผนที่จัดทำย้อนหลัง 2 กรณี: (1) จัดทำหลังมีบันทึกการสอนตรงแผนแล้ว (2) วันที่วางแผนสอนเป็นวันที่ผ่านมาแล้วตอนจัดทำแผน (ย้อนหลังวันปัจจุบัน) ติดป้าย "↩ ทำแผนย้อนหลัง"
 • การ์ดแผนแสดง: วันที่สอนจริง/ประเมินจริง (พร้อมวันที่ตามแผน) · ผลประเมิน ระดับ ผ่าน/ไม่ผ่าน · คะแนนข้อสอบและจำนวนครั้ง · ป้าย "🔁 ต้องสอนใหม่" · ถ้าสอนมากกว่า 1 ครั้งแสดงทุกครั้ง · หัวข้อย่อยแสดงตามที่สอนจริง (หัวข้อที่เพิ่มตอนสอนติดป้าย "+ เพิ่มตอนสอน")
 • ไม่มีปุ่มบันทึกการสอนบนการ์ดแผน — ไปบันทึกที่หน้า "บันทึกการสอนและประเมินผล"
 
@@ -7604,6 +7605,7 @@ const ADMIN_NAV_ITEMS = [
   { page: 'admin-transfers',       icon: '🔁',  label: 'โยกย้าย' },
   { page: 'admin-branch-updates',  icon: '🔄',  label: 'อัพเดทพนักงาน' },
   { page: 'admin-plan-overview',   icon: '📅',  label: 'แผนสอน' },
+  { page: 'admin-plan-ack',        icon: '✅',  label: 'BZM รับทราบ' },
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-course-history',  icon: '🎓',  label: 'หลักสูตร' },
   { page: 'admin-training-plan',   icon: '📅',  label: 'จัดอบรม' },
@@ -7726,6 +7728,7 @@ const _SIDEBAR_LABELS = {
   'admin-transfers':      { admin: 'โยกย้ายสาขา',                    bzm: '',                            exec: '' },
   'admin-branch-updates': { admin: 'ประวัติการอัพเดทพนักงาน',          bzm: '',                            exec: '' },
   'admin-trainings':      { admin: 'บันทึกการสอนและประเมินผล',       bzm: 'ติดตามการสอน',                exec: 'ติดตามการสอน' },
+  'admin-plan-ack':       { admin: 'BZM รับทราบแผน',                  bzm: '',                            exec: '' },
   'admin-plan-overview':  { admin: 'แผนการสอนงาน',                   bzm: 'แผนการสอนงานในโซน',           exec: 'แผนการสอนงาน' },
   'admin-course-history': { admin: 'ประวัติการอบรมหลักสูตร',          bzm: 'ประวัติการอบรม',              exec: 'ประวัติการอบรม' },
   'admin-training-plan':  { admin: 'จัดอบรม · ใบรายชื่อผู้เข้าอบรม',    bzm: '',                            exec: '' },
@@ -7805,6 +7808,7 @@ function showPage(page) {
     'admin-training-plan': renderTrainingPlan,
     'admin-trainings': renderAdminTrainings, 'admin-evaluations': renderAdminEvaluations,
     'admin-plan-overview': renderAdminPlanOverviewPage,
+    'admin-plan-ack': renderAdminPlanAck,
     'admin-course-history': renderAdminCourseHistory,
     'admin-quiz': renderAdminQuiz, 'admin-quiz-stats': renderQuizStatsPage, 'admin-reports': renderAdminReports,
     'admin-bzm': () => { _adminManageTab = 'bzm'; return renderAdminManage(); },
@@ -7928,6 +7932,7 @@ function updateBottomNav(page) {
     'admin-trainings':       'bnav-admin-trainings',
     'admin-evaluations':     'bnav-admin-trainings',
     'admin-plan-overview':   'bnav-admin-plan-overview',
+    'admin-plan-ack':        'bnav-admin-plan-ack',
     'admin-course-history':  'bnav-admin-course-history',
     'admin-training-plan':   'bnav-admin-training-plan',
     'admin-quiz':            'bnav-admin-quiz',
@@ -17856,11 +17861,14 @@ function _teachRound(t) {
 function _planIsRetro(bid, ym, it) {
   if (!it || !it.createdAt) return false;
   const made = new Date(it.createdAt); if (isNaN(made)) return false;
+  /* กรณีที่ 1: ทำแผนย้อนหลังวันปัจจุบัน — วันที่วางแผนสอนเป็นวันที่ผ่านมาแล้วตอนที่จัดทำแผน */
+  if (it.planDate && it.planDate < _ymdLocal(made)) return true;
+  /* กรณีที่ 2: จัดทำหลังมีบันทึกการสอนตรงแผนแล้ว (ยึดจากบันทึกที่ทำไว้ก่อนทำแผน) */
   if (it.moduleIdOrig) return false;   // ทำแผนไว้ก่อนแล้ว แค่เปลี่ยน Module ตามที่สอนจริง ไม่ใช่ย้อนหลัง
   return (DB.trainings || []).some(t => t.branchId === bid && _ymOf(t.date) === ym && new Date(t.date) < made && _planTie(it, t));
 }
 const _retroTag = (bid, ym, it) => _planIsRetro(bid, ym, it)
-  ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="จัดทำแผนหลังมีบันทึกการสอนแล้ว">↩ ทำแผนย้อนหลัง</span>' : '';
+  ? '<span class="cp-status-tag" style="background:#FEF3C7;color:#B45309" title="จัดทำแผนหลังมีบันทึกการสอนแล้ว หรือวางแผนสอนเป็นวันที่ผ่านมาแล้ว">↩ ทำแผนย้อนหลัง</span>' : '';
 function _planSubsEffective(bid, ym, it) {
   const ms = _planMatches(bid, ym, it);
   if (!ms.length) return it.subtopics || [];
@@ -18831,6 +18839,72 @@ function adminDeletePlanItem(bid, ym, itemId) {
   }, { title: 'ลบแผนการสอน', confirmText: 'ลบ' });
 }
 
+/* สถานะ "BZM รับทราบแผนหรือยัง" ของสาขาหนึ่งในเดือนหนึ่ง — ใช้เกณฑ์เดียวกับปุ่มรับทราบ (รับทราบหลังแก้ล่าสุด = รับทราบแล้ว) */
+function _ackSummary(bid, ym) {
+  const items = (getCoachingPlan(bid, ym).items || []);
+  let acked = 0, last = null;
+  items.forEach(it => {
+    const updated = new Date(it.updatedAt || it.createdAt || 0).getTime();
+    const at = it.bzmAckAt ? new Date(it.bzmAckAt).getTime() : 0;
+    if (at && at >= updated) acked++;
+    if (it.bzmAckAt && (!last || new Date(it.bzmAckAt) > new Date(last.at))) last = { at: it.bzmAckAt, by: it.bzmAckBy || '' };
+  });
+  return { total: items.length, acked, pending: items.length - acked, last };
+}
+function _ackStatusHtml(bid, ym) {
+  const a = _ackSummary(bid, ym); if (!a.total) return '';
+  const ok = !a.pending;
+  return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12.5px;${ok ? 'background:#ECFDF3;border:1px solid #BBE5C8;color:#166534' : 'background:#FFF7ED;border:1px solid #FED7AA;color:#9A3412'}">
+    <b>${ok ? '✅ BZM รับทราบแผนแล้วครบ' : '🔔 BZM ยังไม่รับทราบ ' + a.pending + ' จาก ' + a.total + ' รายการ'}</b>
+    ${a.last ? '<span style="opacity:.85">· ล่าสุด ' + _escH(a.last.by || 'BZM') + ' เมื่อ ' + _escH(fmtDateTime(a.last.at)) + '</span>' : '<span style="opacity:.85">· ยังไม่เคยกดรับทราบ</span>'}
+  </div>`;
+}
+/* เมนู Admin: "BZM รับทราบแผน" — แยกตาม BZM แสดงว่าสาขาในโซนไหนรับทราบแผนแล้ว/ยัง */
+let _ackFilter = '';   // '' ทั้งหมด · pending = เฉพาะที่ยังไม่รับทราบ
+function _ackSetFilter(v) { _ackFilter = v; showPage(currentPage); }
+function renderAdminPlanAck() {
+  if (!isAdminRole()) return '<div class="card">เฉพาะ Admin เท่านั้น</div>';
+  if (!_planMonth) _planMonth = _ymNow();
+  const ym = _planMonth;
+  const zones = {};
+  getAccessibleBranches().filter(b => BRANCH_MASTER[b]).sort().forEach(bid => {
+    const z = BRANCH_MASTER[bid].manager || '— ไม่ระบุ BZM —';
+    (zones[z] = zones[z] || []).push({ bid, a: _ackSummary(bid, ym) });
+  });
+  const rows = Object.keys(zones).sort().map(z => {
+    const list = zones[z], withPlan = list.filter(x => x.a.total);
+    const pend = withPlan.filter(x => x.a.pending).length;
+    let last = null; withPlan.forEach(x => { if (x.a.last && (!last || new Date(x.a.last.at) > new Date(last.at))) last = x.a.last; });
+    return { z, list, withPlan, pend, last };
+  });
+  const sumBzm = rows.length, sumDone = rows.filter(r => r.withPlan.length && !r.pend).length, sumPend = rows.filter(r => r.pend).length, sumNoPlan = rows.filter(r => !r.withPlan.length).length;
+  const shown = rows.filter(r => _ackFilter === 'pending' ? r.pend : true);
+  const card = (icon, label, val, color, flt) => `<div class="stat-card" style="cursor:pointer;border:1px solid ${_ackFilter === flt ? 'var(--accent)' : 'var(--border)'}" onclick="_ackSetFilter('${flt}')"><div style="font-size:22px">${icon}</div><div><div class="stat-label" style="font-size:12px;color:var(--text3)">${label}</div><div style="font-size:26px;font-weight:800;line-height:1.1;color:${color}">${val}</div></div></div>`;
+  return `<div class="page-hero"><div class="page-hero-body">
+      <div class="page-hero-title">✅ BZM รับทราบแผน</div>
+      <div class="page-hero-sub">ดูว่า BZM แต่ละโซนกด "รับทราบ" แผนการสอนงานของสาขาแล้วหรือยัง · แผนที่สาขาแก้ไขหลังรับทราบจะกลับมาเป็น "ยังไม่รับทราบ"</div>
+    </div></div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <button class="btn btn-sm btn-outline" onclick="setPlanMonth(-1)">‹</button><b style="min-width:130px;text-align:center">${_ymLabel(ym)}</b><button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
+  </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+    ${card('👥', 'BZM ทั้งหมด', sumBzm, 'var(--text)', '')}
+    ${card('✅', 'รับทราบครบ', sumDone, 'var(--green)', 'done')}
+    ${card('🔔', 'ยังไม่รับทราบ', sumPend, sumPend ? '#B45309' : 'var(--text)', 'pending')}
+    ${card('➖', 'โซนที่ไม่มีแผน', sumNoPlan, 'var(--text3)', 'noplan')}
+  </div>
+  ${shown.filter(r => _ackFilter === 'done' ? (r.withPlan.length && !r.pend) : _ackFilter === 'noplan' ? !r.withPlan.length : true).map(r => `<div class="card" style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div style="flex:1;min-width:200px"><b>${_escH(r.z)}</b>
+        <div style="font-size:12px;color:var(--text3)">${r.withPlan.length ? 'มีแผน ' + r.withPlan.length + ' จาก ' + r.list.length + ' สาขา' : 'ยังไม่มีสาขาในโซนทำแผนเดือนนี้'}${r.last ? ' · รับทราบล่าสุด ' + _escH(r.last.by || 'BZM') + ' ' + _escH(fmtDateTime(r.last.at)) : ''}</div></div>
+      <span class="badge ${!r.withPlan.length ? '' : r.pend ? 'badge-yellow' : 'badge-green'}">${!r.withPlan.length ? '— ไม่มีแผน' : r.pend ? '🔔 ยังไม่รับทราบ ' + r.pend + ' สาขา' : '✅ รับทราบครบ'}</span>
+    </div>
+    ${r.withPlan.length ? '<div style="display:flex;flex-direction:column;gap:6px">' + r.withPlan.map(x => '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:9px;font-size:12.5px"><b style="color:var(--accent)">' + _escH(x.bid) + '</b><span style="flex:1;min-width:120px">' + _escH((_bName(x.bid) || '').replace(x.bid + ' ', '')) + '</span>' +
+      (x.a.pending ? '<span class="badge badge-yellow">🔔 รอรับทราบ ' + x.a.pending + '/' + x.a.total + '</span>' : '<span class="badge badge-green">✅ รับทราบแล้ว ' + x.a.acked + '/' + x.a.total + '</span>') +
+      '<span style="color:var(--text3);font-size:11.5px">' + (x.a.last ? _escH(x.a.last.by || 'BZM') + ' · ' + _escH(fmtDateTime(x.a.last.at)) : 'ยังไม่เคยกดรับทราบ') + '</span>' +
+      '<button class="btn btn-sm btn-outline" onclick="openPlanAudit(\'' + x.bid + '\')">ดู</button></div>').join('') + '</div>' : ''}
+  </div>`).join('') || '<div class="card" style="text-align:center;color:var(--text3)">ไม่มีรายการตามตัวกรองที่เลือก</div>'}`;
+}
 function openPlanAudit(bid) {
   const ym = _planMonth || _ymNow();
   const a = _planAudit(bid, ym);
@@ -18839,7 +18913,8 @@ function openPlanAudit(bid) {
   const emp = ids => (ids || []).map(id => (getEmployee(id) || {}).name || id).join(', ') || '—';
   const mod = id => _escH((MODULES[id] || {}).name || id);
   showModal(`แผนการสอนงาน · ${_escH(_bName(bid))} · ${_ymLabel(ym)}`, `
-    ${needAck.length ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+    ${!bzm ? _ackStatusHtml(bid, ym) : ''}
+    ${bzm && needAck.length ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 12px;margin-bottom:12px">
       <span style="flex:1;min-width:180px;font-size:12.5px;color:#1E40AF">🔔 แผน ${needAck.length} รายการยังไม่ได้กด "รับทราบ" — สาขาจะยังไม่เห็นว่าคุณดูแล้ว</span>
       <button class="btn btn-sm btn-accent" onclick="_ackBranchPlan('${bid}')">✅ รับทราบ (${needAck.length})</button>
     </div>` : ''}
@@ -19268,7 +19343,7 @@ function deleteTransferRequestRow(id) {
 const NAV_GROUP_V2 = [
   ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
   ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'admin-branch-updates']],
-  ['การสอนงาน',          ['admin-plan-overview', 'admin-trainings']],
+  ['การสอนงาน',          ['admin-plan-overview', 'admin-plan-ack', 'admin-trainings']],
   ['อบรมและข้อสอบ',      ['admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
   ['ติดตามและรายงาน',    ['exec-leaderboard', 'admin-cases', 'admin-reports']],
   ['ระบบ',              ['admin-users', 'admin-chat-logs']],
