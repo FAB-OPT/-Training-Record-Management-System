@@ -18035,24 +18035,24 @@ function openPlanItem(grp, itemId, restricted) {
        แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
     const same = (x, y) => JSON.stringify([...(x || [])].sort()) === JSON.stringify([...(y || [])].sort());
     const unchanged = !!it0 && same(it0.subtopics, subtopics) && same(it0.empIds, empIds);
-    if (!window._cpReviewOk && !unchanged) {
-      const cov = getSubtopicCoverageMap(bid, moduleId, empIds);
+    const _histLines = (() => {
       /* ทำแผนย้อนหลัง: มีบันทึกการสอนตรงแผนนี้อยู่แล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน) → หัวข้อที่บันทึกนั้นสอนไปคือการสอนของแผนนี้เอง ไม่ใช่การทบทวน ไม่ต้องถามยืนยัน */
       const _own = _planMatches(bid, ym, { moduleId, empIds });
       const dupLines = empIds.map(id => {
         const subs = _reviewSubs(id, moduleId, subtopics).filter(sub => !_own.some(t => (t.subtopics || []).includes(sub)));
         return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
       }).filter(Boolean);
-      if (dupLines.length) {
-        _confirmReviewTopics(dupLines, () => { window._cpReviewOk = true; try { modalConfirm(); } finally { window._cpReviewOk = false; } });
-        return;
-      }
+      return dupLines;
+    })();
+    if (!window._cpReviewOk && !unchanged && _histLines.length) {
+      _confirmReviewTopics(_histLines, () => { window._cpReviewOk = true; try { modalConfirm(); } finally { window._cpReviewOk = false; } });
+      return;
     }
     /* ทำแผนซ้ำกันในวันเดียวกัน (Module เดียวกัน ผู้เรียน/หัวข้อซ้อนกัน): ครั้งที่ 2 เป็นต้นไปนับเป็นทบทวน — ถามยืนยันเหมือนตอนบันทึกการสอน */
     const _dupInfo = _planSameDayDups(bid, { id: itemId, moduleId, planDate, empIds, subtopics });
     if (_dupInfo.count && !(it0 && it0.review && unchanged) && !window._cpDupOk) {
       _confirmReviewTopics(_dupInfo.lines, () => { window._cpReviewOk = true; window._cpDupOk = true; try { modalConfirm(); } finally { window._cpReviewOk = false; window._cpDupOk = false; } },
-        { title: 'ทำแผนซ้ำกันในวันเดียวกัน', question: 'ครั้งนี้เป็นแผนสอนทบทวน (ครั้งที่ ' + (_dupInfo.count + 1) + ') ใช่หรือไม่?' });
+        { title: 'มีแผนหัวข้อนี้แล้ว', question: 'ครั้งนี้เป็นแผนสอนทบทวน (ครั้งที่ ' + (_dupInfo.count + 1) + ') ใช่หรือไม่?' });
       return;
     }
     if (!_cpBatchMode) { try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {} }
@@ -18066,7 +18066,10 @@ function openPlanItem(grp, itemId, restricted) {
       createdBy: (it && it.createdBy) || who, createdAt: (it && it.createdAt) || now,
       updatedBy: who, updatedAt: now,
     };
-    if (_dupInfo.count) { rec.review = true; rec.reviewRound = _dupInfo.count + 1; } else if (it0 && it0.review) { rec.review = it0.review; rec.reviewRound = it0.reviewRound; }
+    /* ทำแผนซ้ำหัวข้อที่เคยเรียนแล้ว (เคยสอน หรือเคยมีแผนอยู่แล้ว) = ทบทวนทุกกรณี ยกเว้นที่ต้องสอนใหม่ (ไม่ผ่าน) */
+    if (_dupInfo.count) { rec.review = true; rec.reviewRound = _dupInfo.count + 1; }
+    else if (_histLines.length && !unchanged) { rec.review = true; }
+    else if (it0 && it0.review) { rec.review = it0.review; rec.reviewRound = it0.reviewRound; }
     if (!it0) rec.linked = _planMatches(bid, ym, { moduleId, empIds }).map(t => t.id);   // ทำแผนย้อนหลัง: บันทึกการสอนที่มีอยู่แล้วเป็นของแผนนี้
     else if (Array.isArray(it0.linked)) rec.linked = it0.linked;
     if (it0) {
@@ -18495,17 +18498,17 @@ function _planDiffLines(a, b) {
 }
 /* แผนอื่นของสาขาที่ซ้ำกับแผนนี้ในวันเดียวกัน — Module เดียวกัน · ผู้เรียนซ้อนกัน · หัวข้อซ้อนกัน (รวมแผนที่พักไว้ในชุด "เพิ่มหลายรายการ") */
 function _planSameDayDups(bid, cur) {
-  if (!cur.planDate) return { count: 0, lines: [] };
-  const ym = _ymOf(cur.planDate);
-  const pool = (getCoachingPlan(bid, ym).items || []).concat(_cpBatchMode ? _cpBatchItems : []);
+  const pool = [];
+  Object.values(DB.coachingPlans || {}).forEach(p => { if (p && p.branchId === bid) (p.items || []).forEach(x => { if (!_planNeedsRetake(bid, p.month, x)) pool.push(x); }); });
+  if (_cpBatchMode) _cpBatchItems.forEach(x => pool.push(x));
   const seen = new Set(), hits = [];
   pool.forEach(x => {
-    if (!x || x.id === cur.id || seen.has(x.id) || x.planDate !== cur.planDate || x.moduleId !== cur.moduleId) return;
+    if (!x || x.id === cur.id || seen.has(x.id) || x.moduleId !== cur.moduleId) return;
     const lo = (x.empIds || []).length === 0 || cur.empIds.length === 0 || x.empIds.some(id => cur.empIds.includes(id));
     const so = (x.subtopics || []).some(sub => cur.subtopics.includes(sub));
     if (lo && so) { seen.add(x.id); hits.push(x); }
   });
-  const lines = hits.map(x => '<b>' + _escH((MODULES[x.moduleId] || {}).name || x.moduleId) + '</b> · ' + (x.subtopics || []).filter(sub => cur.subtopics.includes(sub)).map(_escH).join(', ') + ' — มีแผนวันที่ ' + _escH(fmtDate(x.planDate)) + ' แล้ว');
+  const lines = hits.map(x => '<b>' + _escH((MODULES[x.moduleId] || {}).name || x.moduleId) + '</b> · ' + (x.subtopics || []).filter(sub => cur.subtopics.includes(sub)).map(_escH).join(', ') + ' — มีแผนแล้ว' + (x.planDate ? ' (วันที่ ' + _escH(fmtDate(x.planDate)) + ')' : ''));
   return { count: hits.length, lines };
 }
 function _planHistoryNext(a, b, by, src) {
