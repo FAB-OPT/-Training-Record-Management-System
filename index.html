@@ -10078,7 +10078,14 @@ function openAddTraining() {
 
 /* ป็อปอัพถามเมื่อเลือกหัวข้อที่เคยสอนแล้ว — วางซ้อนบนฟอร์มบันทึก (ไม่ใช้ showConfirm เพราะมันแทนที่ฟอร์มทั้งหมด
    ยกเลิกแล้วข้อมูลที่กรอกไว้จะหาย) ยกเลิก = กลับไปแก้ฟอร์มต่อ · ยืนยัน = บันทึกเป็นการทบทวน */
-function _confirmReviewTopics(lines, onYes) {
+/* ปุ่ม "‹ ย้อนกลับ" ในท้ายป็อปอัพ (ต่อจากปุ่มยกเลิก) — กลับไปป็อปอัพขั้นก่อนหน้าโดยไม่เสียข้อมูล */
+function _modalAddBack(fn) {
+  const ft = document.querySelector('#modal-overlay .modal-footer'); if (!ft) return;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-outline'; b.textContent = '‹ ย้อนกลับ'; b.onclick = fn;
+  ft.insertBefore(b, ft.firstChild);
+}
+function _confirmReviewTopics(lines, onYes, opts) {
+  opts = opts || {};
   const old = document.getElementById('review-confirm-overlay'); if (old) old.remove();
   const ov = document.createElement('div');
   ov.id = 'review-confirm-overlay'; ov.className = 'modal-overlay open'; ov.style.zIndex = '10000';
@@ -10087,9 +10094,9 @@ function _confirmReviewTopics(lines, onYes) {
       <div style="display:flex;gap:14px;align-items:flex-start">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🔁</div>
         <div style="flex:1;min-width:0">
-          <div class="pop-title" style="margin-bottom:6px">มีหัวข้อที่เคยสอนไปแล้ว</div>
+          <div class="pop-title" style="margin-bottom:6px">${opts.title || 'มีหัวข้อที่เคยสอนไปแล้ว'}</div>
           <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px">${lines.join('<br>')}</div>
-          <div style="font-size:13.5px;font-weight:700;color:var(--text)">ครั้งนี้เป็นการสอนทบทวนใช่หรือไม่?</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--text)">${opts.question || 'ครั้งนี้เป็นการสอนทบทวนใช่หรือไม่?'}</div>
         </div>
       </div>
     </div>
@@ -17417,6 +17424,11 @@ function _planBase(it, t) {
   return t.moduleId === it.moduleId && (!(it.empIds || []).length || (t.traineeIds || []).some(id => it.empIds.includes(id)));
 }
 const _planTie = (it, t) => _planBase(it, t) && (!Array.isArray(it.linked) || it.linked.includes(t.id));
+/* แผนข้อนี้ต้องสอนใหม่ไหม — การสอนครั้งล่าสุดที่ตรงแผนประเมินไม่ผ่าน/สอบตกครบครั้ง (ถ้าสอนใหม่แล้วผ่าน ถือว่าเรียบร้อย) */
+function _planNeedsRetake(bid, ym, it) {
+  const ms = _planMatches(bid, ym, it);
+  return ms.length > 0 && _trainingFailed(ms[ms.length - 1]);
+}
 function _planItemDone(bid, ym, it) {
   return (DB.trainings || []).some(t => t.branchId === bid && _ymOf(t.date) === ym && _planTie(it, t));
 }
@@ -17554,7 +17566,8 @@ function renderCoachingPlanPanel(bid) {
   const colColor = { kitchen: '#EF4444', service: '#22C55E' };
   const col = (grp, icon, label) => {
     const list = items.filter(it => _planGroup(it.moduleId) === grp);
-    const done = list.filter(it => _planItemDone(bid, ym, it)).length;
+    const done = list.filter(it => _planItemDone(bid, ym, it) && !_planNeedsRetake(bid, ym, it)).length;
+    const redoCnt = list.filter(it => _planNeedsRetake(bid, ym, it)).length;
     const c = colColor[grp];
     return `<div class="cp-col" style="border-left:4px solid ${c}">
       <div class="cp-col-head" style="background:${c}14;margin:-12px -12px 8px;padding:10px 12px;border-radius:8px 8px 0 0">
@@ -17563,7 +17576,8 @@ function renderCoachingPlanPanel(bid) {
       </div>
       ${list.length ? list.map(it => {
         const m = MODULES[it.moduleId] || {};
-        const ok = _planItemDone(bid, ym, it);
+        const _retake = _planNeedsRetake(bid, ym, it);
+        const ok = _planItemDone(bid, ym, it) && !_retake;
         const ev = ok && _planItemEvaluated(bid, ym, it);
         const shortD = d => d ? _escH(fmtDate(d)) : '—';   // แสดงปี พ.ศ. ด้วย (เดิมตัดปีออก)
         const _ms = _planMatches(bid, ym, it), _tFirst = _ms[0], _eFirst = _ms.find(t => t.eval);
@@ -17577,8 +17591,9 @@ function renderCoachingPlanPanel(bid) {
             ${it.track && TRACKS.find(t => t.key === it.track) ? `<span class="cp-status-tag" style="background:${TRACKS.find(t => t.key === it.track).bg};color:${TRACKS.find(t => t.key === it.track).color}">${TRACKS.find(t => t.key === it.track).label}</span>` : ''}
             ${_subsEff.length ? `<span class="cp-item-sub-count" onclick="_cpShowSubtopics('${it.id}')" title="ดูหัวข้อย่อย">${_subsEff.length} หัวข้อย่อย${_ms.length && !it.moduleIdOrig && _subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length ? ` <b style="color:#0369A1">(+${_subsEff.filter(x => !(it.subtopicsOrig || it.subtopics || []).includes(x)).length} เพิ่มตอนสอน)</b>` : ''}${_planTodoCount(bid, it, ym, 'todo') ? ` · <b style="color:#B91C1C">ยังไม่สอน ${_planTodoCount(bid, it, ym, 'todo')}</b>` : ''}${_planTodoCount(bid, it, ym, 'redo') ? ` · <b style="color:#C2410C">ต้องสอนใหม่ ${_planTodoCount(bid, it, ym, 'redo')}</b>` : ''} 🔍</span>` : ''}
             ${_retroTag(bid, ym, it)}
+            ${it.review ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">🔁 ทบทวน${it.reviewRound ? ' ครั้งที่ ' + it.reviewRound : ''}</span>` : ''}
             ${_ms.length > 1 ? `<span class="cp-status-tag" style="background:#E0F2FE;color:#0369A1">สอน ${_ms.length} ครั้ง</span>` : ''}
-            ${ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
+            ${_retake ? '<span class="cp-status-tag" style="background:#FEE2E2;color:#B91C1C;font-weight:800">🔁 ต้องสอนใหม่</span>' : ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
           <div class="cp-step">
             <div class="cp-step-line ${ev ? 'full' : ok ? 'half' : ''}"></div>
@@ -17692,7 +17707,46 @@ function renderCoachingPlanPage() {
     </div>
     ${_coachingReady && (currentUser?.type === 'branch' || isAdminRole()) ? `<button class="btn btn-accent" onclick="openPlanBatch()">+ เพิ่มแผนการสอน</button>` : ''}
   </div>
+  ${_orphanBannerHtml(getBranchId(), _planMonth)}
   ${renderCoachingPlanPanel(getBranchId())}`;
+}
+/* บันทึกการสอนของเดือนนี้ที่ยังไม่มีแผนรองรับ (ไม่ได้เลือกแผนตอนบันทึก) → ทำแผนย้อนหลังได้จากหน้าแผน */
+function _orphanTrainings(bid, ym) {
+  return (DB.trainings || []).filter(t => t.branchId === bid && _ymOf(t.date) === ym && !_trainingFromPlan(t))
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+}
+function _orphanBannerHtml(bid, ym) {
+  if (!_coachingReady || !(currentUser?.type === 'branch' || isAdminRole())) return '';
+  const n = _orphanTrainings(bid, ym).length; if (!n) return '';
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:10px 14px;margin-bottom:12px">
+    <span style="flex:1;min-width:200px;font-size:13px;color:#9A3412;line-height:1.5">📝 มีบันทึกการสอน <b>${n} รายการ</b> ในเดือนนี้ที่ยังไม่มีแผน</span>
+    <button type="button" class="btn btn-sm btn-accent" onclick="openOrphanTrainings()">↩ ทำแผนย้อนหลัง</button>
+  </div>`;
+}
+function openOrphanTrainings() {
+  const bid = getBranchId(), ym = _planMonth || _ymNow();
+  const list = _orphanTrainings(bid, ym);
+  const names = t => (t.traineeIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean).join(', ') || '—';
+  const rows = list.map(t => '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px">' +
+    '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">' + _escH((MODULES[t.moduleId] || {}).name || t.moduleId) + '</div>' +
+    '<div style="font-size:11.5px;color:var(--text3);line-height:1.5">' + _escH(fmtDate(t.date)) + ' · ผู้สอน ' + _escH(t.trainerName || '—') + '<br>ผู้เรียน ' + _escH(names(t)) + '</div></div>' +
+    '<button type="button" class="btn btn-sm btn-outline" onclick="_cpRetroFrom(\'' + t.id + '\')">ทำแผน</button></div>').join('');
+  showModal('บันทึกการสอนที่ยังไม่มีแผน · ' + _ymLabel(ym),
+    '<div style="font-size:12.5px;color:var(--text3);margin-bottom:10px;line-height:1.55">เลือกรายการที่ต้องการ ระบบเติมข้อมูลจากบันทึกการสอนให้ ตรวจแล้วกดบันทึกแผน (ติดป้าย "ทำแผนย้อนหลัง")</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' + (rows || '<div style="text-align:center;color:var(--text3);padding:20px">ไม่มีรายการ</div>') + '</div>', null, '', 'ปิด');
+}
+function _cpRetroFrom(tid) {
+  const t = (DB.trainings || []).find(x => x.id === tid); if (!t) return;
+  const d = _ymdLocal(new Date(t.date));
+  let ev = t.eval && (t.eval.evalDate || t.eval.date) ? _ymdLocal(new Date(t.eval.evalDate || t.eval.date)) : d;
+  if (!ev || ev < d) ev = d;
+  _planMonth = _ymOf(t.date);
+  _cpBatchMode = false;
+  _cpPrefill = { moduleId: t.moduleId, subtopics: (t.subtopics || []).slice(), empIds: (t.traineeIds || []).slice(), planDate: d, evalDate: ev,
+    trainerName: t.trainerName || '', details: t.details || '', track: t.track || '' };
+  _cpBackNext = () => openOrphanTrainings();
+  closeModal();
+  openPlanItem(_planGroup(t.moduleId), null);
 }
 function setPlanMonth(n) { _planMonth = _ymShift(_planMonth || _ymNow(), n); showPage(currentPage); }
 /* กางดูรายชื่อหัวข้อย่อยของแผนข้อนี้ — กดที่ป้าย "N หัวข้อย่อย" บนการ์ด */
@@ -17845,12 +17899,16 @@ function _cpShowSubtopics(itemId) {
 
 /* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
 let _cpRestricted = false;   // true = แผนที่สอนแล้วฝั่งสาขา: แก้ได้เฉพาะผู้สอนงานกับผู้เรียน
+let _cpBackNext = null;      // ฟังก์ชันของปุ่ม "ย้อนกลับ" ในฟอร์มแผน (ตั้งโดยขั้นก่อนหน้า)
+let _cpPrefill = null;       // ทำแผนย้อนหลังจากบันทึกการสอน: ค่าตั้งต้นของฟอร์ม (ยังไม่ใช่แผนที่มีอยู่)
 function openPlanItem(grp, itemId, restricted) {
+  const _back = _cpBackNext; _cpBackNext = null;
   _cpRestricted = !!restricted;
   if (!_coachingReady) { notify('ระบบแผนการสอนยังไม่เปิดใช้งาน', 'error'); return; }
   const bid = getBranchId(), ym = _planMonth || _ymNow();
   const plan = getCoachingPlan(bid, ym);
-  const it = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
+  const it0 = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
+  const it = it0 || _cpPrefill; _cpPrefill = null;   // it = แผนที่แก้อยู่ หรือค่าตั้งต้นจากบันทึกการสอน
   const want = grp === 'kitchen' ? 'Cook' : 'Service';
   _cpGrp = grp;
   _cpTrack = (it && it.track) || '';
@@ -17976,7 +18034,7 @@ function openPlanItem(grp, itemId, restricted) {
     /* วางแผนสอนหัวข้อที่ผู้เรียนเคยถูกสอนไปแล้ว → ถามยืนยันว่าเป็นการสอนทบทวน (เหมือนตอนบันทึกการสอนงาน)
        แก้แผนเดิมโดยไม่เปลี่ยนหัวข้อ/ผู้เรียน ไม่ต้องถามซ้ำ */
     const same = (x, y) => JSON.stringify([...(x || [])].sort()) === JSON.stringify([...(y || [])].sort());
-    const unchanged = !!it && same(it.subtopics, subtopics) && same(it.empIds, empIds);
+    const unchanged = !!it0 && same(it0.subtopics, subtopics) && same(it0.empIds, empIds);
     if (!window._cpReviewOk && !unchanged) {
       const cov = getSubtopicCoverageMap(bid, moduleId, empIds);
       /* ทำแผนย้อนหลัง: มีบันทึกการสอนตรงแผนนี้อยู่แล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน) → หัวข้อที่บันทึกนั้นสอนไปคือการสอนของแผนนี้เอง ไม่ใช่การทบทวน ไม่ต้องถามยืนยัน */
@@ -17990,6 +18048,13 @@ function openPlanItem(grp, itemId, restricted) {
         return;
       }
     }
+    /* ทำแผนซ้ำกันในวันเดียวกัน (Module เดียวกัน ผู้เรียน/หัวข้อซ้อนกัน): ครั้งที่ 2 เป็นต้นไปนับเป็นทบทวน — ถามยืนยันเหมือนตอนบันทึกการสอน */
+    const _dupInfo = _planSameDayDups(bid, { id: itemId, moduleId, planDate, empIds, subtopics });
+    if (_dupInfo.count && !(it0 && it0.review && unchanged) && !window._cpDupOk) {
+      _confirmReviewTopics(_dupInfo.lines, () => { window._cpReviewOk = true; window._cpDupOk = true; try { modalConfirm(); } finally { window._cpReviewOk = false; window._cpDupOk = false; } },
+        { title: 'ทำแผนซ้ำกันในวันเดียวกัน', question: 'ครั้งนี้เป็นแผนสอนทบทวน (ครั้งที่ ' + (_dupInfo.count + 1) + ') ใช่หรือไม่?' });
+      return;
+    }
     if (!_cpBatchMode) { try { localStorage.setItem(_cpCreatorKey(), who); } catch (_) {} }
     const now = new Date().toISOString();
     const rec = {
@@ -18001,9 +18066,10 @@ function openPlanItem(grp, itemId, restricted) {
       createdBy: (it && it.createdBy) || who, createdAt: (it && it.createdAt) || now,
       updatedBy: who, updatedAt: now,
     };
-    if (!it) rec.linked = _planMatches(bid, ym, { moduleId, empIds }).map(t => t.id);   // ทำแผนย้อนหลัง: บันทึกการสอนที่มีอยู่แล้วเป็นของแผนนี้
-    else if (Array.isArray(it.linked)) rec.linked = it.linked;
-    if (it) {
+    if (_dupInfo.count) { rec.review = true; rec.reviewRound = _dupInfo.count + 1; } else if (it0 && it0.review) { rec.review = it0.review; rec.reviewRound = it0.reviewRound; }
+    if (!it0) rec.linked = _planMatches(bid, ym, { moduleId, empIds }).map(t => t.id);   // ทำแผนย้อนหลัง: บันทึกการสอนที่มีอยู่แล้วเป็นของแผนนี้
+    else if (Array.isArray(it0.linked)) rec.linked = it0.linked;
+    if (it0) {
       /* ค่าที่ฟอร์มไม่ได้แก้ (แผนเดิมที่เปลี่ยนตามการสอนจริง ฯลฯ) ต้องไม่หาย */
       if (it.moduleId === moduleId) { if (it.moduleIdOrig) rec.moduleIdOrig = it.moduleIdOrig; if (it.subtopicsOrig) rec.subtopicsOrig = it.subtopicsOrig; }
       rec.history = _planHistoryNext(it, rec, who + (isAnyAdminRole() ? ' (Admin ' + _planActor() + ')' : ''), 'แก้ไขแผน');
@@ -18029,6 +18095,7 @@ function openPlanItem(grp, itemId, restricted) {
   _cpMarkFullEmpOptions();
   _cpSyncEvalRange(false);
   if (_cpRestricted) _cpApplyRestricted();
+  if (_back) _modalAddBack(_back);
   const _mb = document.querySelector('#modal-overlay .modal-body');
   if (_mb) ['input', 'change', 'click'].forEach(ev => _mb.addEventListener(ev, _cpClearErrOnEdit));
   document.addEventListener('click', cpCloseEmpDropdownOutside);
@@ -18128,10 +18195,12 @@ function _cpBatchAddOne() {
       <button type="button" style="flex:1;padding:26px 10px;font-family:inherit;font-size:19px;font-weight:800;color:#16A34A;background:#F0FDF4;border:2px solid #BBF7D0;border-radius:14px;cursor:pointer" onclick="_cpBatchPickGrp('service')">บริการ</button>
     </div>
   `, null, '');
+  _modalAddBack(() => _renderPlanBatchModal());
 }
 function _cpBatchPickGrp(grp) {
   closeModal();
   _cpBatchMode = true;
+  _cpBackNext = () => { _cpBatchMode = false; _cpBatchAddOne(); };
   openPlanItem(grp, null);
 }
 function _cpBatchSaveAll() {
@@ -18424,6 +18493,21 @@ function _planDiffLines(a, b) {
   if ((a.note || '') !== (b.note || '')) L.push('หมายเหตุ: "' + cut(a.note) + '" → "' + cut(b.note) + '"');
   return L;
 }
+/* แผนอื่นของสาขาที่ซ้ำกับแผนนี้ในวันเดียวกัน — Module เดียวกัน · ผู้เรียนซ้อนกัน · หัวข้อซ้อนกัน (รวมแผนที่พักไว้ในชุด "เพิ่มหลายรายการ") */
+function _planSameDayDups(bid, cur) {
+  if (!cur.planDate) return { count: 0, lines: [] };
+  const ym = _ymOf(cur.planDate);
+  const pool = (getCoachingPlan(bid, ym).items || []).concat(_cpBatchMode ? _cpBatchItems : []);
+  const seen = new Set(), hits = [];
+  pool.forEach(x => {
+    if (!x || x.id === cur.id || seen.has(x.id) || x.planDate !== cur.planDate || x.moduleId !== cur.moduleId) return;
+    const lo = (x.empIds || []).length === 0 || cur.empIds.length === 0 || x.empIds.some(id => cur.empIds.includes(id));
+    const so = (x.subtopics || []).some(sub => cur.subtopics.includes(sub));
+    if (lo && so) { seen.add(x.id); hits.push(x); }
+  });
+  const lines = hits.map(x => '<b>' + _escH((MODULES[x.moduleId] || {}).name || x.moduleId) + '</b> · ' + (x.subtopics || []).filter(sub => cur.subtopics.includes(sub)).map(_escH).join(', ') + ' — มีแผนวันที่ ' + _escH(fmtDate(x.planDate)) + ' แล้ว');
+  return { count: hits.length, lines };
+}
 function _planHistoryNext(a, b, by, src) {
   const lines = _planDiffLines(a, b), h = (a.history || []).slice();
   if (lines.length) h.push({ at: new Date().toISOString(), by: by || '—', src: src || '', lines });
@@ -18496,7 +18580,7 @@ function _pendingPlanItems(bid) {
   const now = new Date(), prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const months = [_ymNow(), prev.getFullYear() + '-' + String(prev.getMonth() + 1).padStart(2, '0')];
   const out = [];
-  months.forEach(ym => (getCoachingPlan(bid, ym).items || []).forEach(it => { if (!_planItemDone(bid, ym, it)) out.push({ ym, it }); }));
+  months.forEach(ym => (getCoachingPlan(bid, ym).items || []).forEach(it => { if (!_planItemDone(bid, ym, it) || _planNeedsRetake(bid, ym, it)) out.push({ ym, it, retake: _planItemDone(bid, ym, it) }); }));
   return out;
 }
 let _trGated = false;   // true = ฟอร์มบันทึกการสอนซ่อนส่วนล่างไว้จนกว่าจะเลือกแผน (หรือเลือกไม่ใช้แผน)
@@ -18505,9 +18589,9 @@ function _planPickerHtml(bid) {
   if (!_coachingReady) return '';
   const list = _pendingPlanItems(bid);
   if (!list.length) return `<div class="form-full" style="margin-bottom:14px;font-size:12.5px;color:var(--text3)">📅 ยังไม่มีแผนที่รอสอนในเดือนนี้ — บันทึกการสอนเองได้เลย</div>`;
-  const opts = list.map(({ ym, it }) => {
+  const opts = list.map(({ ym, it, retake }) => {
     const names = (it.empIds || []).map(id => (getEmployee(id) || {}).name).filter(Boolean).join(', ');
-    return `<option value="${_escH(ym + '|' + it.id)}">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} · ${_escH(names || 'ยังไม่ระบุคน')} · ${_escH(_ymLabel(ym))}</option>`;
+    return `<option value="${_escH(ym + '|' + it.id)}">${retake ? '🔁 ต้องสอนใหม่ · ' : ''}${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} · ${_escH(names || 'ยังไม่ระบุคน')} · ${_escH(_ymLabel(ym))}</option>`;
   }).join('');
   _trGated = true;
   return `<div class="form-full" style="margin-bottom:14px">
@@ -18615,8 +18699,8 @@ function renderAdminPlanOverview() {
   const withPlan = rows.filter(r => r.a.items.length).length;
   /* การ์ดสรุป: นับจากสาขาที่แสดงอยู่ (ตามตัวกรอง) */
   const _allItems = rows.flatMap(r => r.a.items.map(it => ({ bid: r.bid, it })));
-  const _taughtN = _allItems.filter(x => _planItemDone(x.bid, ym, x.it)).length;
-  const _redoN = _allItems.filter(x => _planMatches(x.bid, ym, x.it).some(_trainingFailed)).length;
+  const _taughtN = _allItems.filter(x => _planItemDone(x.bid, ym, x.it) && !_planNeedsRetake(x.bid, ym, x.it)).length;
+  const _redoN = _allItems.filter(x => _planNeedsRetake(x.bid, ym, x.it)).length;
   const _evaluatedN = _allItems.filter(x => _planItemEvaluated(x.bid, ym, x.it)).length;
   const _noPlanBranches = bids.filter(b => !rows.some(r => r.bid === b && r.a.items.length)).length;
   const _sumCard = (icon, label, val, sub, color) => `<div class="stat-card" style="border:1px solid var(--border)"><div style="font-size:22px">${icon}</div><div><div class="stat-label" style="font-size:12px;color:var(--text3)">${label}</div><div style="font-size:26px;font-weight:800;line-height:1.1;color:${color || 'var(--text)'}">${val}</div>${sub ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${sub}</div>` : ''}</div></div>`;
@@ -18695,10 +18779,11 @@ function _planItemDetailListHtml(bid, ym, items) {
   return `<div style="display:flex;flex-direction:column;gap:8px">${sorted.map(it => {
     const done = _planItemDone(bid, ym, it);
     const kitchen = _planGroup(it.moduleId) === 'kitchen';
+    const _redo = _planNeedsRetake(bid, ym, it);
     return `<div style="border:1px solid ${done ? '#BBE5C8' : 'var(--border)'};border-left:4px solid ${kitchen ? '#EF4444' : '#22C55E'};border-radius:10px;padding:10px 12px;background:var(--surface)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-weight:800;font-size:13px">${_escH((MODULES[it.moduleId] || {}).name || it.moduleId)} ${it.moduleIdOrig ? '<span class="badge" style="background:#FEF3C7;color:#B45309">เปลี่ยนจากแผน</span>' : ''} ${_retroTag(bid, ym, it)}</span>
-        <span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;background:${done ? 'var(--green)' : 'var(--surface2)'};color:${done ? '#fff' : 'var(--text3)'}">${done ? '✓ สอนแล้ว' : 'ยังไม่สอน'}</span>
+        <span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap;background:${_redo ? '#FEE2E2' : done ? 'var(--green)' : 'var(--surface2)'};color:${_redo ? '#B91C1C' : done ? '#fff' : 'var(--text3)'}">${_redo ? '🔁 ต้องสอนใหม่' : done ? '✓ สอนแล้ว' : 'ยังไม่สอน'}</span>
       </div>
       <div style="font-size:12px;color:var(--text2);line-height:1.65">
         📅 สอน <b>${it.planDate ? _escH(fmtDate(it.planDate)) : '—'}</b>${it.evalDate ? ` · 📝 ประเมิน <b>${_escH(fmtDate(it.evalDate))}</b>` : ''}<br>
