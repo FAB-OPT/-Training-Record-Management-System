@@ -17589,8 +17589,9 @@ function renderCoachingPlanPanel(bid) {
       ${list.length ? list.map(it => {
         const m = MODULES[it.moduleId] || {};
         const _retake = _planNeedsRetake(bid, ym, it);
-        const ok = _planItemDone(bid, ym, it) && !_retake;
-        const ev = ok && _planItemEvaluated(bid, ym, it);
+        const _taught = _planItemDone(bid, ym, it);   // สอนแล้ว (รวมที่ประเมินไม่ผ่าน — เส้นความคืบหน้ายังเขียว)
+        const ok = _taught && !_retake;
+        const ev = _taught && _planItemEvaluated(bid, ym, it);
         const shortD = d => d ? _escH(fmtDate(d)) : '—';   // แสดงปี พ.ศ. ด้วย (เดิมตัดปีออก)
         const _ms = _planMatches(bid, ym, it), _tFirst = _ms[0], _eFirst = _ms.find(t => t.eval);
         const _actualHtml = _planActualHtml(bid, ym, it);
@@ -17608,8 +17609,8 @@ function renderCoachingPlanPanel(bid) {
             ${_retake ? '<span class="cp-status-tag" style="background:#FEE2E2;color:#B91C1C;font-weight:800">🔁 ต้องสอนใหม่</span>' : ev ? '<span class="cp-status-tag ok">✓ ประเมินแล้ว</span>' : ok ? '<span class="cp-status-tag ok">✓ สอนแล้ว</span>' : '<span class="cp-status-tag">ยังไม่สอน</span>'}
           </div>
           <div class="cp-step">
-            <div class="cp-step-line ${ev ? 'full' : ok ? 'half' : ''}"></div>
-            <div class="cp-step-pt l ${ok ? 'done' : ''}"><i></i><span>${_tFirst ? 'สอนจริง' : 'สอน'}</span><b>${_tFirst ? _escH(fmtDate(_tFirst.date)) : shortD(it.planDate)}</b>${_tFirst ? `<small>แผน ${shortD(it.planDate)}</small>` : ''}</div>
+            <div class="cp-step-line ${ev ? 'full' : _taught ? 'half' : ''}"></div>
+            <div class="cp-step-pt l ${_taught ? 'done' : ''}"><i></i><span>${_tFirst ? 'สอนจริง' : 'สอน'}</span><b>${_tFirst ? _escH(fmtDate(_tFirst.date)) : shortD(it.planDate)}</b>${_tFirst ? `<small>แผน ${shortD(it.planDate)}</small>` : ''}</div>
             <div class="cp-step-pt r ${ev ? 'done' : ''}"><i></i><span>${_eFirst ? 'ประเมินจริง' : 'ประเมิน'}</span><b>${_eFirst ? _escH(fmtDate(_eFirst.eval.evalDate || _eFirst.date)) : shortD(it.evalDate)}</b>${_eFirst ? `<small>แผน ${shortD(it.evalDate)}</small>` : ''}</div>
           </div>
           <div class="cp-item-people">
