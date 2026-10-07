@@ -9353,6 +9353,21 @@ function _commitAddEmployee(bid, empCode, name, pos, start, st) {
   notify('เพิ่มพนักงานสำเร็จ');
 }
 
+/* ตรวจรหัสพนักงานที่แก้ — คืนข้อความผิดพลาด หรือ '' ถ้าใช้ได้ (ห้ามว่าง ห้ามซ้ำคนอื่น) */
+function _empCodeError(e, newCode) {
+  if (!newCode) return 'กรุณาใส่รหัสพนักงาน';
+  const norm = v => String(v || '').toLowerCase().replace(/\s+/g, '');
+  const dup = DB.employees.find(x => x.id !== e.id && norm(x.empCode) && norm(x.empCode) === norm(newCode));
+  return dup ? 'รหัส ' + newCode + ' ซ้ำกับ ' + dup.name + ' — ตรวจรหัสอีกครั้ง' : '';
+}
+/* ใส่รหัสใหม่ให้พนักงาน + ประวัติอบรมที่ผูกกับคนนี้ตามรหัสใหม่ (ไม่งั้นรายชื่อแตกเป็นสองกลุ่ม) */
+function _empCodeApply(e, newCode) {
+  if ((e.empCode || '') === newCode) return;
+  e.empCode = newCode;
+  (DB.courseHistory || []).forEach(c => {
+    if (c.empId === e.id && (c.empCode || '') !== newCode) { c.empCode = newCode; gsSave('courseHistory', c.id, c); }
+  });
+}
 function openEditEmployee(id) {
   const e = getEmployee(id); if(!e) return;
   // Branch users can't edit disabled employees (only admin can)
@@ -9378,19 +9393,11 @@ function openEditEmployee(id) {
     const st = _readEmpStatusForm(); if (!st) return;
     /* รหัสพนักงาน: ห้ามว่าง และห้ามซ้ำกับคนอื่น (รหัสใช้จับคู่ประวัติอบรม/ผลสอบ) */
     const newCode = document.getElementById('emp-code-edit').value.trim();
-    if (!newCode) { notify('กรุณาใส่รหัสพนักงาน', 'error'); return; }
-    const _norm = v => String(v || '').toLowerCase().replace(/\s+/g, '');
-    const dupE = DB.employees.find(x => x.id !== e.id && _norm(x.empCode) && _norm(x.empCode) === _norm(newCode));
-    if (dupE) { notify('รหัส ' + newCode + ' ซ้ำกับ ' + dupE.name + ' — ตรวจรหัสอีกครั้ง', 'error'); return; }
+    const codeErr = _empCodeError(e, newCode);
+    if (codeErr) { notify(codeErr, 'error'); return; }
     const wasEnabled = _isEmpEnabled(e);
     const _before = { code: e.empCode || '', name: e.name, position: e.position, startDate: e.startDate, status: e.status, reason: e.disabledReason || '' };
-    e.empCode = newCode;
-    /* ประวัติอบรมที่ผูกกับคนนี้ ต้องตามรหัสใหม่ ไม่งั้นรายชื่อแตกเป็นสองกลุ่ม */
-    if (_before.code !== newCode) {
-      (DB.courseHistory || []).forEach(c => {
-        if (c.empId === e.id && (c.empCode || '') !== newCode) { c.empCode = newCode; gsSave('courseHistory', c.id, c); }
-      });
-    }
+    _empCodeApply(e, newCode);
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.positionGroup=getPositionGroup(e.position);
@@ -19557,6 +19564,9 @@ function adminEditEmp(empId, bid) {
   showModal(`แก้ไขพนักงาน — สาขา ${bid}`, `
     ${xferBlock}
     <div class="form-row">
+      <div><label class="form-label">รหัสพนักงาน <span class="req">*</span></label><input class="form-input" id="emp-code-edit" value="${_escH(e.empCode||'')}" placeholder="เช่น 267032"></div>
+    </div>
+    <div class="form-row">
       <div><label class="form-label">ชื่อ - นามสกุล</label><input class="form-input" id="emp-name" value="${e.name}"></div>
       <div><label class="form-label">ตำแหน่ง</label><select class="form-select" id="emp-pos"><option value="">-- เลือกตำแหน่ง --</option><option value="Service Basic P/T" ${e.position==="Service Basic P/T"?"selected":""}>Service Basic P/T</option>
 <option value="Service Basic" ${e.position==="Service Basic"?"selected":""}>Service Basic</option>
@@ -19580,7 +19590,11 @@ function adminEditEmp(empId, bid) {
       ${_empStatusFormHtml(e.status, e.disabledReason)}
     </div>`, () => {
     const st = _readEmpStatusForm(); if (!st) return;
+    const newCode2 = document.getElementById('emp-code-edit').value.trim();
+    const codeErr2 = _empCodeError(e, newCode2);
+    if (codeErr2) { notify(codeErr2, 'error'); return; }
     const wasEnabled2 = _isEmpEnabled(e);
+    _empCodeApply(e, newCode2);
     e.name=document.getElementById('emp-name').value.trim();
     e.position=document.getElementById('emp-pos').value.trim();
     e.startDate=document.getElementById('emp-start').value;
