@@ -302,9 +302,15 @@ function _chatViaGemini(req, apiKey) {
     }
     var resp, code, body;
     var lastErr = '';
+    /* งบเวลารวม — เคยเจอ doPost ค้าง 360 วิ (ชนเพดาน 6 นาทีของ Apps Script) เพราะไล่ลองทีละรุ่น
+       แล้ว Gemini แต่ละครั้งค้างเกือบนาที (วัดจากหน้า Executions เมื่อ 7 ต.ค. 69)
+       เกินงบแล้วหยุดเลย ตอบ error ทันที หน้าเว็บจะได้ลองใหม่ ไม่ปล่อยให้ค้างกินช่องทำงาน */
+    var _t0 = Date.now(), _BUDGET = 25000;
     outer: for (var mi = 0; mi < models.length; mi++) {
+      if (Date.now() - _t0 > _BUDGET) { lastErr = 'ช้าเกินงบเวลา (' + Math.round((Date.now() - _t0) / 1000) + ' วิ)'; code = 504; break; }
       const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[mi] + ':generateContent?key=' + apiKey;
       for (var attempt = 0; attempt < 2; attempt++) {
+        if (Date.now() - _t0 > _BUDGET) { lastErr = 'ช้าเกินงบเวลา (' + Math.round((Date.now() - _t0) / 1000) + ' วิ)'; code = 504; break outer; }
         resp = UrlFetchApp.fetch(url, {
           method: 'post',
           contentType: 'application/json',
@@ -336,6 +342,7 @@ function _chatViaGemini(req, apiKey) {
         break outer;
       }
     }
+    if (code === 504) return { error: 'Gemini ตอบช้าเกินกำหนด (' + lastErr + ') — ลองถามใหม่อีกครั้งค่ะ' };
     if (code !== 200) {
       if (code === 429) {
         return { error: 'โควต้า Gemini API หมดชั่วคราว — ลองใหม่ในอีก 1 นาที หรือถ้าใช้บ่อย อาจต้องสร้าง API key ใหม่ที่ aistudio.google.com (โปรเจกต์ใหม่จะได้ free tier เต็มอีกครั้ง)' };
