@@ -9357,7 +9357,7 @@ function _commitAddEmployee(bid, empCode, name, pos, start, st) {
 function _empCodeError(e, newCode) {
   if (!newCode) return 'กรุณาใส่รหัสพนักงาน';
   const norm = v => String(v || '').toLowerCase().replace(/\s+/g, '');
-  const dup = DB.employees.find(x => x.id !== e.id && norm(x.empCode) && norm(x.empCode) === norm(newCode));
+  const dup = Object.values(DB.employees).flat().find(x => x.id !== e.id && norm(x.empCode) && norm(x.empCode) === norm(newCode));
   return dup ? 'รหัส ' + newCode + ' ซ้ำกับ ' + dup.name + ' — ตรวจรหัสอีกครั้ง' : '';
 }
 /* ใส่รหัสใหม่ให้พนักงาน + ประวัติอบรมที่ผูกกับคนนี้ตามรหัสใหม่ (ไม่งั้นรายชื่อแตกเป็นสองกลุ่ม) */
