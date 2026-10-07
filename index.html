@@ -5502,8 +5502,13 @@ function subscribeCasesRealtime() {
           _afterCaseChange('delete', c);
           return;
         }
+        /* เทียบกับของเดิมในเครื่อง: ถ้าเนื้อหา/สถานะ/จำนวนข้อความเท่าเดิม แปลว่าเป็นแค่เสียงสะท้อนของที่เราเพิ่งบันทึกเอง
+           (เช่นจดว่า "อ่านแล้ว" หรือส่งข้อความเอง) — เก็บค่าใหม่เงียบ ๆ ไม่เด้งแจ้งเตือนและไม่วาดหน้าใหม่ */
+        const _sig = x => x ? (x.updatedAt || '') + '|' + (x.status || '') + '|' + ((x.messages || []).length) : '';
+        const _same = i >= 0 && _sig(DB.cases[i]) === _sig(c);
         if (i >= 0) DB.cases[i] = c; else DB.cases.push(c);
         _pendingCaseIds.delete(c.id);
+        if (_same) { _cacheCases(); return; }
         if (!_caseInScope(c)) { _cacheCases(); return; }        // ไม่ใช่สาขาเรา เก็บเงียบ ๆ ไม่ต้องเด้ง
         _afterCaseChange(payload.eventType === 'INSERT' ? 'insert' : 'update', c);
       })
