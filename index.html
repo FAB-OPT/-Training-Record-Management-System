@@ -3401,6 +3401,56 @@ body.admin-user .btn-navy{background:var(--primary)}
   body.admin-user .bottom-nav-item.active .bottom-nav-label { font-weight: 800; }
 }
 </style>
+<style id="tm-style">
+/* ═══ หน้า Admin แบบตาราง: จัดอันดับโซน BZM · เคสจากสาขา · ประวัติแชตบอท ═══ */
+.tm-hero{display:flex;align-items:center;gap:14px;margin-bottom:4px}
+.tm-hero .tm-ic{width:46px;height:46px;border-radius:14px;background:#FF6B1A;color:#fff;display:grid;place-items:center;flex:none}
+.tm-hero .tm-ic.round{border-radius:50%}
+.tm-hero h1{font-size:26px;font-weight:800;margin:0;letter-spacing:-.01em;color:var(--text)}
+.tm-hero .sp{flex:1}
+.tm-sub{color:var(--text3);font-size:13.5px;margin:2px 0 16px}
+.tm-strip{display:grid;background:var(--surface);border:1px solid var(--border);border-radius:16px;margin-bottom:14px;overflow:hidden}
+.tm-strip>div{padding:16px 22px;display:flex;align-items:center;gap:14px;border-right:1px solid var(--border);min-width:0}
+.tm-strip>div:last-child{border-right:0}
+.tm-strip>div.clk{cursor:pointer}.tm-strip>div.clk:hover{background:#FFF8F4}
+.tm-strip .ico{color:#FF6B1A;flex:none;display:grid;place-items:center}
+.tm-strip .n{font-size:30px;font-weight:800;color:#FF6B1A;line-height:1.05;font-variant-numeric:tabular-nums}
+.tm-strip .l{font-size:13px;color:var(--text2)}
+.tm-strip .lat{grid-column:1/-1;border-right:0;border-top:1px solid var(--border);padding:12px 22px;gap:18px;flex-wrap:wrap;font-size:13.5px;color:var(--text2)}
+.tm-strip .lat b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.tm-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.tm-bar .tm-search{flex:1;min-width:220px;position:relative}
+.tm-bar .tm-search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3)}
+.tm-bar .tm-search input{width:100%;height:46px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);padding:0 14px 0 42px;font-size:14px;font-family:inherit;color:var(--text)}
+.tm-bar select{height:46px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:0 36px 0 14px;font-size:14px;font-family:inherit;color:var(--text);min-width:150px}
+.tm-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.tm-tbl{width:100%;border-collapse:collapse}
+.tm-tbl th{background:#FFF1EA;color:#2b2b2b;font-size:13.5px;font-weight:700;padding:14px 16px;text-align:left;white-space:nowrap;user-select:none}
+.tm-tbl th.c,.tm-tbl td.c{text-align:center}
+.tm-tbl th.srt{cursor:pointer}.tm-tbl th.srt::after{content:"\2195";margin-left:6px;font-size:11px;color:var(--text3)}
+.tm-tbl td{padding:14px 16px;border-top:1px solid var(--border);font-size:14px;vertical-align:middle}
+.tm-tbl tr.clk{cursor:pointer}.tm-tbl tr.clk:hover td{background:#FFF8F4}
+.tm-dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:12px;vertical-align:middle}
+.tm-pill{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:5px 12px;font-size:13px;font-weight:700;white-space:nowrap}
+.tm-pill.ok{background:#E4F6EA;color:#15803D}.tm-pill.bad{background:#FDE8E8;color:#DC2626}.tm-pill.wait{background:#FEF3C7;color:#B45309}
+.tm-pill.prog{background:#DBEAFE;color:#1D4ED8}.tm-pill.off{background:#F1F2F4;color:#4B5563}.tm-pill.info{background:#FEF3C7;color:#B45309}
+.tm-urgent{display:inline-flex;align-items:center;gap:4px;margin-left:10px;background:#FDE8E8;color:#DC2626;border-radius:10px;padding:3px 10px;font-size:12px;font-weight:700;vertical-align:middle}
+.tm-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--text3);margin-top:5px}
+.tm-meta b{color:#FF6B1A;font-weight:700}.tm-meta svg{color:#FF6B1A}
+.tm-chev{color:var(--text3);font-size:22px;font-weight:300}
+.tm-btn-o{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:13.5px;font-weight:700;color:var(--text);cursor:pointer}
+.tm-btn-o:hover{border-color:#FF6B1A;color:#FF6B1A}
+.tm-btn-p{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:12px;border:0;background:#FF6B1A;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 14px rgba(255,107,26,.3)}
+.tm-info{background:#FFF1EA;border:1px solid rgba(255,107,26,.25);border-radius:12px;padding:12px 16px;min-width:300px;max-width:420px}
+.tm-info summary{cursor:pointer;font-weight:800;color:#FF6B1A;font-size:13.5px;list-style:none;display:flex;align-items:center;gap:8px}
+.tm-info summary::-webkit-details-marker{display:none}
+.tm-info div{font-size:12.5px;color:var(--text2);margin-top:8px;line-height:1.55}
+.tm-score{display:grid;grid-template-columns:minmax(120px,1fr) auto;gap:4px 14px;align-items:center;min-width:300px}
+.tm-score .bar{height:10px;border-radius:999px;background:#E9ECEF;overflow:hidden}.tm-score .bar i{display:block;height:100%;border-radius:999px;background:#22A06B}
+.tm-score .num{font-size:20px;font-weight:800;color:#FF6B1A;text-align:right}.tm-score .num.z{color:var(--text3)}
+.tm-score .f{grid-column:2;font-size:11px;color:var(--text3);text-align:right;margin-top:-4px}
+@media(max-width:900px){.tm-hero{flex-wrap:wrap}.tm-hero .sp{display:none}.tm-hero>div:last-child:not(:first-child){width:100%}.tm-score{min-width:0}.tm-score .f{white-space:nowrap}.tm-info{min-width:0;max-width:none;width:100%}.tm-strip{grid-template-columns:1fr 1fr!important}.tm-strip>div{border-bottom:1px solid var(--border)}.tm-tbl{display:block;overflow-x:auto}.tm-hero h1{font-size:21px}}
+</style>
 </head>
 <body>
 
@@ -21239,6 +21289,38 @@ function _updateAqTotal() {
 }
 
 // ==================== EXECUTIVE PAGES (VP / COO) ====================
+/* ═══ ไอคอนเส้น (ใช้ร่วมกัน 3 หน้า Admin แบบตาราง) ═══ */
+function _tmIc(name, size) {
+  const P = {
+    bars:   '<path d="M5 20V10M12 20V4M19 20v-7"/>',
+    store:  '<path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3M9 20v-5h6v5"/>',
+    org:    '<circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4V13M12 13l-6 3.8M12 13l6 3.8"/>',
+    people: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.2c2.8 0 5 2.1 5 4.8"/>',
+    hour:   '<path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/>',
+    wrench: '<path d="M14.5 6.5a4 4 0 0 0 5 5L11 20a2.1 2.1 0 0 1-3-3l8.5-8.5"/><path d="M14.5 6.5l3-3 3 3-3 3"/>',
+    check:  '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 9.5"/>',
+    doc:    '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    chat:   '<path d="M20 12a8 8 0 0 1-11.7 7L4 20l1.1-4.1A8 8 0 1 1 20 12z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/>',
+    chat2:  '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+    warn:   '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+    clock:  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    pin:    '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.4"/>',
+    user:   '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+    tag:    '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.4"/>',
+    bolt:   '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+    gear:   '<circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    refresh:'<path d="M20 11a8 8 0 0 0-14.5-4M4 13a8 8 0 0 0 14.5 4M4 4v4h4M20 20v-4h-4"/>',
+    pulse:  '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+    cal:    '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    info:   '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  };
+  const s = size || 22;
+  return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (P[name] || '') + '</svg>';
+}
+let _lbFilter = 'all';
+function setLbFilter(v) { _lbFilter = v; document.getElementById('main-content').innerHTML = renderExecLeaderboard(); }
+const LB_COLORS = ['#FF7A1A', '#3B82F6', '#8B5CF6', '#92400E', '#EC4899', '#EAB308', '#9CA3AF', '#10B981', '#06B6D4', '#F43F5E'];
 function renderExecLeaderboard() {
   // Compute per-BZM rollup: branches, employees, sessions, eval rate, pass rate
   const zones = getAllBzms();
@@ -21266,62 +21348,58 @@ function renderExecLeaderboard() {
   const totalBranches = Object.keys(BRANCH_MASTER).length;
   const totalEmps = Object.values(DB.employees).flat().filter(_isEmpEnabled).length;
   const totalSessions = DB.trainings.length;
+  const shown = _lbFilter === 'top3' ? rows.filter(r => r.score > 0).slice(0, 3)
+              : _lbFilter === 'low'  ? rows.filter(r => r.sessions > 0 && r.score < 80)
+              : rows;
   return `
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-title">🏆 จัดอันดับโซน BZM</div>
-      <div class="page-hero-sub">เปรียบเทียบผลงานของแต่ละโซน — เรียงตามคะแนนรวม (เฉลี่ย อัตราผ่าน + อัตราประเมิน · ถ่วง 50/50)</div>
-    </div>
+  <div class="tm-hero"><span class="tm-ic">${_tmIc('bars', 24)}</span><h1>จัดอันดับโซน BZM</h1></div>
+  <div class="tm-sub">เปรียบเทียบผลงานของแต่ละโซน — เรียงตามคะแนนรวม (เฉลี่ย อัตราผ่าน + อัตราประเมิน · ถ่วง 50/50)</div>
+  <div class="tm-strip" style="grid-template-columns:repeat(3,1fr)">
+    <div><span class="ico">${_tmIc('store', 40)}</span><div><div class="n">${zones.length}</div><div class="l">โซน BZM</div></div></div>
+    <div><span class="ico">${_tmIc('org', 40)}</span><div><div class="n">${totalBranches}</div><div class="l">สาขาทั้งหมด</div></div></div>
+    <div><span class="ico">${_tmIc('people', 40)}</span><div><div class="n">${totalEmps}</div><div class="l">พนักงาน</div></div></div>
   </div>
-  <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${zones.length}</div><div class="stat-label">โซน BZM</div></div>
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalBranches}</div><div class="stat-label">สาขาทั้งหมด</div></div>
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalEmps}</div><div class="stat-label">พนักงาน</div></div>
+  <div class="tm-bar" style="align-items:flex-start;justify-content:space-between">
+    <select onchange="setLbFilter(this.value)" style="min-width:200px">
+      <option value="all"${_lbFilter==='all'?' selected':''}>แสดงทั้งหมด</option>
+      <option value="top3"${_lbFilter==='top3'?' selected':''}>เฉพาะ 3 อันดับแรก</option>
+      <option value="low"${_lbFilter==='low'?' selected':''}>เฉพาะที่คะแนนต่ำกว่า 80</option>
+    </select>
+    <details class="tm-info" open>
+      <summary>${_tmIc('info', 18)} วิธีคำนวณคะแนน</summary>
+      <div><b>คะแนนรวม</b> = (อัตราผ่าน + อัตราประเมิน) ÷ 2<br>อัตราประเมิน = ประเมินแล้ว ÷ การสอน × 100 · อัตราผ่าน = ผ่านเกณฑ์ ÷ ประเมินแล้ว × 100</div>
+    </details>
   </div>
-  <div class="card" style="padding:11px 15px;margin-bottom:14px;background:var(--accent-light);border:1px solid rgba(255,107,26,0.18);display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12.5px;color:var(--text2);line-height:1.5">
-    <span style="font-weight:800;color:var(--accent)">ℹ️ วิธีคิดคะแนน</span>
-    <span><b>อัตราประเมิน</b> = ประเมินแล้ว ÷ การสอน × 100</span>
-    <span><b>อัตราผ่าน</b> = ผ่านเกณฑ์ ÷ ประเมินแล้ว × 100</span>
-    <span style="font-weight:700;color:var(--text)"><b style="color:var(--accent)">คะแนนรวม</b> = (อัตราผ่าน + อัตราประเมิน) ÷ 2</span>
-  </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <table class="cards-on-mobile">
+  <div class="tm-card">
+    <table class="tm-tbl cards-on-mobile">
       <thead><tr>
-        <th style="width:60px;text-align:center">#</th>
+        <th class="c" style="width:80px">อันดับ</th>
         <th>โซน BZM</th>
-        <th style="text-align:center">สาขา</th>
-        <th style="text-align:center">พนง.</th>
-        <th style="text-align:center">สอน</th>
-        <th style="text-align:center">ประเมิน</th>
-        <th style="text-align:center;color:var(--green)">ผ่าน</th>
-        <th style="text-align:center;background:var(--accent-light);color:var(--accent);font-weight:800">คะแนน</th>
+        <th class="c">สาขา</th>
+        <th class="c">พนักงาน</th>
+        <th class="c">สอน</th>
+        <th class="c">ประเมิน</th>
+        <th class="c">ผ่าน</th>
+        <th style="color:#FF6B1A">คะแนนรวม</th>
       </tr></thead>
       <tbody>
-        ${rows.length ? rows.map((r, i) => {
-          const hasData = r.sessions > 0 || r.score > 0;
-          const sCol = r.score >= 70 ? 'var(--green)' : r.score >= 40 ? 'var(--accent)' : (r.score > 0 ? 'var(--red)' : 'var(--text3)');
-          const rank = (r.score > 0 && i < 3)
-            ? `<span style="font-size:20px">${medals[i]}</span>`
-            : `<span style="color:var(--text3);font-weight:700;font-size:14px">${i+1}</span>`;
-          const rowStyle = (i === 0 && r.score > 0) ? 'background:rgba(255,107,26,0.06)' : (hasData ? '' : 'opacity:.5');
-          const passCol = r.passRate>=80?'var(--green)':(r.passRate>=60?'var(--accent)':(r.evaluated?'var(--red)':'var(--text3)'));
-          return `<tr style="${rowStyle}">
-          <td data-label="อันดับ" style="text-align:center">${rank}</td>
-          <td data-label="โซน" style="font-weight:700">${r.name}</td>
-          <td data-label="สาขา" style="text-align:center;font-weight:600">${r.branches}</td>
-          <td data-label="พนักงาน" style="text-align:center;font-weight:600">${r.emps}</td>
-          <td data-label="การสอน" style="text-align:center;font-weight:600">${r.sessions}</td>
-          <td data-label="ประเมิน" style="text-align:center;font-weight:600">${r.evaluated}<span style="color:var(--text3);font-size:11px;margin-left:3px">(${r.evalRate}%)</span></td>
-          <td data-label="ผ่าน" style="text-align:center;font-weight:700;color:${passCol}">${r.passed}<span style="font-size:11px;margin-left:3px;opacity:.85">(${r.passRate}%)</span></td>
-          <td data-label="คะแนน">
-            <div style="display:flex;align-items:center;gap:8px;min-width:118px">
-              <div style="flex:1;height:8px;border-radius:999px;background:rgba(148,163,184,0.25);overflow:hidden"><div style="height:100%;width:${r.score}%;background:${sCol};border-radius:999px;transition:width .35s"></div></div>
-              <span style="font-weight:800;font-size:15px;color:${sCol};min-width:26px;text-align:right">${r.score}</span>
-            </div>
-            ${r.sessions ? `<div style="font-size:10.5px;color:var(--text3);text-align:right;margin-top:3px">(${r.passRate} + ${r.evalRate}) ÷ 2 = ${r.score}</div>` : ''}
-          </td>
+        ${shown.length ? shown.map(r => {
+          const i = rows.indexOf(r);
+          const col = LB_COLORS[i % LB_COLORS.length];
+          const passCol = r.passRate >= 80 ? '#15803D' : (r.passRate >= 60 ? '#EA580C' : (r.evaluated ? '#DC2626' : 'var(--text3)'));
+          return `<tr>
+          <td data-label="อันดับ" class="c" style="font-weight:800;font-size:16px">${i + 1}</td>
+          <td data-label="โซน" style="font-weight:600"><span class="tm-dot" style="background:${col}"></span>${r.name}</td>
+          <td data-label="สาขา" class="c">${r.branches}</td>
+          <td data-label="พนักงาน" class="c">${r.emps}</td>
+          <td data-label="การสอน" class="c">${r.sessions}</td>
+          <td data-label="ประเมิน" class="c">${r.evaluated} <span style="color:var(--text3)">(${r.evalRate}%)</span></td>
+          <td data-label="ผ่าน" class="c" style="font-weight:700;color:${passCol}">${r.passed} <span style="font-weight:500">(${r.passRate}%)</span></td>
+          <td data-label="คะแนนรวม"><div class="tm-score">
+            <div class="bar"><i style="width:${r.score}%"></i></div><div class="num${r.score ? '' : ' z'}">${r.score}</div>
+            <div class="f">(${r.passRate} + ${r.evalRate}) ÷ 2 = ${r.score}</div></div></td>
         </tr>`;
-        }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">ยังไม่มีข้อมูลโซน BZM</td></tr>'}
+        }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:30px">ไม่มีโซนที่ตรงกับตัวกรอง</td></tr>'}
       </tbody>
     </table>
   </div>`;
@@ -21573,6 +21651,24 @@ function renderBranchCases() {
   ${filtered.length ? filtered.map(c => _caseRowCard(c, false)).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">📭 ยังไม่มีเคส — กด <b>+ แจ้งเคสใหม่</b> เพื่อสร้าง</div>'}`;
 }
 
+let _caseSort = { key: '', dir: 'asc' };
+function setCaseSort(k) {
+  _caseSort = (_caseSort.key === k) ? { key: k, dir: _caseSort.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: 'asc' };
+  document.getElementById('main-content').innerHTML = renderAdminCases();
+}
+function _caseLastTs(c) { const m = c.messages || []; return m.length ? m[m.length - 1].ts : (c.updatedAt || c.createdAt); }
+function _caseAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'เพิ่งนี้';
+  if (mins < 60) return mins + ' นาทีที่แล้ว';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + ' ชม. ที่แล้ว';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + ' วันที่แล้ว';
+  return fmtDate(ts);
+}
+const CASE_PILL = { open: ['wait', 'hour'], in_progress: ['prog', 'wrench'], resolved: ['ok', 'check'], closed: ['off', 'doc'] };
 function renderAdminCases() {
   _markCasesViewed();
   setTimeout(refreshCaseBadge, 0);
@@ -21605,56 +21701,64 @@ function renderAdminCases() {
 
   const heroTitle = isBzmRole() ? '📨 เคสในโซน' : (isExecRole() ? '📨 เคสทั้งระบบ' : '📨 เคสจากสาขา');
 
+  if (_caseSort.key) {
+    const dir = _caseSort.dir === 'asc' ? 1 : -1;
+    const val = {
+      title:  c => c.subject || '',
+      branch: c => c.branchId || '',
+      cat:    c => (CASE_CATEGORIES[c.category] || {}).label || '',
+      status: c => ({ open: 0, in_progress: 1, resolved: 2, closed: 3 })[c.status] ?? 4,
+      upd:    c => _caseLastTs(c) || '',
+    }[_caseSort.key];
+    filtered = filtered.slice().sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+  }
+  const heroText = heroTitle.replace(/^\S+\s/, '');
+  const stat = (key, ic, n, label) => `<div class="clk" onclick="setCaseFilter('status','${key}')"><span class="ico">${_tmIc(ic, 38)}</span><div><div class="n">${n}</div><div class="l">${label}</div></div></div>`;
+  const th = (k, label, cls) => `<th class="srt${cls ? ' ' + cls : ''}" onclick="setCaseSort('${k}')">${label}</th>`;
+  const rowsHtml = filtered.map(c => {
+    const cat = CASE_CATEGORIES[c.category] || CASE_CATEGORIES.other;
+    const st = CASE_STATUS[c.status] || CASE_STATUS.open;
+    const pp = CASE_PILL[c.status] || CASE_PILL.open;
+    const msgs = c.messages || [], last = msgs.length ? msgs[msgs.length - 1] : null;
+    const lastBy = last ? (last.role === 'branch' ? 'สาขา' : 'Admin') : '';
+    return `<tr class="clk" onclick="openCaseDetail('${c.id}')">
+      <td><b style="font-size:15px">${c.subject || '(ไม่มีหัวข้อ)'}</b>${c.priority === 'urgent' ? `<span class="tm-urgent">${_tmIc('bolt', 13)} ด่วน</span>` : ''}
+        <div class="tm-meta">${_tmIc('pin', 14)} <b>${c.branchId}</b> ${(c.branchName || '').replace(c.branchId + ' ', '')} <span>·</span> ${_tmIc('user', 14)} ${c.reporterName || '-'}</div></td>
+      <td style="color:var(--text2)">${cat.label}</td>
+      <td style="color:var(--text2);white-space:nowrap">${msgs.length ? '💬 ' + msgs.length : '—'}${lastBy ? ` <span style="font-size:11px;font-weight:700;color:${last.role === 'branch' ? '#15803D' : '#DC2626'}">· ${lastBy}</span>` : ''}</td>
+      <td><span class="tm-pill ${pp[0]}">${_tmIc(pp[1], 15)} ${st.label}</span></td>
+      <td style="color:var(--text2);white-space:nowrap">${_caseAgo(_caseLastTs(c))}</td>
+      <td class="c"><span class="tm-chev">›</span></td>
+    </tr>`;
+  }).join('');
   return `
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-title">${heroTitle}</div>
-      <div class="page-hero-sub">เคสที่สาขาแจ้งมา · เรียงตามสถานะ (รอตอบรับ → กำลังดำเนินการ → แก้ไขแล้ว → ปิด)</div>
-    </div>
-    ${!isAdminRole() ? '<button class="btn btn-navy" onclick="openCreateCase()">+ แจ้งเคสใหม่</button>' : ''}
+  <div class="tm-hero"><span class="tm-ic">${_tmIc('doc', 24)}</span><h1>${heroText}</h1><span class="sp"></span>${!isAdminRole() ? '<button class="tm-btn-p" onclick="openCreateCase()">+ แจ้งเคสใหม่</button>' : ''}</div>
+  <div class="tm-sub">เคสที่สาขาแจ้งมา · เรียงตามสถานะ (รอตอบรับ → กำลังดำเนินการ → แก้ไขแล้ว → ปิด)</div>
+  <div class="tm-strip" style="grid-template-columns:repeat(5,1fr)">
+    ${stat('open', 'hour', counts.open, 'รอตอบรับ')}
+    ${stat('in_progress', 'wrench', counts.in_progress, 'กำลังดำเนินการ')}
+    ${stat('resolved', 'check', counts.resolved, 'แก้ไขแล้ว')}
+    ${stat('closed', 'doc', counts.closed, 'ปิด')}
+    ${stat('', 'bars', list.length, 'ทั้งหมด')}
   </div>
-
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
-    <div class="stat-card case-stat" style="padding:14px 12px;text-align:center;cursor:pointer;border-left:4px solid #F59E0B" onclick="setCaseFilter('status','open')">
-      <div style="font-size:22px;line-height:1;margin-bottom:4px">⏳</div>
-      <div class="stat-value" style="font-size:22px;color:#F59E0B;font-weight:800;line-height:1">${counts.open}</div>
-      <div class="stat-label" style="font-size:11.5px;margin-top:4px">รอตอบรับ</div>
-    </div>
-    <div class="stat-card case-stat" style="padding:14px 12px;text-align:center;cursor:pointer;border-left:4px solid #3B82F6" onclick="setCaseFilter('status','in_progress')">
-      <div style="font-size:22px;line-height:1;margin-bottom:4px">🔧</div>
-      <div class="stat-value" style="font-size:22px;color:#3B82F6;font-weight:800;line-height:1">${counts.in_progress}</div>
-      <div class="stat-label" style="font-size:11.5px;margin-top:4px">กำลังดำเนินการ</div>
-    </div>
-    <div class="stat-card case-stat" style="padding:14px 12px;text-align:center;cursor:pointer;border-left:4px solid #16A34A" onclick="setCaseFilter('status','resolved')">
-      <div style="font-size:22px;line-height:1;margin-bottom:4px">✅</div>
-      <div class="stat-value" style="font-size:22px;color:#16A34A;font-weight:800;line-height:1">${counts.resolved}</div>
-      <div class="stat-label" style="font-size:11.5px;margin-top:4px">แก้ไขแล้ว</div>
-    </div>
-    <div class="stat-card case-stat" style="padding:14px 12px;text-align:center;cursor:pointer;border-left:4px solid var(--accent)" onclick="setCaseFilter('status','')">
-      <div style="font-size:22px;line-height:1;margin-bottom:4px">📊</div>
-      <div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800;line-height:1">${list.length}</div>
-      <div class="stat-label" style="font-size:11.5px;margin-top:4px">ทั้งหมด</div>
-    </div>
+  <div class="tm-bar">
+    <div class="tm-search">${_tmIc('search', 18)}<input placeholder="ค้นหาหัวข้อ / สาขา / ผู้แจ้ง..." oninput="setCaseFilter('search', this.value)" value="${(f.search || '').replace(/"/g, '&quot;')}"></div>
+    <select onchange="setCaseFilter('status', this.value)">
+      <option value=""${!f.status ? ' selected' : ''}>สถานะ: ทั้งหมด</option>
+      ${Object.entries(CASE_STATUS).map(([k, v]) => `<option value="${k}"${f.status === k ? ' selected' : ''}>${v.label}</option>`).join('')}
+    </select>
+    <select onchange="setCaseFilter('branch', this.value)">
+      <option value=""${!f.branch ? ' selected' : ''}>สาขา: ทั้งหมด</option>${branchOpts}
+    </select>
+    <select onchange="setCaseFilter('category', this.value)">
+      <option value=""${!f.category ? ' selected' : ''}>หมวดหมู่: ทั้งหมด</option>
+      ${Object.entries(CASE_CATEGORIES).map(([k, v]) => `<option value="${k}"${f.category === k ? ' selected' : ''}>${v.label}</option>`).join('')}
+    </select>
   </div>
-
-  <div class="card" style="margin-bottom:12px;padding:10px 12px">
-    <div class="case-filter-bar" style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center">
-      <input class="search-input" placeholder="🔍 ค้นหา หัวข้อ / สาขา / ผู้แจ้ง…" oninput="setCaseFilter('search', this.value)" style="flex:1;min-width:0" value="${(f.search||'').replace(/"/g,'&quot;')}">
-      <select class="form-select" onchange="setCaseFilter('status', this.value)" style="width:130px;flex-shrink:0">
-        <option value=""${!f.status?' selected':''}>— สถานะ —</option>
-        ${Object.entries(CASE_STATUS).map(([k,v]) => `<option value="${k}"${f.status===k?' selected':''}>${v.label}</option>`).join('')}
-      </select>
-      <select class="form-select" onchange="setCaseFilter('branch', this.value)" style="width:160px;flex-shrink:0">
-        <option value=""${!f.branch?' selected':''}>— สาขา —</option>${branchOpts}
-      </select>
-      <select class="form-select" onchange="setCaseFilter('category', this.value)" style="width:150px;flex-shrink:0">
-        <option value=""${!f.category?' selected':''}>— หมวด —</option>
-        ${Object.entries(CASE_CATEGORIES).map(([k,v]) => `<option value="${k}"${f.category===k?' selected':''}>${v.icon} ${v.label}</option>`).join('')}
-      </select>
-    </div>
-  </div>
-
-  ${filtered.length ? filtered.map(c => _caseRowCard(c, true)).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">📭 ไม่พบเคสที่ตรงกับ filter</div>'}`;
+  ${filtered.length ? `<div class="tm-card"><table class="tm-tbl">
+    <thead><tr>${th('title', 'หัวข้อเคส')}${th('cat', 'หมวดหมู่')}<th>ข้อความ</th>${th('status', 'สถานะ')}${th('upd', 'อัปเดตล่าสุด')}<th class="c">ดูรายละเอียด</th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table></div>`
+  : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">📭 ไม่พบเคสที่ตรงกับ filter</div>'}`;
 }
 
 function openCreateCase() {
@@ -22515,79 +22619,77 @@ function renderAdminChatLogs() {
   const latP90 = latAll.length ? latAll[Math.min(latAll.length - 1, Math.floor(latAll.length * 0.9))] : 0;
   const latSlow = latAll.filter(x => x > 15000).length;
   const _esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const sessionsHtml = sessions.length ? sessions.map(s => {
+  const rowsHtml = sessions.map(s => {
     const first = s.msgs[0];
     const last  = s.msgs[s.msgs.length-1];
     const errIn = s.msgs.some(m => m.err);
     const askIn = s.msgs.some(_chatLogNeedsInfo);
-    const roleColor = ({branch:'#16A34A', admin:'#DC2626', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777'})[first.userRole] || '#6B7280';
+    const roleColor = ({branch:'#16A34A', admin:'#6B7280', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777'})[first.userRole] || '#6B7280';
     const rawPrev = String(last.content || '').replace(/[*#`>]/g,'').replace(/\s+/g,' ').trim();
-    const preview = _esc(rawPrev.slice(0, 90)) + (rawPrev.length > 90 ? '…' : '');
-    return `<div onclick="openChatLogSession('${s.sid}')" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s,transform .15s;${errIn?'border-left:4px solid #EF4444;':''}" onmouseenter="this.style.boxShadow='0 6px 18px rgba(0,0,0,.07)';this.style.transform='translateY(-1px)'" onmouseleave="this.style.boxShadow='none';this.style.transform='translateY(0)'">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div style="min-width:0;flex:1">
-          <div style="font-size:14px;font-weight:800;color:var(--text)">${_esc(first.userName)||'-'} <span style="font-size:10.5px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;font-weight:700;letter-spacing:.3px">${_esc((first.userRole||'-').toUpperCase())}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700">${_esc(first.branchId)}</span>` : ''}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ${_latTag(s.msgs, latMap)}${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}${askIn?` · <span style="color:#D97706;font-weight:700">ขอข้อมูลเพิ่ม</span>`:''}</div>
-        </div>
-        <span style="font-size:18px;color:var(--text3);flex-shrink:0">›</span>
-      </div>
-      <div style="font-size:12.5px;color:var(--text2);margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${last.role==='user'?'👤':'🤖'} ${preview}</div>
-    </div>`;
-  }).join('') : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">ไม่พบประวัติแชตที่ตรงกับ filter</div>';
+    const preview = _esc(rawPrev.slice(0, 100)) + (rawPrev.length > 100 ? '…' : '');
+    const lv = s.msgs.map(m => latMap.get(m.id)).filter(x => x != null);
+    const avg = lv.length ? lv.reduce((a, b) => a + b, 0) / lv.length : null;
+    const code = first.branchId && first.branchId !== '-' ? first.branchId : '';
+    const status = errIn ? '<span class="tm-pill bad"><span style="width:8px;height:8px;border-radius:50%;background:#DC2626"></span> Error</span>'
+      : askIn ? '<span class="tm-pill info">ขอข้อมูลเพิ่ม</span>'
+      : '<span class="tm-pill ok"><span style="width:8px;height:8px;border-radius:50%;background:#16A34A"></span> ปกติ</span>';
+    return `<tr class="clk" onclick="openChatLogSession('${s.sid}')"${errIn ? ' style="box-shadow:inset 3px 0 0 #DC2626"' : ''}>
+      <td><b style="font-size:14.5px">${_esc(first.userName) || '-'}</b> <span style="font-size:10.5px;color:#fff;background:${roleColor};padding:2px 9px;border-radius:999px;font-weight:700;vertical-align:middle">${_esc((first.userRole || first.userType || '').toUpperCase())}</span>${code ? ` <span style="font-size:12px;color:#FF6B1A;font-weight:700">${_esc(code)}</span>` : ''}
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ</div></td>
+      <td style="color:var(--text2);max-width:420px"><span style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--text3);flex:none">${_tmIc('chat2', 18)}</span><span style="overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${preview}</span></span></td>
+      <td style="white-space:nowrap">${avg != null ? `<b style="font-size:19px;color:${_latColor(avg)}">${(avg / 1000).toFixed(1)}</b> <span style="color:var(--text3);font-size:12.5px">วินาที</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${status}</td>
+      <td class="c"><span class="tm-chev">›</span></td>
+    </tr>`;
+  }).join('');
+  const latBox = latAll.length
+    ? `<div class="lat"><span style="display:flex;align-items:center;gap:8px;font-weight:800;color:var(--text)">${_tmIc('clock', 20)} เวลาที่ AI ใช้ตอบ</span>
+        <span>เฉลี่ย <b style="color:${_latColor(latAvg)}">${(latAvg / 1000).toFixed(1)}</b> วินาที</span>
+        <span>P90 <b style="color:${_latColor(latP90)}">${(latP90 / 1000).toFixed(1)}</b> วินาที</span>
+        <span>เกิน 15 วิ <b style="color:${latSlow ? '#DC2626' : '#16A34A'}">${latSlow}</b> ครั้ง จาก ${latAll.length} คำตอบ</span>
+        <span style="font-size:11.5px;color:var(--text3)">วัดจากกดส่ง → ได้คำตอบ (ตามตัวกรอง)</span></div>`
+    : `<div class="lat"><span style="display:flex;align-items:center;gap:8px;font-weight:800;color:var(--text)">${_tmIc('clock', 20)} เวลาที่ AI ใช้ตอบ</span><span style="color:var(--text3)">ยังไม่มีข้อมูลในช่วงที่เลือก</span></div>`;
 
   return `
-  <div class="page-hero">
-    <div class="page-hero-body">
-      <div class="page-hero-title">💬 ประวัติแชตบอท</div>
-      <div class="page-hero-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ${(DB.chatLogs||[]).length === 0 ? ' · <strong style="color:var(--accent)">ยังไม่มีประวัติ — ถ้าเพิ่งรัน SQL ให้กดรีเฟรชข้อมูล</strong>' : ''}</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline" onclick="refreshChatLogsOnly()">🔄 รีเฟรชข้อมูล</button>
-      ${totalMsgs && totalMsgs < logs.length ? `<button class="btn btn-outline" style="color:var(--red);border-color:rgba(239,68,68,.35)" onclick="clearChatLogs('filtered')">🗑 ล้างที่กรองอยู่ (${totalMsgs})</button>` : ''}
-      ${logs.length ? `<button class="btn btn-danger" onclick="clearChatLogs('all')">🗑 ล้างประวัติทั้งหมด</button>` : ''}
-      <button class="btn btn-danger" onclick="clearChatEverywhere()" title="ลบทั้งฝั่งเซิร์ฟเวอร์ และล้างกล่องแชตของทุกเครื่องทุกสาขา">🌐 ล้างทุกเครื่องทุกสาขา</button>
+  <div class="tm-hero"><span class="tm-ic round">${_tmIc('chat', 24)}</span>
+    <div><h1>ประวัติแชตบอท</h1></div><span class="sp"></span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="tm-btn-o" onclick="refreshChatLogsOnly()">${_tmIc('refresh', 16)} รีเฟรชข้อมูล</button>
+      <button class="tm-btn-p" onclick="window._chatCfgOpen=!window._chatCfgOpen;_chatCfgRerender()">${_tmIc('gear', 16)} ตั้งค่าบอท</button>
     </div>
   </div>
+  <div class="tm-sub">รีวิวว่าผู้ใช้ถามอะไร · น้องแฮปปี้ตอบถูก/ผิดแค่ไหน เพื่อพัฒนาต่อ${(DB.chatLogs||[]).length === 0 ? ' · <strong style="color:var(--accent)">ยังไม่มีประวัติ — ถ้าเพิ่งรัน SQL ให้กดรีเฟรชข้อมูล</strong>' : ''}</div>
 
-  <div class="dash-top-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${totalMsgs}</div><div class="stat-label">ข้อความ</div></div>
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${uniqUsers}</div><div class="stat-label">ผู้ใช้</div></div>
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:#22C55E;font-weight:800">${uniqSessions}</div><div class="stat-label">บทสนทนา</div></div>
-    <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:${errMsgs?'#EF4444':'var(--text3)'};font-weight:800">${errMsgs}</div><div class="stat-label">Error</div></div>
+  <div class="tm-strip" style="grid-template-columns:repeat(4,1fr)">
+    <div><span class="ico">${_tmIc('chat', 36)}</span><div><div class="n">${totalMsgs}</div><div class="l">ข้อความ</div></div></div>
+    <div><span class="ico">${_tmIc('people', 36)}</span><div><div class="n">${uniqUsers}</div><div class="l">ผู้ใช้</div></div></div>
+    <div><span class="ico">${_tmIc('chat2', 36)}</span><div><div class="n">${uniqSessions}</div><div class="l">บทสนทนา</div></div></div>
+    <div><span class="ico">${_tmIc('warn', 36)}</span><div><div class="n"${errMsgs ? '' : ' style="color:var(--text3)"'}>${errMsgs}</div><div class="l">ข้อผิดพลาด</div></div></div>
+    ${latBox}
   </div>
 
-  <div class="card" style="margin-bottom:14px;padding:12px 16px;display:flex;gap:22px;flex-wrap:wrap;align-items:center">
-    <div style="font-weight:800;font-size:13.5px">⏱ เวลาที่ AI ใช้ตอบ</div>
-    ${latAll.length ? `
-    <div><span style="font-size:20px;font-weight:800;color:${_latColor(latAvg)}">${_latTxt(latAvg)}</span> <span style="font-size:11.5px;color:var(--text3)">เฉลี่ย</span></div>
-    <div><span style="font-size:20px;font-weight:800;color:${_latColor(latP90)}">${_latTxt(latP90)}</span> <span style="font-size:11.5px;color:var(--text3)">ช้าสุด 10% แรก (P90)</span></div>
-    <div><span style="font-size:20px;font-weight:800;color:${latSlow?'#DC2626':'#16A34A'}">${latSlow}</span> <span style="font-size:11.5px;color:var(--text3)">ครั้งที่เกิน 15 วิ จาก ${latAll.length} คำตอบ</span></div>
-    <div style="font-size:11px;color:var(--text3)">วัดจากเวลาที่ผู้ใช้กดส่งถึงเวลาที่ได้คำตอบ (ตามตัวกรองด้านล่าง)</div>` : '<div style="font-size:12.5px;color:var(--text3)">ยังไม่มีข้อมูลในช่วงที่เลือก</div>'}
+  ${window._chatCfgOpen ? _chatCfgPanelHtml() : ''}
+
+  <div class="tm-bar">
+    <div class="tm-search">${_tmIc('search', 18)}<input placeholder="ค้นหาในข้อความ / ชื่อผู้ใช้..." oninput="setChatLogFilter('search', this.value)" value="${(f.search||'').replace(/"/g,'&quot;')}"></div>
+    <select onchange="setChatLogFilter('user', this.value)" style="min-width:150px"><option value="">ทุกผู้ใช้</option>${userOpts}</select>
+    <select onchange="setChatLogFilter('role', this.value)" style="min-width:120px"><option value="">ทุก Role</option>
+      ${['branch','admin','bzm','vp','coo'].map(r => `<option value="${r}"${r===f.role?' selected':''}>${r.toUpperCase()}</option>`).join('')}</select>
+    <select onchange="setChatLogFilter('status', this.value)" style="min-width:130px">
+      <option value=""${!f.status?' selected':''}>ทุกสถานะ</option><option value="err"${f.status==='err'?' selected':''}>เฉพาะ Error</option></select>
+    <select onchange="setChatLogFilter('days', this.value)" style="min-width:150px">
+      ${[7,30,90,'all'].map(d => `<option value="${d}"${String(f.days)===String(d)?' selected':''}>${d==='all'?'ทุกช่วงเวลา':'ย้อนหลัง '+d+' วัน'}</option>`).join('')}</select>
   </div>
 
-  ${_chatCfgPanelHtml()}
-
-  <div class="card" style="margin-bottom:14px;padding:14px">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <input class="search-input" placeholder="🔍 ค้นหาในข้อความ / ชื่อผู้ใช้..." oninput="setChatLogFilter('search', this.value)" style="flex:1;min-width:220px" value="${(f.search||'').replace(/"/g,'&quot;')}">
-      <select class="form-select" onchange="setChatLogFilter('user', this.value)" style="min-width:180px">
-        <option value="">— ทุกผู้ใช้ —</option>${userOpts}
-      </select>
-      <select class="form-select" onchange="setChatLogFilter('role', this.value)" style="min-width:120px">
-        <option value="">— ทุก Role —</option>
-        ${['branch','admin','bzm','vp','coo'].map(r => `<option value="${r}"${r===f.role?' selected':''}>${r.toUpperCase()}</option>`).join('')}
-      </select>
-      <select class="form-select" onchange="setChatLogFilter('status', this.value)" style="min-width:120px">
-        <option value=""${!f.status?' selected':''}>— ทุกสถานะ —</option>
-        <option value="err"${f.status==='err'?' selected':''}>เฉพาะ Error</option>
-      </select>
-      <select class="form-select" onchange="setChatLogFilter('days', this.value)" style="min-width:120px">
-        ${[7,30,90,'all'].map(d => `<option value="${d}"${String(f.days)===String(d)?' selected':''}>${d==='all'?'ทุกช่วงเวลา':'ย้อนหลัง '+d+' วัน'}</option>`).join('')}
-      </select>
-    </div>
-  </div>
-
-  <div>${sessionsHtml}</div>`;
+  ${sessions.length ? `<div class="tm-card"><table class="tm-tbl">
+    <thead><tr><th>ผู้ใช้ / สาขา</th><th>ข้อความล่าสุด</th><th>เวลาเฉลี่ย</th><th>สถานะ</th><th class="c" style="width:50px"></th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table></div>`
+    : '<div style="text-align:center;color:var(--text3);padding:40px;background:var(--surface);border:1px dashed var(--border);border-radius:12px">ไม่พบประวัติแชตที่ตรงกับ filter</div>'}
+  ${logs.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;justify-content:flex-end">
+    ${totalMsgs && totalMsgs < logs.length ? `<button class="tm-btn-o" style="color:var(--red)" onclick="clearChatLogs('filtered')">🗑 ล้างที่กรองอยู่ (${totalMsgs})</button>` : ''}
+    <button class="tm-btn-o" style="color:var(--red)" onclick="clearChatLogs('all')">🗑 ล้างประวัติทั้งหมด</button>
+    <button class="tm-btn-o" style="color:var(--red)" onclick="clearChatEverywhere()" title="ลบทั้งฝั่งเซิร์ฟเวอร์ และล้างกล่องแชตของทุกเครื่องทุกสาขา">🌐 ล้างทุกเครื่องทุกสาขา</button>
+  </div>` : ''}`;
 }
 
 function renderExecAlerts() {
