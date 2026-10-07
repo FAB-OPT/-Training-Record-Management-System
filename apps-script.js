@@ -441,6 +441,36 @@ function listGeminiModels() {
   Logger.log('รุ่นที่ตอบได้ล่าสุด (GEMINI_LAST_OK) = ' + PropertiesService.getScriptProperties().getProperty('GEMINI_LAST_OK'));
 }
 
+/* ตัวช่วยวัดความเร็ว (รันมือจากตัวแก้ไข ไม่ต้อง deploy): ยิงคำถามสั้น ๆ เข้าแต่ละรุ่นรุ่นละ 3 ครั้ง จับเวลา
+   วิธีใช้: เลือกฟังก์ชัน benchGeminiModels → เรียกใช้ → รอ 3-5 นาที → เปิด "บันทึกการดำเนินการ"
+   รุ่นไหนครั้งแรกช้าเกิน 20 วิ จะข้ามที่เหลือของรุ่นนั้น · รวมเวลาเกิน 5 นาทีจะหยุดเอง */
+function benchGeminiModels() {
+  const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!key) { Logger.log('ยังไม่ได้ตั้ง GEMINI_API_KEY'); return; }
+  const cands = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite',
+                 'gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  const t00 = Date.now(), rows = [];
+  for (var i = 0; i < cands.length; i++) {
+    if (Date.now() - t00 > 290000) { rows.push(cands[i] + ': ข้าม (หมดเวลารวม)'); continue; }
+    var times = [], fails = [], think = true;
+    for (var k = 0; k < 3; k++) {
+      const gc = { maxOutputTokens: 256, temperature: 0.7 };
+      if (think) gc.thinkingConfig = { thinkingBudget: 0 };
+      const t0 = Date.now();
+      const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + cands[i] + ':generateContent?key=' + key, {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+        payload: JSON.stringify({ system_instruction: { parts: [{ text: 'ตอบสั้น ๆ ภาษาไทย' }] }, contents: [{ role: 'user', parts: [{ text: 'สวัสดี ช่วยอธิบายว่าการสอนงานพนักงานใหม่ควรเริ่มจากอะไร 2 ประโยค' }] }], generationConfig: gc })
+      });
+      const dt = (Date.now() - t0) / 1000, code = r.getResponseCode();
+      if (code === 400 && think) { think = false; k--; continue; }   // รุ่นนี้ไม่รับ thinkingConfig → ลองใหม่ไม่ใส่
+      if (code === 200) times.push(dt.toFixed(1)); else { fails.push(code); }
+      if (dt > 20) break;
+    }
+    rows.push(cands[i] + ' | เวลา(วิ): ' + (times.join(', ') || '-') + (fails.length ? ' | error: ' + fails.join(',') : '') + (think ? '' : ' | (ไม่รับ thinkingConfig)'));
+  }
+  Logger.log('ผลวัดความเร็ว (รุ่นละ 3 ครั้ง · ' + Math.round((Date.now() - t00) / 1000) + ' วิ รวม):\n' + rows.join('\n'));
+}
+
 function respond(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
