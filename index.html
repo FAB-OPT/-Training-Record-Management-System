@@ -21777,6 +21777,15 @@ function openCaseDetail(caseId) {
   const isStaffView = currentUser?.type === 'admin';
   const closed = c.status === 'closed';
 
+  /* อ่านแล้ว: คนที่เปิดเคสอ่านข้อความของอีกฝั่ง — สาขาอ่านของ Admin · Admin (ที่มีสิทธิ์ตอบ) อ่านของสาขา
+     จดเวลาไว้ที่ข้อความ (readAt) ไม่แตะ updatedAt จะได้ไม่กลายเป็น "มีข้อความใหม่" ให้อีกฝั่ง */
+  { const myRole = currentUser?.type === 'branch' ? 'branch' : (canEditPage('admin-cases') ? 'admin' : '');
+    if (myRole) {
+      const nowR = new Date().toISOString(); let touched = false;
+      (c.messages || []).forEach(m => { if (m && m.role !== myRole && !m.readAt) { m.readAt = nowR; touched = true; } });
+      if (touched) gsSave('cases', c.id, c);
+    } }
+
   // Message thread — chat-style bubbles, no large author label (timestamp + side tells you who)
   const messagesHtml = (c.messages || []).map(m => {
     const isFromBranch = m.role === 'branch';
@@ -21787,9 +21796,10 @@ function openCaseDetail(caseId) {
     const meta = isFromBranch
       ? `<span style="color:#16A34A;font-weight:700">${m.author||'สาขา'}</span> · ${fmtDateTime(m.ts)}`
       : `<span style="color:var(--accent);font-weight:700">Admin · ${m.author||'-'}</span> · ${fmtDateTime(m.ts)}`;
+    const readTag = m.readAt ? ` · <span style="color:#16A34A;font-weight:700">✓ อ่านแล้ว ${fmtDateTime(m.readAt)}</span>` : '';
     return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:10px">
       <div style="background:${bg};color:${col};padding:10px 14px;border-radius:${radius};max-width:82%;white-space:pre-wrap;word-wrap:break-word;font-size:13.5px;line-height:1.55;${!isFromBranch?'box-shadow:0 3px 10px rgba(255,107,26,0.25)':''}">${(m.content||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:4px;padding:0 4px">${meta}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:4px;padding:0 4px">${meta}${readTag}</div>
     </div>`;
   }).join('') || '<div style="text-align:center;color:var(--text3);padding:32px;font-size:12.5px">(ยังไม่มีข้อความ)</div>';
 
