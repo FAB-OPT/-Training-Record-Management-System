@@ -322,9 +322,16 @@ function _chatViaGemini(req, apiKey) {
         if (code === 200) break outer;
         /* รุ่นเก่าบางตัวไม่รู้จัก thinkingConfig แล้วตอบ 400 — ลองใหม่แบบไม่ใส่ให้อัตโนมัติ
            ไม่งั้นจะหยุดทั้งหมดเพราะ 400 ถือเป็น error ที่ลองต่อไปก็ไม่มีประโยชน์ */
-        if (code === 400 && payload.indexOf('thinkingConfig') >= 0 && /think/i.test(body)) {
+        /* 400 ขณะที่ส่ง thinkingConfig อยู่ = รุ่นนั้นอาจไม่รับพารามิเตอร์นี้ (ข้อความ error ไม่จำเป็นต้องมีคำว่า think)
+           → ลองใหม่แบบไม่ใส่ก่อน (เดิมเช็คคำว่า think ใน error ทำให้ 7 ต.ค. 69 ตอบ 400 INVALID_ARGUMENT ทุกคำถาม) */
+        if (code === 400 && payload.indexOf('thinkingConfig') >= 0) {
           payload = _payload(false);
           continue;
+        }
+        /* 400 ที่เหลือ = รุ่นนี้ปฏิเสธคำขอ → ข้ามไปรุ่นถัดไป ไม่หยุดทั้งระบบ (จดชื่อรุ่นไว้ในข้อความ error) */
+        if (code === 400) {
+          lastErr = '400 (' + models[mi] + '): ' + body.slice(0, 160);
+          break;
         }
         // Retry on transient errors
         if (code === 429 || code === 503) {
