@@ -5764,7 +5764,7 @@ async function sbLoadAll() {
     quizResults:   (qrs.data||[]).map(r => _fromSb('quizResults', r)),
     customQuiz:    (cqs.data||[]).map(r => _fromSb('customQuiz', r)),
     courseHistory: (chs.data||[]).map(r => _fromSb('courseHistory', r)),
-    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'', companies: qms.data.companies||[] } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '', companies: [] },
+    quizMeta:      qms.data ? { deleted: qms.data.deleted||[], disabled: qms.data.disabled||[], testMode: !!qms.data.test_mode, quizTrack: qms.data.quiz_track||{}, quizSub: qms.data.quiz_sub||{}, chatWipeAt: qms.data.chat_wipe_at||'', companies: qms.data.companies||[], chatCfg: qms.data.chat_cfg||null } : { deleted: [], disabled: [], testMode: false, quizTrack: {}, quizSub: {}, chatWipeAt: '', companies: [], chatCfg: null },
   };
 }
 async function sbSaveOne(coll, id, rec) {
@@ -5772,7 +5772,7 @@ async function sbSaveOne(coll, id, rec) {
   const sb = _initSb(); if (!sb) return;
   const table = _SB_TABLE[coll]; if (!table) return;
   if (coll === 'quizMeta') {
-    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, companies: rec.companies||[], updated_at: new Date().toISOString() });
+    return sb.from(table).upsert({ id: 'singleton', deleted: rec.deleted||[], disabled: rec.disabled||[], test_mode: !!rec.testMode, quiz_track: rec.quizTrack||{}, quiz_sub: rec.quizSub||{}, chat_wipe_at: rec.chatWipeAt||null, companies: rec.companies||[], ...(rec.chatCfg ? { chat_cfg: rec.chatCfg } : {}), updated_at: new Date().toISOString() });
   }
   const row = _toSb(coll, { ...rec, id });
   return sb.from(table).upsert(row);
@@ -7556,6 +7556,7 @@ async function sendChatMessage() {
       action: 'chat',
       system: _chatSystemPrompt(),
       messages: _chatHistory,
+      cfg: _chatCfg(),
     }, { hedgeMs: 7000, maxTries: 4, totalMs: 50000 });
     if (typing?._slowTimer) clearTimeout(typing._slowTimer);
     typing?.remove();
@@ -22342,6 +22343,97 @@ function _filteredChatLogs() {
   return out;
 }
 
+/* ═══ ตั้งค่าบอท (Admin) — เลือกผู้ตอบ/รุ่นโดยไม่ต้องแก้ Apps Script ═══
+   ค่าถูกส่งไปกับทุกคำถาม หลังบ้านตรวจกับรายการที่อนุญาตก่อนใช้ (ส่งชื่อรุ่นแปลก ๆ ไปไม่ได้) */
+const CHAT_GEMINI_CHOICES = [
+  ['gemini-2.5-flash-lite',   '2.5 Flash-Lite · เร็วและนิ่งสุด (แนะนำ)'],
+  ['gemini-3.5-flash-lite',   '3.5 Flash-Lite · สำรอง'],
+  ['gemini-flash-lite-latest','Flash-Lite รุ่นล่าสุด · สำรอง'],
+  ['gemini-2.5-flash',        '2.5 Flash · ฉลาดกว่า แต่ติดโควตาง่าย'],
+  ['gemini-3.5-flash',        '3.5 Flash · ช่วงนี้ช้า/503 บ่อย'],
+];
+const CHAT_CLAUDE_CHOICES = [
+  ['claude-haiku-4-5-20251001', 'Haiku 4.5 · ถูกสุด (ราว 0.4–0.7 บาท/คำถาม)'],
+  ['claude-sonnet-4-5',         'Sonnet 4.5 · ฉลาดกว่า (ราว 1–2 บาท/คำถาม)'],
+];
+const CHAT_PROVIDERS = [
+  ['gemini',        'Gemini อย่างเดียว (ฟรี) — ค่าเริ่มต้น'],
+  ['gemini+claude', 'Gemini ก่อน · ถ้าล้มเหลวทุกรุ่นให้ Claude ช่วย (เสียเงินเฉพาะตอน Gemini ล่ม)'],
+  ['claude',        'Claude ก่อน · ถ้าล้มเหลวค่อยใช้ Gemini (เสียเงินทุกคำถาม)'],
+];
+function _chatCfg() {
+  const def = { provider: 'gemini', models: CHAT_GEMINI_CHOICES.slice(0, 4).map(x => x[0]), claudeModel: CHAT_CLAUDE_CHOICES[0][0] };
+  try {
+    const c = (DB.quizMeta && DB.quizMeta.chatCfg) || null; if (!c) return def;
+    const okM = new Set(CHAT_GEMINI_CHOICES.map(x => x[0]));
+    const models = (Array.isArray(c.models) ? c.models : []).filter(m => okM.has(m));
+    return {
+      provider: CHAT_PROVIDERS.some(p => p[0] === c.provider) ? c.provider : def.provider,
+      models: models.length ? models : def.models,
+      claudeModel: CHAT_CLAUDE_CHOICES.some(x => x[0] === c.claudeModel) ? c.claudeModel : def.claudeModel,
+    };
+  } catch (_) { return def; }
+}
+let _chatCfgDraft = null;
+function _chatCfgGet() {
+  if (!_chatCfgDraft) {
+    const c = _chatCfg();
+    const rest = CHAT_GEMINI_CHOICES.map(x => x[0]).filter(m => c.models.indexOf(m) < 0);
+    _chatCfgDraft = { provider: c.provider, claudeModel: c.claudeModel, order: c.models.concat(rest), on: new Set(c.models) };
+  }
+  return _chatCfgDraft;
+}
+function _chatCfgFromDraft() {
+  const d = _chatCfgGet();
+  return { provider: d.provider, claudeModel: d.claudeModel, models: d.order.filter(m => d.on.has(m)) };
+}
+function _chatCfgPanelHtml() {
+  const d = _chatCfgGet();
+  const label = Object.fromEntries(CHAT_GEMINI_CHOICES);
+  const rows = d.order.map((m, i) => '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
+    + '<input type="checkbox" ' + (d.on.has(m) ? 'checked' : '') + ' onchange="chatCfgToggle(\'' + m + '\',this.checked)">'
+    + '<span style="font-size:12px;color:var(--text3);width:18px">' + (d.on.has(m) ? (d.order.filter(x => d.on.has(x)).indexOf(m) + 1) : '–') + '</span>'
+    + '<div style="flex:1;min-width:0;font-size:13px"><b style="font-family:monospace;font-size:12px">' + m + '</b><div style="font-size:11.5px;color:var(--text3)">' + label[m] + '</div></div>'
+    + '<button class="btn btn-outline btn-sm" ' + (i === 0 ? 'disabled' : '') + ' onclick="chatCfgMove(' + i + ',-1)">▲</button>'
+    + '<button class="btn btn-outline btn-sm" ' + (i === d.order.length - 1 ? 'disabled' : '') + ' onclick="chatCfgMove(' + i + ',1)">▼</button></div>').join('');
+  const provOpts = CHAT_PROVIDERS.map(p => '<option value="' + p[0] + '"' + (p[0] === d.provider ? ' selected' : '') + '>' + p[1] + '</option>').join('');
+  const clOpts = CHAT_CLAUDE_CHOICES.map(p => '<option value="' + p[0] + '"' + (p[0] === d.claudeModel ? ' selected' : '') + '>' + p[1] + '</option>').join('');
+  return '<details class="card" id="chatcfg" style="margin-bottom:14px;padding:14px"' + (window._chatCfgOpen ? ' open' : '') + ' ontoggle="window._chatCfgOpen=this.open">'
+    + '<summary style="cursor:pointer;font-weight:800;font-size:14.5px">⚙️ ตั้งค่าบอท — เลือกผู้ตอบและลำดับรุ่น (มีผลทันที ไม่ต้อง deploy)</summary>'
+    + '<div style="margin-top:12px;display:grid;gap:12px">'
+    + '<div><label class="form-label">ผู้ตอบ</label><select class="form-select" onchange="chatCfgSet(\'provider\',this.value)">' + provOpts + '</select></div>'
+    + '<div><label class="form-label">ลำดับรุ่น Gemini (ติ๊กรุ่นที่ใช้ · ลองจากบนลงล่าง ตัวไหนล้มเหลวข้ามไปตัวถัดไป)</label>' + rows + '</div>'
+    + '<div><label class="form-label">รุ่น Claude (ใช้เมื่อเลือกให้ Claude ช่วย/ตอบก่อน)</label><select class="form-select" onchange="chatCfgSet(\'claudeModel\',this.value)">' + clOpts + '</select></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-accent" onclick="chatCfgSave()">💾 บันทึก</button>'
+    + '<button class="btn btn-outline" onclick="chatCfgTest()">⏱ ทดสอบความเร็วตามค่าที่เลือก</button><span id="chatcfg-msg" style="font-size:12.5px;color:var(--text2)"></span></div>'
+    + '<div style="font-size:11.5px;color:var(--text3)">ถ้ากดบันทึกแล้วขึ้นว่าบันทึกขึ้นระบบไม่สำเร็จ ให้รันไฟล์ <b>supabase-chat-config.sql</b> ใน Supabase ก่อน 1 ครั้ง · ค่านี้ใช้กับสาขาทุกเครื่องหลังรีเฟรช</div>'
+    + '</div></details>';
+}
+function _chatCfgRerender() { const el = document.getElementById('main-content'); if (el) el.innerHTML = renderAdminChatLogs(); }
+function chatCfgSet(k, v) { _chatCfgGet()[k] = v; }
+function chatCfgToggle(m, on) { const d = _chatCfgGet(); if (on) d.on.add(m); else d.on.delete(m); _chatCfgRerender(); }
+function chatCfgMove(i, dir) { const d = _chatCfgGet(), j = i + dir; if (j < 0 || j >= d.order.length) return; const t = d.order[i]; d.order[i] = d.order[j]; d.order[j] = t; _chatCfgRerender(); }
+function chatCfgSave() {
+  const cfg = _chatCfgFromDraft();
+  if (!cfg.models.length) { notify('ติ๊กรุ่น Gemini อย่างน้อย 1 รุ่น', 'error'); return; }
+  if (!DB.quizMeta) DB.quizMeta = {};
+  DB.quizMeta.chatCfg = cfg;
+  gsSave('quizMeta', 'singleton', DB.quizMeta);
+  notify('บันทึกค่าตั้งบอทแล้ว');
+}
+async function chatCfgTest() {
+  const msg = document.getElementById('chatcfg-msg'); if (!msg) return;
+  const cfg = _chatCfgFromDraft();
+  msg.textContent = 'กำลังทดสอบ…'; msg.style.color = 'var(--text2)';
+  const t = Date.now();
+  try {
+    const r = await gsFetchHedged({ action: 'chat', system: 'ตอบสั้น ๆ ภาษาไทย', messages: [{ role: 'user', content: 'สวัสดี ตอบสั้น ๆ 1 ประโยค' }], cfg }, { hedgeMs: 7000, maxTries: 3, totalMs: 40000 });
+    const sec = ((Date.now() - t) / 1000).toFixed(1);
+    if (r.reply) { msg.textContent = '✓ ตอบใน ' + sec + ' วินาที · รุ่นที่ตอบ: ' + (r.model || '—'); msg.style.color = '#16A34A'; }
+    else { msg.textContent = '✗ ' + sec + ' วินาที · ' + String(r.error || 'ไม่มีคำตอบ').slice(0, 120); msg.style.color = '#DC2626'; }
+  } catch (e) { msg.textContent = '✗ หมดเวลา (' + ((Date.now() - t) / 1000).toFixed(0) + ' วินาที)'; msg.style.color = '#DC2626'; }
+}
+
 function renderAdminChatLogs() {
   if (!isAdminRole()) {
     return '<div style="padding:40px;text-align:center;color:var(--text3)">หน้านี้สำหรับ Admin เท่านั้น</div>';
@@ -22435,6 +22527,8 @@ function renderAdminChatLogs() {
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:#22C55E;font-weight:800">${uniqSessions}</div><div class="stat-label">บทสนทนา</div></div>
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:${errMsgs?'#EF4444':'var(--text3)'};font-weight:800">${errMsgs}</div><div class="stat-label">Error</div></div>
   </div>
+
+  ${_chatCfgPanelHtml()}
 
   <div class="card" style="margin-bottom:14px;padding:14px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">

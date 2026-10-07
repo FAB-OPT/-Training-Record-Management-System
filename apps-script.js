@@ -224,6 +224,18 @@ function generateAiQuiz(req) {
 //  Paid fallback (Claude — only if GEMINI_API_KEY is not set):
 //  3. Script Properties → add "ANTHROPIC_API_KEY" = sk-ant-...
 // ========================================================
+var CHAT_OK_GEMINI = ['gemini-2.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-3.5-flash'];
+var CHAT_OK_CLAUDE = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5'];
+var CHAT_OK_PROVIDER = ['gemini', 'gemini+claude', 'claude'];
+function _chatCfgOf(req) {
+  var c = (req && req.cfg) || {};
+  var models = (Array.isArray(c.models) ? c.models : []).filter(function (m) { return CHAT_OK_GEMINI.indexOf(m) >= 0; });
+  return {
+    provider: CHAT_OK_PROVIDER.indexOf(c.provider) >= 0 ? c.provider : '',
+    models: models.length ? models : null,
+    claudeModel: CHAT_OK_CLAUDE.indexOf(c.claudeModel) >= 0 ? c.claudeModel : 'claude-sonnet-4-5'
+  };
+}
 function chatWithClaude(req) {
   /* เลือกผู้ตอบด้วย Script Property "CHAT_PROVIDER"
        claude → ใช้ Claude ก่อน ถ้า error ค่อยตกไป Gemini (ต้องมี ANTHROPIC_API_KEY)
@@ -232,7 +244,15 @@ function chatWithClaude(req) {
   const props = PropertiesService.getScriptProperties();
   const geminiKey = props.getProperty('GEMINI_API_KEY');
   const anthropicKey = props.getProperty('ANTHROPIC_API_KEY');
-  const prefer = String(props.getProperty('CHAT_PROVIDER') || '').toLowerCase();
+  const cfg = _chatCfgOf(req);
+  /* หน้าแอดมินตั้งไว้ → ใช้ตามนั้น · ไม่ได้ตั้ง → ใช้ Script Property CHAT_PROVIDER เหมือนเดิม */
+  const prefer = cfg.provider || String(props.getProperty('CHAT_PROVIDER') || '').toLowerCase();
+  if (prefer === 'gemini+claude' && geminiKey) {
+    const g0 = _chatViaGemini(req, geminiKey);
+    if (!g0.error || !anthropicKey) return g0;
+    const c0 = _chatViaClaude(req, anthropicKey);   // Gemini ล้มเหลวทุกรุ่น → ให้ Claude ช่วย
+    return c0.error ? g0 : c0;
+  }
   if (prefer === 'claude' && anthropicKey) {
     const r = _chatViaClaude(req, anthropicKey);
     if (!r.error || !geminiKey) return r;
@@ -300,6 +320,8 @@ function _chatViaGemini(req, apiKey) {
       'gemini-flash-lite-latest',
       'gemini-2.5-flash',
     ];
+    var _cfgM = _chatCfgOf(req).models;
+    if (_cfgM) models = _cfgM;                    // ลำดับที่แอดมินตั้งจากหน้าเว็บ
     /* จำรุ่นที่ตอบได้ล่าสุดไว้ แล้วเริ่มจากตัวนั้นก่อน
        เดิมไล่จากบนลงล่างทุกครั้ง สองรุ่นแรกเรียกไม่ติดก็เสียเวลาไปเปล่า ๆ ทุกคำถาม */
     var props2 = PropertiesService.getScriptProperties();
@@ -391,8 +413,9 @@ function _chatViaClaude(req, apiKey) {
     if (!messages.length) return { error: 'no messages' };
     const system = req.system || 'คุณคือผู้ช่วย AI ตอบเป็นภาษาไทย กระชับและตรงประเด็น';
 
+    const _cm = _chatCfgOf(req).claudeModel;
     const payload = JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: _cm,
       max_tokens: 1024,
       system: system,
       messages: messages,
@@ -417,7 +440,7 @@ function _chatViaClaude(req, apiKey) {
     const data = JSON.parse(body);
     const text = (data.content && data.content[0] && data.content[0].text) || '';
     if (!text) return { error: 'Claude ไม่ได้ตอบกลับ' };
-    return { reply: text };
+    return { reply: text, model: _cm };
   } catch (err) {
     return { error: 'Server error: ' + err.message };
   }
