@@ -6247,6 +6247,40 @@ async function gsFetch(payload, opts) {
   }
   throw lastErr;
 }
+/* ยิงแบบ "ขนาน" สำหรับแชตบอท — หลังบ้านบางครั้งค้างเงียบ ๆ ทั้งที่ปกติตอบใน 2-5 วิ
+   ไม่ยกเลิกคำขอเดิมแล้วรอลองใหม่ แต่ยิงตัวที่สอง/สามเพิ่มขนานไปเลยทุก hedgeMs วิ ใครตอบก่อนใช้ตัวนั้น
+   (ตัวที่ค้างถูกยกเลิกทีหลัง) · เสียโควตาเพิ่มเฉพาะตอนที่ช้าจริง ๆ */
+async function gsFetchHedged(payload, opts) {
+  const o = opts || {};
+  const hedgeMs = o.hedgeMs || 7000, maxTries = o.maxTries || 4, totalMs = o.totalMs || 50000;
+  const ctrls = [];
+  return await new Promise((resolve, reject) => {
+    let launched = 0, failed = 0, done = false, lastErr = null, hedgeTimer = null;
+    const finish = (fn, v) => { if (done) return; done = true; clearTimeout(hedgeTimer); clearTimeout(totalTimer); ctrls.forEach(c => { try { c.abort(); } catch (_) {} }); fn(v); };
+    const totalTimer = setTimeout(() => { const e = new Error('hedged timeout'); e.name = 'AbortError'; finish(reject, e); }, totalMs);
+    const launch = () => {
+      if (done || launched >= maxTries) return;
+      launched++;
+      const ctrl = new AbortController(); ctrls.push(ctrl);
+      fetch(GS_URL, { method: 'POST', body: JSON.stringify(payload), signal: ctrl.signal })
+        .then(async resp => {
+          const text = await resp.text();
+          if (!resp.ok) throw new Error('GS_HTTP_' + resp.status);
+          const head = (text || '').trim().charAt(0);
+          if (head !== '{' && head !== '[') throw new Error('GS_HTML');
+          finish(resolve, JSON.parse(text));
+        })
+        .catch(e => {
+          if (done || (e && e.name === 'AbortError')) return;
+          lastErr = e; failed++;
+          if (launched < maxTries) launch();                       // พังจริง (ไม่ใช่ค้าง) → ยิงตัวต่อไปทันที
+          else if (failed >= launched) finish(reject, lastErr);
+        });
+      if (launched < maxTries) hedgeTimer = setTimeout(launch, hedgeMs);
+    };
+    launch();
+  });
+}
 // Dual-write: Supabase (primary) + Sheets (mirror, fire-and-forget).
 // TEST MODE: when ON, skip ALL backend writes except quizMeta (so the test-mode
 // toggle itself can still flip back off). Local DB still mutates, so the UI
@@ -7518,11 +7552,11 @@ async function sendChatMessage() {
   if (btn) btn.disabled = true;
   const typing = _renderChatTyping();
   try {
-    const res = await gsFetch({
+    const res = await gsFetchHedged({
       action: 'chat',
       system: _chatSystemPrompt(),
       messages: _chatHistory,
-    }, { timeoutMs: 18000, retries: 3 });
+    }, { hedgeMs: 7000, maxTries: 4, totalMs: 50000 });
     if (typing?._slowTimer) clearTimeout(typing._slowTimer);
     typing?.remove();
     if (res.error) {
@@ -7549,7 +7583,7 @@ async function sendChatMessage() {
         : 'เชื่อมต่อไม่ได้ค่ะ เช็คอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง';
     const errDiv = _renderChatMessage('bot', msg);
     errDiv?.classList.add('err');
-    _chatLogMessage('bot', msg + ' [' + (err && err.name === 'AbortError' ? 'หมดเวลา — หลังบ้านไม่ตอบใน 18 วิ x 4 รอบ' : raw.slice(0, 80)) + ']', true);
+    _chatLogMessage('bot', msg + ' [' + (err && err.name === 'AbortError' ? 'หมดเวลา — หลังบ้านไม่ตอบภายใน 50 วิ (ยิงขนาน 4 ตัว)' : raw.slice(0, 80)) + ']', true);
   } finally {
     if (btn) btn.disabled = false;
     input.focus();
