@@ -225,11 +225,21 @@ function generateAiQuiz(req) {
 //  3. Script Properties → add "ANTHROPIC_API_KEY" = sk-ant-...
 // ========================================================
 function chatWithClaude(req) {
-  // Prefer free Gemini; fall back to paid Claude
+  /* เลือกผู้ตอบด้วย Script Property "CHAT_PROVIDER"
+       claude → ใช้ Claude ก่อน ถ้า error ค่อยตกไป Gemini (ต้องมี ANTHROPIC_API_KEY)
+       อื่น ๆ / ไม่ตั้ง → ใช้ Gemini ก่อนเหมือนเดิม ถ้าไม่มีคีย์ค่อยใช้ Claude
+     สลับกลับได้ทันทีโดยลบ CHAT_PROVIDER ไม่ต้องแก้โค้ด (เหตุผล: Gemini ค้างเงียบ ๆ เป็นระยะ ตรวจ 7 ต.ค. 69) */
   const props = PropertiesService.getScriptProperties();
   const geminiKey = props.getProperty('GEMINI_API_KEY');
-  if (geminiKey) return _chatViaGemini(req, geminiKey);
   const anthropicKey = props.getProperty('ANTHROPIC_API_KEY');
+  const prefer = String(props.getProperty('CHAT_PROVIDER') || '').toLowerCase();
+  if (prefer === 'claude' && anthropicKey) {
+    const r = _chatViaClaude(req, anthropicKey);
+    if (!r.error || !geminiKey) return r;
+    const g = _chatViaGemini(req, geminiKey);      // Claude ล้มเหลว → ลอง Gemini แทน
+    return g.error ? r : g;
+  }
+  if (geminiKey) return _chatViaGemini(req, geminiKey);
   if (anthropicKey) return _chatViaClaude(req, anthropicKey);
   return { error: 'ยังไม่ได้ตั้ง GEMINI_API_KEY หรือ ANTHROPIC_API_KEY ใน Script Properties' };
 }
