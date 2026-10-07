@@ -418,6 +418,29 @@ function _chatViaClaude(req, apiKey) {
   }
 }
 
+/* ตัวช่วยตรวจ (รันมือจากตัวแก้ไข ไม่เกี่ยวกับ web app ไม่ต้อง deploy): ดูว่า key Gemini นี้ใช้โมเดลไหนได้บ้าง
+   วิธีใช้: เลือกฟังก์ชัน listGeminiModels ในช่องข้างปุ่ม "เรียกใช้" → กดเรียกใช้ → เปิด "บันทึกการดำเนินการ" */
+function listGeminiModels() {
+  const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!key) { Logger.log('ยังไม่ได้ตั้ง GEMINI_API_KEY'); return; }
+  const inList = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+  var names = [], token = '';
+  for (var p = 0; p < 5; p++) {
+    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=' + key + (token ? '&pageToken=' + token : ''), { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) { Logger.log('ดึงรายชื่อไม่ได้: ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200)); return; }
+    const j = JSON.parse(r.getContentText());
+    (j.models || []).forEach(function (m) {
+      if ((m.supportedGenerationMethods || []).indexOf('generateContent') >= 0) names.push(String(m.name).replace('models/', ''));
+    });
+    token = j.nextPageToken || '';
+    if (!token) break;
+  }
+  names.sort();
+  Logger.log('โมเดลที่ key นี้ใช้ตอบข้อความได้ ' + names.length + ' ตัว:\n' + names.map(function (n) { return (inList.indexOf(n) >= 0 ? '★ ' : '  ') + n; }).join('\n'));
+  Logger.log('★ = อยู่ในลิสต์ที่บอทใช้อยู่ · ที่ไม่มี ★ ในลิสต์แต่โค้ดอ้างถึง: ' + (inList.filter(function (n) { return names.indexOf(n) < 0; }).join(', ') || 'ไม่มี (ครบ)'));
+  Logger.log('รุ่นที่ตอบได้ล่าสุด (GEMINI_LAST_OK) = ' + PropertiesService.getScriptProperties().getProperty('GEMINI_LAST_OK'));
+}
+
 function respond(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
