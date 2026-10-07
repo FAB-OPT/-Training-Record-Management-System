@@ -7522,7 +7522,7 @@ async function sendChatMessage() {
       action: 'chat',
       system: _chatSystemPrompt(),
       messages: _chatHistory,
-    }, { timeoutMs: 40000, retries: 2 });
+    }, { timeoutMs: 18000, retries: 3 });
     if (typing?._slowTimer) clearTimeout(typing._slowTimer);
     typing?.remove();
     if (res.error) {
@@ -7549,7 +7549,7 @@ async function sendChatMessage() {
         : 'เชื่อมต่อไม่ได้ค่ะ เช็คอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง';
     const errDiv = _renderChatMessage('bot', msg);
     errDiv?.classList.add('err');
-    _chatLogMessage('bot', msg + ' [' + raw.slice(0, 80) + ']', true);
+    _chatLogMessage('bot', msg + ' [' + (err && err.name === 'AbortError' ? 'หมดเวลา — หลังบ้านไม่ตอบใน 18 วิ x 4 รอบ' : raw.slice(0, 80)) + ']', true);
   } finally {
     if (btn) btn.disabled = false;
     input.focus();
