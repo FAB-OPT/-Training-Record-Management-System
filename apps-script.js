@@ -287,19 +287,24 @@ function _chatViaGemini(req, apiKey) {
          3.5-flash-lite  $0.30 / $2.50   เท่ากับ 2.5-flash แต่ใหม่กว่าหนึ่งรุ่น
          3.1-flash-lite  $0.25 / $1.50   ถูกกว่าและใหม่กว่า 2.5-flash
          2.5-flash       $0.30 / $2.50   ของเดิม เก็บไว้เผื่อรุ่นใหม่มีปัญหา */
+    /* เรียงตามผลวัดจริง 7 ต.ค. 69 (benchGeminiModels · รุ่นละ 3 ครั้ง):
+         2.5-flash-lite  0.6-0.8 วิ ครบ 3/3        ← เร็วและนิ่งที่สุด
+         3.5-flash-lite  0.9-1.0 วิ ครบ 3/3        (ไม่รับ thinkingConfig — โค้ดด้านล่างลองใหม่ให้เอง)
+         flash-lite-latest 0.8/1.2/10.1 วิ         สำรอง
+         2.5-flash       0.9 วิ แล้ว 429 (โควตาถี่) ฉลาดกว่า เก็บเป็นตัวท้าย
+       เอาออก: 3.1-flash-lite (ครั้งแรก 85 วิ แล้ว 503 — เป็นต้นเหตุที่บอทค้าง เพราะระบบเคยจำรุ่นนี้ไว้ใช้ก่อน),
+               flash-latest (429), 3-flash-preview / 3.6 / 3.7 / 3.8 (503 ตลอด) */
     var models = [
-      'gemini-2.5-flash',        /* ตัวที่ตอบได้จริงกับ key ปัจจุบัน (ตรวจ 28 ก.ย. 69) */
-      'gemini-flash-latest',
+      'gemini-2.5-flash-lite',
       'gemini-3.5-flash-lite',
-      'gemini-3.1-flash-lite',
+      'gemini-flash-lite-latest',
+      'gemini-2.5-flash',
     ];
     /* จำรุ่นที่ตอบได้ล่าสุดไว้ แล้วเริ่มจากตัวนั้นก่อน
        เดิมไล่จากบนลงล่างทุกครั้ง สองรุ่นแรกเรียกไม่ติดก็เสียเวลาไปเปล่า ๆ ทุกคำถาม */
     var props2 = PropertiesService.getScriptProperties();
-    var lastOk = props2.getProperty('GEMINI_LAST_OK');
-    if (lastOk && models.indexOf(lastOk) > 0) {
-      models = [lastOk].concat(models.filter(function(m){ return m !== lastOk; }));
-    }
+    /* เลิกยกรุ่น "ที่ตอบได้ล่าสุด" ขึ้นมาก่อน — เคยทำให้ล็อกติดรุ่นช้า (3.1-flash-lite) ตลอด
+       ลิสต์ด้านบนเรียงดีสุดก่อนอยู่แล้ว (ยังจดชื่อรุ่นที่ตอบไว้ใน GEMINI_LAST_OK เพื่อดูย้อนหลังเท่านั้น) */
     var resp, code, body;
     var lastErr = '';
     /* งบเวลารวม — เคยเจอ doPost ค้าง 360 วิ (ชนเพดาน 6 นาทีของ Apps Script) เพราะไล่ลองทีละรุ่น
