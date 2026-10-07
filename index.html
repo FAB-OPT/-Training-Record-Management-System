@@ -22226,6 +22226,7 @@ function openChatLogSession(sid) {
   if (!msgs.length) { notify('ไม่พบบทสนทนา', 'error'); return; }
   const esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const first = msgs[0];
+  const lat = _chatLatMap(msgs);
   const roleColor = ({ branch:'#16A34A', admin:'#DC2626', bzm:'#2563EB', vp:'#7C3AED', coo:'#DB2777' })[first.userRole] || '#6B7280';
   const bubbles = msgs.map(m => {
     const isUser = m.role === 'user';
@@ -22237,7 +22238,7 @@ function openChatLogSession(sid) {
     const body = isBotFmt ? _chatFormat(m.content) : esc(m.content);
     return `<div style="align-self:${align};max-width:86%">
       <div class="${isBotFmt?'cb-fmt':''}" style="background:${bg};color:${col};padding:9px 13px;border-radius:${radius};font-size:14px;line-height:1.55;${isBotFmt?'':'white-space:pre-wrap;'}word-wrap:break-word">${body}</div>
-      <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${m.err?' · ⚠ error':''}</div>
+      <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${lat.has(m.id) ? ' · ⏱ <b style="color:' + _latColor(lat.get(m.id)) + '">ใช้เวลา ' + _latTxt(lat.get(m.id)) + '</b>' : ''}${m.err?' · ⚠ error':''}</div>
     </div>`;
   }).join('');
   const header = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
@@ -22434,6 +22435,28 @@ async function chatCfgTest() {
   } catch (e) { msg.textContent = '✗ หมดเวลา (' + ((Date.now() - t) / 1000).toFixed(0) + ' วินาที)'; msg.style.color = '#DC2626'; }
 }
 
+function _chatLatMap(logs) {
+  const bySid = {}, out = new Map();
+  (logs || []).forEach(l => { const k = l.sessionId || '_'; (bySid[k] = bySid[k] || []).push(l); });
+  Object.values(bySid).forEach(arr => {
+    arr.sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i].role === 'bot' && arr[i - 1].role === 'user') {
+        const ms = new Date(arr[i].ts).getTime() - new Date(arr[i - 1].ts).getTime();
+        if (ms >= 0 && ms < 600000) out.set(arr[i].id, ms);
+      }
+    }
+  });
+  return out;
+}
+function _latColor(ms) { return ms <= 5000 ? '#16A34A' : ms <= 15000 ? '#D97706' : '#DC2626'; }
+function _latTxt(ms) { return (ms / 1000).toFixed(1) + ' วิ'; }
+function _latTag(msgs, map) {
+  const v = msgs.map(m => map.get(m.id)).filter(x => x != null);
+  if (!v.length) return '';
+  const avg = v.reduce((a, b) => a + b, 0) / v.length, mx = Math.max.apply(null, v);
+  return ' · ⏱ เฉลี่ย <b style="color:' + _latColor(avg) + '">' + _latTxt(avg) + '</b>' + (v.length > 1 ? ' · ช้าสุด <b style="color:' + _latColor(mx) + '">' + _latTxt(mx) + '</b>' : '');
+}
 function renderAdminChatLogs() {
   if (!isAdminRole()) {
     return '<div style="padding:40px;text-align:center;color:var(--text3)">หน้านี้สำหรับ Admin เท่านั้น</div>';
@@ -22486,6 +22509,11 @@ function renderAdminChatLogs() {
     .sort((a,b) => (b.msgs[b.msgs.length-1].ts||'').localeCompare(a.msgs[a.msgs.length-1].ts||''))
     .slice(0, 80); // cap UI to 80 sessions for perf
 
+  const latMap = _chatLatMap(filtered);
+  const latAll = Array.from(latMap.values()).sort((a, b) => a - b);
+  const latAvg = latAll.length ? latAll.reduce((a, b) => a + b, 0) / latAll.length : 0;
+  const latP90 = latAll.length ? latAll[Math.min(latAll.length - 1, Math.floor(latAll.length * 0.9))] : 0;
+  const latSlow = latAll.filter(x => x > 15000).length;
   const _esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const sessionsHtml = sessions.length ? sessions.map(s => {
     const first = s.msgs[0];
@@ -22499,7 +22527,7 @@ function renderAdminChatLogs() {
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:800;color:var(--text)">${_esc(first.userName)||'-'} <span style="font-size:10.5px;color:white;background:${roleColor};padding:2px 8px;border-radius:999px;font-weight:700;letter-spacing:.3px">${_esc((first.userRole||'-').toUpperCase())}</span> ${first.branchId && first.branchId !== '-' ? `<span style="font-size:11.5px;color:var(--accent);font-weight:700">${_esc(first.branchId)}</span>` : ''}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}${askIn?` · <span style="color:#D97706;font-weight:700">ขอข้อมูลเพิ่ม</span>`:''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDateTime(last.ts)} · ${s.msgs.length} ข้อความ${_latTag(s.msgs, latMap)}${errIn?` · <span style="color:#EF4444;font-weight:700">มี error</span>`:''}${askIn?` · <span style="color:#D97706;font-weight:700">ขอข้อมูลเพิ่ม</span>`:''}</div>
         </div>
         <span style="font-size:18px;color:var(--text3);flex-shrink:0">›</span>
       </div>
@@ -22526,6 +22554,15 @@ function renderAdminChatLogs() {
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:var(--accent);font-weight:800">${uniqUsers}</div><div class="stat-label">ผู้ใช้</div></div>
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:#22C55E;font-weight:800">${uniqSessions}</div><div class="stat-label">บทสนทนา</div></div>
     <div class="stat-card" style="padding:14px;text-align:center"><div class="stat-value" style="font-size:22px;color:${errMsgs?'#EF4444':'var(--text3)'};font-weight:800">${errMsgs}</div><div class="stat-label">Error</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;padding:12px 16px;display:flex;gap:22px;flex-wrap:wrap;align-items:center">
+    <div style="font-weight:800;font-size:13.5px">⏱ เวลาที่ AI ใช้ตอบ</div>
+    ${latAll.length ? `
+    <div><span style="font-size:20px;font-weight:800;color:${_latColor(latAvg)}">${_latTxt(latAvg)}</span> <span style="font-size:11.5px;color:var(--text3)">เฉลี่ย</span></div>
+    <div><span style="font-size:20px;font-weight:800;color:${_latColor(latP90)}">${_latTxt(latP90)}</span> <span style="font-size:11.5px;color:var(--text3)">ช้าสุด 10% แรก (P90)</span></div>
+    <div><span style="font-size:20px;font-weight:800;color:${latSlow?'#DC2626':'#16A34A'}">${latSlow}</span> <span style="font-size:11.5px;color:var(--text3)">ครั้งที่เกิน 15 วิ จาก ${latAll.length} คำตอบ</span></div>
+    <div style="font-size:11px;color:var(--text3)">วัดจากเวลาที่ผู้ใช้กดส่งถึงเวลาที่ได้คำตอบ (ตามตัวกรองด้านล่าง)</div>` : '<div style="font-size:12.5px;color:var(--text3)">ยังไม่มีข้อมูลในช่วงที่เลือก</div>'}
   </div>
 
   ${_chatCfgPanelHtml()}
