@@ -7916,7 +7916,6 @@ function showPage(page) {
   /* ของใหม่ที่ admin ต้องเห็น — แทรกหลังหัวหน้าของหน้านั้น ไม่ต้องรื้อแม่แบบเดิม */
   if (currentUser?.type === 'admin') {
     const extra = page === 'admin-dashboard' ? renderAdminTickets() + renderAdminTransferCard()
-                : page === 'admin-manage' ? renderAdminTransferCard()
                 : (page === 'admin-trainings' && isExecRole()) ? renderAdminPlanOverview() : '';
     if (extra) {
       const main = document.getElementById('main-content');
