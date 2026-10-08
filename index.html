@@ -3259,6 +3259,36 @@ body.admin-user .btn-navy{background:var(--primary)}
   .po-chip { border-radius: 999px; padding: 6px 16px; font-size: 15.5px; font-weight: 800; }
   .po-empty { text-align: center; padding: 60px 20px; color: var(--text3); }
 }
+/* ---- ติดตามการสอน (BZM): คอลัมน์ตามสถานะ ---- */
+.trk-k { display: none; }
+@media (min-width: 900px) {
+  .trk-k { display: block; }
+  .trk-m { display: none !important; }
+  body.bzm-user .train-tab { font-size: 16px !important; padding: 10px 18px !important; }
+  body.bzm-user .train-tab span { font-size: 14px !important; }
+  body.bzm-user .filter-bar .btn-sm { font-size: 15.5px; padding: 9px 18px; min-height: 44px; }
+  .trk-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .trk-board.n1 { grid-template-columns: 1fr; }
+  .trk-col { background: var(--surface2, #eceef2); border-radius: 16px; padding: 12px; }
+  .trk-ch { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 800; margin: 2px 4px 12px; }
+  .trk-ch span { background: #fff; color: var(--text); border-radius: 999px; padding: 1px 12px; font-size: 15px; }
+  .trk-body { display: flex; flex-direction: column; gap: 10px; }
+  .trk-board.n1 .trk-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .trk-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: box-shadow .15s, transform .15s; }
+  .trk-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,.08); transform: translateY(-1px); }
+  .trk-top { display: flex; align-items: baseline; gap: 10px; }
+  .trk-code { color: var(--accent); font-size: 16px; font-weight: 800; }
+  .trk-name { font-size: 18px; font-weight: 800; line-height: 1.35; }
+  .trk-mod { font-size: 16.5px; margin: 6px 0; line-height: 1.5; }
+  .trk-res { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .trk-pill { border-radius: 999px; padding: 3px 11px; font-size: 14px; font-weight: 700; white-space: nowrap; display: inline-block; }
+  .trk-pill.ok { background: #E6F6EC; color: #15803D; } .trk-pill.no { background: #FDEAEA; color: #B91C1C; }
+  .trk-pill.wa { background: #FFF4EA; color: #C2410C; } .trk-pill.gr { background: #F1F2F5; color: #4B5563; }
+  .trk-dt { font-size: 14px; color: var(--text3); margin-top: 6px; }
+  .trk-none { text-align: center; padding: 34px 10px; color: var(--text3); font-size: 16px; }
+  .trk-more { width: 100%; margin-top: 10px; padding: 12px; border: 1px dashed var(--border2, #cfd3da); background: transparent; border-radius: 12px; font: 700 15.5px 'Sarabun', sans-serif; color: var(--text2); cursor: pointer; }
+  .trk-more:hover { background: #fff; color: var(--accent); }
+}
 /* ---- ฮีทแมปหน้า "สาขาในโซน" (BZM) ---- */
 table.mgr-heat td.hm { text-align: center; font-weight: 800; font-size: 20px !important; }
 table.mgr-heat th { font-size: 15px !important; }
@@ -19886,6 +19916,47 @@ function _adminPersonScopeRows(filter) {
   return { rows, onlyEmpIds };
 }
 
+/* BZM · ติดตามการสอน (จอคอม): คอลัมน์ตามสถานะ — รอประเมิน / ประเมินแล้ว / หมดเวลา · ทั้งมุมมองรายครั้งและรายบุคคล */
+let _trkLim = { pending: 12, done: 12, expired: 12 };
+function _trkMore(k) { _trkLim[k] = (_trkLim[k] || 12) + 12; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
+function _trkRecCard(t) {
+  const names = (t.traineeIds || []).map(id => getEmployee(id)?.name).filter(Boolean).join(', ') || '—';
+  const prog = getSubtopicProgress(t), full = isModuleComplete(t);
+  let res = '';
+  if (t.eval) {
+    const ok = isEvalPass(t.eval.result);
+    const qa = (DB.quizResults || []).filter(r => r.trainingId === t.id);
+    const best = qa.length ? Math.max(...qa.map(r => r.pct != null ? r.pct : Math.round((r.score || 0) / (r.total || 1) * 100))) : null;
+    res = `<div class="trk-res"><span class="trk-pill ${ok ? 'ok' : 'no'}">${_escH(getEvalResultShort(t.eval.result))}</span>${t.eval.method ? `<span class="trk-pill gr">${_escH(t.eval.method)}</span>` : ''}${best != null ? `<span class="trk-pill ${best >= 80 ? 'ok' : 'no'}">สอบ ${best}%</span>` : ''}</div>`;
+  }
+  return `<div class="trk-card" onclick="viewTraining('${t.id}')">
+    <div class="trk-top"><b class="trk-code">${_escH(String(t.branchId))}</b><b class="trk-name">${_escH(names)}</b></div>
+    <div class="trk-mod">${_escH(MODULES[t.moduleId]?.name || t.moduleId)} <span class="trk-pill ${full ? 'ok' : 'wa'}">${prog.done}/${prog.total} หัวข้อ${full ? ' ✓' : ''}</span></div>
+    ${res}
+    <div class="trk-dt">สอน ${fmtDateTime(t.date)}</div></div>`;
+}
+function _trkPersonCard(r) {
+  const bits = [];
+  if (r.pending) bits.push(`<span class="trk-pill wa">รอประเมิน ${r.pending}</span>`);
+  if (r.expired) bits.push(`<span class="trk-pill no">หมดเวลา ${r.expired}</span>`);
+  const mod = r.modTotal ? `<span class="trk-pill ${r.modDone === r.modTotal ? 'ok' : 'gr'}">${r.modDone}/${r.modTotal} Module${r.modDone === r.modTotal ? ' ✓' : ''}</span>` : '';
+  return `<div class="trk-card" onclick="openPersonTrainingHistory('${r.empId}')">
+    <div class="trk-top"><b class="trk-code">${_escH(String(r.emp.branchId || ''))}</b><b class="trk-name">${_escH(r.emp.name)}</b></div>
+    <div class="trk-mod" style="color:var(--text3);font-size:14.5px">${_escH(r.emp.position || '')}</div>
+    <div class="trk-res">${bits.join('')}${mod}${r.bestQuizPct != null ? `<span class="trk-pill ${r.bestQuizPct >= 80 ? 'ok' : 'no'}">สอบดีสุด ${r.bestQuizPct}%</span>` : ''}</div>
+    ${r.subTodo ? `<div style="color:#B91C1C;font-weight:700;font-size:14.5px;margin-top:6px">ยังไม่สอน ${r.subTodo} หัวข้อ</div>` : ''}
+    <div class="trk-dt">สอน ${r.count} ครั้ง · ล่าสุด ${fmtDateTime(r.last)}</div></div>`;
+}
+function _trkBoard(groups, cardFn, filter) {
+  const defs = [['pending', '⏳ รอประเมิน', '#B45309'], ['done', '✓ ประเมินแล้ว', '#15803D'], ['expired', '⌛ หมดเวลาการประเมิน', '#B91C1C']];
+  const show = filter === 'all' ? defs : defs.filter(d => d[0] === filter);
+  return `<div class="trk-k"><div class="trk-board n${show.length}">${show.map(([k, title, c]) => {
+    const list = groups[k] || [], lim = _trkLim[k] || 12;
+    return `<div class="trk-col"><div class="trk-ch" style="color:${c}">${title}<span>${list.length}</span></div>
+      <div class="trk-body">${list.length ? list.slice(0, lim).map(cardFn).join('') : '<div class="trk-none">ไม่มีรายการ</div>'}</div>
+      ${list.length > lim ? `<button class="trk-more" onclick="_trkMore('${k}')">แสดงเพิ่ม (เหลือ ${list.length - lim})</button>` : ''}</div>`;
+  }).join('')}</div></div>`;
+}
 function renderAdminTrainings() {
   // msel ต้องซิงก์ caption เองหลังแทรก DOM (เกิดหลังฟังก์ชันนี้ return) ไม่งั้นตัวหนังสือในปุ่มว่างจนกว่าจะคลิก
   setTimeout(() => _mselSync('at-branch', true), 0);
@@ -19902,6 +19973,15 @@ function renderAdminTrainings() {
   else if (filter === 'expired') rows = expired;
   rows = _sortAdminTrainings(rows);
   const personScope = _adminTrainView === 'person' ? _adminPersonScopeRows(filter) : { rows: [], onlyEmpIds: null };
+  let bzmK = '';
+  if (isBzmRole()) {
+    if (_adminTrainView === 'person') {
+      const pr = _personSummaryRows(personScope.rows, personScope.onlyEmpIds);
+      bzmK = _trkBoard({ pending: pr.filter(r => r.pending > 0), expired: pr.filter(r => !r.pending && r.expired > 0), done: pr.filter(r => !r.pending && !r.expired) }, _trkPersonCard, filter);
+    } else {
+      bzmK = _trkBoard({ pending: rows.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)), done: rows.filter(t => t.eval), expired: rows.filter(t => !t.eval && isEvalDeadlinePassed(t.date)) }, _trkRecCard, filter);
+    }
+  }
 
   const branchMselItems = getAccessibleBranches().slice().sort().map(id => ({ v: id, label: id + ' · ' + BRANCH_MASTER[id].name.replace(id+' ','') }));
   const _svcMods = Object.entries(MODULES).filter(([_,m])=>m.group==='Service');
@@ -19957,7 +20037,7 @@ function renderAdminTrainings() {
         <button class="btn btn-sm ${_adminTrainView==='person'?'btn-navy':'btn-outline'}" style="${_adminTrainView==='person'?'':'background:transparent;border:0'}" onclick="setAdminTrainView('person')">🙍 รายบุคคล</button>
       </span>
     </div>
-    ${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personScope.rows, personScope.onlyEmpIds), {showBranch: _adminTrainBranch.length !== 1}) : `
+    ${bzmK}<div${isBzmRole() ? ' class="trk-m"' : ''}>${_adminTrainView === 'person' ? renderPersonSummaryTable(_personSummaryRows(personScope.rows, personScope.onlyEmpIds), {showBranch: _adminTrainBranch.length !== 1}) : `
     <div class="table-wrap"><table class="cards-on-mobile admin-train-table">
       <thead><tr>
         ${_sortHeader('date','วันที่ / เวลา',_adminTrainSort,'setAdminTrainSort')}
@@ -20003,7 +20083,7 @@ function renderAdminTrainings() {
             ${isAdminRole() && canEditPage('admin-trainings') ? `<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditTraining('${t.id}')">แก้ไข</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="openEditEval('${t.id}')">แก้ผล</button>`:''}<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTraining('${t.id}')">ลบ</button>${t.eval?`<button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="adminDeleteEval('${t.id}')">ลบผล</button>`:''}` : ''}
           </td>
         </tr>`;}).join('')}</tbody>
-    </table></div>`}
+    </table></div>`}</div>
   </div>`;
 }
 
