@@ -3267,13 +3267,17 @@ body.admin-user .btn-navy{background:var(--primary)}
   body.bzm-user .train-tab { font-size: 16px !important; padding: 10px 18px !important; }
   body.bzm-user .train-tab span { font-size: 14px !important; }
   body.bzm-user .filter-bar .btn-sm { font-size: 15.5px; padding: 9px 18px; min-height: 44px; }
-  .trk-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
-  .trk-board.n1 { grid-template-columns: 1fr; }
-  .trk-col { background: var(--surface2, #eceef2); border-radius: 16px; padding: 12px; }
-  .trk-ch { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 800; margin: 2px 4px 12px; }
-  .trk-ch span { background: #fff; color: var(--text); border-radius: 999px; padding: 1px 12px; font-size: 15px; }
-  .trk-body { display: flex; flex-direction: column; gap: 10px; }
-  .trk-board.n1 .trk-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .trk-us { background: #fff; border: 1px solid var(--border); border-radius: 16px; margin-bottom: 16px; overflow: hidden; }
+  .trk-uh { display: flex; align-items: center; gap: 10px; padding: 16px 22px; font-size: 20px; font-weight: 800; background: #FFF8F2; border-bottom: 1px solid var(--border); }
+  .trk-us:nth-of-type(n) .trk-uh { }
+  .trk-uh span { background: #fff; color: var(--text); border-radius: 999px; padding: 1px 12px; font-size: 15px; border: 1px solid var(--border); }
+  .trk-tg { margin-left: auto; font-style: normal; font-size: 15px; font-weight: 700; color: var(--text2); }
+  .trk-ur { display: grid; grid-template-columns: 88px 1.3fr 1.5fr 150px auto; gap: 16px; align-items: center; padding: 14px 22px; border-top: 1px solid var(--border); font-size: 17px; }
+  .trk-uh + .trk-ur { border-top: 0; }
+  .trk-ring { width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .trk-ring > div { width: 48px; height: 48px; border-radius: 50%; background: #fff; display: grid; place-items: center; text-align: center; line-height: 1; font-weight: 800; font-size: 19px; }
+  .trk-ring small { display: block; font-size: 10.5px; font-weight: 600; color: var(--text3); margin-top: 1px; }
+  .trk-dg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; }
   .trk-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: box-shadow .15s, transform .15s; }
   .trk-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,.08); transform: translateY(-1px); }
   .trk-top { display: flex; align-items: baseline; gap: 10px; }
@@ -3286,7 +3290,7 @@ body.admin-user .btn-navy{background:var(--primary)}
   .trk-pill.wa { background: #FFF4EA; color: #C2410C; } .trk-pill.gr { background: #F1F2F5; color: #4B5563; }
   .trk-dt { font-size: 14px; color: var(--text3); margin-top: 6px; }
   .trk-none { text-align: center; padding: 34px 10px; color: var(--text3); font-size: 16px; }
-  .trk-more { width: 100%; margin-top: 10px; padding: 12px; border: 1px dashed var(--border2, #cfd3da); background: transparent; border-radius: 12px; font: 700 15.5px 'Sarabun', sans-serif; color: var(--text2); cursor: pointer; }
+  .trk-more { width: calc(100% - 28px); margin: 0 14px 14px; padding: 12px; border: 1px dashed var(--border2, #cfd3da); background: transparent; border-radius: 12px; font: 700 15.5px 'Sarabun', sans-serif; color: var(--text2); cursor: pointer; }
   .trk-more:hover { background: #fff; color: var(--accent); }
 }
 /* ---- ฮีทแมปหน้า "สาขาในโซน" (BZM) ---- */
@@ -19947,15 +19951,54 @@ function _trkPersonCard(r) {
     ${r.subTodo ? `<div style="color:#B91C1C;font-weight:700;font-size:14.5px;margin-top:6px">ยังไม่สอน ${r.subTodo} หัวข้อ</div>` : ''}
     <div class="trk-dt">สอน ${r.count} ครั้ง · ล่าสุด ${fmtDateTime(r.last)}</div></div>`;
 }
-function _trkBoard(groups, cardFn, filter) {
-  const defs = [['pending', '⏳ รอประเมิน', '#B45309'], ['done', '✓ ประเมินแล้ว', '#15803D'], ['expired', '⌛ หมดเวลาการประเมิน', '#B91C1C']];
-  const show = filter === 'all' ? defs : defs.filter(d => d[0] === filter);
-  return `<div class="trk-k"><div class="trk-board n${show.length}">${show.map(([k, title, c]) => {
-    const list = groups[k] || [], lim = _trkLim[k] || 12;
-    return `<div class="trk-col"><div class="trk-ch" style="color:${c}">${title}<span>${list.length}</span></div>
-      <div class="trk-body">${list.length ? list.slice(0, lim).map(cardFn).join('') : '<div class="trk-none">ไม่มีรายการ</div>'}</div>
-      ${list.length > lim ? `<button class="trk-more" onclick="_trkMore('${k}')">แสดงเพิ่ม (เหลือ ${list.length - lim})</button>` : ''}</div>`;
-  }).join('')}</div></div>`;
+let _trkDoneOpen = false;
+function _trkToggleDone() { _trkDoneOpen = !_trkDoneOpen; document.getElementById('main-content').innerHTML = renderAdminTrainings(); }
+/* วันที่เหลือก่อนหมดเวลาประเมิน (ลบ = เลยกำหนดแล้วกี่วัน) */
+function _trkDaysLeft(dateStr) { const d = new Date(dateStr); d.setDate(d.getDate() + EVAL_DEADLINE_DAYS); return Math.ceil((d.getTime() - Date.now()) / 86400000); }
+function _trkRing(days) {
+  const over = days < 0, c = over ? '#EF4444' : days <= 3 ? '#EF4444' : days <= 7 ? '#F59E0B' : '#22C55E';
+  const pct = over ? 100 : Math.max(4, Math.min(100, days / EVAL_DEADLINE_DAYS * 100));
+  return `<div class="trk-ring" style="background:conic-gradient(${c} 0 ${pct}%,#ECEFF3 0)"><div><span>${over ? '!' : days}<small>${over ? 'เลย' : 'วัน'}</small></span></div></div>`;
+}
+function _trkLeftPill(days) {
+  if (days < 0) return `<span class="trk-pill no">เลยกำหนด ${-days} วัน</span>`;
+  return `<span class="trk-pill ${days <= 3 ? 'no' : days <= 7 ? 'wa' : 'ok'}">เหลือ ${days} วัน</span>`;
+}
+function _trkUrgRec(t) {
+  const days = _trkDaysLeft(t.date);
+  const names = (t.traineeIds || []).map(id => getEmployee(id)?.name).filter(Boolean).join(', ') || '—';
+  const prog = getSubtopicProgress(t), full = isModuleComplete(t);
+  return `<div class="trk-ur">${_trkRing(days)}
+    <div><div class="trk-name">${_escH(names)}</div><div class="trk-dt" style="margin:2px 0 0"><b class="trk-code">${_escH(String(t.branchId))}</b> · สอน ${fmtDateTime(t.date)}</div></div>
+    <div class="trk-mod" style="margin:0">${_escH(MODULES[t.moduleId]?.name || t.moduleId)} <span class="trk-pill ${full ? 'ok' : 'wa'}">${prog.done}/${prog.total} หัวข้อ</span></div>
+    <div>${_trkLeftPill(days)}</div>
+    <button class="btn btn-sm btn-view" onclick="viewTraining('${t.id}')">ดู / ประเมิน</button></div>`;
+}
+function _trkUrgPerson(r) {
+  const open = r.trainings.filter(t => !t.eval);
+  const days = Math.min(...open.map(t => _trkDaysLeft(t.date)));
+  const bits = [];
+  if (r.pending) bits.push(`<span class="trk-pill wa">รอประเมิน ${r.pending}</span>`);
+  if (r.expired) bits.push(`<span class="trk-pill no">หมดเวลา ${r.expired}</span>`);
+  return `<div class="trk-ur">${_trkRing(days)}
+    <div><div class="trk-name">${_escH(r.emp.name)}</div><div class="trk-dt" style="margin:2px 0 0"><b class="trk-code">${_escH(String(r.emp.branchId || ''))}</b> · ${_escH(r.emp.position || '')}</div></div>
+    <div class="trk-mod" style="margin:0">${bits.join(' ')}${r.subTodo ? ` <span style="color:#B91C1C;font-weight:700;font-size:14.5px">ยังไม่สอน ${r.subTodo} หัวข้อ</span>` : ''}</div>
+    <div>${_trkLeftPill(days)}</div>
+    <button class="btn btn-sm btn-view" onclick="openPersonTrainingHistory('${r.empId}')">ดูประวัติ</button></div>`;
+}
+function _trkUrgent(g, urgFn, doneFn, filter) {
+  const sec = (title, color, n, body) => `<div class="trk-us"><div class="trk-uh" style="color:${color}">${title}<span>${n}</span></div>${body}</div>`;
+  const emp = t => `<div class="trk-none">${t}</div>`;
+  let html = '';
+  const showUrg = filter === 'all' || filter === 'pending', showExp = filter === 'all' || filter === 'expired', showDone = filter === 'all' || filter === 'done';
+  if (showUrg) html += sec('⏳ ต้องประเมิน · ใกล้หมดเวลาก่อน', '#B45309', g.pending.length, g.pending.length ? g.pending.map(urgFn).join('') : emp('✓ ไม่มีรายการรอประเมิน'));
+  if (showExp && (g.expired.length || filter === 'expired')) html += sec('⌛ หมดเวลาการประเมิน', '#B91C1C', g.expired.length, g.expired.length ? g.expired.map(urgFn).join('') : emp('ไม่มีรายการ'));
+  if (showDone) {
+    const open = _trkDoneOpen || filter === 'done', lim = _trkLim.done || 12;
+    html += `<div class="trk-us"><div class="trk-uh" style="color:#15803D;cursor:pointer" ${filter === 'done' ? '' : 'onclick="_trkToggleDone()"'}>✓ ประเมินแล้ว<span>${g.done.length}</span>${filter === 'done' ? '' : `<em class="trk-tg">${open ? 'ซ่อนรายการ ▴' : 'แสดงรายการ ▾'}</em>`}</div>
+      ${open ? `<div class="trk-dg">${g.done.slice(0, lim).map(doneFn).join('') || emp('ไม่มีรายการ')}</div>${g.done.length > lim ? `<button class="trk-more" onclick="_trkMore('done')">แสดงเพิ่ม (เหลือ ${g.done.length - lim})</button>` : ''}` : ''}</div>`;
+  }
+  return `<div class="trk-k">${html}</div>`;
 }
 function renderAdminTrainings() {
   // msel ต้องซิงก์ caption เองหลังแทรก DOM (เกิดหลังฟังก์ชันนี้ return) ไม่งั้นตัวหนังสือในปุ่มว่างจนกว่าจะคลิก
@@ -19977,9 +20020,11 @@ function renderAdminTrainings() {
   if (isBzmRole()) {
     if (_adminTrainView === 'person') {
       const pr = _personSummaryRows(personScope.rows, personScope.onlyEmpIds);
-      bzmK = _trkBoard({ pending: pr.filter(r => r.pending > 0), expired: pr.filter(r => !r.pending && r.expired > 0), done: pr.filter(r => !r.pending && !r.expired) }, _trkPersonCard, filter);
+      const _mn = r => Math.min(...r.trainings.filter(t => !t.eval).map(t => _trkDaysLeft(t.date)));
+      bzmK = _trkUrgent({ pending: pr.filter(r => r.pending > 0).sort((a, b) => _mn(a) - _mn(b)), expired: pr.filter(r => !r.pending && r.expired > 0).sort((a, b) => _mn(a) - _mn(b)), done: pr.filter(r => !r.pending && !r.expired) }, _trkUrgPerson, _trkPersonCard, filter);
     } else {
-      bzmK = _trkBoard({ pending: rows.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)), done: rows.filter(t => t.eval), expired: rows.filter(t => !t.eval && isEvalDeadlinePassed(t.date)) }, _trkRecCard, filter);
+      const _byDue = (a, b) => _trkDaysLeft(a.date) - _trkDaysLeft(b.date);
+      bzmK = _trkUrgent({ pending: rows.filter(t => !t.eval && !isEvalDeadlinePassed(t.date)).sort(_byDue), done: rows.filter(t => t.eval), expired: rows.filter(t => !t.eval && isEvalDeadlinePassed(t.date)).sort(_byDue) }, _trkUrgRec, _trkRecCard, filter);
     }
   }
 
