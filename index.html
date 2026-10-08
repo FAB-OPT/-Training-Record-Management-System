@@ -3240,6 +3240,27 @@ body.admin-user .btn-navy{background:var(--primary)}
   .po-card .po-head .btn { min-width: 42px; min-height: 40px; font-size: 18px; }
   .pa-chips .badge { font-size: 16px; padding: 7px 16px; }
 }
+/* ---- BZM: ตัวอักษรใหญ่ขึ้นทุกเมนู (จอคอม) ---- */
+@media (min-width: 900px) {
+  body.bzm-user .page-hero-title { font-size: 30px; }
+  body.bzm-user .page-hero-sub { font-size: 16px; }
+  body.bzm-user .card-title { font-size: 19px; }
+  body.bzm-user .nav-item { font-size: 15px; }
+  body.bzm-user .card .table-wrap table th { font-size: 15.5px !important; padding: 15px 14px; }
+  body.bzm-user .card .table-wrap table td { font-size: 17px !important; padding: 17px 14px; }
+  body.bzm-user .card .table-wrap table td small, body.bzm-user .card .table-wrap table th small { font-size: 14px !important; }
+  body.bzm-user .card .table-wrap table .badge { font-size: 14px; padding: 5px 12px; }
+  body.bzm-user .card .table-wrap table .btn-sm { font-size: 15.5px; padding: 8px 18px; min-height: 42px; }
+  body.bzm-user .stat-label { font-size: 15.5px; }
+  body.bzm-user .stat-value { font-size: 34px; }
+  body.bzm-user .dash-stat-label { font-size: 15.5px; }
+  body.bzm-user .dash-stat-value { font-size: 46px; }
+  body.bzm-user .dash-stat-sub { font-size: 14.5px; }
+  body.bzm-user .form-label { font-size: 14.5px; }
+  body.bzm-user .form-input, body.bzm-user .form-select { font-size: 16px; min-height: 48px; }
+  body.bzm-user .filter-bar .btn, body.bzm-user .cat-tabs button { font-size: 15.5px; }
+  body.bzm-user .modal-body, body.bzm-user .modal-body td, body.bzm-user .modal-body th { font-size: 16px; }
+}
 @media (max-width: 760px) {
   /* ---- แถบบน ---- */
   body.admin-user .mobile-topbar { height: 48px; padding: 0 8px 0 14px; gap: 4px; border-bottom: 1px solid var(--border); background: var(--surface); }
@@ -6728,7 +6749,7 @@ function logout() {
   try { window.location.href = '/fab-operations-hub/?logout=1'; } catch (_) { window.location.href = '/fab-operations-hub/'; }
   return;
   closeSidebar();
-  document.body.classList.remove('branch-user','admin-user');
+  document.body.classList.remove('branch-user','admin-user','bzm-user');
   document.body.classList.add('on-login');
   document.getElementById('mobile-bottom-nav').classList.remove('hidden-always');
   document.getElementById('login-screen').style.display = 'flex';
@@ -6764,6 +6785,7 @@ function showApp() {
     buildBranchNav(); showPage('dashboard'); startAutoSync(); subscribeCasesRealtime();
   } else {
     document.body.classList.add('admin-user'); document.body.classList.remove('branch-user');
+    document.body.classList.toggle('bzm-user', currentUser.role === 'bzm');
     var _bid2 = document.getElementById('sidebar-branch-id'); _bid2.textContent = ''; _bid2.style.display = 'none';
     var _mt2=document.getElementById('mobile-title'); if(_mt2)_mt2.textContent = currentUser.nick || currentUser.name || 'Admin';
     const _adminName = currentUser.name || currentUser.nick || 'ADMIN';
