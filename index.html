@@ -8192,14 +8192,23 @@ function getPersonScopeTrainings(bid) {
 /* สาขาที่ยังเปิด — สาขาปิดยังอยู่ใน BRANCH_MASTER (ค้นชื่อจากรหัสได้ = ประวัติ/รายงานย้อนหลังไม่พัง)
    แต่ไม่ควรโผล่ในงานประจำ (เลือกสาขา/รายงาน/นับสถิติ) */
 function openBranchIds() { return Object.keys(BRANCH_MASTER).filter(bid => !BRANCH_MASTER[bid].closed); }
+/* ผู้จัดการเขต (BZM) ของสาขาคือคนนี้ไหม — ตรงชื่อจริง หรือตรงชื่อเล่น
+   ทะเบียนสาขาในฮับเก็บ "นิค" เป็นหลัก ส่วนชื่อจริงต้องไปจับคู่จากรายชื่อผู้ใช้ของฮับ
+   ถ้าจับคู่ไม่ได้ (เช่นรายชื่อผู้ใช้ในฮับถูกแก้เป็นชื่ออังกฤษ) ช่อง manager จะเหลือแค่นิค
+   ของเดิมเทียบแต่ชื่อจริงอย่างเดียว BZM เลยเห็น 0 สาขาทั้งที่ข้อมูลอยู่ครบ */
+function _isMyZoneMgr(mgr, user) {
+  mgr = String(mgr || ''); if (!mgr || !user) return false;
+  if (user.name && mgr.includes(user.name)) return true;
+  const nick = String(user.nick || '').trim();
+  return !!(nick && nick !== user.name && mgr.includes(nick));
+}
 function getAccessibleBranches() {
   if (!currentUser) return [];
   if (currentUser.type === 'branch') return [currentUser.branchId];
   const open = openBranchIds();
   if (currentUser.role === 'bzm' && currentUser.name) {
     return open.filter(bid => {
-      const mgr = BRANCH_MASTER[bid]?.manager || '';
-      return mgr.includes(currentUser.name);
+      return _isMyZoneMgr(BRANCH_MASTER[bid]?.manager, currentUser);
     });
   }
   return open;
@@ -16700,7 +16709,7 @@ function renderAdminManage() {
     // BZM: auto-pin to their own zone (skip the BZM picker step)
     // Zone name in BRANCH_MASTER is the full "ชื่อจริง (นิค)" — find the one containing this user's name
     if (isBzmRole() && !_selectedBzm && currentUser?.name) {
-      const myZone = getAllBzms().find(z => z.name.includes(currentUser.name));
+      const myZone = getAllBzms().find(z => _isMyZoneMgr(z.name, currentUser));
       if (myZone) _selectedBzm = myZone.name;
     }
     // BZM / ผู้บริหาร: ใช้มุมมองโซนเดิม (ไม่มีแท็บ — เห็นเฉพาะสาขาในโซนตัวเอง)
