@@ -16846,7 +16846,7 @@ function _renderManageBzmDetail() {
   const _zc = z.branches.filter(bid => BRANCH_MASTER[bid]).map(_cnt);
   const _mx = { all: Math.max(1, ..._zc.map(c => c.all)), m: Math.max(1, ..._zc.map(c => c.m)), k: Math.max(1, ..._zc.map(c => c.k)), s: Math.max(1, ..._zc.map(c => c.s)) };
   const _tot = _zc.reduce((t, c) => ({ all: t.all + c.all, m: t.m + c.m, k: t.k + c.k, s: t.s + c.s }), { all: 0, m: 0, k: 0, s: 0 });
-  const _hc = (v, key, rgb) => { const r = v / _mx[key]; return `class="hm" style="background:rgba(${rgb},${v ? Math.min(.9, .1 + r * .72).toFixed(2) : 0});color:${r > .55 ? '#fff' : 'var(--text)'}"`; };
+  const _hc = (v, key, rgb) => { const r = v / _mx[key]; return `class="hm" style="background:rgba(${rgb},${v ? (.12 + r * .5).toFixed(2) : 0});color:var(--text)"`; };
   const branchRows = branches.length ? branches.map(bid => {
     const b = BRANCH_MASTER[bid]; if (!b) return '';
     const shortName = b.name.replace(bid+' ','');
