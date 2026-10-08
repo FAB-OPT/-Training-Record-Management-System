@@ -3240,6 +3240,13 @@ body.admin-user .btn-navy{background:var(--primary)}
   .po-card .po-head .btn { min-width: 42px; min-height: 40px; font-size: 18px; }
   .pa-chips .badge { font-size: 16px; padding: 7px 16px; }
 }
+/* ---- ฮีทแมปหน้า "สาขาในโซน" (BZM) ---- */
+table.mgr-heat td.hm { text-align: center; font-weight: 800; font-size: 20px !important; }
+table.mgr-heat th { font-size: 15px !important; }
+table.mgr-heat td { font-size: 17px !important; padding-top: 16px; padding-bottom: 16px; }
+table.mgr-heat tr.hm-total td { background: var(--surface2, #f7f8fa); font-weight: 800; font-size: 20px !important; text-align: center; }
+table.mgr-heat tr.hm-total td:nth-child(2) { text-align: left; }
+table.mgr-heat .po-view { font-size: 15.5px; padding: 8px 16px; min-height: 42px; }
 /* ---- BZM: ตัวอักษรใหญ่ขึ้นทุกเมนู (จอคอม) ---- */
 @media (min-width: 900px) {
   body.bzm-user .page-hero-title { font-size: 30px; }
@@ -16765,13 +16772,32 @@ function _renderManageBzmDetail() {
   const safe = z.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
   let zEmps = 0;
   z.branches.forEach(bid => { zEmps += (DB.employees[bid]||[]).filter(_isEmpEnabled).length; });
+  /* BZM: ตารางฮีทแมป — ช่องตัวเลขไล่เฉดสีตามจำนวน (เทียบกับค่าสูงสุดในโซนเดียวกัน) + แถวรวมโซน */
+  const heat = isBzmRole();
+  const _cnt = bid => {
+    const emps = (DB.employees[bid]||[]).filter(_isEmpEnabled);
+    return { all: emps.length,
+      m: emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา').length,
+      k: emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length,
+      s: emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length };
+  };
+  const _zc = z.branches.filter(bid => BRANCH_MASTER[bid]).map(_cnt);
+  const _mx = { all: Math.max(1, ..._zc.map(c => c.all)), m: Math.max(1, ..._zc.map(c => c.m)), k: Math.max(1, ..._zc.map(c => c.k)), s: Math.max(1, ..._zc.map(c => c.s)) };
+  const _tot = _zc.reduce((t, c) => ({ all: t.all + c.all, m: t.m + c.m, k: t.k + c.k, s: t.s + c.s }), { all: 0, m: 0, k: 0, s: 0 });
+  const _hc = (v, key, rgb) => { const r = v / _mx[key]; return `class="hm" style="background:rgba(${rgb},${v ? Math.min(.9, .1 + r * .72).toFixed(2) : 0});color:${r > .55 ? '#fff' : 'var(--text)'}"`; };
   const branchRows = branches.length ? branches.map(bid => {
     const b = BRANCH_MASTER[bid]; if (!b) return '';
     const shortName = b.name.replace(bid+' ','');
-    const emps = (DB.employees[bid]||[]).filter(_isEmpEnabled);
-    const mgrTeam = emps.filter(e => getPositionGroup(e.position) === 'ทีมผู้จัดการสาขา').length;
-    const cook = emps.filter(e => getPositionGroup(e.position) === 'พนักงานครัว').length;
-    const service = emps.filter(e => getPositionGroup(e.position) === 'พนักงานบริการ').length;
+    const _c = _cnt(bid), emps = { length: _c.all }, mgrTeam = _c.m, cook = _c.k, service = _c.s;
+    if (heat) return `<tr>
+      <td data-label="รหัส" style="font-weight:800;color:var(--primary)">${bid}</td>
+      <td data-label="ชื่อสาขา" style="font-weight:600;cursor:pointer" onclick="adminViewBranch('${bid}')">${shortName}</td>
+      <td data-label="พนักงาน" ${_hc(_c.all, 'all', '255,107,26')}>${_c.all}</td>
+      <td data-label="ผจก." ${_hc(_c.m, 'm', '59,130,246')}>${_c.m}</td>
+      <td data-label="ครัว" ${_hc(_c.k, 'k', '239,68,68')}>${_c.k}</td>
+      <td data-label="บริการ" ${_hc(_c.s, 's', '34,197,94')}>${_c.s}</td>
+      <td data-label="actions" style="text-align:right;white-space:nowrap"><button class="btn btn-sm btn-outline po-view" onclick="adminViewBranch('${bid}')">👥 พนักงาน</button></td>
+    </tr>`;
     return `<tr>
       <td data-label="รหัส" style="font-weight:800;color:var(--primary)">${bid}</td>
       <td data-label="ชื่อสาขา" style="font-weight:600;cursor:pointer" onclick="adminViewBranch('${bid}')">${shortName}</td>
@@ -16795,7 +16821,7 @@ function _renderManageBzmDetail() {
     ${isBzmRole() ? '' : `<button class="mgr-back" onclick="clearBzmSelection()">‹ กลับไปเลือก BZM</button>`}
     <input class="search-input" placeholder="🔍 ค้นหารหัสหรือชื่อสาขาในโซนนี้..." oninput="setManageSearch(this.value)" style="flex:1;min-width:200px;max-width:400px" value="${q.replace(/"/g,'&quot;')}">
     <span class="mgr-stat"><b>${z.branches.length}</b> สาขา</span>
-    <span class="mgr-stat"><b>${zEmps}</b> พนักงาน</span>
+    <span class="mgr-stat"><b>${zEmps}</b> พนักงาน</span>${heat ? '<span class="mgr-stat" style="margin-left:auto">เฉดเข้ม = จำนวนมาก</span>' : ''}
   </div>
   <div class="mgr-zone">
     <div class="mgr-zone-head">
@@ -16806,7 +16832,7 @@ function _renderManageBzmDetail() {
       <div class="mgr-zone-actions">${zoneActions}</div>
     </div>
     <div class="mgr-zone-body" style="padding:0">
-      <table class="cards-on-mobile mgr-branch-table">
+      <table class="cards-on-mobile mgr-branch-table${heat ? ' mgr-heat' : ''}">
         <thead><tr>
           <th style="width:80px">รหัส</th>
           <th>ชื่อสาขา</th>
@@ -16816,7 +16842,7 @@ function _renderManageBzmDetail() {
           <th style="text-align:center;width:80px">บริการ</th>
           <th style="text-align:right;width:280px">จัดการ</th>
         </tr></thead>
-        <tbody>${branchRows}</tbody>
+        <tbody>${branchRows}${heat && branches.length ? `<tr class="hm-total"><td></td><td>รวมทั้งโซน</td><td>${_tot.all}</td><td style="color:#2563EB">${_tot.m}</td><td style="color:#DC2626">${_tot.k}</td><td style="color:#16A34A">${_tot.s}</td><td></td></tr>` : ''}</tbody>
       </table>
     </div>
   </div>`;
