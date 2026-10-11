@@ -3936,7 +3936,7 @@ const POSITION_MASTER = {
     "group": "ทีมผู้จัดการสาขา"
   },
   "T004": {
-    "name": "Restaurant General Manager",
+    "name": "Restaurant Manager",
     "group": "ทีมผู้จัดการสาขา"
   }
 };
@@ -4140,7 +4140,7 @@ const POSITION_GROUPS = {
   'Cook Silver P/T':'พนักงานครัว','Cook Silver':'พนักงานครัว',
   'Cook Gold P/T':'พนักงานครัว','Cook Gold':'พนักงานครัว',
   'Shift Supervisor':'ทีมผู้จัดการสาขา','Assistant Manager':'ทีมผู้จัดการสาขา',
-  'Senior Assistant Manager':'ทีมผู้จัดการสาขา','Restaurant General Manager':'ทีมผู้จัดการสาขา',
+  'Senior Assistant Manager':'ทีมผู้จัดการสาขา','Restaurant Manager':'ทีมผู้จัดการสาขา',
 };
 /* หมายเหตุ: getPositionGroup ตัวจริงอยู่ล่างไฟล์ (ประกาศทีหลังจึงทับตัวนี้)
    ตัวล่างใช้วิธีดูคำขึ้นต้น service/cook ที่เหลือเหมาเป็นทีมผู้จัดการสาขา
@@ -5954,6 +5954,7 @@ function _applyServerData(d) {
   (d.employees||[]).forEach(e => {
     const bid = String(e.branchId||'').trim();
     if (!bid) return;
+    if (e.position === 'Restaurant General Manager') e.position = 'Restaurant Manager';   /* ชื่อเดิมที่เลิกใช้ — ข้อมูลเก่าในฐานข้อมูลยังเป็นชื่อนี้ แสดงเป็นชื่อใหม่ไว้ก่อน */
     e.branchId = bid;
     if (!DB.employees[bid]) DB.employees[bid] = [];
     DB.employees[bid].push(e);
@@ -6026,6 +6027,7 @@ async function gsLoadFromSheets() {
       e.id = 'E' + Math.abs(h).toString().slice(0,7);
       _empToFix.push({...e});
     } else { e.id = String(e.id).trim(); }
+    if (e.position === 'Restaurant General Manager') e.position = 'Restaurant Manager';   /* ชื่อเดิมที่เลิกใช้ — ข้อมูลเก่าในฐานข้อมูลยังเป็นชื่อนี้ แสดงเป็นชื่อใหม่ไว้ก่อน */
     e.branchId = bid;
     if (!DB.employees[bid]) DB.employees[bid] = [];
     DB.employees[bid].push(e);
@@ -6497,8 +6499,8 @@ const POSITION_BY_GROUP = {
   'พนักงานบริการ':['Service Basic P/T','Service Basic','Service Silver P/T','Service Silver','Service Gold P/T','Service Gold'],
   'พนักงานครัว':['Cook Basic P/T','Cook Basic','Cook Silver P/T','Cook Silver','Cook Gold P/T','Cook Gold'],
   // Trainee Manager มีอยู่ในข้อมูลพนักงานจริงแต่เดิมไม่ได้อยู่ในรายการนี้
-  // ส่วน Restaurant Manager เปลี่ยนเป็น Restaurant General Manager ทั้งหมดแล้ว (49 คน) จึงไม่มีในรายการ
-  'ทีมผู้จัดการสาขา':['Trainee Manager','Shift Supervisor','Assistant Manager','Senior Assistant Manager','Restaurant General Manager'],
+  // Restaurant Manager คือชื่อตำแหน่งมาตรฐาน (เดิมเคยใช้ Restaurant General Manager · เปลี่ยนกลับ 11 ต.ค. 2569)
+  'ทีมผู้จัดการสาขา':['Trainee Manager','Shift Supervisor','Assistant Manager','Senior Assistant Manager','Restaurant Manager'],
 };
 /* ตำแหน่งของกลุ่มนี้ = รายการมาตรฐาน + ตำแหน่งที่มีคนใช้อยู่จริงแต่ยังไม่ได้เพิ่มเข้ารายการ
    เช่น Restaurant Manager กับ Trainee Manager ที่มีในข้อมูลพนักงานแต่ไม่มีในรายการ
@@ -7601,7 +7603,7 @@ ${((currentUser?.type === 'branch' ? BRANCH_NAV_ITEMS : (typeof getActiveNavItem
   ห้ามตอบว่า "ดูได้ที่เมนู X" ถ้า X ไม่มีจริง
 
 ⛔ ห้ามย่อชื่อ — ต้องคัดลอกมาเต็ม ๆ ตามที่เขียนไว้ในข้อมูล:
-• ชื่อตำแหน่ง เช่น "Restaurant General Manager" ห้ามย่อเป็น "Restaurant Manager" หรือ "RGM"
+• ชื่อตำแหน่ง เช่น "Restaurant Manager" ห้ามย่อเป็น "RM" และห้ามเรียก "Restaurant General Manager" หรือ "RGM" (ชื่อเดิมที่เลิกใช้แล้ว)
   "Senior Assistant Manager" ห้ามย่อเป็น "Assistant Manager" — คนละตำแหน่งกัน บอกผิดคือให้ข้อมูลผิด
 • ชื่อเมนู ชื่อ Module ชื่อหัวข้อย่อย ชื่อพนักงาน ชื่อสาขา — เขียนเต็มเหมือนต้นฉบับทุกตัวอักษร
 • ถ้าชื่อยาวจนคำตอบดูรก ให้ตัดข้อความส่วนอื่นแทน ห้ามตัดชื่อ
@@ -14229,7 +14231,7 @@ function _printTrainingSession(info, list) {
     </div>
     <table>
       <thead><tr>
-        <!-- ตำแหน่งกว้างสุดในบรรดาคอลัมน์ตายตัว เพราะ Restaurant General Manager ยาว 26 ตัวอักษร
+        <!-- ตำแหน่งกว้างสุดในบรรดาคอลัมน์ตายตัว เพราะ Restaurant Manager ยาว 26 ตัวอักษร
              เดิมให้ 135px แล้วตกเป็นสองบรรทัดทุกแถว ทั้งที่ช่องสาขายังเหลือที่ว่างเยอะ -->
         <th style="width:40px">ลำดับ</th>
         <th style="width:76px">รหัสพนักงาน</th>
@@ -14915,7 +14917,7 @@ function downloadCourseHistoryTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
     ['Brand','รหัสพนักงาน','ชื่อ นามสกุล (ใส่คำนำหน้า)','ตำแหน่ง','สาขา','หลักสูตร','รุ่นที่','วันที่อบรม (วันที่)'],
     ['Santa Fe','601840','นางสาว ธารทิพย์ นาเจริญ','Assistant Manager','5076 บิ๊กซี ติวานนท์','Admin Operations Level 2',2,'2025-11-20'],
-    ['Santa Fe','530685','นาย สุทธิพงศ์ แซ่โก','Restaurant General Manager','5065 เกตเวย์ เอกมัย','ผู้ประกอบกิจการ',1,'2025-10-15'],
+    ['Santa Fe','530685','นาย สุทธิพงศ์ แซ่โก','Restaurant Manager','5065 เกตเวย์ เอกมัย','ผู้ประกอบกิจการ',1,'2025-10-15'],
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'CourseHistory');
@@ -17610,7 +17612,7 @@ function adminAddEmpToBranch(bid) {
 <option value="Shift Supervisor">Shift Supervisor</option>
 <option value="Assistant Manager">Assistant Manager</option>
 <option value="Senior Assistant Manager">Senior Assistant Manager</option>
-<option value="Restaurant General Manager">Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager">Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน <span class="req">*</span></label><input class="form-input" type="date" id="emp-start"></div>
@@ -19834,7 +19836,7 @@ function adminEditEmp(empId, bid) {
 <option value="Shift Supervisor" ${e.position==="Shift Supervisor"?"selected":""}>Shift Supervisor</option>
 <option value="Assistant Manager" ${e.position==="Assistant Manager"?"selected":""}>Assistant Manager</option>
 <option value="Senior Assistant Manager" ${e.position==="Senior Assistant Manager"?"selected":""}>Senior Assistant Manager</option>
-<option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager" ${e.position==="Restaurant Manager"?"selected":""}>Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>
@@ -23158,7 +23160,7 @@ function adminAddEmpGlobal() {
 <option value="Shift Supervisor">Shift Supervisor</option>
 <option value="Assistant Manager">Assistant Manager</option>
 <option value="Senior Assistant Manager">Senior Assistant Manager</option>
-<option value="Restaurant General Manager">Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager">Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน <span class="req">*</span></label><input class="form-input" type="date" id="emp-start"></div>
@@ -23205,7 +23207,7 @@ function adminEditEmpGlobal(empId) {
 <option value="Shift Supervisor" ${e.position==="Shift Supervisor"?"selected":""}>Shift Supervisor</option>
 <option value="Assistant Manager" ${e.position==="Assistant Manager"?"selected":""}>Assistant Manager</option>
 <option value="Senior Assistant Manager" ${e.position==="Senior Assistant Manager"?"selected":""}>Senior Assistant Manager</option>
-<option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager" ${e.position==="Restaurant Manager"?"selected":""}>Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${_toDateInputValue(e.startDate)}"></div>

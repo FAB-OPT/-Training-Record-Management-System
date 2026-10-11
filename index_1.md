@@ -629,7 +629,7 @@ const POSITION_MASTER = {
     "group": "ทีมผู้จัดการสาขา"
   },
   "T004": {
-    "name": "Restaurant General Manager",
+    "name": "Restaurant Manager",
     "group": "ทีมผู้จัดการสาขา"
   }
 };
@@ -2377,7 +2377,7 @@ function openAddEmployee() {
 <option value="Shift Supervisor">Shift Supervisor</option>
 <option value="Assistant Manager">Assistant Manager</option>
 <option value="Senior Assistant Manager">Senior Assistant Manager</option>
-<option value="Restaurant General Manager">Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager">Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน *</label><input class="form-input" type="date" id="emp-start"></div>
@@ -2415,7 +2415,7 @@ function openEditEmployee(id) {
 <option value="Shift Supervisor" ${e.position==="Shift Supervisor"?"selected":""}>Shift Supervisor</option>
 <option value="Assistant Manager" ${e.position==="Assistant Manager"?"selected":""}>Assistant Manager</option>
 <option value="Senior Assistant Manager" ${e.position==="Senior Assistant Manager"?"selected":""}>Senior Assistant Manager</option>
-<option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager" ${e.position==="Restaurant Manager"?"selected":""}>Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${e.startDate}"></div>
@@ -3174,7 +3174,7 @@ function adminAddEmpToBranch(bid) {
 <option value="Shift Supervisor">Shift Supervisor</option>
 <option value="Assistant Manager">Assistant Manager</option>
 <option value="Senior Assistant Manager">Senior Assistant Manager</option>
-<option value="Restaurant General Manager">Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager">Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน *</label><input class="form-input" type="date" id="emp-start"></div>
@@ -3213,7 +3213,7 @@ function adminEditEmp(empId, bid) {
 <option value="Shift Supervisor" ${e.position==="Shift Supervisor"?"selected":""}>Shift Supervisor</option>
 <option value="Assistant Manager" ${e.position==="Assistant Manager"?"selected":""}>Assistant Manager</option>
 <option value="Senior Assistant Manager" ${e.position==="Senior Assistant Manager"?"selected":""}>Senior Assistant Manager</option>
-<option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager" ${e.position==="Restaurant Manager"?"selected":""}>Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${e.startDate}"></div>
@@ -3355,7 +3355,7 @@ function adminAddEmpGlobal() {
 <option value="Shift Supervisor">Shift Supervisor</option>
 <option value="Assistant Manager">Assistant Manager</option>
 <option value="Senior Assistant Manager">Senior Assistant Manager</option>
-<option value="Restaurant General Manager">Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager">Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน *</label><input class="form-input" type="date" id="emp-start"></div>
@@ -3398,7 +3398,7 @@ function adminEditEmpGlobal(empId) {
 <option value="Shift Supervisor" ${e.position==="Shift Supervisor"?"selected":""}>Shift Supervisor</option>
 <option value="Assistant Manager" ${e.position==="Assistant Manager"?"selected":""}>Assistant Manager</option>
 <option value="Senior Assistant Manager" ${e.position==="Senior Assistant Manager"?"selected":""}>Senior Assistant Manager</option>
-<option value="Restaurant General Manager" ${e.position==="Restaurant General Manager"?"selected":""}>Restaurant General Manager</option></select></div>
+<option value="Restaurant Manager" ${e.position==="Restaurant Manager"?"selected":""}>Restaurant Manager</option></select></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">วันเริ่มงาน</label><input class="form-input" type="date" id="emp-start" value="${e.startDate}"></div>
