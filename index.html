@@ -3772,10 +3772,6 @@ const BRANCH_MASTER = {
   '5089': { name: '5089 FAB Avenue', manager: 'อนุรักษ์ สอนภักดี (พี่เอ็ม)' },
   '5090': { name: '5090 S Oasis', manager: 'อนุรักษ์ สอนภักดี (พี่เอ็ม)' },
   '5091': { name: '5091 ปตท.เกษรนวมินทร์', manager: 'นพชัย จันทร์รุ่ง (พี่นพ)' },
-  '5504': { name: '5504 โลตัสวังหิน',           manager: 'อนุรักษ์ สอนภักดี (พี่เอ็ม)' },
-  '5505': { name: '5505 โลตัสเลียบคลองสอง',     manager: 'นพชัย จันทร์รุ่ง (พี่นพ)' },
-  '5508': { name: '5508 รพ.วชิระพยาบาล',         manager: 'พัทธดนย์ วัฒนายุทธ (พี่ปิ๊ก)' },
-  '5509': { name: '5509 โลตัส นครอินทร์',         manager: 'สีวิกา สังข์ด้วง (พี่เจี๊ยบ)' },
 };
 
 // Build runtime admin-code map: hardcoded defaults below + any extra users added
@@ -6209,11 +6205,12 @@ function _applyHubBranches(res) {
     const bzmMap = b.bzmMap || {}, stMap = b.statusMap || {};
     const next = {};
     /* ทะเบียนสาขาของฮับเก็บทุกแบรนด์ไว้ก้อนเดียว แยกด้วยรหัสขึ้นต้น
-         40xx เจ๊แดง · 50xx กับ 55xx ซานตาเฟ่ · 60xx ยามะจัง
+         40xx เจ๊แดง · 50xx ซานตาเฟ่ (55xx Easy ไม่รับ) · 60xx ยามะจัง
        ของเดิมเขียนเป็น "ข้ามเฉพาะ 40xx" ซึ่งแปลว่าแบรนด์ไหนที่เพิ่มเข้าฮับทีหลัง
        จะไหลเข้ามาในระบบนี้เองทันที — ยามะจัง 12 สาขาโผล่มาแบบนั้น
        เปลี่ยนเป็นระบุว่ารับเฉพาะรหัสของซานตาเฟ่ แบรนด์ใหม่จึงไม่หลุดเข้ามาอีก */
-    const SANTAFE_PREFIX = ['50', '55'];
+    /* 55xx = Santa Fe Easy ไม่ได้อยู่ในระบบ Training นี้ */
+    const SANTAFE_PREFIX = ['50'];
     Object.keys(b.branches).forEach(code => {
       if (!SANTAFE_PREFIX.some(p => String(code).indexOf(p) === 0)) return;
       const nick = bzmMap[code] || '';
