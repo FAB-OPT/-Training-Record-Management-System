@@ -6202,6 +6202,7 @@ function _applyHubBranches(res) {
     if (!b || !b.branches || typeof b.branches !== 'object') { console.warn('[branches] HUB ไม่มีข้อมูลสาขา — ใช้ค่าในไฟล์'); return false; }
     const byNick = {};
     (Array.isArray(res.users) ? res.users : []).forEach(u => { if (u && u.nick) byNick[u.nick] = u; });
+    _HUB_USERS = Array.isArray(res.users) ? res.users : [];
     const bzmMap = b.bzmMap || {}, stMap = b.statusMap || {};
     const next = {};
     /* ทะเบียนสาขาของฮับเก็บทุกแบรนด์ไว้ก้อนเดียว แยกด้วยรหัสขึ้นต้น
@@ -8195,11 +8196,17 @@ function openBranchIds() { return Object.keys(BRANCH_MASTER).filter(bid => !BRAN
    ทะเบียนสาขาในฮับเก็บ "นิค" เป็นหลัก ส่วนชื่อจริงต้องไปจับคู่จากรายชื่อผู้ใช้ของฮับ
    ถ้าจับคู่ไม่ได้ (เช่นรายชื่อผู้ใช้ในฮับถูกแก้เป็นชื่ออังกฤษ) ช่อง manager จะเหลือแค่นิค
    ของเดิมเทียบแต่ชื่อจริงอย่างเดียว BZM เลยเห็น 0 สาขาทั้งที่ข้อมูลอยู่ครบ */
+var _HUB_USERS = [];
+const _mgrNorm = t => String(t || '').replace(/[\s่-์'’`.]/g, '').toLowerCase();
 function _isMyZoneMgr(mgr, user) {
   mgr = String(mgr || ''); if (!mgr || !user) return false;
-  if (user.name && mgr.includes(user.name)) return true;
-  const nick = String(user.nick || '').trim();
-  return !!(nick && nick !== user.name && mgr.includes(nick));
+  const m = _mgrNorm(mgr);
+  /* ชื่อที่ใช้เรียกคนนี้ได้ทั้งหมด: ในระบบนี้ + ในทะเบียนผู้ใช้ของฮับ (รหัสเดียวกัน)
+     ฮับอาจเก็บเป็นชื่ออังกฤษ/ชื่อเล่นต่างจากที่ล็อกอินนี้ถืออยู่ จึงเทียบทุกชื่อ ไม่ใช่แค่ชื่อเดียว */
+  const names = [user.name, user.nick];
+  const code = String(user.code || user.id || '');
+  if (code) _HUB_USERS.forEach(u => { if (u && String(u.code || u.id || '') === code) names.push(u.name, u.nick); });
+  return names.some(n => { n = _mgrNorm(n); return n.length >= 2 && n !== '-' && m.includes(n); });
 }
 function getAccessibleBranches() {
   if (!currentUser) return [];
