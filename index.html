@@ -9473,12 +9473,24 @@ function filterEmployees() {
   document.getElementById('emp-tbody').innerHTML = renderEmpRows(_sortEmps(emps));
 }
 
+/* ชื่อเล่น: ช่องแยกตอนกรอก · เก็บต่อท้ายชื่อเป็น "ชื่อ นามสกุล (ชื่อเล่น)" (ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล) */
+function _splitNick(full) {
+  const m = String(full || '').match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+  return m ? { name: m[1].trim(), nick: m[2].trim() } : { name: String(full || '').trim(), nick: '' };
+}
+function _joinNick(name, nick) {
+  const n = String(name || '').trim(), k = String(nick || '').trim().replace(/^\(|\)$/g, '').trim();
+  return k ? n + ' (' + k + ')' : n;
+}
 function openAddEmployee() {
   const groupOpts = Object.keys(POSITION_BY_GROUP).map(g=>`<option value="${g}">${g}</option>`).join('');
   showModal('เพิ่มพนักงานใหม่', `
     <div class="form-row">
       <div><label class="form-label">รหัสพนักงาน <span class="req">*</span></label><input class="form-input" id="emp-code" placeholder="เช่น 267032"></div>
       <div><label class="form-label">ชื่อ - นามสกุล <span class="req">*</span></label><input class="form-input" id="emp-name" placeholder="กรอกชื่อ นามสกุล"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ชื่อเล่น</label><input class="form-input" id="emp-nick" maxlength="30" placeholder="ไม่บังคับ — ระบบใส่ในวงเล็บต่อท้ายชื่อให้"></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">ประเภทพนักงาน <span class="req">*</span></label><select class="form-select" id="emp-group" onchange="onEmpGroupChange(this)"><option value="">-- เลือกประเภท --</option>${groupOpts}</select></div>
@@ -9489,19 +9501,22 @@ function openAddEmployee() {
       ${_empStatusFormHtml('active', '')}
     </div>`, () => {
     const empCode = document.getElementById('emp-code').value.trim();
-    const name = document.getElementById('emp-name').value.trim();
+    const _sp = _splitNick(document.getElementById('emp-name').value);   // ถ้าพิมพ์ (ชื่อเล่น) ไว้ในช่องชื่อแล้วก็ไม่ซ้อนซ้ำ
+    const baseName = _sp.name;
+    const name = _joinNick(baseName, document.getElementById('emp-nick').value.trim() || _sp.nick);
     const pos = document.getElementById('emp-pos').value.trim();
     const start = document.getElementById('emp-start').value;
     const st = _readEmpStatusForm(); if (!st) return;
-    if(!empCode||!name||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
+    if(!empCode||!baseName||!pos||!start){notify('กรุณากรอกข้อมูลให้ครบ','error');return;}
     const bid = getBranchId();
     if(!DB.employees[bid]) DB.employees[bid]=[];
     // Check for duplicate name OR emp code with a disabled employee — ACROSS ALL BRANCHES
     // Normalize: lowercase, strip whitespace, strip Thai/EN titles (นาย, นางสาว, นาง, น.ส., ด.ช., ด.ญ., Mr., Mrs., Ms.)
     const stripTitle = (s) => (s||'').toLowerCase()
+      .replace(/\([^()]*\)\s*$/, '')      // ไม่นับชื่อเล่นในวงเล็บ ตอนเช็กชื่อซ้ำ
       .replace(/^(นาย|นางสาว|นาง|น\.?\s*ส\.?|ด\.?\s*ช\.?|ด\.?\s*ญ\.?|mr\.?|mrs\.?|ms\.?|miss)\s*/i, '')
       .replace(/\s+/g,'');
-    const nameNorm = stripTitle(name);
+    const nameNorm = stripTitle(baseName);
     const codeNorm = empCode.toLowerCase().replace(/\s+/g,'');
     const allDisabled = Object.values(DB.employees).flat().filter(x => !_isEmpEnabled(x));
     const dup = allDisabled.find(x => {
@@ -9580,7 +9595,10 @@ function openEditEmployee(id) {
   showModal('แก้ไขข้อมูลพนักงาน', `
     <div class="form-row">
       <div><label class="form-label">รหัสพนักงาน <span class="req">*</span></label><input class="form-input" id="emp-code-edit" value="${_escH(e.empCode||'')}" placeholder="เช่น 267032"></div>
-      <div><label class="form-label">ชื่อ - นามสกุล</label><input class="form-input" id="emp-name" value="${e.name}"></div>
+      <div><label class="form-label">ชื่อ - นามสกุล</label><input class="form-input" id="emp-name" value="${_escH(_splitNick(e.name).name)}"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">ชื่อเล่น</label><input class="form-input" id="emp-nick" maxlength="30" value="${_escH(_splitNick(e.name).nick)}" placeholder="ไม่บังคับ — ระบบใส่ในวงเล็บต่อท้ายชื่อให้"></div>
     </div>
     <div class="form-row">
       <div><label class="form-label">ประเภทพนักงาน</label><select class="form-select" id="emp-group" onchange="onEmpGroupChange(this)"><option value="">-- เลือกประเภท --</option>${groupOpts}</select></div>
@@ -9598,7 +9616,7 @@ function openEditEmployee(id) {
     const wasEnabled = _isEmpEnabled(e);
     const _before = { code: e.empCode || '', name: e.name, position: e.position, startDate: e.startDate, status: e.status, reason: e.disabledReason || '' };
     _empCodeApply(e, newCode);
-    e.name=document.getElementById('emp-name').value.trim();
+    { const _sp = _splitNick(document.getElementById('emp-name').value); e.name = _joinNick(_sp.name, document.getElementById('emp-nick').value.trim() || _sp.nick); }
     e.position=document.getElementById('emp-pos').value.trim();
     e.positionGroup=getPositionGroup(e.position);
     e.startDate=document.getElementById('emp-start').value;
