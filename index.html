@@ -494,7 +494,11 @@
   .msel-panel { display: none; position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0;
     background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
     box-shadow: 0 10px 28px rgba(0,0,0,.16); max-height: min(46vh, 360px); overflow: auto; padding: 6px; }
-  .msel.open .msel-panel { display: block; }
+  /* เปิดแล้วตั้งตำแหน่งด้วย JS (_mselPlace) เป็นแผงลอย (fixed) — เดิมอยู่ในกรอบของหน้าต่างป๊อปอัป
+     โดนตัดที่ขอบล่าง เห็นแค่ 2 บรรทัดแล้วต้องเลื่อนทั้งหน้าต่างเอง เลือกยากมาก */
+  .msel-panel.msel-float { position: fixed; right: auto; z-index: 400; max-height: none; overscroll-behavior: contain; }
+  .msel-panel.msel-float .msel-opt { padding: 9px 10px; font-size: 14px; }
+  .msel.open .msel-panel, .msel-panel.msel-show { display: block; }
   .msel-head { position: sticky; top: -6px; z-index: 1; background: var(--surface); padding: 6px 8px; margin: -6px -6px 4px;
     border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; }
   .msel-search {
@@ -12434,12 +12438,42 @@ function _mselFilter(id, q) {
   const none = document.getElementById(id + '-none');
   if (none) none.style.display = shown ? 'none' : 'block';
 }
+/* วางแผงใต้ปุ่ม (หรือเหนือปุ่มถ้าที่ด้านล่างน้อยกว่า) ให้สูงเท่าที่จอมี ไม่ถูกกรอบหน้าต่างตัด */
+function _mselPlace(id) {
+  const w = document.getElementById(id + '-wrap'), btn = document.getElementById(id + '-btn'), panel = document.getElementById(id + '-panel');
+  if (!w || !btn || !panel) return;
+  /* ย้ายแผงออกจากกรอบหน้าต่างก่อนวัด — ตอนแผงยังอยู่ในหน้าต่างมันดันให้เกิดแถบเลื่อน ทำให้ปุ่มแคบลง 15px แล้ววัดได้ค่าเพี้ยน */
+  if (panel.parentNode !== document.body) document.body.appendChild(panel);   // ออกจากกรอบหน้าต่าง → ไม่โดนตัด/ไม่เพี้ยนตำแหน่ง
+  panel.classList.add('msel-float', 'msel-show');
+  const r = btn.getBoundingClientRect(), vh = window.innerHeight || document.documentElement.clientHeight;
+  const below = vh - r.bottom - 14, above = r.top - 14;
+  const down = below >= 280 || below >= above;
+  const room = Math.max(200, Math.min(520, down ? below : above));
+  panel.style.left = r.left + 'px'; panel.style.width = r.width + 'px';
+  panel.style.maxHeight = room + 'px';
+  if (down) { panel.style.top = (r.bottom + 4) + 'px'; panel.style.bottom = 'auto'; }
+  else { panel.style.bottom = (vh - r.top + 4) + 'px'; panel.style.top = 'auto'; }
+}
+function _mselReplaceOpen() { document.querySelectorAll('.msel.open').forEach(w => _mselPlace(w.id.replace(/-wrap$/, ''))); }
+/* ปิดทุกแผง + ย้ายแผงกลับเข้าที่เดิม */
+function _mselCloseAll() {
+  document.querySelectorAll('.msel.open').forEach(w => {
+    w.classList.remove('open');
+    const p = document.getElementById(w.id.replace(/-wrap$/, '') + '-panel');
+    if (p) { p.classList.remove('msel-show'); if (p.parentNode !== w) w.appendChild(p); }
+  });
+  /* แผงที่ค้างอยู่ใต้ body ทั้งที่ตัวเลือกถูกลบไปแล้ว (หน้าต่างถูกวาดใหม่ตอนเปิดอยู่) */
+  document.querySelectorAll('body > .msel-panel').forEach(p => { if (!document.getElementById(p.id.replace(/-panel$/, '-wrap'))) p.remove(); });
+}
+window.addEventListener('resize', _mselReplaceOpen);
+document.addEventListener('scroll', function (e) { if (!(e.target && e.target.closest && e.target.closest && e.target.closest('.msel-panel'))) _mselReplaceOpen(); }, true);
 function _mselToggle(id) {
   const w = document.getElementById(id + '-wrap'); if (!w) return;
   const open = w.classList.contains('open');
-  document.querySelectorAll('.msel.open').forEach(x => x.classList.remove('open'));   // ปิดตัวอื่นก่อน
+  _mselCloseAll();   // ปิดตัวอื่นก่อน (รวมตัวนี้ถ้ากำลังเปิดอยู่)
   if (!open) {
     w.classList.add('open');
+    _mselPlace(id);
     // เปิดมาให้พิมพ์ค้นได้เลย ไม่ต้องเลื่อนหาเอง
     const s = document.getElementById(id + '-search');
     if (s) { s.value = ''; _mselFilter(id, ''); setTimeout(() => s.focus(), 30); }
@@ -12471,7 +12505,7 @@ function _mselSync(id, skipOnChange) {
     else cap.textContent = 'เลือก ' + sel.length + ' รายการ';
   }
   if (btn) btn.classList.toggle('msel-empty', !sel.length);
-  const allBox = w.querySelector('.msel-all');
+  const allBox = document.querySelector('#' + id + '-panel .msel-all');
   if (allBox) allBox.checked = all.length > 0 && sel.length === all.length;
   if (skipOnChange) return;   // ใช้ตอนซิงก์ caption ครั้งแรกหลังวาด DOM — ไม่ต้องยิง onChange ซ้ำ (บางหน้า onChange รีเรนเดอร์ widget นี้เองด้วย จะวนไม่รู้จบ)
   const fn = w.dataset.onchange;
@@ -12479,7 +12513,7 @@ function _mselSync(id, skipOnChange) {
 }
 // คลิกนอกดรอปดาว = ปิด
 document.addEventListener('click', function (e) {
-  if (!e.target.closest || !e.target.closest('.msel')) document.querySelectorAll('.msel.open').forEach(x => x.classList.remove('open'));
+  if (!e.target.closest || (!e.target.closest('.msel') && !e.target.closest('.msel-panel'))) _mselCloseAll();
 });
 
 /* อ่านค่าที่เลือก → array */
