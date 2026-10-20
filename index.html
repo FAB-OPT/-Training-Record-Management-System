@@ -13801,11 +13801,22 @@ function _tpDeleteDraft(id) {
 function openTrainingPickPeople() {
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   const itPos = _covItemsPos();
+  _tpImp = []; _tpImpMiss = []; _tpImpFresh = false;
   showModal('👥 เลือกรายชื่อผู้เข้าอบรม', `
+    <div style="border:1.5px dashed var(--border2);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:210px">
+        <div style="font-size:14px;font-weight:800;color:var(--text)">📎 นำเข้ารายชื่อจากไฟล์</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5">Excel (.xlsx) หรือ CSV · ใส่ <b>รหัสพนักงาน</b> หรือ <b>ชื่อ-นามสกุล</b> (ใส่สาขา/ตำแหน่งเพิ่มได้ ช่วยแยกคนชื่อซ้ำ)</div>
+      </div>
+      <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">เลือกไฟล์<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_tpImportFile(this)"></label>
+      <button type="button" class="btn btn-outline btn-sm" onclick="_tpImportTemplate()">⬇ ไฟล์ตัวอย่าง</button>
+    </div>
+    <div id="tp-imp-res"></div>
+    <div style="font-size:12px;color:var(--text3);margin:0 0 8px">หรือเลือกจากสาขา + ตำแหน่ง (ใช้ร่วมกับไฟล์ได้ · รายชื่อจะรวมกัน)</div>
     <div class="form-row">
-      <div><label class="form-label">สาขา <span class="req">*</span></label>
+      <div><label class="form-label">สาขา</label>
         ${_mselHTML('tp-branch', itBr, { onChange: '_tpRun', noneText: '— เลือกสาขา —' })}</div>
-      <div><label class="form-label">ตำแหน่ง <span class="req">*</span></label>
+      <div><label class="form-label">ตำแหน่ง</label>
         ${_mselHTML('tp-pos', itPos, { onChange: '_tpRun', noneText: '— เลือกตำแหน่ง —' })}</div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
@@ -13828,12 +13839,13 @@ function openTrainingPickPeople() {
 function _tpTargets() {
   const bids = _covMulti('tp-branch');
   const pos = _covMulti('tp-pos');
-  if (!bids.length || !pos.length) return [];
   let emps = [];
-  bids.forEach(b => { emps = emps.concat(getBranchEmployees(b) || []); });
+  if (bids.length && pos.length) {
+    bids.forEach(b => { emps = emps.concat(getBranchEmployees(b) || []); });
+    emps = emps.filter(_isEmpEnabled).filter(e => _covMatchPos(e, pos));
+  }
   const seen = {};
-  return emps.filter(_isEmpEnabled)
-    .filter(e => _covMatchPos(e, pos))
+  return (_tpImp || []).concat(emps)   // คนจากไฟล์ก่อน แล้วค่อยที่เลือกจากสาขา+ตำแหน่ง · ไม่ซ้ำ
     .filter(e => { if (seen[e.id]) return false; seen[e.id] = true; return true; })
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
 }
@@ -13841,19 +13853,23 @@ function _tpRun() {
   const list = document.getElementById('tp-list');
   if (!list) return;
   const emps = _tpTargets();
+  /* เปลี่ยนตัวกรองแล้วไม่ล้างที่ติ๊กไว้ (โดยเฉพาะรายชื่อที่นำเข้าจากไฟล์) */
+  const prev = new Set(Array.from(document.querySelectorAll('.tp-chk:checked')).map(c => c.value));
+  const impIds = new Set((_tpImp || []).map(e => String(e.id)));
   if (!emps.length) {
-    list.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">เลือกสาขาและตำแหน่งเพื่อดูรายชื่อ</p>';
+    list.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">นำเข้าไฟล์ หรือเลือกสาขาและตำแหน่งเพื่อดูรายชื่อ</p>';
     _tpUpd(); return;
   }
   const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   list.innerHTML = emps.map(e => `
     <label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:8px 12px;margin-bottom:7px;cursor:pointer;background:var(--surface)">
-      <input type="checkbox" class="tp-chk" value="${e.id}" onchange="_tpUpd()" style="flex-shrink:0">
+      <input type="checkbox" class="tp-chk" value="${e.id}" onchange="_tpUpd()" style="flex-shrink:0"${(prev.has(String(e.id)) || (_tpImpFresh && impIds.has(String(e.id)))) ? ' checked' : ''}>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}${impIds.has(String(e.id)) ? ' <span class="badge badge-blue" style="font-size:10px">จากไฟล์</span>' : ''}</div>
         <div style="font-size:11.5px;color:var(--text3)">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div>
       </div>
     </label>`).join('');
+  _tpImpFresh = false;
   _tpUpd();
 }
 /* ข้ามคนที่ติ๊กไม่ได้ (อยู่ในใบแล้ว) ไม่งั้นตัวเลข "เลือก n/n" จะโกหก */
@@ -13863,6 +13879,126 @@ function _tpUpd() {
   const nSel = document.querySelectorAll('.tp-chk:checked').length;
   const el = document.getElementById('tp-count'); if (el) el.textContent = `เลือก ${nSel}/${total} คน`;
   const sa = document.getElementById('tp-selall'); if (sa) sa.checked = total > 0 && nSel === total;
+}
+
+
+/* ══ นำเข้ารายชื่อผู้เข้าอบรมจากไฟล์ (Excel / CSV) ══
+   จับคู่กับพนักงานในระบบ (เฉพาะสาขาที่ผู้ใช้เห็น): รหัสพนักงานก่อน → ไม่มีรหัส/ไม่พบ ใช้ชื่อ-นามสกุล (ตัดคำนำหน้า ช่องว่าง)
+   ชื่อซ้ำหลายคน → ใช้สาขาในไฟล์ช่วยแยก · ยังซ้ำ/ไม่พบ/ปิดใช้งาน = แสดงในรายการ "ที่นำเข้าไม่ได้" ให้แก้ไฟล์ */
+let _tpImp = [], _tpImpMiss = [], _tpImpFresh = false;
+function _tpNorm(v) {
+  return String(v == null ? '' : v).normalize('NFC').toLowerCase()
+    .replace(/^\s*(นางสาว|น\.\s*ส\.?|นาย|นาง|miss|mrs\.?|mr\.?|ms\.?)\s*/i, '')
+    .replace(/[\s.\u200b]+/g, '');
+}
+function _tpAllEmps() { return Object.values(DB.employees || {}).reduce((a, l) => a.concat(l || []), []); }
+/* rows = [{code, name, branch, position, line}] → { hit: [emp], miss: [{line, label, reason}] } */
+function _tpMatchRows(rows) {
+  const all = _tpAllEmps(), hit = [], miss = [], seen = {};
+  const byName = {};
+  all.forEach(e => { const k = _tpNorm(e.name); if (k) (byName[k] = byName[k] || []).push(e); });
+  rows.forEach(r => {
+    const label = r.name || r.code || '(ว่าง)';
+    let e = null, reason = '';
+    if (r.code) e = _findEmpByCode(r.code);
+    if (!e && r.name) {
+      let c = byName[_tpNorm(r.name)] || [];
+      if (c.length > 1) {
+        const bc = _chExtractBranchCode(r.branch);
+        const by = c.filter(x => (bc && String(x.branchId) === bc) || (!bc && r.branch && String((BRANCH_MASTER[x.branchId] || {}).name || '').toLowerCase().indexOf(String(r.branch).toLowerCase()) >= 0));
+        if (by.length) c = by;
+      }
+      if (c.length === 1) e = c[0];
+      else if (c.length > 1) reason = 'ชื่อซ้ำ ' + c.length + ' คน — ใส่รหัสพนักงานหรือสาขา';
+    }
+    if (!e && !reason) reason = r.code && !r.name ? 'ไม่พบรหัสพนักงานนี้' : 'ไม่พบชื่อนี้ในระบบ (หรือเป็นสาขาที่คุณไม่เห็น)';
+    if (e && !_isEmpEnabled(e)) { reason = 'ปิดใช้งานแล้ว'; e = null; }
+    if (!e) { miss.push({ line: r.line, label: label, reason: reason }); return; }
+    if (seen[e.id]) return;   // แถวซ้ำในไฟล์
+    seen[e.id] = true; hit.push(e);
+  });
+  return { hit: hit, miss: miss };
+}
+const _TP_K = {
+  code: ['รหัสพนักงาน', 'รหัส', 'EmpCode', 'emp_code', 'empCode', 'Employee ID', 'EmployeeID'],
+  name: ['ชื่อ-นามสกุล', 'ชื่อ นามสกุล', 'ชื่อ นามสกุล (ใส่คำนำหน้า)', 'ชื่อ-สกุล', 'ชื่อพนักงาน', 'ชื่อ', 'name', 'Name', 'FullName'],
+  branch: ['สาขา', 'branch', 'Branch', 'OrgUnitName', 'สาขาตาม Excel'],
+  position: ['ตำแหน่ง', 'position', 'Position', 'PositionName']
+};
+/* เทียบหัวคอลัมน์แบบไม่สนช่องว่าง/ขีดทุกชนิด (ชื่อ-นามสกุล · ชื่อ–นามสกุล · ชื่อ นามสกุล ถือเป็นอันเดียวกัน) */
+function _tpKey(v) { return String(v == null ? '' : v).toLowerCase().replace(/[\s\u200b\u2010-\u2015\u2212\-_]/g, ''); }
+function _tpPick(row, field) {
+  const want = _TP_K[field].map(_tpKey);
+  for (const k of Object.keys(row)) {
+    if (want.indexOf(_tpKey(k)) >= 0 && row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+  }
+  return '';
+}
+/* แปลงแผ่นงานเป็นแถว: มีหัวตารางที่รู้จัก → ใช้หัวตาราง · ไม่มี → ถือว่าคอลัมน์แรกเป็นรายชื่อ/รหัส */
+function _tpRowsFromSheet(ws) {
+  const json = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+  const known = json.length && Object.keys(json[0]).some(k => Object.keys(_TP_K).some(f => _TP_K[f].map(_tpKey).indexOf(_tpKey(k)) >= 0));
+  if (known) {
+    return json.map((row, i) => ({
+      line: i + 2, code: _tpPick(row, 'code'), name: _tpPick(row, 'name'), branch: _tpPick(row, 'branch'), position: _tpPick(row, 'position')
+    })).filter(r => r.code || r.name);
+  }
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+  return aoa.map((a, i) => {
+    const v = String(a[0] == null ? '' : a[0]).trim();
+    return { line: i + 1, code: /^\d{4,8}$/.test(v) ? v : '', name: /^\d{4,8}$/.test(v) ? '' : v, branch: String(a[1] || '').trim(), position: '' };
+  }).filter(r => r.code || r.name);
+}
+function _tpImportFile(input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  if (typeof XLSX === 'undefined') { notify('ตัวอ่านไฟล์ยังโหลดไม่เสร็จ — รอสักครู่แล้วลองใหม่', 'error'); input.value = ''; return; }
+  const isCsv = /\.csv$/i.test(file.name);
+  const reader = new FileReader();
+  reader.onerror = () => notify('อ่านไฟล์ไม่ได้', 'error');
+  reader.onload = e => {
+    try {
+      const wb = isCsv ? XLSX.read(e.target.result, { type: 'string' }) : XLSX.read(e.target.result, { type: 'array' });
+      const rows = _tpRowsFromSheet(wb.Sheets[wb.SheetNames[0]]);
+      if (!rows.length) { notify('ไฟล์ไม่มีรายชื่อ', 'error'); return; }
+      const r = _tpMatchRows(rows);
+      _tpImp = r.hit; _tpImpMiss = r.miss; _tpImpFresh = true;
+      _tpImpPaint(file.name, rows.length);
+      _tpRun();
+    } catch (err) { notify('อ่านไฟล์ไม่สำเร็จ — ' + (err && err.message ? err.message : ''), 'error'); }
+    input.value = '';
+  };
+  if (isCsv) reader.readAsText(file, 'utf-8'); else reader.readAsArrayBuffer(file);
+}
+function _tpImpPaint(fname, nRows) {
+  const box = document.getElementById('tp-imp-res'); if (!box) return;
+  const miss = _tpImpMiss || [];
+  box.innerHTML = `<div style="margin:0 0 12px;padding:10px 14px;border-radius:10px;background:${miss.length ? '#FFF7E6' : 'var(--green-light)'};border:1px solid ${miss.length ? '#F5D58A' : 'var(--green)'}">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px">
+      <b>${String(fname || '').replace(/</g, '&lt;')}</b>
+      <span>ทั้งหมด ${nRows} แถว · <b style="color:var(--green)">พบในระบบ ${_tpImp.length} คน</b>${miss.length ? ` · <b style="color:var(--red)">นำเข้าไม่ได้ ${miss.length}</b>` : ''}</span>
+      <button type="button" class="btn btn-outline btn-sm" style="margin-left:auto" onclick="_tpImpClear()">ล้างรายชื่อจากไฟล์</button>
+    </div>
+    ${miss.length ? `<div style="margin-top:8px;font-size:12.5px;max-height:130px;overflow:auto">${miss.map(m => `<div style="padding:3px 0;border-top:1px dashed #F0DDA8"><b>${String(m.label).replace(/</g, '&lt;')}</b> <span style="color:var(--text3)">(แถว ${m.line})</span> — <span style="color:var(--red)">${m.reason}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+}
+function _tpImpClear() {
+  const ids = new Set((_tpImp || []).map(e => String(e.id)));
+  _tpImp = []; _tpImpMiss = [];
+  const box = document.getElementById('tp-imp-res'); if (box) box.innerHTML = '';
+  document.querySelectorAll('.tp-chk').forEach(c => { if (ids.has(c.value)) c.checked = false; });   // เอาเฉพาะที่มาจากไฟล์ออก ที่เลือกจากสาขา+ตำแหน่งยังอยู่
+  _tpRun();
+}
+function _tpImportTemplate() {
+  if (typeof XLSX === 'undefined') { notify('ตัวอ่านไฟล์ยังโหลดไม่เสร็จ — รอสักครู่แล้วลองใหม่', 'error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['รหัสพนักงาน', 'ชื่อ-นามสกุล', 'สาขา', 'ตำแหน่ง'],
+    ['', 'ตัวอย่าง นามสกุลตัวอย่าง', '6006', 'Staff'],
+    ['123456', '', '', '']
+  ]);
+  ws['!cols'] = [{ wch: 16 }, { wch: 30 }, { wch: 12 }, { wch: 22 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'รายชื่อ');
+  XLSX.writeFile(wb, 'ตัวอย่าง-รายชื่อผู้เข้าอบรม.xlsx');
 }
 
 // ══════════ จัดอบรม: เอารายชื่อ "ยังไม่ผ่าน" จากการชนรายชื่อ → กรอกฟอร์ม → ออกใบรายชื่อผู้เข้าอบรม PDF ══════════
