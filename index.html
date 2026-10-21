@@ -498,6 +498,22 @@
      โดนตัดที่ขอบล่าง เห็นแค่ 2 บรรทัดแล้วต้องเลื่อนทั้งหน้าต่างเอง เลือกยากมาก */
   .msel-panel.msel-float { position: fixed; right: auto; z-index: 400; max-height: none; overscroll-behavior: contain; }
   .msel-panel.msel-float .msel-opt { padding: 9px 10px; font-size: 14px; }
+  /* หน้าต่างเลือกรายชื่อแบบย้ายซ้าย-ขวา (ซ้าย = เลือกได้ · ขวา = ผู้เข้าอบรม) */
+  .ti-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .ti-pane { border: 1.5px solid var(--border); border-radius: 14px; padding: 12px; background: #fff; min-width: 0; }
+  .ti-pane.ti-right { border-color: #ffd3b0; background: #fffaf5; }
+  .ti-pane h4 { margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
+  .ti-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .ti-q { width: 100%; box-sizing: border-box; border: 1.5px solid var(--border2); border-radius: 10px; padding: 10px 12px; font: 600 14px/1.2 inherit; margin-bottom: 8px; min-height: 42px; background: #fff; }
+  .ti-list { max-height: 38vh; overflow: auto; }
+  .ti-right .ti-list { max-height: 50vh; }
+  .ti-row { display: flex; gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 7px; background: var(--surface); min-height: 52px; }
+  .ti-row .ti-n { font-weight: 700; font-size: 14px; color: var(--text); }
+  .ti-row .ti-m { font-size: 11.5px; color: var(--text3); }
+  .ti-mv { border: 0; border-radius: 50%; width: 36px; height: 36px; font-size: 19px; font-weight: 800; cursor: pointer; background: #ff7a1a; color: #fff; flex: none; line-height: 1; }
+  .ti-mv.out { background: #f3f1ee; color: #555; }
+  .ti-empty { text-align: center; padding: 22px 10px; font-size: 13px; color: var(--text3); }
+  @media (max-width: 760px) { .ti-grid { grid-template-columns: 1fr; } .ti-list, .ti-right .ti-list { max-height: 34vh; } }
   .msel.open .msel-panel, .msel-panel.msel-show { display: block; }
   .msel-head { position: sticky; top: -6px; z-index: 1; background: var(--surface); padding: 6px 8px; margin: -6px -6px 4px;
     border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; }
@@ -13799,99 +13815,125 @@ function _tpDeleteDraft(id) {
 
 /* เลือกรายชื่อเอง: สาขา + ตำแหน่ง → พรีวิวรายชื่อ → ติ๊ก → ไปฟอร์มจัดอบรม */
 function openTrainingPickPeople() {
+  _tiOpen({
+    title: '👥 เลือกรายชื่อผู้เข้าอบรม', confirmText: 'ถัดไป · กรอกรายละเอียดอบรม', have: new Set(),
+    onConfirm: list => {
+      _tsPeople = list;
+      _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่
+      closeModal();
+      setTimeout(() => _openTsModal(''), 60);
+    }
+  });
+}
+/* ── หน้าต่างเลือกรายชื่อแบบย้ายซ้าย-ขวา (ใช้ทั้งตอนเริ่มใบใหม่ และตอนเพิ่มคนเข้าใบ) ──
+   ซ้าย: คนที่เลือกได้ — กรองด้วยสาขา/ตำแหน่ง/ค้นหา หรือนำเข้าจากไฟล์ · กด + เพิ่ม
+   ขวา: ผู้เข้าอบรมที่เลือกแล้ว — กด − เอาออก · ปุ่มถัดไปบอกจำนวนคนตลอด
+   ไม่กรองอะไรเลย = ไม่แสดงรายชื่อ (พนักงานเป็นพันคน ไม่ควรโหลดทั้งหมดขึ้นจอ) · แสดงสูงสุด 200 แถว */
+const _ti = { sel: new Map(), have: new Set(), from: new Set(), byId: new Map(), btn: '' };
+function _tiOpen(o) {
+  _ti.sel = new Map(); _ti.from = new Set(); _ti.byId = new Map(); _ti.have = o.have || new Set(); _ti.btn = o.confirmText;
+  _tpImp = []; _tpImpMiss = [];
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   const itPos = _covItemsPos();
-  _tpImp = []; _tpImpMiss = []; _tpImpFresh = false;
-  showModal('👥 เลือกรายชื่อผู้เข้าอบรม', `
-    <div style="border:1.5px dashed var(--border2);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <div style="flex:1;min-width:210px">
-        <div style="font-size:14px;font-weight:800;color:var(--text)">📎 นำเข้ารายชื่อจากไฟล์</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;line-height:1.5">Excel (.xlsx) หรือ CSV · ใส่ <b>รหัสพนักงาน</b> หรือ <b>ชื่อ-นามสกุล</b> (ใส่สาขา/ตำแหน่งเพิ่มได้ ช่วยแยกคนชื่อซ้ำ)</div>
+  showModal(o.title, (o.intro || '') + `
+    <div class="ti-grid">
+      <div class="ti-pane">
+        <h4><span>รายชื่อที่เลือกได้ (<span id="ti-ln">0</span>)</span>
+          <span style="display:flex;gap:6px;align-items:center">
+            <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">📎 นำเข้าไฟล์<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_tpImportFile(this)"></label>
+            <button type="button" class="btn btn-outline btn-sm" onclick="_tpImportTemplate()" title="ดาวน์โหลดไฟล์ตัวอย่างให้กรอก">⬇</button>
+          </span></h4>
+        <div id="tp-imp-res"></div>
+        <div class="ti-filters">
+          ${_mselHTML('tp-branch', itBr, { onChange: '_tiRun', noneText: 'ทุกสาขา' })}
+          ${_mselHTML('tp-pos', itPos, { onChange: '_tiRun', noneText: 'ทุกตำแหน่ง' })}
+        </div>
+        <input class="ti-q" id="ti-q" placeholder="ค้นหาชื่อ หรือ รหัสพนักงาน" oninput="_tiRun()" autocomplete="off">
+        <button type="button" class="btn btn-outline btn-sm" id="ti-addall" style="width:100%;margin-bottom:8px" onclick="_tiAddAll()">เพิ่มทั้งหมดที่เห็น ›</button>
+        <div id="ti-left" class="ti-list"></div>
       </div>
-      <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">เลือกไฟล์<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_tpImportFile(this)"></label>
-      <button type="button" class="btn btn-outline btn-sm" onclick="_tpImportTemplate()">⬇ ไฟล์ตัวอย่าง</button>
-    </div>
-    <div id="tp-imp-res"></div>
-    <div style="font-size:12px;color:var(--text3);margin:0 0 8px">หรือเลือกจากสาขา + ตำแหน่ง (ใช้ร่วมกับไฟล์ได้ · รายชื่อจะรวมกัน)</div>
-    <div class="form-row">
-      <div><label class="form-label">สาขา</label>
-        ${_mselHTML('tp-branch', itBr, { onChange: '_tpRun', noneText: '— เลือกสาขา —' })}</div>
-      <div><label class="form-label">ตำแหน่ง</label>
-        ${_mselHTML('tp-pos', itPos, { onChange: '_tpRun', noneText: '— เลือกตำแหน่ง —' })}</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
-      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="tp-selall" onchange="_tpToggleAll(this.checked)"> เลือกทั้งหมด</label>
-      <span id="tp-count" style="font-size:12px;color:var(--text2);font-weight:600">เลือก 0/0 คน</span>
-    </div>
-    <div id="tp-list" style="max-height:40vh;overflow:auto"></div>
-  `, () => {
-    const picked = Array.from(document.querySelectorAll('.tp-chk:checked')).map(c => c.value);
-    if (!picked.length) { notify('ยังไม่ได้เลือกรายชื่อ', 'error'); return; }
-    const all = _tpTargets();
-    _tsPeople = all.filter(e => picked.indexOf(e.id) >= 0);
-    _tsDraftId = null; _tsIssuedAt = null;   // เริ่มร่างใหม่
-    closeModal();
-    setTimeout(() => _openTsModal(''), 60);
-  }, 'ถัดไป · กรอกรายละเอียดอบรม');
-  _tpRun();
+      <div class="ti-pane ti-right">
+        <h4><span>ผู้เข้าอบรม (<span id="ti-rn">0</span>)</span><button type="button" class="btn btn-outline btn-sm" onclick="_tiClear()">ล้าง</button></h4>
+        <div id="ti-right" class="ti-list"></div>
+      </div>
+    </div>`, () => {
+    const list = Array.from(_ti.sel.values());
+    if (!list.length) { notify(o.emptyMsg || 'ยังไม่ได้เลือกรายชื่อ', 'error'); return; }
+    o.onConfirm(list);
+  }, o.confirmText);
+  const m = document.querySelector('#modal-overlay .modal'); if (m) m.style.width = '940px';
+  _mselSync('tp-branch', true); _mselSync('tp-pos', true);   // ให้ช่องกรองขึ้นข้อความ "ทุกสาขา/ทุกตำแหน่ง" ตั้งแต่เปิด
+  _tiRun();
 }
-/* พนักงานตามสาขา+ตำแหน่งที่เลือก (เฉพาะคนที่ยัง active) */
-function _tpTargets() {
-  const bids = _covMulti('tp-branch');
-  const pos = _covMulti('tp-pos');
+function _tiCands() {
+  const bids = _covMulti('tp-branch'), pos = _covMulti('tp-pos');
+  const q = String((document.getElementById('ti-q') || {}).value || '').trim().toLowerCase();
+  if (!bids.length && !pos.length && !q) return null;   // ยังไม่กรอง
   let emps = [];
-  if (bids.length && pos.length) {
-    bids.forEach(b => { emps = emps.concat(getBranchEmployees(b) || []); });
-    emps = emps.filter(_isEmpEnabled).filter(e => _covMatchPos(e, pos));
-  }
+  if (bids.length) bids.forEach(b => { emps = emps.concat(getBranchEmployees(b) || []); });
+  else emps = getBranchEmployees('ALL') || [];
+  emps = emps.filter(_isEmpEnabled);
+  if (pos.length) emps = emps.filter(e => _covMatchPos(e, pos));
+  if (q) emps = emps.filter(e => (String(e.name || '') + ' ' + String(e.empCode || '')).toLowerCase().indexOf(q) >= 0);
   const seen = {};
-  return (_tpImp || []).concat(emps)   // คนจากไฟล์ก่อน แล้วค่อยที่เลือกจากสาขา+ตำแหน่ง · ไม่ซ้ำ
-    .filter(e => { if (seen[e.id]) return false; seen[e.id] = true; return true; })
+  return emps.filter(e => { if (seen[e.id]) return false; seen[e.id] = true; return true; })
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
 }
-function _tpRun() {
-  const list = document.getElementById('tp-list');
-  if (!list) return;
-  const emps = _tpTargets();
-  /* เปลี่ยนตัวกรองแล้วไม่ล้างที่ติ๊กไว้ (โดยเฉพาะรายชื่อที่นำเข้าจากไฟล์) */
-  const prev = new Set(Array.from(document.querySelectorAll('.tp-chk:checked')).map(c => c.value));
-  const impIds = new Set((_tpImp || []).map(e => String(e.id)));
-  if (!emps.length) {
-    list.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">นำเข้าไฟล์ หรือเลือกสาขาและตำแหน่งเพื่อดูรายชื่อ</p>';
-    _tpUpd(); return;
-  }
+let _tiVis = [];
+function _tiRun() {
+  const left = document.getElementById('ti-left'), right = document.getElementById('ti-right'); if (!left || !right) return;
+  const keepL = left.scrollTop, keepR = right.scrollTop;
   const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
-  list.innerHTML = emps.map(e => `
-    <label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:8px 12px;margin-bottom:7px;cursor:pointer;background:var(--surface)">
-      <input type="checkbox" class="tp-chk" value="${e.id}" onchange="_tpUpd()" style="flex-shrink:0"${(prev.has(String(e.id)) || (_tpImpFresh && impIds.has(String(e.id)))) ? ' checked' : ''}>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}${impIds.has(String(e.id)) ? ' <span class="badge badge-blue" style="font-size:10px">จากไฟล์</span>' : ''}</div>
-        <div style="font-size:11.5px;color:var(--text3)">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div>
-      </div>
-    </label>`).join('');
-  _tpImpFresh = false;
-  _tpUpd();
+  const more = _ti.have.size > 0;
+  const c = _tiCands();
+  let hid = 0;
+  if (c === null) {
+    _tiVis = [];
+    left.innerHTML = '<div class="ti-empty">เลือกสาขา / ตำแหน่ง หรือพิมพ์ค้นหา<br>หรือนำเข้าไฟล์รายชื่อ (ปุ่มด้านบน)</div>';
+  } else {
+    const avail = c.filter(e => { if (_ti.sel.has(e.id)) return false; if (_ti.have.has(e.id)) { hid++; return false; } return true; });
+    _tiVis = avail;
+    avail.forEach(e => _ti.byId.set(e.id, e));
+    const MAX = 200;
+    left.innerHTML = avail.slice(0, MAX).map(e => `<div class="ti-row"><div style="flex:1;min-width:0"><div class="ti-n">${e.name || '—'}</div>
+        <div class="ti-m">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}${more ? ' · ' + _tsTenure(e) : ''}</div></div>
+        <button type="button" class="ti-mv" data-id="${String(e.id).replace(/"/g, '&quot;')}" onclick="_tiAdd(this.dataset.id)" title="เพิ่ม">+</button></div>`).join('')
+      + (avail.length > MAX ? `<div class="ti-empty">แสดง ${MAX} จาก ${avail.length} คน — กรองเพิ่มเพื่อให้เห็นครบ</div>` : '')
+      + (!avail.length ? '<div class="ti-empty">ไม่พบรายชื่อ' + (hid ? ' (อีก ' + hid + ' คนอยู่ในใบแล้ว)' : '') + '</div>' : (hid ? `<div class="ti-empty">อีก ${hid} คนอยู่ในใบนี้แล้ว (ไม่แสดง)</div>` : ''));
+  }
+  const R = Array.from(_ti.sel.values()).sort((a, b) => String(brName(a.branchId)).localeCompare(String(brName(b.branchId)), 'th') || (a.name || '').localeCompare(b.name || '', 'th'));
+  right.innerHTML = R.map(e => `<div class="ti-row"><div style="flex:1;min-width:0"><div class="ti-n">${e.name || '—'}${_ti.from.has(e.id) ? ' <span class="badge badge-blue" style="font-size:10px">จากไฟล์</span>' : ''}</div>
+      <div class="ti-m">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div></div>
+      <button type="button" class="ti-mv out" data-id="${String(e.id).replace(/"/g, '&quot;')}" onclick="_tiRemove(this.dataset.id)" title="เอาออก">−</button></div>`).join('')
+    || '<div class="ti-empty">กด + เพื่อเพิ่มคนเข้ามาที่นี่<br>หรือนำเข้าไฟล์ ระบบจะใส่ให้เลย</div>';
+  left.scrollTop = keepL; right.scrollTop = keepR;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('ti-ln', _tiVis.length); set('ti-rn', _ti.sel.size);
+  const ab = document.getElementById('ti-addall'); if (ab) ab.style.display = _tiVis.length ? '' : 'none';
+  const nb = document.querySelector('#modal-overlay .modal-footer .btn-navy');
+  if (nb) nb.textContent = `${_ti.btn} (${_ti.sel.size} คน)`;
 }
-/* ข้ามคนที่ติ๊กไม่ได้ (อยู่ในใบแล้ว) ไม่งั้นตัวเลข "เลือก n/n" จะโกหก */
-function _tpToggleAll(on) { document.querySelectorAll('.tp-chk:not([disabled])').forEach(c => c.checked = on); _tpUpd(); }
-function _tpUpd() {
-  const total = document.querySelectorAll('.tp-chk:not([disabled])').length;
-  const nSel = document.querySelectorAll('.tp-chk:checked').length;
-  const el = document.getElementById('tp-count'); if (el) el.textContent = `เลือก ${nSel}/${total} คน`;
-  const sa = document.getElementById('tp-selall'); if (sa) sa.checked = total > 0 && nSel === total;
+function _tiAdd(id) { const e = _ti.byId.get(id) || _ti.byId.get(Number(id)); if (e) { _ti.sel.set(e.id, e); _tiRun(); } }
+function _tiRemove(id) { const e = _ti.sel.get(id) || _ti.sel.get(Number(id)); if (e) { _ti.sel.delete(e.id); _ti.from.delete(e.id); _tiRun(); } }
+function _tiAddAll() { _tiVis.forEach(e => _ti.sel.set(e.id, e)); _tiRun(); }
+function _tiClear() { _ti.sel = new Map(); _ti.from = new Set(); _tiRun(); }
+/* ไฟล์นำเข้าเสร็จ: ใส่คนที่พบเข้ารายชื่อฝั่งขวาเลย (ข้ามคนที่อยู่ในใบแล้ว) */
+function _tiAfterImport(hit) {
+  let dup = 0;
+  hit.forEach(e => { if (_ti.have.has(e.id)) { dup++; return; } _ti.byId.set(e.id, e); _ti.sel.set(e.id, e); _ti.from.add(e.id); });
+  return dup;
 }
-
 
 /* ══ นำเข้ารายชื่อผู้เข้าอบรมจากไฟล์ (Excel / CSV) ══
    จับคู่กับพนักงานในระบบ (เฉพาะสาขาที่ผู้ใช้เห็น): รหัสพนักงานก่อน → ไม่มีรหัส/ไม่พบ ใช้ชื่อ-นามสกุล (ตัดคำนำหน้า ช่องว่าง)
    ชื่อซ้ำหลายคน → ใช้สาขาในไฟล์ช่วยแยก · ยังซ้ำ/ไม่พบ/ปิดใช้งาน = แสดงในรายการ "ที่นำเข้าไม่ได้" ให้แก้ไฟล์ */
-let _tpImp = [], _tpImpMiss = [], _tpImpFresh = false;
+let _tpImp = [], _tpImpMiss = [];
 function _tpNorm(v) {
   return String(v == null ? '' : v).normalize('NFC').toLowerCase()
     .replace(/^\s*(นางสาว|น\.\s*ส\.?|นาย|นาง|miss|mrs\.?|mr\.?|ms\.?)\s*/i, '')
     .replace(/[\s.\u200b]+/g, '');
 }
-function _tpAllEmps() { return Object.values(DB.employees || {}).reduce((a, l) => a.concat(l || []), []); }
+function _tpAllEmps() { return getBranchEmployees('ALL') || []; }   // เฉพาะสาขาที่ผู้ใช้มีสิทธิ์เห็น
 /* rows = [{code, name, branch, position, line}] → { hit: [emp], miss: [{line, label, reason}] } */
 function _tpMatchRows(rows) {
   const all = _tpAllEmps(), hit = [], miss = [], seen = {};
@@ -13961,32 +14003,32 @@ function _tpImportFile(input) {
       const rows = _tpRowsFromSheet(wb.Sheets[wb.SheetNames[0]]);
       if (!rows.length) { notify('ไฟล์ไม่มีรายชื่อ', 'error'); return; }
       const r = _tpMatchRows(rows);
-      _tpImp = r.hit; _tpImpMiss = r.miss; _tpImpFresh = true;
-      _tpImpPaint(file.name, rows.length);
-      _tpRun();
+      _tpImp = r.hit; _tpImpMiss = r.miss;
+      const dup = _tiAfterImport(r.hit);
+      _tpImpPaint(file.name, rows.length, dup);
+      _tiRun();
     } catch (err) { notify('อ่านไฟล์ไม่สำเร็จ — ' + (err && err.message ? err.message : ''), 'error'); }
     input.value = '';
   };
   if (isCsv) reader.readAsText(file, 'utf-8'); else reader.readAsArrayBuffer(file);
 }
-function _tpImpPaint(fname, nRows) {
+function _tpImpPaint(fname, nRows, dup) {
   const box = document.getElementById('tp-imp-res'); if (!box) return;
   const miss = _tpImpMiss || [];
   box.innerHTML = `<div style="margin:0 0 12px;padding:10px 14px;border-radius:10px;background:${miss.length ? '#FFF7E6' : 'var(--green-light)'};border:1px solid ${miss.length ? '#F5D58A' : 'var(--green)'}">
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px">
       <b>${String(fname || '').replace(/</g, '&lt;')}</b>
-      <span>ทั้งหมด ${nRows} แถว · <b style="color:var(--green)">พบในระบบ ${_tpImp.length} คน</b>${miss.length ? ` · <b style="color:var(--red)">นำเข้าไม่ได้ ${miss.length}</b>` : ''}</span>
+      <span>ทั้งหมด ${nRows} แถว · <b style="color:var(--green)">พบในระบบ ${_tpImp.length} คน (เพิ่มเข้ารายชื่อแล้ว)</b>${dup ? ` · อยู่ในใบแล้ว ${dup}` : ''}${miss.length ? ` · <b style="color:var(--red)">นำเข้าไม่ได้ ${miss.length}</b>` : ''}</span>
       <button type="button" class="btn btn-outline btn-sm" style="margin-left:auto" onclick="_tpImpClear()">ล้างรายชื่อจากไฟล์</button>
     </div>
     ${miss.length ? `<div style="margin-top:8px;font-size:12.5px;max-height:130px;overflow:auto">${miss.map(m => `<div style="padding:3px 0;border-top:1px dashed #F0DDA8"><b>${String(m.label).replace(/</g, '&lt;')}</b> <span style="color:var(--text3)">(แถว ${m.line})</span> — <span style="color:var(--red)">${m.reason}</span></div>`).join('')}</div>` : ''}
   </div>`;
 }
 function _tpImpClear() {
-  const ids = new Set((_tpImp || []).map(e => String(e.id)));
   _tpImp = []; _tpImpMiss = [];
   const box = document.getElementById('tp-imp-res'); if (box) box.innerHTML = '';
-  document.querySelectorAll('.tp-chk').forEach(c => { if (ids.has(c.value)) c.checked = false; });   // เอาเฉพาะที่มาจากไฟล์ออก ที่เลือกจากสาขา+ตำแหน่งยังอยู่
-  _tpRun();
+  _ti.from.forEach(id => _ti.sel.delete(id)); _ti.from = new Set();   // เอาเฉพาะที่มาจากไฟล์ออก ที่เพิ่มเองยังอยู่
+  _tiRun();
 }
 function _tpImportTemplate() {
   if (typeof XLSX === 'undefined') { notify('ตัวอ่านไฟล์ยังโหลดไม่เสร็จ — รอสักครู่แล้วลองใหม่', 'error'); return; }
@@ -14226,65 +14268,28 @@ function _tsAddPeople() {
   setTimeout(() => _tsPickMore(course, draft), 60);
 }
 function _tsPickMore(course, draft) {
-  const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   const back = () => { closeModal(); setTimeout(() => _openTsModal(course, draft), 60); };
-  showModal('➕ เพิ่มรายชื่อเข้าใบนี้', `
-    <div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.6">
-      ในใบนี้มีอยู่แล้ว <b>${_tsPeople.length} คน</b> — คนที่อยู่แล้วจะขึ้นเป็นสีจางและติ๊กไม่ได้<br>
-      เลือกเสร็จกด <b>เพิ่มเข้าใบ</b> แล้วจะกลับไปที่ฟอร์มเดิม ข้อมูลที่กรอกไว้ยังอยู่ครบ
-    </div>
-    <div class="form-row">
-      <div><label class="form-label">สาขา <span class="req">*</span></label>
-        ${_mselHTML('tp-branch', itBr, { onChange: '_tpRunMore', noneText: '— เลือกสาขา —' })}</div>
-      <div><label class="form-label">ตำแหน่ง <span class="req">*</span></label>
-        ${_mselHTML('tp-pos', _covItemsPos(), { onChange: '_tpRunMore', noneText: '— เลือกตำแหน่ง —' })}</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;padding:8px 12px;background:var(--surface2);border-radius:8px">
-      <label style="font-size:13px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center"><input type="checkbox" id="tp-selall" onchange="_tpToggleAll(this.checked)"> เลือกทั้งหมด</label>
-      <span id="tp-count" style="font-size:12px;color:var(--text2);font-weight:600">เลือก 0/0 คน</span>
-    </div>
-    <div id="tp-list" style="max-height:38vh;overflow:auto"></div>
-  `, () => {
-    const picked = Array.from(document.querySelectorAll('.tp-chk:checked')).map(c => c.value);
-    if (!picked.length) { notify('ยังไม่ได้เลือกใครเพิ่ม', 'error'); return; }
-    const have = new Set(_tsPeople.map(e => e.id));
-    const add = _tpTargets().filter(e => picked.indexOf(e.id) >= 0 && !have.has(e.id));
-    _tsPeople = _tsPeople.concat(add);
-    notify('เพิ่ม ' + add.length + ' คนเข้าใบแล้ว — ยังไม่ได้บันทึก');
-    back();
-  }, 'เพิ่มเข้าใบ');
+  _tiOpen({
+    title: '➕ เพิ่มรายชื่อเข้าใบนี้', confirmText: 'เพิ่มเข้าใบ', emptyMsg: 'ยังไม่ได้เลือกใครเพิ่ม',
+    have: new Set(_tsPeople.map(e => e.id)),
+    intro: `<div style="margin-bottom:12px;padding:9px 13px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;font-size:12.5px;color:#1E40AF;line-height:1.6">
+      ในใบนี้มีอยู่แล้ว <b>${_tsPeople.length} คน</b> (ไม่แสดงในรายการด้านซ้าย) · เลือกเสร็จกด <b>เพิ่มเข้าใบ</b> แล้วจะกลับไปที่ฟอร์มเดิม ข้อมูลที่กรอกไว้ยังอยู่
+    </div>`,
+    onConfirm: list => {
+      const have = new Set(_tsPeople.map(e => e.id));
+      const add = list.filter(e => !have.has(e.id));
+      _tsPeople = _tsPeople.concat(add);
+      notify('เพิ่ม ' + add.length + ' คนเข้าใบแล้ว — ยังไม่ได้บันทึก');
+      back();
+    }
+  });
   // ปุ่มกลับ — ต้องมีทางถอยที่ไม่ทิ้งของที่กรอกไว้ กดกากบาทปิดแล้วงานหายหมด
   const footer = document.querySelector('#modal-overlay .modal-footer');
   if (footer) footer.insertAdjacentHTML('afterbegin',
     '<button class="btn btn-outline" onclick="_tsPickMoreBack()" style="margin-right:auto">← กลับไปที่ฟอร์ม</button>');
   _tsPickMoreBack = back;
-  _tpRunMore();
 }
 let _tsPickMoreBack = null;
-/* เหมือน _tpRun แต่กันไม่ให้ติ๊กคนที่อยู่ในใบแล้วซ้ำ */
-function _tpRunMore() {
-  const list = document.getElementById('tp-list');
-  if (!list) return;
-  const emps = _tpTargets();
-  if (!emps.length) {
-    list.innerHTML = '<p class="text-muted" style="text-align:center;padding:18px;font-size:13px">เลือกสาขาและตำแหน่งเพื่อดูรายชื่อ</p>';
-    _tpUpd(); return;
-  }
-  const have = new Set(_tsPeople.map(e => e.id));
-  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
-  list.innerHTML = emps.map(e => {
-    const dup = have.has(e.id);
-    return `<label style="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:8px 12px;margin-bottom:7px;background:var(--surface);cursor:${dup ? 'default' : 'pointer'};opacity:${dup ? '.5' : '1'}">
-      <input type="checkbox" class="tp-chk" value="${e.id}" onchange="_tpUpd()" style="flex-shrink:0"${dup ? ' disabled' : ''}>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${e.name || '—'}${dup ? ' <span style="font-size:11px;color:var(--text3);font-weight:700">· อยู่ในใบแล้ว</span>' : ''}</div>
-        <div style="font-size:11.5px;color:var(--text3)">${e.empCode ? e.empCode + ' · ' : ''}${e.position || '-'} · ${brName(e.branchId)}</div>
-      </div>
-      <span class="ts-ten" title="อายุงาน">${_tsTenure(e)}</span>
-    </label>`;
-  }).join('');
-  _tpUpd();
-}
 /* อายุงานของคนในใบ · คนในแบบร่างเก็บไว้แค่ชื่อ/ตำแหน่ง เลยต้องไปหยิบวันเริ่มงานจากทะเบียน */
 function _tsTenure(e) {
   const cur = (DB.employees[e.branchId] || []).find(x => x.id === e.id) || e;
