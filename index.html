@@ -18192,6 +18192,7 @@ function _cpRetroFrom(tid) {
   if (!ev || ev < d) ev = d;
   _planMonth = _ymOf(t.date);
   _cpBatchMode = false;
+  _cpRetroTid = t.id;
   _cpPrefill = { moduleId: t.moduleId, subtopics: (t.subtopics || []).slice(), empIds: (t.traineeIds || []).slice(), planDate: d, evalDate: ev,
     trainerName: t.trainerName || '', details: t.details || '', track: t.track || '' };
   _cpBackNext = () => openOrphanTrainings();
@@ -18360,6 +18361,7 @@ function _cpShowSubtopics(itemId) {
 /* เพิ่ม / แก้แผน 1 ข้อ — เลือก Module ในกลุ่มนั้น หัวข้อย่อย คน และวันที่ (ไม่บังคับ) */
 let _cpRestricted = false;   // true = แผนที่สอนแล้วฝั่งสาขา: แก้ได้เฉพาะผู้สอนงานกับผู้เรียน
 let _cpBackNext = null;      // ฟังก์ชันของปุ่ม "ย้อนกลับ" ในฟอร์มแผน (ตั้งโดยขั้นก่อนหน้า)
+let _cpRetroTid = null;      // ทำแผนย้อนหลัง: id บันทึกการสอนที่กดทำแผนให้ (ใช้ตัดสินว่าเป็นทบทวนไหม)
 let _cpPrefill = null;       // ทำแผนย้อนหลังจากบันทึกการสอน: ค่าตั้งต้นของฟอร์ม (ยังไม่ใช่แผนที่มีอยู่)
 function openPlanItem(grp, itemId, restricted) {
   const _back = _cpBackNext; _cpBackNext = null;
@@ -18368,6 +18370,7 @@ function openPlanItem(grp, itemId, restricted) {
   const bid = getBranchId(), ym = _planMonth || _ymNow();
   const plan = getCoachingPlan(bid, ym);
   const it0 = itemId ? (plan.items || []).find(x => x.id === itemId) : null;
+  const _retroT = (!it0 && _cpRetroTid) ? (DB.trainings || []).find(x => x.id === _cpRetroTid) : null; _cpRetroTid = null;
   const it = it0 || _cpPrefill; _cpPrefill = null;   // it = แผนที่แก้อยู่ หรือค่าตั้งต้นจากบันทึกการสอน
   const want = grp === 'kitchen' ? 'Cook' : 'Service';
   _cpGrp = grp;
@@ -18497,11 +18500,15 @@ function openPlanItem(grp, itemId, restricted) {
     const unchanged = !!it0 && same(it0.subtopics, subtopics) && same(it0.empIds, empIds);
     /* ทำแผนย้อนหลัง: มีบันทึกการสอนตรงแผนนี้อยู่แล้ว (Module เดียวกัน เดือนเดียวกัน ผู้เรียนตรงกัน) */
     const _own = _planMatches(bid, ym, { moduleId, empIds });
+    /* ทำแผนย้อนหลัง: "ทบทวน" = ผู้เรียนเคยถูกสอนหัวข้อนี้ *ก่อน* บันทึกที่กำลังทำแผนให้
+       - กดจากปุ่มทำแผนย้อนหลังของบันทึกใด ถือบันทึกนั้นเป็นหลัก (การสอนครั้งแรก = ไม่ทบทวน · ครั้งที่สองในเดือนเดียวกัน หรือเดือนถัดไป = ทบทวน)
+       - ไม่ได้มาจากปุ่มนั้น: ใช้บันทึกที่ยังไม่มีแผนรองรับ (ที่แผนนี้จะผูกด้วย) เป็นหลัก
+       บันทึกหลักไม่นับเป็นประวัติของตัวเอง · การสอนที่เกิดหลังบันทึกหลักไม่นับ · ไม่มีบันทึกหลัก = แผนล่วงหน้า นับประวัติทั้งหมดเหมือนเดิม */
+    const _ownFree = _own.filter(t => !(getCoachingPlan(bid, _ymOf(t.date)).items || []).some(x => _planTieRaw(x, t)));
+    const _tg = (_retroT && _own.some(t => t.id === _retroT.id)) ? [_retroT] : _ownFree;
     const _histLines = (() => {
-      /* บันทึกที่กำลังทำแผนให้ ไม่นับเป็นประวัติของตัวเอง · และนับเฉพาะการสอนที่เกิดก่อนบันทึกนั้น
-         (การสอนรอบหลังไม่ทำให้รอบแรกกลายเป็นทบทวน) · ยังไม่มีบันทึก = แผนล่วงหน้า นับประวัติทั้งหมดเหมือนเดิม */
-      const _ownIds = _own.map(t => t.id);
-      const _before = _own.length ? new Date(Math.min(..._own.map(t => new Date(t.date || 0).getTime()))) : null;
+      const _ownIds = _tg.map(t => t.id);
+      const _before = _tg.length ? new Date(Math.min(..._tg.map(t => new Date(t.date || 0).getTime()))) : null;
       const dupLines = empIds.map(id => {
         const subs = _reviewSubs(id, moduleId, subtopics, _before, _ownIds);
         return subs.length ? `<b>${_escH((getEmployee(id) || {}).name || id)}</b> · ${subs.map(_escH).join(', ')}` : null;
@@ -18513,7 +18520,7 @@ function openPlanItem(grp, itemId, restricted) {
       return;
     }
     /* ทำแผนซ้ำกันในวันเดียวกัน (Module เดียวกัน ผู้เรียน/หัวข้อซ้อนกัน): ครั้งที่ 2 เป็นต้นไปนับเป็นทบทวน — ถามยืนยันเหมือนตอนบันทึกการสอน */
-    const _dupInfo = _planSameDayDups(bid, { id: itemId, moduleId, planDate, empIds, subtopics, sameDayOnly: !it0 && _own.length > 0 });   // ทำแผนย้อนหลัง: แผนเดือนอื่นไม่นับว่าซ้ำ
+    const _dupInfo = _planSameDayDups(bid, { id: itemId, moduleId, planDate, empIds, subtopics, sameDayOnly: !it0 && _tg.length > 0 });   // ทำแผนย้อนหลัง: แผนเดือนอื่นไม่นับว่าซ้ำ
     if (_dupInfo.count && !(it0 && it0.review && unchanged) && !window._cpDupOk) {
       _confirmReviewTopics(_dupInfo.lines, () => { window._cpReviewOk = true; window._cpDupOk = true; try { modalConfirm(); } finally { window._cpReviewOk = false; window._cpDupOk = false; } },
         { title: 'มีแผนหัวข้อนี้แล้ว', question: 'ครั้งนี้เป็นแผนสอนทบทวน (ครั้งที่ ' + (_dupInfo.count + 1) + ') ใช่หรือไม่?' });
