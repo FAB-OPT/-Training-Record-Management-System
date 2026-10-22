@@ -5871,6 +5871,7 @@ async function sbLoadAll() {
   if (bup && !bup.error && Array.isArray(bup.data)) {
     _branchUpdatesReady = true;
     DB.branchUpdates = bup.data.map(r => _fromSb('branchUpdates', r));
+    setTimeout(() => { try { maybeRemindRosterUpdate(); } catch (e) { console.warn('roster reminder', e); } }, 1200);
   }
   for (const r of [emps, trs, qrs, cqs, chs, qms]) {
     if (r.error) throw r.error;
@@ -6878,6 +6879,9 @@ function showApp() {
     const _roleGreet = ({ admin: 'Admin', bzm: 'BZM', vp: 'VP. Santa Fe', coo: 'COO' })[currentUser.role] || 'Team Management';
     const _greet = currentUser.name ? `${currentUser.name} (${_roleGreet})` : 'Team Management';
   }
+  _buRemindDone = false;   // เข้าใหม่/สลับบัญชีในหน้าเดิม = เตือนใหม่ได้
+  // เตือนอัพเดทรายชื่อพนักงาน (ภายในวันที่ 10 ของเดือน) — ถ้าข้อมูลยังโหลดไม่เสร็จ จะถูกเรียกอีกครั้งตอนโหลดเสร็จ
+  if (currentUser.type === 'branch') setTimeout(() => { try { maybeRemindRosterUpdate(); } catch (e) { console.warn('roster reminder', e); } }, 1500);
   // Test-mode button visible (+ restore saved state) for admin only
   initTestModeButton();
   // Show chat FAB once logged in
@@ -7556,7 +7560,7 @@ ${EVAL_RESULTS.map(r => `  - ${r.label}${isEvalPass(r.value) ? '  → ผ่า�
 • อยากแก้ส่วนที่ล็อกหรือลบ → ติดต่อ Admin (เมนู 📨 ติดต่อ Admin) · Admin แก้/ลบแผนและบันทึกได้ทั้งหมดตลอด
 • บันทึกที่ประเมินแล้ว สาขาแก้ไม่ได้ ต้องให้ Admin แก้ผลประเมิน
 
-**อัปเดตรายชื่อพนักงาน (เมนู 👥 รายชื่อพนักงาน)** ควรทำทุกเดือน (ระบบไม่ได้บังคับหรือเตือนอัตโนมัติ)
+**อัปเดตรายชื่อพนักงาน (เมนู 👥 รายชื่อพนักงาน)** ควรทำทุกเดือน ภายในวันที่ 10 (ระบบไม่บังคับ แต่เมื่อเข้าระบบด้วยบัญชีสาขาที่เดือนนั้นยังไม่ได้อัพเดท จะมีป๊อปอัพเตือนวันละครั้ง · กด "ยืนยันไม่มีการเปลี่ยนแปลง" ก็นับว่าอัพเดทแล้ว)
 • กด "🔄 อัพเดทข้อมูลพนักงาน" → กรอก "ชื่อผู้อัปเดต" (บังคับ) → เลือก เพิ่มพนักงานใหม่ / แก้ไขข้อมูลพนักงาน / ขอย้ายสาขาพนักงาน / ยืนยันไม่มีการเปลี่ยนแปลงรอบนี้ · หัวหน้าหน้าแสดงเวลาและชื่อผู้อัปเดตล่าสุด
 • ขอย้ายสาขา: สาขาส่งคำขอ ระหว่างรอขึ้นป้าย "รออนุมัติย้าย" แล้ว Admin อนุมัติ
 
@@ -9683,6 +9687,55 @@ function getBranchUpdateHistory(bid) {
 }
 function getLastBranchUpdate(bid) {
   return getBranchUpdateHistory(bid)[0] || null;
+}
+/* ป๊อปอัพเตือนอัพเดทรายชื่อพนักงาน: กำหนดภายในวันที่ 10 ของทุกเดือน
+   - เฉพาะบัญชีสาขา · เดือนนี้ยังไม่มีการอัพเดทเลย (นับ "ยืนยันไม่มีการเปลี่ยนแปลง" ด้วย) จึงเตือน
+   - เตือนเมื่อเข้าระบบ วันละครั้งต่อเครื่อง · ก่อน/ในวันที่ 10 = เตือนล่วงหน้า · เลยวันที่ 10 = แจ้งว่าเลยกำหนด
+   - ต้องรอข้อมูลโหลดเสร็จ (ตารางประวัติอัพเดท) ถึงรู้ว่าเดือนนี้อัพเดทแล้วหรือยัง */
+const BU_DEADLINE_DAY = 10;
+let _buRemindDone = false;
+function _bkkParts(d) {
+  const p = {};
+  new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(d || new Date()).forEach(x => { p[x.type] = x.value; });
+  return { y: +p.year, m: +p.month, d: +p.day };
+}
+function maybeRemindRosterUpdate(tries) {
+  if (_buRemindDone || !currentUser || currentUser.type !== 'branch' || !_branchUpdatesReady) return;
+  const ov = document.getElementById('modal-overlay');
+  if (ov && ov.classList.contains('open')) {          // มีหน้าต่างอื่นเปิดอยู่ — รอสักครู่ ไม่ทับ
+    if ((tries || 0) < 6) setTimeout(() => maybeRemindRosterUpdate((tries || 0) + 1), 4000);
+    return;
+  }
+  _buRemindDone = true;
+  const bid = getBranchId(); if (!bid) return;
+  const now = _bkkParts(), ym = now.y + '-' + String(now.m).padStart(2, '0');
+  const doneThisMonth = getBranchUpdateHistory(bid).some(u => {
+    const q = _bkkParts(new Date(u.at)); return q.y === now.y && q.m === now.m;
+  });
+  if (doneThisMonth) return;
+  const today = ym + '-' + String(now.d).padStart(2, '0');
+  const key = 'opt_bu_remind_' + bid;
+  try { if (localStorage.getItem(key) === today) return; localStorage.setItem(key, today); } catch (_) {}
+  const monthName = new Date(Date.UTC(now.y, now.m - 1, 15)).toLocaleDateString('th-TH', { month: 'long', timeZone: 'UTC' });
+  const left = BU_DEADLINE_DAY - now.d, late = left < 0;
+  const head = late ? 'เลยกำหนดอัพเดทรายชื่อพนักงานแล้ว'
+    : left === 0 ? 'วันนี้เป็นวันสุดท้ายของการอัพเดทรายชื่อพนักงาน'
+    : 'ถึงเวลาอัพเดทรายชื่อพนักงานประจำเดือน';
+  const sub = late ? 'กำหนดคือภายในวันที่ ' + BU_DEADLINE_DAY + ' ของเดือน · เดือน' + monthName + ' สาขายังไม่ได้อัพเดท'
+    : left === 0 ? 'กำหนดคือภายในวันที่ ' + BU_DEADLINE_DAY + ' ของเดือน · วันนี้อัพเดทให้เรียบร้อย'
+    : 'กรุณาอัพเดทภายในวันที่ ' + BU_DEADLINE_DAY + ' ' + monthName + ' (เหลืออีก ' + left + ' วัน)';
+  const last = getLastBranchUpdate(bid);
+  const tone = late ? { bg: '#FEE2E2', fg: '#DC2626', ic: '⚠️' } : { bg: 'var(--accent-light)', fg: 'var(--accent)', ic: '🔔' };
+  showModal(head, `
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="width:44px;height:44px;border-radius:50%;background:${tone.bg};color:${tone.fg};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${tone.ic}</div>
+      <div style="flex:1;min-width:0;font-size:13.5px;color:var(--text2);line-height:1.6">
+        <div style="font-weight:700;color:var(--text);margin-bottom:4px">${sub}</div>
+        เพิ่มพนักงานใหม่ แก้ไขข้อมูล หรือขอย้ายสาขา · ถ้าเดือนนี้ไม่มีอะไรเปลี่ยน ให้กด <b>"ยืนยันไม่มีการเปลี่ยนแปลง"</b> ในเมนูอัพเดท
+        <div style="margin-top:8px;font-size:12px;color:var(--text3)">🕐 ${last ? 'อัพเดทล่าสุด ' + fmtDateTime(last.at) + ' โดย ' + _escH(last.by || '—') : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
+      </div>
+    </div>`, () => { closeModal(); openBranchUpdateMenu(); }, '🔄 อัพเดทตอนนี้', 'ไว้ทีหลัง');
 }
 function _buOptRow(icon, iconBg, iconColor, title, desc, onclick) {
   return `<div class="bu-opt-row" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer" onclick="${onclick}">
