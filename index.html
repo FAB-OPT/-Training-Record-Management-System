@@ -10020,7 +10020,7 @@ function _personSummaryRows(trains, onlyEmpIds) {
     });
     let bestQuizPct = null;
     list.forEach(t => {
-      _quizAttemptsFor(t.id).forEach(r => {
+      _quizAttemptsFor(t.id, empId).forEach(r => {
         const pct = (r.pct != null) ? r.pct : (r.total ? Math.round(r.score / r.total * 100) : 0);
         if (bestQuizPct == null || pct > bestQuizPct) bestQuizPct = pct;
       });
@@ -10318,13 +10318,17 @@ function _trainTableHtml(d) {
         const isQuizRow = isLatestCompletingTraining(t);
         const quizAttempts = _quizAttemptsFor(t.id);
         const quizPassed = _quizPassedFor(t.id);
-        const quizLocked = !quizPassed && quizAttempts.length >= QUIZ_MAX_ATTEMPTS;
+        const _qPpl = _quizPeople(t);
+        const quizLocked = !quizPassed && (_qPpl.length ? _quizNobodyLeft(t) : quizAttempts.length >= QUIZ_MAX_ATTEMPTS);
         // ลำดับใหม่: ต้องประเมินผลก่อน ข้อสอบถึงจะปลดล็อก
         const canQuiz = isQuizRow && !!t.eval && !quizPassed && !quizLocked;
         const quizWaitEval = isQuizRow && !t.eval && !quizPassed;   // สอนครบแล้วแต่ยังไม่ได้ประเมิน
         const bestPct = quizAttempts.length ? Math.max(...quizAttempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100))) : null;
+        const _qPassN = _qPpl.filter(id => _quizPersonStatus(t.id, id).passed).length;
         const quizCell = isQuizRow && quizAttempts.length
-          ? `<span class="badge ${bestPct>=80?'badge-green':'badge-red'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`
+          ? (_qPpl.length
+              ? `<span class="badge ${_qPassN === _qPpl.length ? 'badge-green' : (quizLocked ? 'badge-red' : 'badge-yellow')}" style="font-size:10.5px;white-space:nowrap">${quizLocked && _qPassN < _qPpl.length ? '🔒 ' : ''}ผ่าน ${_qPassN}/${_qPpl.length}</span>`
+              : `<span class="badge ${bestPct>=80?'badge-green':'badge-red'}" style="font-size:10.5px">${quizLocked?'🔒 '+bestPct+'%':bestPct+'%'}</span>`)
           : '<span style="color:var(--text4);font-size:11px">—</span>';
         const prog = getSubtopicProgress(t);
         const tStat = t.eval ? (isEvalPass(t.eval.result) ? 'tstat-pass' : 'tstat-fail') : (isEvalDeadlinePassed(t.date) ? 'tstat-fail' : 'tstat-pending');
@@ -15325,14 +15329,14 @@ function openEvalModal(trainingId) {
     <!-- Trainees -->
     <div style="padding:12px 14px;background:var(--accent-light);border-radius:11px;border:1px solid rgba(255,107,26,0.22);margin-bottom:14px">
       <div style="font-size:10.5px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">👥 พนักงานที่รับการสอน (${trainees.length})</div>
-      ${trainees.length ? trainees.map(e=>`
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;${trainees.length>1?'border-bottom:1px dashed rgba(255,107,26,0.20)':''}">
+      ${trainees.length ? trainees.map((e,_i)=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;${_i<trainees.length-1?'border-bottom:1px dashed rgba(255,107,26,0.20)':''}">
           <div style="min-width:0;flex:1">
             <div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
             <div style="font-size:11.5px;color:var(--text2);margin-top:1px">${e.position||'—'}</div>
           </div>
           <span style="font-size:11px;color:var(--accent);font-weight:600;flex-shrink:0;background:var(--surface);padding:3px 9px;border-radius:999px;border:1px solid rgba(255,107,26,0.22)">${calcTenureShort(e.startDate)}</span>
-        </div>`).join('').replace(/border-bottom:[^;]+;(?=[^]*$)/,'') : '<div style="color:var(--text3);font-size:13px">—</div>'}
+        </div>`).join('') : '<div style="color:var(--text3);font-size:13px">—</div>'}
     </div>
 
     <!-- Subtopics -->
@@ -15391,8 +15395,9 @@ function promptQuizAfterEval(trainingId) {
   if (!t || !t.eval) return;
   if (!isLatestCompletingTraining(t)) return;                 // ยังสอนไม่ครบ Module
   if (_quizPassedFor(trainingId)) return;                     // สอบผ่านไปแล้ว
-  const attempts = _quizAttemptsFor(trainingId).length;
-  if (attempts >= QUIZ_MAX_ATTEMPTS) return;                  // ทำครบโควตาแล้ว
+  const _pp = _quizPeople(t);
+  if (_pp.length ? _quizNobodyLeft(t) : _quizAttemptsFor(trainingId).length >= QUIZ_MAX_ATTEMPTS) return;   // ทำครบโควตาแล้ว
+  const attempts = _pp.length ? 0 : _quizAttemptsFor(trainingId).length;
   /* Module ที่มีข้อสอบประจำหัวข้อย่อย — ประเมินเสร็จเข้าข้อสอบเลย ไม่ต้องถามก่อน
      เพราะสอนหัวข้อเดียวจบในครั้งเดียว ประเมินเสร็จก็สอบหัวข้อนั้นต่อได้ทันที
      หน้าถามคั่นกลางเป็นการกดเพิ่มอีกครั้งโดยไม่ได้ให้ทางเลือกอะไรจริง ๆ */
@@ -15470,36 +15475,98 @@ function updateQuizProgress() {
 
 const QUIZ_MAX_ATTEMPTS = 2;
 const QUIZ_PASS_PCT = 80;
-function _quizAttemptsFor(trainingId) {
-  return (DB.quizResults || []).filter(r => r.trainingId === trainingId);
+/* ข้อสอบรายบุคคล — บันทึกการสอนที่มีผู้เรียน 2 คนขึ้นไป ทุกคนสอบแยกกัน คนละไม่เกิน QUIZ_MAX_ATTEMPTS ครั้ง ต้องผ่านทุกคน
+   ผลสอบแต่ละครั้งเก็บ empId ไว้ใน answers (jsonb เดิม ไม่ต้องเพิ่มคอลัมน์)
+   ผลสอบเก่าที่ไม่มี empId = สอบร่วมกันทั้งรายการ นับให้ทุกคนเหมือนเดิม */
+function _qrAnswers(r) {
+  let a = r && r.answers;
+  if (typeof a === 'string') { try { a = JSON.parse(a); } catch (_) { a = null; } }
+  return a || {};
 }
-function _quizPassedFor(trainingId) {
-  return _quizAttemptsFor(trainingId).some(r => {
-    const pct = (r.pct != null) ? r.pct : (r.total ? Math.round(r.score/r.total*100) : 0);
-    return pct >= QUIZ_PASS_PCT;
-  });
+function _quizPeople(t) {
+  const ids = ((t && t.traineeIds) || []).map(String);
+  return ids.length >= 2 ? ids : [];
+}
+function _quizPct(r) { return (r.pct != null) ? r.pct : (r.total ? Math.round(r.score / r.total * 100) : 0); }
+function _quizAttemptsFor(trainingId, empId) {
+  const all = (DB.quizResults || []).filter(r => r.trainingId === trainingId);
+  if (empId == null) return all;
+  return all.filter(r => { const e = _qrAnswers(r).empId; return e == null || String(e) === String(empId); });
+}
+function _quizPassedFor(trainingId, empId) {
+  const pass = list => list.some(r => _quizPct(r) >= QUIZ_PASS_PCT);
+  if (empId != null) return pass(_quizAttemptsFor(trainingId, empId));
+  const t = (DB.trainings || []).find(x => x.id === trainingId);
+  const ppl = _quizPeople(t);
+  if (!ppl.length) return pass(_quizAttemptsFor(trainingId));
+  return ppl.every(id => pass(_quizAttemptsFor(trainingId, id)));
+}
+function _quizPersonStatus(trainingId, empId) {
+  const at = _quizAttemptsFor(trainingId, empId);
+  const best = at.length ? Math.max(...at.map(_quizPct)) : null;
+  const passed = best != null && best >= QUIZ_PASS_PCT;
+  return { attempts: at.length, best, passed, locked: !passed && at.length >= QUIZ_MAX_ATTEMPTS, left: Math.max(0, QUIZ_MAX_ATTEMPTS - at.length) };
+}
+/* ไม่เหลือใครที่ยังทำข้อสอบได้อีก (ผ่านแล้วหรือครบจำนวนครั้งทุกคน) */
+function _quizNobodyLeft(t) {
+  const ppl = _quizPeople(t);
+  if (!ppl.length) { const st = _quizPersonStatus(t.id); return st.passed || st.locked; }
+  return ppl.every(id => { const st = _quizPersonStatus(t.id, id); return st.passed || st.locked; });
+}
+/* มีใครสอบไม่ผ่านจนครบจำนวนครั้งแล้ว (ต้องสอนใหม่) */
+function _quizHasLockedFail(t) {
+  const ppl = _quizPeople(t);
+  if (!ppl.length) return _quizPersonStatus(t.id).locked;
+  return ppl.some(id => _quizPersonStatus(t.id, id).locked);
+}
+/* เลือกว่าใครจะสอบ (บันทึกที่สอนหลายคน) */
+function _quizChooser(t) {
+  const rows = _quizPeople(t).map(id => {
+    const e = getEmployee(id) || { name: id, position: '' }, st = _quizPersonStatus(t.id, id);
+    const state = st.passed ? `<span class="badge badge-green">✓ ผ่าน ${st.best}%</span>`
+      : st.locked ? `<span class="badge badge-red">🔒 ครบ ${QUIZ_MAX_ATTEMPTS} ครั้ง (สูงสุด ${st.best}%)</span>`
+      : st.attempts ? `<span class="badge badge-yellow">ทำแล้ว ${st.attempts}/${QUIZ_MAX_ATTEMPTS} · ${st.best}%</span>`
+      : '<span class="badge badge-gray">ยังไม่ได้ทำ</span>';
+    const act = st.passed ? '' : st.locked
+      ? `<button class="btn btn-sm btn-outline" onclick="openQuiz('${t.id}','${id}')">ดู</button>`
+      : `<button class="btn btn-sm btn-green" onclick="openQuiz('${t.id}','${id}')">📝 ทำข้อสอบ</button>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px"><div style="font-size:14px;font-weight:800">${_escH(e.name)}</div><div style="font-size:11.5px;color:var(--text2)">${_escH(e.position || '')}</div></div>
+      ${state}${act}</div>`;
+  }).join('');
+  const done = _quizPeople(t).filter(id => _quizPersonStatus(t.id, id).passed).length;
+  showModal('ข้อสอบ: ' + (MODULES[t.moduleId]?.name || t.moduleId), `
+    <div style="font-size:12.5px;color:var(--text2);background:var(--accent-light);border:1px solid rgba(255,107,26,.22);border-radius:10px;padding:9px 12px;margin-bottom:12px;line-height:1.5">
+      สอน <b>${_quizPeople(t).length} คน</b> · ข้อสอบแยกรายบุคคล คนละไม่เกิน ${QUIZ_MAX_ATTEMPTS} ครั้ง · ผ่านแล้ว <b>${done}/${_quizPeople(t).length}</b> คน
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">${rows}</div>`, null, 'ปิด');
 }
 
-function openQuiz(trainingId) {
+function openQuiz(trainingId, empId) {
   const t = DB.trainings.find(t=>t.id===trainingId);
   if (!t) return;
+  /* สอนหลายคน → เลือกก่อนว่าใครจะสอบ (ข้อสอบแยกรายบุคคล) */
+  const _multi = _quizPeople(t).length > 0;
+  if (_multi && empId == null) { if (t.eval) { closeModal(); setTimeout(() => _quizChooser(t), 0); return; } }
+  const _emp = _multi && empId != null ? String(empId) : null;
+  const _empName = _emp ? ((getEmployee(_emp) || {}).name || '') : '';
   // ต้องบันทึกผลการประเมินก่อน ข้อสอบถึงจะเปิดให้ทำ
   if (!t.eval) {
     notify('ต้องบันทึกผลการประเมินก่อน แล้วข้อสอบจะปลดล็อกให้เอง', 'error');
     return;
   }
   // Already passed → block (no need to retake)
-  if (_quizPassedFor(trainingId)) {
-    notify('ผ่านข้อสอบนี้แล้ว ไม่ต้องทำซ้ำ', 'success');
+  if (_quizPassedFor(trainingId, _emp)) {
+    notify((_empName ? _empName + ' ' : '') + 'ผ่านข้อสอบนี้แล้ว ไม่ต้องทำซ้ำ', 'success');
     return;
   }
   // Hit max attempts → block
-  const attempts = _quizAttemptsFor(trainingId);
+  const attempts = _quizAttemptsFor(trainingId, _emp);
   if (attempts.length >= QUIZ_MAX_ATTEMPTS) {
     showModal('🔒 ทำข้อสอบครบจำนวนครั้งแล้ว', `
       <div style="text-align:center;padding:4px 0">
         <div style="font-size:38px;margin-bottom:6px">🔒</div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">ทำข้อสอบครบ ${QUIZ_MAX_ATTEMPTS} ครั้งแล้ว</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${_empName ? _escH(_empName) + ' · ' : ''}ทำข้อสอบครบ ${QUIZ_MAX_ATTEMPTS} ครั้งแล้ว</div>
         <div style="font-size:12.5px;color:var(--text2);line-height:1.55">
           คะแนนสูงสุด: <strong>${Math.max(...attempts.map(r => r.pct||Math.round((r.score||0)/(r.total||1)*100)))}%</strong><br>
           กรุณาทบทวนและสอนงานพนักงานใหม่อีกครั้ง<br>
@@ -15575,9 +15642,9 @@ function openQuiz(trainingId) {
       correctNew: opts.find(o => o.isCorrect)?.newKey,
     };
   });
-  _quizState = { questions, answers: {}, trainingId, startedAt: Date.now() };
+  _quizState = { questions, answers: {}, trainingId, empId: _emp, startedAt: Date.now() };
   closeModal();
-  showModal('ข้อสอบ: ' + (MODULES[t.moduleId]?.name||t.moduleId), `
+  showModal('ข้อสอบ: ' + (MODULES[t.moduleId]?.name||t.moduleId) + (_empName ? ' · ' + _empName : ''), `
     <div class="quiz-progress">
       <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="quiz-fill" style="width:0%"></div></div>
       <div class="quiz-progress-text" id="quiz-progress-text">0 / ${questions.length} ข้อ</div>
@@ -15615,12 +15682,13 @@ function openQuiz(trainingId) {
       return { uid: q.uid, ok: _quizState.answers[i] === q.correctNew, pick: chosen ? chosen.srcKey : '' };
     });
     const _ans = { responses: _quizState.answers, pct, date: _qrDate, items: _items, sec: _sec };
+    if (_emp) _ans.empId = _emp;   // ข้อสอบรายบุคคล: เก็บว่าใครเป็นคนสอบ
     // Local copy keeps pct/date for in-memory calc; record sent to SB strips them (not in schema)
     const _qrLocal = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, pct, date: _qrDate, answers: _ans };
     DB.quizResults.push(_qrLocal);
     const _qrForSave = { id: _qrId, trainingId, branchId: t.branchId, moduleId: t.moduleId, score, total: questions.length, answers: _ans };
     gsSave('quizResults', _qrId, _qrForSave);
-    const attemptsAfter = _quizAttemptsFor(trainingId).length;
+    const attemptsAfter = _quizAttemptsFor(trainingId, _emp).length;
     const remaining = Math.max(0, QUIZ_MAX_ATTEMPTS - attemptsAfter);
     _quizState = null;
     closeModal();
@@ -15632,6 +15700,7 @@ function openQuiz(trainingId) {
         <div style="margin-top:20px"><span class="badge ${passed?'badge-green':'badge-red'}" style="font-size:14px;padding:10px 22px">${passed?'✓ ผ่านเกณฑ์':'✗ ไม่ผ่านเกณฑ์ (ต้องได้ 80% ขึ้นไป)'}</span></div>
         ${!passed ? `<div style="margin-top:18px;padding:10px 16px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text2)">${remaining > 0 ? `ทำได้อีก <strong style="color:var(--accent)">${remaining}</strong> ครั้ง (สูงสุด ${QUIZ_MAX_ATTEMPTS} ครั้ง)` : '🔒 ทำครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้งแล้ว — กรุณาสอนงานพนักงานใหม่อีกครั้ง'}</div>` : ''}
       </div>
+      ${_multi ? `<div style="text-align:center;margin:0 0 6px"><b style="font-size:13.5px">${_escH(_empName)}</b><div style="margin-top:12px"><button class="btn btn-accent" onclick="closeModal();setTimeout(()=>_quizChooser(DB.trainings.find(x=>x.id==='${trainingId}')),0)">กลับไปเลือกคนถัดไป →</button></div></div>` : ''}
     `, null, 'ปิด');
   }, 'ส่งคำตอบ');
 }
@@ -18429,10 +18498,17 @@ function _trainingOutcome(t) {
   const attempts = _quizAttemptsFor(t.id);
   const pcts = attempts.map(r => (r.pct != null) ? r.pct : (r.total ? Math.round(r.score / r.total * 100) : 0));
   const best = pcts.length ? Math.max.apply(null, pcts) : null;
-  const passed = best != null && best >= QUIZ_PASS_PCT;
+  const _ppl = _quizPeople(t);
+  /* สอนหลายคน: ผ่านเมื่อทุกคนผ่าน · ต้องสอนใหม่เมื่อมีใครสอบไม่ผ่านจนครบจำนวนครั้ง */
+  const passed = _ppl.length ? _quizPassedFor(t.id) : (best != null && best >= QUIZ_PASS_PCT);
   let reteach = '';
   if (t.eval && !isEvalPass(t.eval.result)) reteach = 'ประเมินไม่ผ่าน (ระดับ ' + t.eval.result + ')';
-  else if (!passed && attempts.length >= QUIZ_MAX_ATTEMPTS) reteach = 'สอบไม่ผ่านครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้ง (สูงสุด ' + best + '%)';
+  else if (!passed && (_ppl.length ? _quizHasLockedFail(t) : attempts.length >= QUIZ_MAX_ATTEMPTS)) {
+    if (_ppl.length) {   // บอกว่าใครสอบไม่ผ่าน (ไม่ใช่คะแนนสูงสุดของทั้งรายการ)
+      const who = _ppl.filter(id => _quizPersonStatus(t.id, id).locked).map(id => ((getEmployee(id) || {}).name || id) + ' (สูงสุด ' + _quizPersonStatus(t.id, id).best + '%)');
+      reteach = 'สอบไม่ผ่านครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้ง: ' + who.join(', ');
+    } else reteach = 'สอบไม่ผ่านครบ ' + QUIZ_MAX_ATTEMPTS + ' ครั้ง (สูงสุด ' + best + '%)';
+  }
   const waitingQuiz = !!t.eval && !attempts.length && isLatestCompletingTraining(t);
   return { attempts: attempts.length, best, passed, reteach, waitingQuiz };
 }
@@ -23347,10 +23423,7 @@ function renderExecAlerts() {
   // 2) Failed quizzes (locked, max attempts hit but didn't pass)
   const failedQuiz = DB.trainings.filter(t => {
     if (!ACCESS.has(t.branchId)) return false;
-    const attempts = _quizAttemptsFor(t.id);
-    if (attempts.length < QUIZ_MAX_ATTEMPTS) return false;
-    const bestPct = Math.max(...attempts.map(r => r.pct != null ? r.pct : Math.round((r.score||0)/(r.total||1)*100)));
-    return bestPct < 80;
+    return _quizHasLockedFail(t);   // สอนหลายคน: มีใครคนหนึ่งสอบไม่ผ่านครบจำนวนครั้ง
   });
   // 3) New employees (joined <60 days) without any training yet
   const newUntrained = [];
