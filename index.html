@@ -6573,6 +6573,105 @@ function isEvalPass(result) {
   return Number(result) >= 3;
 }
 
+/* ═══ ประเมินรายบุคคล — บันทึกการสอนที่มีผู้เรียน 2 คนขึ้นไป ═══
+   ผลรายคนเก็บใน t.eval.byPerson = { [empId]: {method, result, evalDate, note} } (อยู่ในคอลัมน์ eval ที่เป็น jsonb เดิม ไม่ต้องเพิ่มคอลัมน์)
+   t.eval.result / method / note ระดับบน = ผลรวมของรายการ (ผลของคนที่ต่ำสุด) — โค้ดเดิมทั้งหมด (สถิติ รายงาน ปลดล็อกข้อสอบ ตัดสิน "ต้องสอนใหม่")
+   จึงใช้ต่อได้เหมือนเดิม ถ้ามีคนหนึ่งไม่ผ่าน ทั้งรายการนับว่าไม่ผ่าน
+   ใบเก่าที่ไม่มี byPerson = ทุกคนได้ผลเดียวกับที่บันทึกไว้ */
+function evalOf(t, empId) {
+  const e = t && t.eval; if (!e) return null;
+  const p = e.byPerson && e.byPerson[String(empId)];
+  return p ? Object.assign({}, e, p) : e;
+}
+function _evalAggregate(byPerson, ids) {
+  const list = (ids || Object.keys(byPerson)).map(id => byPerson[String(id)]).filter(Boolean);
+  const worst = list.reduce((m, x) => (m == null || Number(x.result) < Number(m.result)) ? x : m, null);
+  const methods = [...new Set(list.map(x => x.method).filter(Boolean))];
+  const notes = (ids || Object.keys(byPerson)).map(id => {
+    const x = byPerson[String(id)]; const nm = (getEmployee(id) || {}).name || id;
+    return x && x.note ? nm + ': ' + x.note : '';
+  }).filter(Boolean).join('\n');
+  return { method: methods.join(' / '), result: worst ? String(worst.result) : '', note: notes };
+}
+let _peState = {};
+function _peFormHtml(t, trainees, cur) {
+  _peState = {};
+  const bp = (cur && cur.byPerson) || {};
+  return `<div id="pe-wrap">
+    <div style="font-size:12.5px;color:var(--text2);background:var(--accent-light);border:1px solid rgba(255,107,26,.22);border-radius:10px;padding:9px 12px;margin-bottom:12px;line-height:1.5">
+      สอน <b>${trainees.length} คน</b> · ประเมินแยกเป็นรายบุคคล กรอกผลของแต่ละคนด้านล่าง
+    </div>
+    ${trainees.map((e, i) => {
+      const own = bp[String(e.id)] || (cur && !cur.byPerson ? cur : null) || {};
+      _peState[i] = { id: String(e.id), method: own.method || '', result: own.result ? String(own.result) : '' };
+      return `<div class="pe-card" style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <span style="width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">${i + 1}</span>
+          <div style="min-width:0;flex:1"><div style="font-size:14px;font-weight:800">${_escH(e.name)}</div>
+            <div style="font-size:11.5px;color:var(--text2)">${_escH(e.position || '—')}</div></div>
+          ${i > 0 ? `<button type="button" class="btn btn-sm btn-outline" onclick="peCopyFirst(${i})" style="flex:none">ใช้เหมือนคนที่ 1</button>` : ''}
+        </div>
+        <label class="form-label">วิธีการประเมินผล <span class="req">*</span></label>
+        <div class="eval-method" id="pe-m-${i}">${EVAL_METHODS.map(m => `<div class="eval-method-item${m === own.method ? ' selected' : ''}" onclick="peSelMethod(${i},this,'${m.replace(/'/g, "\\'")}')"><div style="font-size:13px">${m}</div></div>`).join('')}</div>
+        <label class="form-label" style="margin-top:10px">ผลการประเมิน <span class="req">*</span></label>
+        <select class="form-select" id="pe-r-${i}" onchange="peSelResult(${i},this.value)">
+          <option value="">เลือกผลการประเมิน</option>
+          ${EVAL_RESULTS.map(r => `<option value="${r.value}"${String(own.result) === r.value ? ' selected' : ''}>${r.label}</option>`).join('')}
+        </select>
+        <label class="form-label" style="margin-top:10px">หมายเหตุ / ข้อสังเกต</label>
+        <textarea class="form-textarea" id="pe-n-${i}" placeholder="บันทึกเพิ่มเติม...">${_escH(own.note || '')}</textarea>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function peSelMethod(i, el, method) {
+  const box = document.getElementById('pe-m-' + i);
+  if (box) box.querySelectorAll('.eval-method-item').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected'); if (_peState[i]) _peState[i].method = method;
+}
+function peSelResult(i, v) { if (_peState[i]) _peState[i].result = v; }
+function peCopyFirst(i) {
+  const a = _peState[0], b = _peState[i]; if (!a || !b) return;
+  b.method = a.method; b.result = a.result;
+  const box = document.getElementById('pe-m-' + i);
+  if (box) box.querySelectorAll('.eval-method-item').forEach(x => x.classList.toggle('selected', x.textContent.trim() === a.method));
+  const sel = document.getElementById('pe-r-' + i); if (sel) sel.value = a.result;
+}
+/* รวบรวมที่กรอกของทุกคน — ครบทุกคนถึงบันทึกได้ */
+function _peCollect(trainees, prevDates) {
+  const byPerson = {}; const now = new Date().toISOString();
+  for (let i = 0; i < trainees.length; i++) {
+    const st = _peState[i], e = trainees[i];
+    if (!st || !st.method) { notify('กรุณาเลือกวิธีการประเมินของ ' + e.name, 'error'); return null; }
+    if (!st.result) { notify('กรุณาเลือกผลการประเมินของ ' + e.name, 'error'); return null; }
+    const nEl = document.getElementById('pe-n-' + i);
+    byPerson[String(e.id)] = { method: st.method, result: String(st.result), evalDate: (prevDates && prevDates[String(e.id)]) || now, note: nEl ? nEl.value : '' };
+  }
+  return byPerson;
+}
+/* แถวผลรายคน (หน้ารายละเอียด) */
+function _evalPersonRowsHtml(t) {
+  const e = t && t.eval; if (!e || !e.byPerson) return '';
+  const ids = (t.traineeIds || []).map(String).filter(id => e.byPerson[id]);
+  if (ids.length < 2) return '';
+  return '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">ผลรายบุคคล</div>' +
+    ids.map(id => { const p = e.byPerson[id], emp = getEmployee(id) || {};
+      return '<div style="padding:8px 0;border-top:1px dashed var(--border)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '<b style="font-size:13px">' + _escH(emp.name || id) + '</b>' +
+        '<span class="badge ' + getEvalResultBadge(p.result) + '">' + getEvalResultLabel(p.result) + '</span>' +
+        '<span class="badge badge-blue">' + _escH(p.method || '') + '</span></div>' +
+        (p.note ? '<div style="font-size:12.5px;color:var(--text);margin-top:4px;white-space:pre-wrap">' + _escH(p.note) + '</div>' : '') + '</div>'; }).join('');
+}
+/* ชิปผลรายคนแบบย่อ (ตารางรายการ) */
+function _evalPersonMini(t) {
+  const e = t && t.eval; if (!e || !e.byPerson) return '';
+  const ids = (t.traineeIds || []).map(String).filter(id => e.byPerson[id]);
+  if (ids.length < 2) return '';
+  return '<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">' + ids.map(id => {
+    const p = e.byPerson[id], nm = ((getEmployee(id) || {}).name || id).split(' ')[0];
+    return '<span style="font-size:10.5px;white-space:nowrap;color:' + (isEvalPass(p.result) ? 'var(--green)' : 'var(--red)') + ';font-weight:700">' + _escH(nm) + ' · ' + (isEvalPass(p.result) ? 'ผ่าน' : 'ไม่ผ่าน') + '</span>'; }).join('') + '</div>';
+}
+
 // ==================== LOGIN ====================
 // ==================== PIN BOX SYSTEM ====================
 let loginType = 'branch';
@@ -9040,7 +9139,7 @@ function showEmpTrainingHistoryModal(empId) {
   const grpHex = {'พนักงานบริการ':'#22C55E','พนักงานครัว':'#EF4444','ทีมผู้จัดการสาขา':'#3B82F6'};
   const color = grpHex[getPositionGroup(e.position)] || '#9CA3AF';
   const evCount = trains.filter(t=>t.eval).length;
-  const passCount = trains.filter(t=>t.eval && isEvalPass(t.eval.result)).length;
+  const passCount = trains.filter(t=>t.eval && isEvalPass(evalOf(t, e.id).result)).length;
   showModal(`ประวัติการสอน · ${e.name}`, `
     <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:${color}10;border-left:3px solid ${color};border-radius:10px;margin-bottom:16px">
       <div style="flex:1">
@@ -9057,7 +9156,7 @@ function showEmpTrainingHistoryModal(empId) {
       <thead><tr><th>วันที่</th><th>Module</th><th>หัวข้อ</th><th>ผู้สอน</th><th>ผล</th></tr></thead>
       <tbody>${trains.map(t=>{
         const badge = t.eval
-          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}">${getEvalResultLabel(t.eval.result).split(' ')[0]}</span>`
+          ? `<span class="badge ${getEvalResultBadge(evalOf(t, e.id).result)}">${getEvalResultLabel(evalOf(t, e.id).result).split(' ')[0]}</span>`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-gray">หมดเวลา</span>' : '<span class="badge badge-yellow">รอประเมิน</span>';
         return `<tr>
           <td style="font-size:12px;white-space:nowrap">${fmtDate(t.date)}</td>
@@ -9088,7 +9187,7 @@ function showPositionTrainingModal(bid, pos) {
         if(!empMap[e.id]) empMap[e.id]={emp:e,modules:new Set(),total:0,passed:0,evaled:0};
         empMap[e.id].modules.add(t.moduleId);
         empMap[e.id].total++;
-        if(t.eval){empMap[e.id].evaled++;if(isEvalPass(t.eval.result))empMap[e.id].passed++;}
+        if(t.eval){empMap[e.id].evaled++;if(isEvalPass(evalOf(t, e.id).result))empMap[e.id].passed++;}
       }
     });
   });
@@ -9991,7 +10090,7 @@ function openPersonTrainingHistory(empId) {
     <div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto">
     ${list.map(t => {
       const badge = t.eval
-        ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="font-size:10.5px">${getEvalResultShort(t.eval.result)}</span>`
+        ? `<span class="badge ${getEvalResultBadge(evalOf(t, empId).result)}" style="font-size:10.5px">${getEvalResultShort(evalOf(t, empId).result)}</span>`
         : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="font-size:10.5px">หมดเวลา</span>' : '<span class="badge badge-yellow" style="font-size:10.5px">รอประเมิน</span>';
       const fromOtherBranch = t.branchId !== emp.branchId;
       return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="closeModal();viewTraining('${t.id}')">
@@ -10208,7 +10307,7 @@ function _trainTableHtml(d) {
       </tr></thead>
       <tbody>${rows.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">ไม่มีรายการในหมวดนี้</td></tr>':rows.map(t=>{
         const badge = t.eval
-          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="white-space:nowrap">${getEvalResultShort(t.eval.result)}</span>`
+          ? `<span class="badge ${getEvalResultBadge(t.eval.result)}" style="white-space:nowrap">${getEvalResultShort(t.eval.result)}</span>${_evalPersonMini(t)}`
           : isEvalDeadlinePassed(t.date) ? '<span class="badge badge-red" style="white-space:nowrap">หมดเวลา</span>' : '<span class="badge badge-yellow" style="white-space:nowrap">รอประเมิน</span>';
         const within7 = !isEvalDeadlinePassed(t.date);
         const fromOtherBranch = t.branchId !== bid;   // สอนจริงที่สาขาอื่นมาก่อนย้าย — ดูได้แต่แก้/ลบ/ประเมินจากที่นี่ไม่ได้
@@ -11917,6 +12016,7 @@ function viewTraining(id) {
         <span class="badge badge-blue">${t.eval.method}</span>
       </div>
       <div style="font-size:12px;color:var(--text2)">วันที่/เวลาประเมิน: ${fmtDateTime(t.eval.evalDate)}</div>
+      ${_evalPersonRowsHtml(t)}
       ${t.eval.editedBy?`<div style="font-size:12px;color:var(--text3);margin-top:2px">แก้ไขโดย ${t.eval.editedBy} เมื่อ ${fmtDateTime(t.eval.editedAt)}</div>`:''}
       ${t.eval.note?`<div style="font-size:13px;margin-top:6px;color:var(--text)">${t.eval.note}</div>`:''}
     </div>` : isEvalDeadlinePassed(t.date) ? `<div class="warn-box">หมดระยะเวลาประเมิน (เกิน ${EVAL_DEADLINE_DAYS} วันแล้ว)</div>`
@@ -11977,6 +12077,8 @@ function openEditEval(id) {
   const cur = t.eval;
   selectedEvalMethod = cur.method || '';
   selectedEvalResult = cur.result || '';
+  const _tr = (t.traineeIds || []).map(x => getEmployee(x)).filter(Boolean);
+  const multi = _tr.length >= 2;
   const names = (t.traineeIds || []).map(x => (getEmployee(x) || {}).name).filter(Boolean).join(', ') || '—';
   showModal('แก้ผลการประเมิน', `
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
@@ -11984,6 +12086,8 @@ function openEditEval(id) {
       <div style="font-size:13.5px;font-weight:700;margin-top:2px">${names}</div>
       <div style="font-size:12px;color:var(--text3);margin-top:4px">สอนเมื่อ ${fmtDateTime(t.date)} · ประเมินเมื่อ ${fmtDateTime(cur.evalDate)}</div>
     </div>
+    ${multi ? _peFormHtml(t, _tr, cur) : ''}
+    <div style="${multi ? 'display:none' : ''}">
     <div class="form-full">
       <label class="form-label">วิธีการประเมินผล <span class="req">*</span></label>
       <div class="eval-method">${EVAL_METHODS.map(m=>`<div class="eval-method-item${m===cur.method?' selected':''}" onclick="selectEvalMethod(this,'${m.replace(/'/g,"\\'")}')"><div style="font-size:13px">${m}</div></div>`).join('')}</div>
@@ -11999,8 +12103,18 @@ function openEditEval(id) {
       <label class="form-label">หมายเหตุ / ข้อสังเกต</label>
       <textarea class="form-textarea" id="eval-note" placeholder="บันทึกเพิ่มเติม...">${(cur.note||'').replace(/</g,'&lt;')}</textarea>
     </div>
+    </div>
     <div style="font-size:12px;color:var(--text3);margin-top:6px">การแก้ไขจะถูกบันทึกไว้ว่าใครแก้และแก้เมื่อไร</div>
   `, () => {
+    if (multi) {
+      const prev = {}; Object.keys(cur.byPerson || {}).forEach(k => { prev[k] = cur.byPerson[k].evalDate; });
+      const byPerson = _peCollect(_tr, prev); if (!byPerson) return;
+      t.eval = Object.assign({}, cur, _evalAggregate(byPerson, _tr.map(e => e.id)), { byPerson });
+      markEvalEdited(t);
+      gsSave('trainings', t.id, t);
+      closeModal(); showPage(currentPage); notify('แก้ผลการประเมินแล้ว');
+      return;
+    }
     if (!selectedEvalMethod) { notify('กรุณาเลือกวิธีการประเมิน', 'error'); return; }
     if (!selectedEvalResult) { notify('กรุณาเลือกผลการประเมิน', 'error'); return; }
     t.eval = Object.assign({}, cur, {
@@ -15184,6 +15298,7 @@ function openEvalModal(trainingId) {
   const totalSub = MODULES[t.moduleId]?.subtopics?.length || 0;
   const doneSub = t.subtopics?.length || 0;
   const trainees = (t.traineeIds||[]).map(id => getEmployee(id)).filter(Boolean);
+  const multi = trainees.length >= 2;   // สอน 2 คนขึ้นไป = ประเมินแยกรายบุคคล
   showModal('บันทึกผลการประเมิน', `
     <!-- Module heading -->
     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
@@ -15230,6 +15345,8 @@ function openEvalModal(trainingId) {
 
     <!-- Form: divider -->
     <div style="border-top:1px dashed var(--border);padding-top:18px">
+    ${multi ? _peFormHtml(t, trainees, null) : ''}
+    <div style="${multi ? 'display:none' : ''}">
 
     <div class="form-full">
       <label class="form-label">วิธีการประเมินผล <span class="req">*</span></label>
@@ -15247,7 +15364,16 @@ function openEvalModal(trainingId) {
       <textarea class="form-textarea" id="eval-note" placeholder="บันทึกเพิ่มเติม..."></textarea>
     </div>
     </div>
+    </div>
   `, () => {
+    if (multi) {
+      const byPerson = _peCollect(trainees, null); if (!byPerson) return;
+      t.eval = Object.assign({ evalDate: new Date().toISOString() }, _evalAggregate(byPerson, trainees.map(e => e.id)), { byPerson });
+      gsSave('trainings', t.id, t);
+      closeModal(); showPage('trainings'); notify('บันทึกผลการประเมินรายบุคคลสำเร็จ');
+      setTimeout(() => promptQuizAfterEval(t.id), 400);
+      return;
+    }
     if(!selectedEvalMethod){notify('กรุณาเลือกวิธีการประเมิน','error');return;}
     if(!selectedEvalResult){notify('กรุณาเลือกผลการประเมิน','error');return;}
     t.eval = {method:selectedEvalMethod,result:selectedEvalResult,evalDate:new Date().toISOString(),note:document.getElementById('eval-note').value};
