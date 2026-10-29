@@ -18308,8 +18308,8 @@ function renderCoachingPlanPanel(bid) {
             ${it.bzmAckBy ? `<span class="cp-item-note" style="color:var(--green);font-weight:600">✅ BZM ${_escH(it.bzmAckBy)} รับทราบแล้ว ${_escH(fmtDateTime(it.bzmAckAt))}</span>` : ''}
           </div>
           <div class="cp-item-actions">
-            ${canEdit ? (ok && !isAdminRole()
-              ? `<button class="btn btn-sm btn-outline" title="สอนตามแผนแล้ว — แก้ได้เฉพาะผู้สอนงานและผู้เรียน" onclick="editPlanItem('${grp}','${it.id}')">✏️ แก้ผู้สอน/ผู้เรียน</button>`
+            ${canEdit ? (_taught && !isAdminRole()
+              ? `<div class="cp-locked" title="สอนตามแผนนี้แล้ว สาขาแก้แผนไม่ได้ ถ้าต้องแก้ให้แจ้ง Admin">🔒 สอนแล้ว<small>แก้ไขไม่ได้ · แจ้ง Admin</small></div>`
               : `<button class="btn btn-sm btn-outline" onclick="editPlanItem('${grp}','${it.id}')">แก้ไข</button>`) : ''}
           </div>
         </div>`;
@@ -18368,6 +18368,8 @@ function renderCoachingPlanPanel(bid) {
     /* ปุ่มแก้ไขแผน: สีส้มอ่อน ตัวหนา ข้อความอยู่กึ่งกลาง */
     .cp-item-actions .btn-outline{background:var(--accent-light);border-color:var(--accent);color:var(--accent);font-weight:800}
     .cp-item-actions .btn-outline:hover{background:var(--accent);color:#fff}
+    .cp-locked{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 10px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);color:var(--text3);font-size:12.5px;font-weight:800;text-align:center;line-height:1.35}
+    .cp-locked small{font-size:10.5px;font-weight:500}
     .cp-empty{font-size:12.5px;color:var(--text3);padding:10px 4px}
     @media (max-width:760px){ .cp-grid{grid-template-columns:1fr} }
     /* คอลัมน์แคบ (มือถือ หรือจอคอมที่ครัว/บริการอยู่ข้างกัน) เรียงการ์ดแนวตั้ง ปุ่มอยู่ล่างเต็มแถว — คอลัมน์กว้างถึงใช้ 3 ช่อง */
@@ -18947,10 +18949,10 @@ function _cpBatchSaveAll() {
 function editPlanItem(grp, itemId) {
   const _bid = getBranchId(), _ym = _planMonth || _ymNow();
   const _it = (getCoachingPlan(_bid, _ym).items || []).find(x => x.id === itemId);
-  /* สอนตามแผนแล้ว: สาขาแก้ได้เฉพาะผู้สอนงานกับผู้เรียน (Admin แก้ได้ทุกอย่าง) */
-  const restricted = !!(_it && !isAdminRole() && _planItemDone(_bid, _ym, _it));
+  /* สอนตามแผนแล้ว: สาขาแก้อะไรไม่ได้เลย (Admin แก้ได้ทุกอย่าง) — กันไว้ที่นี่ด้วย เผื่อมีทางลัดอื่นเรียกเข้ามา */
+  if (_it && !isAdminRole() && _planItemDone(_bid, _ym, _it)) { notify('แผนข้อนี้สอนไปแล้ว แก้ไขไม่ได้ — แจ้ง Admin ให้แก้', 'error'); return; }
   _cpBatchMode = false;
-  openPlanItem(grp, itemId, restricted);
+  openPlanItem(grp, itemId, false);
 }
 let _cpCrossDept = false;
 let _cpMaxTrainees = MAX_TRAINEES;
@@ -19430,9 +19432,43 @@ function _planMdHtml(bids, ym) {
   _planMdBids = bids;
   return `<div class="po-md" id="po-md">${_planMdInner(bids, ym)}</div>`;
 }
-let _planF = { zone: '', branch: '', from: '', to: '' };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
+let _planF = { zone: '', branch: '', from: '', to: '', late: false };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
 function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = ''; showPage(currentPage); }
-function _planClearFilter() { _planF = { zone: '', branch: '', from: '', to: '' }; showPage(currentPage); }
+function _planClearFilter() { _planF = { zone: '', branch: '', from: '', to: '', late: false }; showPage(currentPage); }
+
+/* ความตรงกำหนดของเดือน ym — ทั้ง "ทำแผน" และ "อัพเดทรายชื่อ" ต้องเสร็จภายในวันที่ 10 ของเดือนนั้น (เวลาไทย)
+   firstIso = เวลาแรกสุดที่สาขาทำเรื่องนั้นในเดือนนี้ (ไม่มี = ยังไม่ทำ)
+   คืน: ok · late (ทำแล้วแต่เลยวันที่ 10, days = เลยกี่วัน) · missing (เลยกำหนดแล้วยังไม่ทำ) · wait (ยังไม่ถึงกำหนด) · null (เดือนอนาคต) */
+function _punctOf(ym, firstIso) {
+  const [Y, M] = ym.split('-').map(Number), now = _bkkParts();
+  if (Y * 12 + M > now.y * 12 + now.m) return null;
+  const dl = Date.UTC(Y, M - 1, BU_DEADLINE_DAY), today = Date.UTC(now.y, now.m - 1, now.d);
+  if (firstIso) {
+    const q = _bkkParts(new Date(firstIso)), late = Math.round((Date.UTC(q.y, q.m - 1, q.d) - dl) / 864e5);
+    return late > 0 ? { k: 'late', days: late } : { k: 'ok' };
+  }
+  if (today > dl) return { k: 'missing', days: Math.round((today - dl) / 864e5), past: Y * 12 + M < now.y * 12 + now.m };
+  return { k: 'wait', left: Math.round((dl - today) / 864e5) };
+}
+const _isLatePunct = p => !!p && (p.k === 'late' || p.k === 'missing');
+function _punctBadge(p, what) {
+  if (!p) return '<span style="color:var(--text4)">—</span>';
+  if (p.k === 'ok') return '<span class="badge badge-green">✓ ทันกำหนด</span>';
+  if (p.k === 'late') return `<span class="badge" style="background:#FEE2E2;color:#B91C1C">⏰ ล่าช้า ${p.days} วัน</span>`;
+  if (p.k === 'missing') return `<span class="badge" style="background:#FEE2E2;color:#B91C1C">✕ ${p.past ? 'ไม่ได้' + what : 'ยังไม่' + what + ' · เลย ' + p.days + ' วัน'}</span>`;
+  return `<span class="badge" style="background:var(--surface2);color:var(--text3)">รอ · ${p.left ? 'เหลือ ' + p.left + ' วัน' : 'วันนี้วันสุดท้าย'}</span>`;
+}
+/* เวลาแรกสุดที่สาขาอัพเดทรายชื่อในเดือน ym (นับ "ยืนยันไม่มีการเปลี่ยนแปลง" ด้วย) */
+function _firstBranchUpdateIn(bid, ym) {
+  const ts = (DB.branchUpdates || []).filter(u => u.branchId === bid && u.at && _bkkYm(u.at) === ym).map(u => u.at).sort();
+  return ts[0] || '';
+}
+function _bkkYm(iso) { const q = _bkkParts(new Date(iso)); return q.y + '-' + String(q.m).padStart(2, '0'); }
+/* ตารางประวัติอัพเดทเริ่มเก็บเมื่อไร — เดือนก่อนหน้านั้นไม่มีข้อมูลให้ตัดสิน ไม่ควรขึ้นว่า "ไม่ได้อัพเดท" ทุกสาขา */
+function _buStartYm() {
+  const ts = (DB.branchUpdates || []).map(u => u.at).filter(Boolean).sort();
+  return ts.length ? _bkkYm(ts[0]) : '9999-99';
+}
 function renderAdminPlanOverview() {
   if (!_planMonth) _planMonth = _ymNow();
   // มาเห็นหน้านี้แล้ว badge/toast เงียบไป (ไม่เด้งซ้ำ) แต่ "รับทราบ" จริง (ที่สาขาเห็น) ต้องกดปุ่มด้านล่างเท่านั้น
@@ -19450,15 +19486,24 @@ function renderAdminPlanOverview() {
   if (_planF.branch && !zoneBids.includes(_planF.branch)) _planF.branch = '';
   const bids = zoneBids.filter(b => !_planF.branch || b === _planF.branch);
   const inRange = d => (!_planF.from || (d && d >= _planF.from)) && (!_planF.to || (d && d <= _planF.to));
-  const filtering = !!(_planF.zone || _planF.branch || _planF.from || _planF.to);
+  const filtering = !!(_planF.zone || _planF.branch || _planF.from || _planF.to || _planF.late);
+  const _buFrom = _buStartYm();
   const rows = bids.map(bid => {
     const a = _planAudit(bid, ym);
     const k = a.items.filter(it => _planGroup(it.moduleId) === 'kitchen');
     const s = a.items.filter(it => _planGroup(it.moduleId) === 'service');
     const d = arr => arr.filter(it => _planItemDone(bid, ym, it)).length;
+    /* ความตรงกำหนดวันที่ 10 — เฉพาะฝั่งแอดมิน (BZM ไม่ต้องเห็น) */
+    let pp = null, ru = null;
+    if (!bzm) {
+      const ts = a.items.map(it => it.createdAt).filter(x => x && !isNaN(new Date(x))).sort();
+      pp = a.items.length && !ts.length ? null : _punctOf(ym, ts[0] || '');
+      ru = _branchUpdatesReady && ym >= _buFrom ? _punctOf(ym, _firstBranchUpdateIn(bid, ym)) : null;
+    }
     return { bid, name: (BRANCH_MASTER[bid].name || bid).replace(bid + ' ', ''), a,
-      k: k.length, kd: d(k), s: s.length, sd: d(s) };
-  }).filter(r => bzm ? r.a.items.length : (r.a.items.length || r.a.recs.length))
+      k: k.length, kd: d(k), s: s.length, sd: d(s), pp, ru };
+  }).filter(r => bzm ? r.a.items.length : (r.a.items.length || r.a.recs.length || _isLatePunct(r.pp) || _isLatePunct(r.ru)))
+    .filter(r => !_planF.late || _isLatePunct(r.pp) || _isLatePunct(r.ru))
     .filter(r => !(_planF.from || _planF.to) || r.a.items.some(it => inRange(it.planDate)))
     .sort((x, y) => bzm ? x.bid.localeCompare(y.bid) : ((y.a.off.length - x.a.off.length) || x.bid.localeCompare(y.bid)));
   const withPlan = rows.filter(r => r.a.items.length).length;
@@ -19469,6 +19514,8 @@ function renderAdminPlanOverview() {
   const _evaluatedN = _allItems.filter(x => _planItemEvaluated(x.bid, ym, x.it)).length;
   const _noPlanBranches = bids.filter(b => !rows.some(r => r.bid === b && r.a.items.length)).length;
   const _sumCard = (icon, label, val, sub, color) => `<div class="stat-card" style="border:1px solid var(--border)"><div style="font-size:34px">${icon}</div><div><div class="stat-label" style="font-size:15.5px;color:var(--text3)">${label}</div><div style="font-size:36px;font-weight:800;line-height:1.1;color:${color || 'var(--text)'}">${val}</div>${sub ? `<div style="font-size:14.5px;color:var(--text3);margin-top:3px">${sub}</div>` : ''}</div></div>`;
+  const _planLateN = rows.filter(r => r.pp && r.pp.k === 'late').length, _planMissN = rows.filter(r => r.pp && r.pp.k === 'missing').length;
+  const _rosLateN = rows.filter(r => r.ru && r.ru.k === 'late').length, _rosMissN = rows.filter(r => r.ru && r.ru.k === 'missing').length;
   const offTotal = rows.reduce((n, r) => n + r.a.off.length, 0);
   const offBranches = rows.filter(r => r.a.off.length).length;
   const cell = (n, dn) => n ? `<b>${dn}</b>/${n}` : '<span style="color:var(--text4)">—</span>';
@@ -19499,24 +19546,28 @@ function renderAdminPlanOverview() {
       ${_sumCard('⏳', 'ยังไม่สอน', _allItems.length - _taughtN, '', _allItems.length - _taughtN ? '#B45309' : 'var(--text)')}
       ${_sumCard('🔁', 'ต้องสอนใหม่', _redoN, '', _redoN ? 'var(--red)' : 'var(--text)')}
       ${bzm ? _sumCard('🔔', 'รอรับทราบ', rows.reduce((t, r) => t + (needAckByBranch[r.bid] || 0), 0), 'แผนใหม่/อัปเดต', '#2563EB') : _sumCard('⚠️', 'บันทึกนอกแผน', offTotal, 'ใน ' + offBranches + ' สาขา', offTotal ? '#B45309' : 'var(--green)')}
+      ${bzm ? '' : _sumCard('⏰', 'ทำแผนล่าช้า', _planLateN + _planMissN, 'กำหนดภายในวันที่ ' + BU_DEADLINE_DAY + ' · ทำช้า ' + _planLateN + ' · ยังไม่ทำ ' + _planMissN, (_planLateN + _planMissN) ? 'var(--red)' : 'var(--green)')}
+      ${bzm || !_branchUpdatesReady ? '' : _sumCard('👥', 'อัพเดทรายชื่อล่าช้า', _rosLateN + _rosMissN, 'กำหนดภายในวันที่ ' + BU_DEADLINE_DAY + ' · ทำช้า ' + _rosLateN + ' · ยังไม่ทำ ' + _rosMissN, (_rosLateN + _rosMissN) ? 'var(--red)' : 'var(--green)')}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
       ${zones.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">โซน / BZM</div><select class="form-select" style="min-width:220px;height:50px;font-size:16px" onchange="_planSetFilter('zone', this.value)"><option value="">ทุกโซน</option>${zones.map(z => `<option value="${_escH(z)}"${_planF.zone === z ? ' selected' : ''}>${_escH(z)}</option>`).join('')}</select></div>` : ''}
       ${allBids.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">สาขา</div><select class="form-select" style="min-width:220px;height:50px;font-size:16px" onchange="_planSetFilter('branch', this.value)"><option value="">ทุกสาขา</option>${zoneBids.slice().sort().map(b => `<option value="${b}"${_planF.branch === b ? ' selected' : ''}>${_escH(_bName(b))}</option>`).join('')}</select></div>` : ''}
       <div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">วันที่วางแผนสอน ตั้งแต่</div><input type="date" class="form-input" style="height:50px;font-size:16px" value="${_planF.from}" onchange="_planSetFilter('from', this.value)"></div>
       <div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">ถึง</div><input type="date" class="form-input" style="height:50px;font-size:16px" value="${_planF.to}" onchange="_planSetFilter('to', this.value)"></div>
+      ${bzm ? '' : `<button class="btn btn-sm ${_planF.late ? 'btn-accent' : 'btn-outline'}" style="height:50px;font-size:15px" onclick="_planSetFilter('late', ${!_planF.late})">⏰ เฉพาะสาขาที่ล่าช้า</button>`}
       ${filtering ? `<button class="btn btn-sm btn-outline" onclick="_planClearFilter()">ล้างตัวกรอง</button>` : ''}
     </div>
     ${bzm && _coachingReady ? _planMdHtml(bids, ym) : ''}
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
     rows.length ? `<div class="table-wrap${bzm ? ' po-tbl-m' : ''}"><table class="cards-on-mobile po-table">
       <thead><tr><th>สาขา</th><th style="text-align:center">ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">บริการ<br><small>สอนแล้ว/แผน</small></th>
-        <th>วันที่วางแผนสอน</th><th>สาขาจัดทำเมื่อ</th><th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
+        <th>วันที่วางแผนสอน</th><th>สาขาจัดทำเมื่อ</th>${bzm ? '' : `<th>ทำแผนตามกำหนด<br><small>ภายในวันที่ ${BU_DEADLINE_DAY}</small></th>${_branchUpdatesReady ? `<th>อัพเดทรายชื่อ<br><small>ภายในวันที่ ${BU_DEADLINE_DAY}</small></th>` : ''}`}<th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
       <tbody>${rows.map(r => `<tr>
         <td data-label="สาขา"><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:12.5px">ยังไม่วางแผน</span>'}</td>
         <td data-label="ครัว สอนแล้ว/แผน" style="text-align:center">${cell(r.k, r.kd)}</td><td data-label="บริการ สอนแล้ว/แผน" style="text-align:center">${cell(r.s, r.sd)}</td>
         <td data-label="วันที่วางแผนสอน" style="font-size:14.5px">${dates(r)}</td>
         <td data-label="สาขาจัดทำเมื่อ" style="font-size:14.5px;white-space:nowrap">${madeAt(r)}</td>
+        ${bzm ? '' : `<td data-label="ทำแผนตามกำหนด" style="white-space:nowrap">${_punctBadge(r.pp, 'ทำแผน')}</td>${_branchUpdatesReady ? `<td data-label="อัพเดทรายชื่อ" style="white-space:nowrap">${_punctBadge(r.ru, 'อัพเดท')}</td>` : ''}`}
         <td data-label="ยังไม่สอน" style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
         ${bzm ? '' : `<td data-label="บันทึกนอกแผน" style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>`}
         <td data-label="actions" style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline po-view" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
