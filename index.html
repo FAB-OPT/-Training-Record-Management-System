@@ -13091,6 +13091,10 @@ function renderTrainingPlan() {
         <span class="tp-go-ic">👥</span>
         <span><b>เลือกรายชื่อเอง</b><i>รู้อยู่แล้วว่าจะจัดให้ใคร</i></span>
       </button>
+      <button class="tp-go tp-go-b" onclick="openMeetingRoster()">
+        <span class="tp-go-ic">🧾</span>
+        <span><b>ทะเบียนประชุม</b><i>ออกรายชื่อ PDF · ไม่บันทึกประวัติ</i></span>
+      </button>
     </div>
   </div>
 
@@ -14534,7 +14538,47 @@ function _tsUpd() {
 /* ทะเบียนรายชื่อผู้เข้าอบรม — รูปแบบฟอร์มบริษัท (A4 แนวตั้ง)
    หัวกระดาษ: โลโก้ซ้าย + ชื่อบริษัท/ชื่อเอกสารกลาง + ช่องกรอกแบบขีดเส้นใต้
    ตาราง 6 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน · ลายเซ็น */
-function _printTrainingSession(info, list) {
+/* ทะเบียนรายชื่อผู้เข้าประชุม — ใช้ฟอร์มเดียวกับใบอบรม แต่ไม่บันทึกประวัติ ไม่มีหลักสูตร/รุ่น และไม่เช็คกับการอบรม */
+const MEETING_ROSTER_OPTS = { title: 'ทะเบียนรายชื่อผู้เข้าประชุม', courseLabel: 'ชื่อการประชุม :', trainerLabel: 'ผู้ดำเนินการ :', noBatch: true };
+function openMeetingRoster() {
+  _tiOpen({
+    title: '🧾 เลือกผู้เข้าประชุม', confirmText: 'ไปกรอกข้อมูลการประชุม', emptyMsg: 'ยังไม่ได้เลือกใครเข้าประชุม',
+    have: new Set(),
+    onConfirm: list => { closeModal(); setTimeout(() => _openMeetingForm(list), 60); }
+  });
+}
+function _openMeetingForm(list) {
+  const opts = COMPANY_DEFAULTS.map(c => `<option value="${_escH(c)}">${_escH(c)}</option>`).join('');
+  showModal('🧾 ทะเบียนรายชื่อผู้เข้าประชุม', `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">ผู้เข้าประชุม ${list.length} คน · ออกเป็น PDF อย่างเดียว ไม่บันทึกลงประวัติการอบรม</div>
+    <div class="form-row">
+      <div><label class="form-label">ชื่อการประชุม *</label><input class="form-input" id="mt-name" placeholder="เช่น ประชุมประจำเดือน ต.ค. 2569"></div>
+      <div><label class="form-label">บริษัท</label><select class="form-input" id="mt-company">${opts}</select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่</label><input type="date" class="form-input" id="mt-date"></div>
+      <div><label class="form-label">เวลา</label><input class="form-input" id="mt-time" placeholder="เช่น 09.00-10.30"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">สถานที่</label><input class="form-input" id="mt-place" placeholder="เช่น ห้องประชุม สนง.ใหญ่"></div>
+      <div><label class="form-label">ผู้ดำเนินการประชุม</label><input class="form-input" id="mt-host"></div>
+    </div>
+  `, () => {
+    const name = document.getElementById('mt-name').value.trim();
+    if (!name) { notify('กรอกชื่อการประชุม', 'error'); return; }
+    const info = {
+      company: document.getElementById('mt-company').value, course: name, batch: '',
+      date: document.getElementById('mt-date').value,
+      time: document.getElementById('mt-time').value.trim(),
+      place: document.getElementById('mt-place').value.trim(),
+      trainer: document.getElementById('mt-host').value.trim(),
+    };
+    closeModal();
+    _printTrainingSession(info, list, MEETING_ROSTER_OPTS);   // ไม่เรียก _tsArchiveIssued: ไม่บันทึกประวัติ
+  }, 'ออกทะเบียน PDF', 'ยกเลิก');
+}
+function _printTrainingSession(info, list, opts) {
+  opts = opts || {};
   const brName = (b) => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
   list = list.slice().sort((a,b) => brName(a.branchId).localeCompare(brName(b.branchId),'th') || (a.name||'').localeCompare(b.name||'','th'));
   const logoUrl = (() => { try { return new URL('logo.jpg', location.href).href; } catch(_) { return ''; } })();
@@ -14591,10 +14635,10 @@ function _printTrainingSession(info, list) {
       <div class="head-logo">${logoUrl ? `<img src="${logoUrl}" alt="">` : ''}</div>
       <div class="head-mid">
         <div class="co">${(info.company || COMPANY_DEFAULTS[0]).replace(/</g,"&lt;")}</div>
-        <div class="doc">ทะเบียนรายชื่อผู้เข้าอบรม</div>
-        <div class="fline"><span><b>หลักสูตร :</b> ${fld(info.course, '260px')}</span><span><b>รุ่นที่ :</b> ${fld(info.batch, '70px')}</span></div>
+        <div class="doc">${opts.title || 'ทะเบียนรายชื่อผู้เข้าอบรม'}</div>
+        <div class="fline"><span><b>${opts.courseLabel || 'หลักสูตร :'}</b> ${fld(info.course, '260px')}</span>${opts.noBatch ? '' : `<span><b>รุ่นที่ :</b> ${fld(info.batch, '70px')}</span>`}</div>
         <div class="fline"><span><b>วันที่ :</b> ${fld(dFrom, '160px')}</span><span><b>เวลา :</b> ${fld(info.time, '150px')} น.</span></div>
-        <div class="fline"><span><b>สถานที่ :</b> ${fld(info.place, '180px')}</span><span><b>วิทยากร :</b> ${fld(info.trainer, '150px')}</span></div>
+        <div class="fline"><span><b>สถานที่ :</b> ${fld(info.place, '180px')}</span><span><b>${opts.trainerLabel || 'วิทยากร :'}</b> ${fld(info.trainer, '150px')}</span></div>
       </div>
       <div class="head-right"></div>
     </div>
@@ -14618,7 +14662,7 @@ function _printTrainingSession(info, list) {
   </div>`;
   const win = window.open('', '_blank');
   if (!win) { notify('เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่', 'error'); return; }
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ทะเบียนรายชื่อผู้เข้าอบรม ' + info.course + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + (opts.title || 'ทะเบียนรายชื่อผู้เข้าอบรม') + ' ' + info.course + '</title>' + style + '</head><body>' + toolbar + html + '</body></html>');
   win.document.close();
 }
 
