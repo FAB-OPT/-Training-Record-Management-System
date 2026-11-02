@@ -13110,6 +13110,7 @@ function renderTrainingPlan() {
 
   <div id="tp-allbranch">${_tpAllBranchCard()}</div>
 
+  <div id="mt-register">${_mtRegister()}</div>
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
   <div class="card" style="margin-top:14px">
@@ -13266,9 +13267,11 @@ let _mcRows = {};
 let _mcWarned = false;   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
 async function _mcLoad() {
   const sb = _initSb(); if (!sb) return;
-  const rs = await sb.from('meeting_rosters').select('meeting');
-  if (rs.error) { console.warn('[meeting_rosters]', rs.error.message); return; }
-  MEETING_COVER = [...new Set((rs.data || []).map(r => r.meeting))].sort((a, b) => a.localeCompare(b, 'th'));
+  const [rs, rg] = await Promise.all([sb.from('meeting_rosters').select('meeting'), sb.from('meeting_register').select('name,all_branches')]);
+  if (rs.error || rg.error) { console.warn('[meeting]', (rs.error || rg.error).message); return; }
+  MEETING_ALL = {};
+  (rg.data || []).forEach(r => { MEETING_ALL[r.name] = !!r.all_branches; });
+  MEETING_COVER = [...new Set([...(rg.data || []).map(r => r.name), ...(rs.data || []).map(r => r.meeting)])].sort((x, y) => x.localeCompare(y, 'th'));
   if (!MEETING_COVER.length) { _mcRows = {}; _mcPaint(); return; }
   const res = await sb.from('meeting_coverage').select('meeting,branch_code,status,note').in('meeting', MEETING_COVER);
   if (res.error) { if (!_mcWarned) { _mcWarned = true; alert('โหลดการเข้าประชุมไม่สำเร็จ\n' + res.error.message); } return; }
@@ -13356,6 +13359,7 @@ async function _mcDelete(m) {
   if (!confirm('ลบข้อมูลการเข้าประชุม "' + m + '" ทั้งหมด?\n(ไม่กระทบประวัติอบรมของพนักงาน)')) return;
   const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
   await sb.from('meeting_rosters').delete().eq('meeting', m);
+  await sb.from('meeting_register').delete().eq('name', m);
   const res = await sb.from('meeting_coverage').delete().eq('meeting', m);
   if (res.error) return notify('ลบไม่สำเร็จ — ' + res.error.message, 'error');
   notify('ลบแล้ว');
@@ -13410,31 +13414,76 @@ async function _mcRosterPrint(id) {
   if (r.error || !r.data) { alert('เปิดใบรายชื่อไม่สำเร็จ' + (r.error ? '\n' + r.error.message : '')); return; }
   _printTrainingSession(r.data.info, r.data.people, MEETING_ROSTER_OPTS);
 }
-/* ทะเบียนประชุม — แยกจากทะเบียนหลักสูตร (ไม่บันทึกประวัติ ไม่มีเช็คชื่อ) */
+/* ทะเบียนประชุม — ทำแบบเดียวกับทะเบียนหลักสูตร (ชื่อ · ทุกสาขา · ผ่านแล้ว · จัดการ)
+   ไม่บันทึกประวัติอบรม ไม่มีเช็คชื่อ */
+let MEETING_ALL = {};   // { ชื่อประชุม: ต้องเข้าทุกสาขาหรือไม่ }
 function _mtRegister() {
   const esc = x => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  const rows = MEETING_COVER.map(m => `
-    <div class="tw-row" style="grid-template-columns:1fr auto">
-      <div style="min-width:0"><div class="tw-name">${esc(m)}</div>
-        <div class="tw-sub">ไม่บันทึกลงประวัติอบรม · ไม่มีเช็คชื่อ</div></div>
-      <div class="tw-act">
-        <button class="btn btn-sm btn-outline" onclick="_mcView('${esc(m)}')">ดูรายชื่อ</button>
+  const open = openBranchIds();
+  const rows = MEETING_COVER.map(m => {
+    const rows2 = _mcRows[m] || {};
+    const passed = open.filter(b => rows2[b] && rows2[b].status === 'done').length;
+    return `<tr>
+      <td><button class="btn btn-sm btn-outline" style="border:0;padding:0;font-weight:700;background:none" onclick="_mcView('${esc(m)}')">${esc(m)}</button></td>
+      <td style="text-align:center"><input type="checkbox" ${MEETING_ALL[m] ? 'checked' : ''} onchange="_mtToggleAll('${esc(m)}', this.checked)" title="ต้องเข้าประชุมทุกสาขาอย่างน้อย 1 คน"></td>
+      <td style="text-align:right;font-weight:800;color:var(--accent)">${passed}<span style="font-size:11px;color:var(--text3);font-weight:600"> สาขา</span></td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="_mtRename('${esc(m)}')">เปลี่ยนชื่อ</button>
         <button class="btn btn-sm btn-outline tp-del" onclick="_mcDelete('${esc(m)}')" title="ลบประชุมนี้">🗑</button>
-      </div>
-    </div>`).join('');
+      </td></tr>`;
+  }).join('');
   return `
   <div class="card" style="margin-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px"><div style="font-weight:800;font-size:15px;color:var(--text)">🗓 ทะเบียนประชุม</div>
         <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${MEETING_COVER.length} ประชุม</span></div>
-      <button class="btn btn-sm btn-accent" onclick="openMeetingRoster()">+ เพิ่มประชุม</button>
+      <button class="btn btn-sm btn-accent" onclick="_mtAdd()">+ เพิ่มประชุม</button>
     </div>
-    ${rows || '<div style="text-align:center;padding:18px;font-size:13px;color:var(--text3)">ยังไม่มีประชุม · กด + เพิ่มประชุม แล้วทำรายชื่อ</div>'}
+    <table class="tbl" style="width:100%"><thead><tr>
+      <th style="text-align:left">ประชุม</th><th style="text-align:center">ทุกสาขา</th><th style="text-align:right">ผ่านแล้ว</th><th style="text-align:right">จัดการ</th>
+    </tr></thead><tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px">ยังไม่มีประชุม · กด + เพิ่มประชุม</td></tr>'}</tbody></table>
   </div>`;
 }
 function _mtPaint() {
   const box = document.getElementById('mt-register');
   if (box) box.innerHTML = _mtRegister();
+}
+/* เพิ่มประชุมใหม่ (ยังไม่มีใบรายชื่อก็เพิ่มได้) */
+function _mtAdd() {
+  showModal('➕ เพิ่มประชุม', `
+    <label class="form-label">ชื่อประชุม *</label>
+    <input class="form-input" id="mt-new-name" placeholder="เช่น ประชุม RGM">
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px"><input type="checkbox" id="mt-new-all"> ต้องเข้าประชุมทุกสาขาอย่างน้อย 1 คน</label>
+    <div style="font-size:12px;color:var(--text3);margin-top:4px">บันทึกแล้วจะเห็นในรายการ · ไม่บันทึกลงประวัติอบรม</div>
+  `, async () => {
+    const name = document.getElementById('mt-new-name').value.trim();
+    if (!name) { notify('กรอกชื่อประชุม', 'error'); return; }
+    const all = document.getElementById('mt-new-all').checked;
+    const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+    const r = await sb.from('meeting_register').upsert({ name, all_branches: all });
+    if (r.error) { alert('เพิ่มประชุมไม่สำเร็จ\n' + r.error.message); return; }
+    closeModal();
+    await _mcLoad();
+  }, 'เพิ่ม', 'ยกเลิก');
+}
+/* ติ๊ก "ทุกสาขา" */
+async function _mtToggleAll(name, on) {
+  const sb = _initSb(); if (!sb) return;
+  const r = await sb.from('meeting_register').upsert({ name, all_branches: !!on });
+  if (r.error) { alert('บันทึกไม่สำเร็จ\n' + r.error.message); return; }
+  await _mcLoad();
+}
+/* เปลี่ยนชื่อประชุม — เปลี่ยนในทุกตารางที่ผูกชื่อนี้ */
+async function _mtRename(old) {
+  const nn = (prompt('ชื่อประชุมใหม่', old) || '').trim();
+  if (!nn || nn === old) return;
+  const sb = _initSb(); if (!sb) return;
+  const a = await sb.from('meeting_register').upsert({ name: nn, all_branches: !!MEETING_ALL[old] });
+  if (a.error) { alert('เปลี่ยนชื่อไม่สำเร็จ\n' + a.error.message); return; }
+  await sb.from('meeting_rosters').update({ meeting: nn }).eq('meeting', old);
+  await sb.from('meeting_coverage').update({ meeting: nn }).eq('meeting', old);
+  await sb.from('meeting_register').delete().eq('name', old);
+  await _mcLoad();
 }
 function _mcPaint() {
   const box = document.getElementById('mc-cover');
