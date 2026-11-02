@@ -13268,15 +13268,14 @@ let _mcWarned = false;   // { ชื่อประชุม: { รหัสส�
 async function _mcLoad() {
   const sb = _initSb(); if (!sb) return;
   await SB_AUTH;   // รอ sign-in ก่อนอ่าน ไม่งั้นอ่านตอนยังไม่ล็อกอินจะได้ 0 ประชุม
-  const [rs, rg] = await Promise.all([sb.from('meeting_rosters').select('meeting,branch_code,info,created_at'), sb.from('meeting_register').select('name,all_branches')]);
+  const [rs, rg] = await Promise.all([sb.from('meeting_rosters').select('id,meeting,branch_code,info,people,created_at'), sb.from('meeting_register').select('name,all_branches')]);
   if (rs.error || rg.error) { console.warn('[meeting]', (rs.error || rg.error).message); return; }
   MEETING_ALL = {};
   (rg.data || []).forEach(r => { MEETING_ALL[r.name] = !!r.all_branches; });
   MEETING_COVER = [...new Set([...(rg.data || []).map(r => r.name), ...(rs.data || []).map(r => r.meeting)])].sort((x, y) => x.localeCompare(y, 'th'));
+  _mrAll = _mrGroupRows(rs.data || []);
   _mrCount = {};
-  const byM = {};
-  (rs.data || []).forEach(r => { (byM[r.meeting] = byM[r.meeting] || []).push(r); });
-  Object.keys(byM).forEach(m => { _mrCount[m] = _mrGroupRows(byM[m]).length; });
+  _mrAll.forEach(g => { _mrCount[g.meeting] = (_mrCount[g.meeting] || 0) + 1; });
   if (!MEETING_COVER.length) { _mcRows = {}; _mcPaint(); return; }
   const res = await sb.from('meeting_coverage').select('meeting,branch_code,status,note').in('meeting', MEETING_COVER);
   if (res.error) { if (!_mcWarned) { _mcWarned = true; alert('โหลดการเข้าประชุมไม่สำเร็จ\n' + res.error.message); } return; }
@@ -13951,40 +13950,13 @@ function _twError(e) {
       : '⚠️ โหลดไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}</div>`;
 }
 /* แท็บกรอง — ค่าเริ่มต้นคือทั้งหมด เพราะงานที่ค้างอยู่มักปนกันทั้งสองแบบ */
-/* แถวประชุมในรายการ (แท็บ "ทั้งหมด") — แสดงความคืบหน้าเท่านั้น ไม่บันทึกประวัติอบรม */
-function _twMeetingRows(esc) {
-  return '';   // ประชุมแยกไปอยู่ทะเบียนประชุมแล้ว
-  const open = openBranchIds();
-  return MEETING_COVER.map(m => {
-    const rows = _mcRows[m] || {};
-    const done = open.filter(b => rows[b] && rows[b].status === 'done').length;
-    const exc = open.filter(b => rows[b] && rows[b].status === 'excused').length;
-    const todo = open.length - done - exc;
-    const stat = todo > 0
-      ? `<span class="tw-st part">เข้าแล้ว ${done} / ${open.length} สาขา</span>`
-      : '<span class="tw-st done">✓ เข้าครบทุกสาขา</span>';
-    return `<div class="tw-row">
-      <div style="min-width:0">
-        <div class="tw-name">${esc(m)} <span style="font-size:11.5px;color:var(--text3);font-weight:600">ประชุม</span></div>
-        <div class="tw-sub">ไม่บันทึกลงประวัติอบรมของพนักงาน${exc ? ' · ยกเว้น ' + exc + ' สาขา' : ''}</div>
-      </div>
-      <div class="tw-when">—</div>
-      <div class="tw-n">${done}<span> สาขา</span></div>
-      <div>${stat}</div>
-      <div class="tw-act">
-        <button class="btn btn-sm btn-outline" onclick="_mcView('${esc(m)}')" title="ดูรายชื่อสาขา">ดูรายชื่อ</button>
-        <button class="btn btn-sm btn-accent" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})" title="แก้สถานะรายสาขา">แก้ไข</button>
-        <button class="btn btn-sm btn-outline tp-del" onclick="_mcDelete('${esc(m)}')" title="ลบการเข้าประชุมนี้">🗑</button>
-      </div>
-    </div>`;
-  }).join('');
-}
 let _twTab = 'all';
 function _twSetTab(t) { _twTab = t; _twPaint(); }
 function _twPaint() {
   const box = document.getElementById('tw-list');
   if (!box) return;
-  const nD = _tpDrafts.length, nI = _rhRows.length;
+  const mrs = _mrAll || [];
+  const nD = _tpDrafts.length, nI = _rhRows.length + mrs.length;
   const tabs = document.getElementById('tw-tabs');
   if (tabs) tabs.innerHTML = [
     ['all', '📋 ทั้งหมด', nD + nI], ['draft', '📝 แบบร่าง', nD], ['issued', '🧾 ออกใบแล้ว', nI],
@@ -13993,7 +13965,8 @@ function _twPaint() {
   const items = []
     .concat(_twTab === 'issued' ? [] : _tpDrafts.map(d => ({ d, kind: 'draft' })))
     .concat(_twTab === 'draft' ? [] : _rhRows.map((d, i) => ({ d, kind: 'issued', i })));
-  if (!items.length) {
+  const mt = _twTab === 'draft' ? [] : mrs.map((g, i) => ({ g, i }));
+  if (!items.length && !mt.length) {
     box.innerHTML = `<div style="text-align:center;padding:30px 14px">
       <div style="font-size:34px;line-height:1">🗂</div>
       <div style="font-weight:800;font-size:14px;color:var(--text);margin-top:8px">${
@@ -14009,7 +13982,7 @@ function _twPaint() {
     <div class="tw-head">
       <div>หลักสูตร / บริษัท</div><div>วันที่อบรม</div><div style="text-align:right">คน</div><div>สถานะ</div><div style="text-align:right">จัดการ</div>
     </div>
-    ${items.map(it => _twRowHTML(it, esc, js)).join('')}${_twMeetingRows(esc)}
+    ${items.map(it => _twRowHTML(it, esc, js)).join('')}${mt.map(x => _mrRowHTML(x.g, x.i, esc)).join('')}
   </div>`;
 }
 function _twRowHTML(it, esc, js) {
@@ -14835,16 +14808,17 @@ function _tsUpd() {
    ตาราง 6 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน · ลายเซ็น */
 /* ทะเบียนรายชื่อผู้เข้าประชุม — ใช้ฟอร์มเดียวกับใบอบรม แต่ไม่บันทึกประวัติ ไม่มีหลักสูตร/รุ่น และไม่เช็คกับการอบรม */
 const MEETING_ROSTER_OPTS = { title: 'ทะเบียนรายชื่อผู้เข้าประชุม', courseLabel: 'ชื่อการประชุม :', trainerLabel: 'ผู้ดำเนินการ :', noBatch: true };
-/* ใบรายชื่อประชุมที่ทำไว้ — 1 ใบ = แถวที่บันทึกพร้อมกัน (created_at + ข้อมูลการประชุมชุดเดียวกัน) · ดู / แก้ไข / ลบ ได้ */
+/* ใบรายชื่อประชุมที่ทำไว้ — 1 ใบ = แถวที่บันทึกพร้อมกัน (ประชุม + created_at + ข้อมูลการประชุมชุดเดียวกัน)
+   แสดงเป็นแถวในรายการอบรม (ดูรายชื่อ · แก้ไข · ลบ) และในป็อปอัปของทะเบียนประชุม */
+var _mrAll = [];      // ทุกใบประชุม เรียงใหม่ก่อน (อ้างด้วยลำดับใน _mrAll)
 var _mrCount = {};    // { ชื่อประชุม: จำนวนใบ }
-var _mrCache = [];    // ใบของประชุมที่เปิดอยู่ (อ้างด้วยลำดับ)
-var _mrMeeting = '';
-function _mrKey(r) { return String(r.created_at || '') + '|' + JSON.stringify(r.info || {}); }
+var _mrMeeting = '';  // ประชุมที่เปิดป็อปอัปทะเบียนอยู่
+function _mrKey(r) { return r.meeting + '|' + String(r.created_at || '') + '|' + JSON.stringify(r.info || {}); }
 function _mrGroupRows(rows) {
   const g = new Map();
   rows.forEach(r => {
     const k = _mrKey(r);
-    if (!g.has(k)) g.set(k, { info: r.info || {}, created_at: r.created_at, rowIds: [], branches: new Set(), people: [] });
+    if (!g.has(k)) g.set(k, { meeting: r.meeting, info: r.info || {}, created_at: r.created_at, rowIds: [], branches: new Set(), people: [] });
     const x = g.get(k);
     x.rowIds.push(r.id); x.branches.add(r.branch_code);
     x.people = x.people.concat(r.people || []);
@@ -14859,17 +14833,44 @@ async function _mrPrune(sb, meeting, branches) {
   const drop = branches.filter(b => !keep.has(b));
   if (drop.length) await sb.from('meeting_coverage').delete().eq('meeting', meeting).eq('status', 'rostered').in('branch_code', drop);
 }
-async function _mrOpen(m) {
-  const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
-  const r = await sb.from('meeting_rosters').select('id,branch_code,info,people,created_at').eq('meeting', m);
-  if (r.error) { alert('โหลดใบรายชื่อไม่สำเร็จ\n' + r.error.message); return; }
-  _mrMeeting = m;
-  _mrCache = _mrGroupRows(r.data || []);
-  _mrPaint();
+/* แถวใบประชุมในรายการอบรม — หน้าตาเหมือนแถวหลักสูตร แต่ไม่มีเช็คชื่อและไม่บันทึกประวัติ */
+function _mrRowHTML(g, i, esc) {
+  const open = openBranchIds();
+  const rows = _mcRows[g.meeting] || {};
+  const done = open.filter(b => rows[b] && rows[b].status === 'done').length;
+  const stat = done && done === open.length ? '<span class="tw-st done">✓ เข้าครบทุกสาขา</span>'
+    : done ? `<span class="tw-st part">เข้าแล้ว ${done} / ${open.length} สาขา</span>`
+    : '<span class="tw-st draft">ทำใบรายชื่อแล้ว</span>';
+  return `<div class="tw-row">
+    <div style="min-width:0">
+      <div class="tw-name">${esc(g.info.course || g.meeting)} <span style="font-size:11.5px;color:var(--text3);font-weight:600">ประชุม</span></div>
+      <div class="tw-sub">${esc(g.info.company || '—')}${g.info.place ? ' · ' + esc(g.info.place) : ''}${g.info.trainer ? ' · ' + esc(g.info.trainer) : ''} · ไม่บันทึกลงประวัติอบรม</div>
+    </div>
+    <div class="tw-when">${g.info.date ? fmtDate(g.info.date) : '—'}${g.info.time ? `<div style="font-size:11px;color:var(--text3)">${esc(g.info.time)}</div>` : ''}</div>
+    <div class="tw-n">${g.people.length}<span> คน</span>${g.branches.size ? `<div style="font-size:11px;font-weight:600;color:var(--text3)">${g.branches.size} สาขา</div>` : ''}</div>
+    <div>${stat}</div>
+    <div class="tw-act">
+      <button class="btn btn-sm btn-outline" onclick="_mrView(${i})" title="ดูรายชื่อ · เปิด PDF ซ้ำ">ดูรายชื่อ</button>
+      <button class="btn btn-sm btn-accent" onclick="_mrAct('edit', ${i})" title="แก้รายละเอียดหรือเพิ่ม/ตัดคน แล้วทับใบเดิม">แก้ไข</button>
+      <button class="btn btn-sm btn-outline tp-del" onclick="_mrAct('del', ${i})" title="ลบใบนี้">🗑</button>
+    </div>
+  </div>`;
 }
+function _mrView(i) {
+  const g = _mrAll[i]; if (!g) return;
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b || '—';
+  showModal('👥 ' + (g.info.course || g.meeting), `
+    <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${esc(fmtDate(g.info.date))} ${esc(g.info.time || '')} · ${esc(g.info.place || '')} · ${g.people.length} คน · ไม่บันทึกลงประวัติอบรม</div>
+    <div style="max-height:52vh;overflow:auto"><table class="tbl" style="width:100%"><thead><tr><th style="text-align:left">ชื่อ</th><th>ตำแหน่ง</th><th>สาขา</th></tr></thead>
+      <tbody>${g.people.map(p => `<tr><td>${esc(p.name)}</td><td style="text-align:center">${esc(p.position || '')}</td><td style="text-align:center">${esc(brName(p.branchId))}</td></tr>`).join('')}</tbody></table></div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-outline btn-sm" onclick="_mrAct('pdf', ${i})">🖨 เปิด PDF</button></div>`);
+}
+/* ป็อปอัปใบรายชื่อของประชุมหนึ่งรายการ (ปุ่ม 📄 ใบรายชื่อ (N) ในทะเบียนประชุม) */
+async function _mrOpen(m) { _mrMeeting = m; await _mcLoad(); _mrPaint(); }
 function _mrPaint() {
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  const rows = _mrCache.map((g, i) => `
+  const rows = _mrAll.map((g, i) => ({ g, i })).filter(x => x.g.meeting === _mrMeeting).map(({ g, i }) => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:var(--surface2);margin-bottom:8px">
       <div style="min-width:0;font-size:13px">
         <div style="font-weight:800;color:var(--text)">${esc(g.info.course || _mrMeeting)}</div>
@@ -14888,11 +14889,11 @@ function _mrPaint() {
     <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-accent btn-sm" onclick="openMeetingRoster()">+ ทำใบรายชื่อใหม่</button></div>`);
 }
 function _mrAct(act, i) {
-  const g = _mrCache[i]; if (!g) return;
+  const g = _mrAll[i]; if (!g) return;
   if (act === 'pdf') { _printTrainingSession(g.info, g.people, MEETING_ROSTER_OPTS); return; }
   if (act === 'edit') {
     closeModal();
-    const prev = { meeting: _mrMeeting, info: g.info, rowIds: g.rowIds, branches: [...g.branches], people: g.people };
+    const prev = { meeting: g.meeting, info: g.info, rowIds: g.rowIds, branches: [...g.branches], people: g.people };
     setTimeout(() => openMeetingRoster(prev), 60);
     return;
   }
@@ -14900,10 +14901,9 @@ function _mrAct(act, i) {
     const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
     const del = await sb.from('meeting_rosters').delete().in('id', g.rowIds);
     if (del.error) { alert('ลบใบรายชื่อไม่สำเร็จ\n' + del.error.message); return; }
-    await _mrPrune(sb, _mrMeeting, [...g.branches]);
+    await _mrPrune(sb, g.meeting, [...g.branches]);
     notify('ลบใบรายชื่อแล้ว');
     await _mcLoad();
-    _mrOpen(_mrMeeting);
   }, { title: 'ยืนยันการลบใบรายชื่อ', icon: '🗑', confirmText: 'ลบ' });
 }
 function openMeetingRoster(prev) {
