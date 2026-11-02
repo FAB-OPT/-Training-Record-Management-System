@@ -13267,11 +13267,15 @@ let _mcRows = {};
 let _mcWarned = false;   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
 async function _mcLoad() {
   const sb = _initSb(); if (!sb) return;
-  const [rs, rg] = await Promise.all([sb.from('meeting_rosters').select('meeting'), sb.from('meeting_register').select('name,all_branches')]);
+  const [rs, rg] = await Promise.all([sb.from('meeting_rosters').select('meeting,branch_code,info,created_at'), sb.from('meeting_register').select('name,all_branches')]);
   if (rs.error || rg.error) { console.warn('[meeting]', (rs.error || rg.error).message); return; }
   MEETING_ALL = {};
   (rg.data || []).forEach(r => { MEETING_ALL[r.name] = !!r.all_branches; });
   MEETING_COVER = [...new Set([...(rg.data || []).map(r => r.name), ...(rs.data || []).map(r => r.meeting)])].sort((x, y) => x.localeCompare(y, 'th'));
+  _mrCount = {};
+  const byM = {};
+  (rs.data || []).forEach(r => { (byM[r.meeting] = byM[r.meeting] || []).push(r); });
+  Object.keys(byM).forEach(m => { _mrCount[m] = _mrGroupRows(byM[m]).length; });
   if (!MEETING_COVER.length) { _mcRows = {}; _mcPaint(); return; }
   const res = await sb.from('meeting_coverage').select('meeting,branch_code,status,note').in('meeting', MEETING_COVER);
   if (res.error) { if (!_mcWarned) { _mcWarned = true; alert('โหลดการเข้าประชุมไม่สำเร็จ\n' + res.error.message); } return; }
@@ -13368,7 +13372,7 @@ function _mcDelete(m) {
   }, { title: 'ยืนยันการลบประชุม', icon: '🗑', confirmText: 'ลบ' });
 }
 /* บันทึกใบรายชื่อประชุมจาก "ทะเบียนประชุม" — แยกตามสาขาของคนที่เลือก แล้วตั้งสถานะ "ทำใบรายชื่อแล้ว" ให้สาขานั้น */
-async function _mcSaveRoster(meeting, info, list) {
+async function _mcSaveRoster(meeting, info, list, prev) {
   const sb = _initSb(); if (!sb) { notify('ยังเชื่อมต่อระบบไม่ได้', 'error'); return false; }
   const byB = {};
   list.forEach(p => {
@@ -13380,6 +13384,11 @@ async function _mcSaveRoster(meeting, info, list) {
   if (!branches.length) return true;
   const ins = await sb.from('meeting_rosters').insert(branches.map(b => ({ meeting, branch_code: b, info, people: byB[b] })));
   if (ins.error) { alert('บันทึกใบรายชื่อไม่สำเร็จ\n' + ins.error.message); return false; }
+  if (prev && prev.rowIds && prev.rowIds.length) {   // แก้ไขใบเดิม: ลบแถวเก่าหลังบันทึกแถวใหม่สำเร็จแล้ว
+    const del = await sb.from('meeting_rosters').delete().in('id', prev.rowIds);
+    if (del.error) alert('ลบใบเดิมไม่สำเร็จ\n' + del.error.message);
+    await _mrPrune(sb, meeting, prev.branches || []);
+  }
   const cur = await sb.from('meeting_coverage').select('branch_code').eq('meeting', meeting);
   const have = new Set(((cur && cur.data) || []).map(r => r.branch_code));
   const up = branches.filter(b => !have.has(b))
@@ -13429,6 +13438,7 @@ function _mtRegister() {
       <td style="text-align:center"><input type="checkbox" ${MEETING_ALL[m] ? 'checked' : ''} onchange="_mtToggleAll('${esc(m)}', this.checked)" title="ต้องเข้าประชุมทุกสาขาอย่างน้อย 1 คน"></td>
       <td style="text-align:right;font-weight:800;color:var(--accent)">${passed}<span style="font-size:11px;color:var(--text3);font-weight:600"> สาขา</span></td>
       <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="_mrOpen('${esc(m)}')">📄 ใบรายชื่อ (${(_mrCount && _mrCount[m]) || 0})</button>
         <button class="btn btn-sm btn-outline" onclick="_mtRename('${esc(m)}')">เปลี่ยนชื่อ</button>
         <button class="btn btn-sm btn-outline tp-del" onclick="_mcDelete('${esc(m)}')" title="ลบประชุมนี้">🗑</button>
       </td></tr>`;
@@ -14282,6 +14292,7 @@ function openTrainingPickPeople() {
 const _ti = { sel: new Map(), have: new Set(), from: new Set(), byId: new Map(), btn: '' };
 function _tiOpen(o) {
   _ti.sel = new Map(); _ti.from = new Set(); _ti.byId = new Map(); _ti.have = o.have || new Set(); _ti.btn = o.confirmText;
+  (o.pre || []).forEach(p => _ti.sel.set(p.id, p));
   _tpImp = []; _tpImpMiss = [];
   const itBr = Object.keys(BRANCH_MASTER).sort().map(b => ({ v: b, label: (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b }));
   const itPos = _covItemsPos();
@@ -14822,31 +14833,103 @@ function _tsUpd() {
    ตาราง 6 คอลัมน์: ลำดับ · รหัสพนักงาน · ชื่อ-นามสกุล · ตำแหน่ง · สาขา/หน่วยงาน · ลายเซ็น */
 /* ทะเบียนรายชื่อผู้เข้าประชุม — ใช้ฟอร์มเดียวกับใบอบรม แต่ไม่บันทึกประวัติ ไม่มีหลักสูตร/รุ่น และไม่เช็คกับการอบรม */
 const MEETING_ROSTER_OPTS = { title: 'ทะเบียนรายชื่อผู้เข้าประชุม', courseLabel: 'ชื่อการประชุม :', trainerLabel: 'ผู้ดำเนินการ :', noBatch: true };
-function openMeetingRoster() {
+/* ใบรายชื่อประชุมที่ทำไว้ — 1 ใบ = แถวที่บันทึกพร้อมกัน (created_at + ข้อมูลการประชุมชุดเดียวกัน) · ดู / แก้ไข / ลบ ได้ */
+var _mrCount = {};    // { ชื่อประชุม: จำนวนใบ }
+var _mrCache = [];    // ใบของประชุมที่เปิดอยู่ (อ้างด้วยลำดับ)
+var _mrMeeting = '';
+function _mrKey(r) { return String(r.created_at || '') + '|' + JSON.stringify(r.info || {}); }
+function _mrGroupRows(rows) {
+  const g = new Map();
+  rows.forEach(r => {
+    const k = _mrKey(r);
+    if (!g.has(k)) g.set(k, { info: r.info || {}, created_at: r.created_at, rowIds: [], branches: new Set(), people: [] });
+    const x = g.get(k);
+    x.rowIds.push(r.id); x.branches.add(r.branch_code);
+    x.people = x.people.concat(r.people || []);
+  });
+  return [...g.values()].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+}
+/* เอาสถานะ "ทำใบรายชื่อแล้ว" ออกจากสาขาที่ไม่มีใบเหลืออยู่แล้ว (เข้าประชุมแล้ว / ยกเว้น ไม่แตะ) */
+async function _mrPrune(sb, meeting, branches) {
+  if (!branches.length) return;
+  const left = await sb.from('meeting_rosters').select('branch_code').eq('meeting', meeting).in('branch_code', branches);
+  const keep = new Set(((left && left.data) || []).map(r => r.branch_code));
+  const drop = branches.filter(b => !keep.has(b));
+  if (drop.length) await sb.from('meeting_coverage').delete().eq('meeting', meeting).eq('status', 'rostered').in('branch_code', drop);
+}
+async function _mrOpen(m) {
+  const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+  const r = await sb.from('meeting_rosters').select('id,branch_code,info,people,created_at').eq('meeting', m);
+  if (r.error) { alert('โหลดใบรายชื่อไม่สำเร็จ\n' + r.error.message); return; }
+  _mrMeeting = m;
+  _mrCache = _mrGroupRows(r.data || []);
+  _mrPaint();
+}
+function _mrPaint() {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const rows = _mrCache.map((g, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:var(--surface2);margin-bottom:8px">
+      <div style="min-width:0;font-size:13px">
+        <div style="font-weight:800;color:var(--text)">${esc(g.info.course || _mrMeeting)}</div>
+        <div style="color:var(--text2)">${esc(fmtDate(g.info.date))} ${esc(g.info.time || '')} · ${esc(g.info.place || '')}</div>
+        <div style="color:var(--text3);font-size:12px">${g.people.length} คน · ${g.branches.size} สาขา</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-sm btn-outline" onclick="_mrAct('pdf', ${i})">เปิด PDF</button>
+        <button class="btn btn-sm btn-outline" onclick="_mrAct('edit', ${i})">แก้ไข</button>
+        <button class="btn btn-sm btn-outline tp-del" onclick="_mrAct('del', ${i})" title="ลบใบนี้">🗑</button>
+      </div>
+    </div>`).join('');
+  showModal('📄 ใบรายชื่อ · ' + _mrMeeting, `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">ใบที่ทำไว้เก็บไว้ เปิด PDF ซ้ำได้ · ไม่บันทึกลงประวัติอบรม</div>
+    ${rows || '<div style="font-size:13px;color:var(--text3);padding:12px 0">ยังไม่มีใบรายชื่อ</div>'}
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-accent btn-sm" onclick="openMeetingRoster()">+ ทำใบรายชื่อใหม่</button></div>`);
+}
+function _mrAct(act, i) {
+  const g = _mrCache[i]; if (!g) return;
+  if (act === 'pdf') { _printTrainingSession(g.info, g.people, MEETING_ROSTER_OPTS); return; }
+  if (act === 'edit') {
+    closeModal();
+    const prev = { meeting: _mrMeeting, info: g.info, rowIds: g.rowIds, branches: [...g.branches], people: g.people };
+    setTimeout(() => openMeetingRoster(prev), 60);
+    return;
+  }
+  showConfirm('ลบใบรายชื่อนี้?<br><span style="color:var(--text3)">ใบอื่นของประชุมนี้ไม่ถูกลบ · ไม่กระทบประวัติอบรมของพนักงาน</span>', async () => {
+    const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+    const del = await sb.from('meeting_rosters').delete().in('id', g.rowIds);
+    if (del.error) { alert('ลบใบรายชื่อไม่สำเร็จ\n' + del.error.message); return; }
+    await _mrPrune(sb, _mrMeeting, [...g.branches]);
+    notify('ลบใบรายชื่อแล้ว');
+    await _mcLoad();
+    _mrOpen(_mrMeeting);
+  }, { title: 'ยืนยันการลบใบรายชื่อ', icon: '🗑', confirmText: 'ลบ' });
+}
+function openMeetingRoster(prev) {
   _tiOpen({
-    title: '🧾 เลือกผู้เข้าประชุม', confirmText: 'ไปกรอกข้อมูลการประชุม', emptyMsg: 'ยังไม่ได้เลือกใครเข้าประชุม',
-    have: new Set(),
-    onConfirm: list => { closeModal(); setTimeout(() => _openMeetingForm(list), 60); }
+    title: prev ? '✏️ แก้ไขรายชื่อผู้เข้าประชุม' : '🧾 เลือกผู้เข้าประชุม', confirmText: 'ไปกรอกข้อมูลการประชุม', emptyMsg: 'ยังไม่ได้เลือกใครเข้าประชุม',
+    have: new Set(), pre: prev ? prev.people : [],
+    onConfirm: list => { closeModal(); setTimeout(() => _openMeetingForm(list, prev), 60); }
   });
 }
-function _openMeetingForm(list) {
-  const opts = COMPANY_DEFAULTS.map(c => `<option value="${_escH(c)}">${_escH(c)}</option>`).join('');
-  showModal('🧾 ทะเบียนรายชื่อผู้เข้าประชุม', `
-    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">ผู้เข้าประชุม ${list.length} คน · ออกเป็น PDF อย่างเดียว ไม่บันทึกลงประวัติการอบรม</div>
+function _openMeetingForm(list, prev) {
+  const pi = (prev && prev.info) || {};
+  const opts = COMPANY_DEFAULTS.map(c => `<option value="${_escH(c)}"${c === pi.company ? ' selected' : ''}>${_escH(c)}</option>`).join('');
+  showModal(prev ? '✏️ แก้ไขใบรายชื่อผู้เข้าประชุม' : '🧾 ทะเบียนรายชื่อผู้เข้าประชุม', `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">ผู้เข้าประชุม ${list.length} คน · ออกเป็น PDF อย่างเดียว ไม่บันทึกลงประวัติการอบรม${prev ? ' · ชื่อการประชุมแก้ไม่ได้ในใบนี้' : ''}</div>
     <div class="form-row">
-      <div><label class="form-label">ชื่อการประชุม *</label><input class="form-input" id="mt-name" placeholder="เช่น ประชุมประจำเดือน ต.ค. 2569"></div>
+      <div><label class="form-label">ชื่อการประชุม *</label><input class="form-input" id="mt-name" value="${_escH(prev ? prev.meeting : '')}"${prev ? ' readonly' : ''} placeholder="เช่น ประชุมประจำเดือน ต.ค. 2569"></div>
       <div><label class="form-label">บริษัท</label><select class="form-input" id="mt-company">${opts}</select></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">วันที่</label><input type="date" class="form-input" id="mt-date"></div>
-      <div><label class="form-label">เวลา</label><input class="form-input" id="mt-time" placeholder="เช่น 09.00-10.30"></div>
+      <div><label class="form-label">วันที่</label><input type="date" class="form-input" id="mt-date" value="${_escH(pi.date || '')}"></div>
+      <div><label class="form-label">เวลา</label><input class="form-input" id="mt-time" value="${_escH(pi.time || '')}" placeholder="เช่น 09.00-10.30"></div>
     </div>
     <div class="form-row">
-      <div><label class="form-label">สถานที่</label><input class="form-input" id="mt-place" placeholder="เช่น ห้องประชุม สนง.ใหญ่"></div>
-      <div><label class="form-label">ผู้ดำเนินการประชุม</label><input class="form-input" id="mt-host"></div>
+      <div><label class="form-label">สถานที่</label><input class="form-input" id="mt-place" value="${_escH(pi.place || '')}" placeholder="เช่น ห้องประชุม สนง.ใหญ่"></div>
+      <div><label class="form-label">ผู้ดำเนินการประชุม</label><input class="form-input" id="mt-host" value="${_escH(pi.trainer || '')}"></div>
     </div>
   `, () => {
-    const name = document.getElementById('mt-name').value.trim();
+    const name = prev ? prev.meeting : document.getElementById('mt-name').value.trim();
     if (!name) { notify('กรอกชื่อการประชุม', 'error'); return; }
     const info = {
       company: document.getElementById('mt-company').value, course: name, batch: '',
@@ -14855,11 +14938,10 @@ function _openMeetingForm(list) {
       place: document.getElementById('mt-place').value.trim(),
       trainer: document.getElementById('mt-host').value.trim(),
     };
-    const meet = name;   // ชื่อการประชุมคือรายการที่จะขึ้นในการ์ด
     closeModal();
     /* บันทึกใบรายชื่อแยกตามสาขาไว้ให้เปิดซ้ำได้ + ตั้งสถานะสาขา · ไม่เรียก _tsArchiveIssued: ไม่บันทึกประวัติอบรม */
-    _mcSaveRoster(meet, info, list).then(() => _printTrainingSession(info, list, MEETING_ROSTER_OPTS));
-  }, 'ออกทะเบียน PDF', 'ยกเลิก');
+    _mcSaveRoster(name, info, list, prev).then(ok => { if (ok) _printTrainingSession(info, list, MEETING_ROSTER_OPTS); });
+  }, prev ? 'บันทึกและออก PDF' : 'ออกทะเบียน PDF', 'ยกเลิก');
 }
 function _printTrainingSession(info, list, opts) {
   opts = opts || {};
