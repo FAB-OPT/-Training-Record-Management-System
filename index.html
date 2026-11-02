@@ -13263,11 +13263,12 @@ function courseTodo(name) {
    เก็บในตาราง meeting_coverage (ดู supabase-meeting-coverage.sql)
    ไม่บันทึกลงประวัติอบรมของพนักงาน เหมือนทะเบียนประชุม */
 const MEETING_COVER = ['ประชุม RGM'];
-let _mcRows = {};   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
+let _mcRows = {};
+let _mcWarned = false;   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
 async function _mcLoad() {
   const sb = _initSb(); if (!sb) return;
   const res = await sb.from('meeting_coverage').select('meeting,branch_code,status,note').in('meeting', MEETING_COVER);
-  if (res.error) { console.warn('[meeting_coverage]', res.error.message); return; }
+  if (res.error) { if (!_mcWarned) { _mcWarned = true; alert('โหลดการเข้าประชุมไม่สำเร็จ\n' + res.error.message); } return; }
   _mcRows = {};
   (res.data || []).forEach(r => { (_mcRows[r.meeting] = _mcRows[r.meeting] || {})[r.branch_code] = r; });
   _mcPaint();
@@ -13277,7 +13278,8 @@ async function _mcSet(meeting, branch, status) {
   const res = status === null
     ? await sb.from('meeting_coverage').delete().eq('meeting', meeting).eq('branch_code', branch)
     : await sb.from('meeting_coverage').upsert({ meeting, branch_code: branch, status, updated_at: new Date().toISOString() });
-  if (res.error) return notify('บันทึกไม่สำเร็จ — ' + res.error.message, 'error');
+  if (res.error) { alert('บันทึกการเข้าประชุมไม่สำเร็จ\n' + res.error.message); return; }
+  notify('บันทึกแล้ว');
   await _mcLoad();
   const ov = document.getElementById('modal-overlay');
   if (_mcViewing && ov && ov.classList.contains('open')) _mcView(_mcViewing);
