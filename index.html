@@ -13355,16 +13355,17 @@ function _mcView(m) {
     <div style="max-height:52vh;overflow:auto;padding-right:4px">${list}</div>
     <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-outline btn-sm" onclick="openMeetingRoster()">🖨 เปิด PDF ทะเบียนประชุม</button></div>`);
 }
-async function _mcDelete(m) {
-  if (!confirm('ลบข้อมูลการเข้าประชุม "' + m + '" ทั้งหมด?\n(ไม่กระทบประวัติอบรมของพนักงาน)')) return;
-  const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
-  await sb.from('meeting_rosters').delete().eq('meeting', m);
-  await sb.from('meeting_register').delete().eq('name', m);
-  const res = await sb.from('meeting_coverage').delete().eq('meeting', m);
-  if (res.error) return notify('ลบไม่สำเร็จ — ' + res.error.message, 'error');
-  notify('ลบแล้ว');
-  _mcViewing = null;
-  await _mcLoad();
+function _mcDelete(m) {
+  showConfirm('ลบประชุม "' + _escH(m) + '" ทั้งหมด?<br><span style="color:var(--text3)">ใบรายชื่อและสถานะสาขาจะถูกลบด้วย · ไม่กระทบประวัติอบรมของพนักงาน</span>', async () => {
+    const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+    await sb.from('meeting_rosters').delete().eq('meeting', m);
+    await sb.from('meeting_register').delete().eq('name', m);
+    const res = await sb.from('meeting_coverage').delete().eq('meeting', m);
+    if (res.error) { alert('ลบไม่สำเร็จ\n' + res.error.message); return; }
+    notify('ลบแล้ว');
+    _mcViewing = null;
+    await _mcLoad();
+  }, { title: 'ยืนยันการลบประชุม', icon: '🗑', confirmText: 'ลบ' });
 }
 /* บันทึกใบรายชื่อประชุมจาก "ทะเบียนประชุม" — แยกตามสาขาของคนที่เลือก แล้วตั้งสถานะ "ทำใบรายชื่อแล้ว" ให้สาขานั้น */
 async function _mcSaveRoster(meeting, info, list) {
@@ -13474,16 +13475,21 @@ async function _mtToggleAll(name, on) {
   await _mcLoad();
 }
 /* เปลี่ยนชื่อประชุม — เปลี่ยนในทุกตารางที่ผูกชื่อนี้ */
-async function _mtRename(old) {
-  const nn = (prompt('ชื่อประชุมใหม่', old) || '').trim();
-  if (!nn || nn === old) return;
-  const sb = _initSb(); if (!sb) return;
-  const a = await sb.from('meeting_register').upsert({ name: nn, all_branches: !!MEETING_ALL[old] });
-  if (a.error) { alert('เปลี่ยนชื่อไม่สำเร็จ\n' + a.error.message); return; }
-  await sb.from('meeting_rosters').update({ meeting: nn }).eq('meeting', old);
-  await sb.from('meeting_coverage').update({ meeting: nn }).eq('meeting', old);
-  await sb.from('meeting_register').delete().eq('name', old);
-  await _mcLoad();
+function _mtRename(old) {
+  showModal('✏️ เปลี่ยนชื่อประชุม', `
+    <label class="form-label">ชื่อประชุมใหม่ *</label>
+    <input class="form-input" id="mt-ren" value="${_escH(old)}">`, async () => {
+    const nn = (document.getElementById('mt-ren').value || '').trim();
+    if (!nn || nn === old) { closeModal(); return; }
+    const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+    const a = await sb.from('meeting_register').upsert({ name: nn, all_branches: !!MEETING_ALL[old] });
+    if (a.error) { alert('เปลี่ยนชื่อไม่สำเร็จ\n' + a.error.message); return; }
+    await sb.from('meeting_rosters').update({ meeting: nn }).eq('meeting', old);
+    await sb.from('meeting_coverage').update({ meeting: nn }).eq('meeting', old);
+    await sb.from('meeting_register').delete().eq('name', old);
+    closeModal();
+    await _mcLoad();
+  }, 'บันทึก', 'ยกเลิก');
 }
 function _mcPaint() {
   const box = document.getElementById('mc-cover');
