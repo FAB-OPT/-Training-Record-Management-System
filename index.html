@@ -13358,6 +13358,65 @@ async function _mcDelete(m) {
   _mcViewing = null;
   await _mcLoad();
 }
+/* ใบรายชื่อประชุมของสาขา — ทำแล้วเก็บไว้ เปิด PDF ซ้ำได้ (ไม่บันทึกประวัติอบรม) */
+async function _mcRosterDialog(m, b) {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const brName = x => (BRANCH_MASTER[x] && BRANCH_MASTER[x].name) || x;
+  const people = (getBranchEmployees(b) || []).filter(e => _isEmpEnabled(e));
+  const opts = COMPANY_DEFAULTS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const sb = _initSb();
+  const sv = sb ? await sb.from('meeting_rosters').select('id,info,created_at').eq('meeting', m).eq('branch_code', b).order('created_at', { ascending: false }) : { data: [] };
+  const saved = (sv && sv.data) || [];
+  showModal('🧾 ใบรายชื่อ · ' + m + ' · ' + brName(b), `
+    <div style="font-size:12.5px;color:var(--text3);margin-bottom:8px">ทำใบแล้วจะเก็บไว้ กดเปิด PDF ซ้ำได้ทุกเมื่อ · ไม่บันทึกลงประวัติอบรม</div>
+    ${saved.length ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:10px;background:var(--surface2)">
+      <div style="font-size:12.5px;font-weight:800;margin-bottom:6px">ใบที่ทำไว้แล้ว (${saved.length})</div>
+      ${saved.map(r => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0">
+        <span style="font-size:12.5px">${esc(r.info && r.info.date || '')} ${esc(r.info && r.info.time || '')} · ${esc(r.info && r.info.place || '')}</span>
+        <button class="btn btn-sm btn-outline" onclick="_mcRosterPrint('${esc(r.id)}')">เปิด PDF</button></div>`).join('')}
+    </div>` : ''}
+    <div class="form-row">
+      <div><label class="form-label">ชื่อการประชุม *</label><input class="form-input" id="mr-name" value="${esc(m)}"></div>
+      <div><label class="form-label">บริษัท</label><select class="form-input" id="mr-company">${opts}</select></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">วันที่</label><input type="date" class="form-input" id="mr-date"></div>
+      <div><label class="form-label">เวลา</label><input class="form-input" id="mr-time" placeholder="เช่น 09.00-10.30"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">สถานที่</label><input class="form-input" id="mr-place" value="${esc(brName(b))}"></div>
+      <div><label class="form-label">ผู้ดำเนินการประชุม</label><input class="form-input" id="mr-host"></div>
+    </div>
+    <div style="font-size:12.5px;font-weight:800;margin:10px 0 6px">ผู้เข้าประชุมของสาขานี้ (${people.length} คน) — เอาติ๊กออกได้</div>
+    <div style="max-height:34vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px 10px">
+      ${people.map((e, i) => `<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px"><input type="checkbox" class="mr-p" data-i="${i}" checked> ${esc(e.name || '—')} <span style="color:var(--text3)">${esc(e.position || '')}</span></label>`).join('') || '<div style="font-size:13px;color:var(--text3)">ไม่พบพนักงานในสาขานี้</div>'}
+    </div>
+  `, async () => {
+    const name = document.getElementById('mr-name').value.trim();
+    if (!name) { notify('กรอกชื่อการประชุม', 'error'); return; }
+    const picked = Array.from(document.querySelectorAll('.mr-p:checked')).map(x => people[Number(x.dataset.i)]).filter(Boolean);
+    if (!picked.length) { notify('เลือกผู้เข้าประชุมอย่างน้อยหนึ่งคน', 'error'); return; }
+    const info = {
+      company: document.getElementById('mr-company').value, course: name, batch: '',
+      date: document.getElementById('mr-date').value, time: document.getElementById('mr-time').value.trim(),
+      place: document.getElementById('mr-place').value.trim(), trainer: document.getElementById('mr-host').value.trim(),
+    };
+    const people2 = picked.map(e => ({ id: e.id, name: e.name, empCode: e.empCode || '', position: e.position || '', branchId: e.branchId || b }));
+    const db = _initSb(); if (!db) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+    const ins = await db.from('meeting_rosters').insert({ meeting: m, branch_code: b, info, people: people2 }).select('id').single();
+    if (ins.error) { alert('บันทึกใบรายชื่อไม่สำเร็จ\n' + ins.error.message); return; }
+    await _mcSet(m, b, 'rostered');
+    closeModal();
+    _printTrainingSession(info, people2, MEETING_ROSTER_OPTS);
+  }, 'บันทึกและเปิด PDF', 'ยกเลิก');
+}
+/* เปิด PDF ใบที่เก็บไว้ซ้ำ */
+async function _mcRosterPrint(id) {
+  const sb = _initSb(); if (!sb) return;
+  const r = await sb.from('meeting_rosters').select('info,people').eq('id', id).single();
+  if (r.error || !r.data) { alert('เปิดใบรายชื่อไม่สำเร็จ' + (r.error ? '\n' + r.error.message : '')); return; }
+  _printTrainingSession(r.data.info, r.data.people, MEETING_ROSTER_OPTS);
+}
 function _mcPaint() {
   const box = document.getElementById('mc-cover');
   if (box) box.innerHTML = _mcCard();
@@ -13365,6 +13424,7 @@ function _mcPaint() {
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-mc]'); if (!b) return;
+  if (b.dataset.mc === 'rostered') { _mcRosterDialog(b.dataset.m, b.dataset.b); return; }
   _mcSet(b.dataset.m, b.dataset.b, b.dataset.mc === 'clear' ? null : b.dataset.mc);
 });
 setInterval(() => { _mcLoad().catch(() => {}); }, 30000);
