@@ -13111,6 +13111,7 @@ function renderTrainingPlan() {
   <div id="tp-allbranch">${_tpAllBranchCard()}</div>
 
   <div id="mt-register">${_mtRegister()}</div>
+  <div id="mt-allbranch">${_mtAllBranchCard()}</div>
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
   <div class="card" style="margin-top:14px">
@@ -13427,6 +13428,70 @@ async function _mcRosterPrint(id) {
 /* ทะเบียนประชุม — ทำแบบเดียวกับทะเบียนหลักสูตร (ชื่อ · ทุกสาขา · ผ่านแล้ว · จัดการ)
    ไม่บันทึกประวัติอบรม ไม่มีเช็คชื่อ */
 let MEETING_ALL = {};   // { ชื่อประชุม: ต้องเข้าทุกสาขาหรือไม่ }
+/* การ์ด "ประชุมที่ต้องครบทุกสาขา" — เหมือนการ์ดหลักสูตรทุกสาขา แสดงเฉพาะประชุมที่ติ๊ก "ทุกสาขา" ไว้ในทะเบียนประชุม
+   บอกว่าเหลือสาขาไหนที่ยังไม่เข้าประชุม · ไม่บันทึกลงประวัติอบรม */
+function _mtAllBranchCard() {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const js  = s => String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
+  const names = MEETING_COVER.filter(m => MEETING_ALL[m]);
+  if (!names.length) return '';
+  const open = openBranchIds();
+  const items = names.map(m => {
+    const rows = _mcRows[m] || {};
+    const st = b => rows[b] ? rows[b].status : '';
+    const on = k => open.filter(b => st(b) === k);
+    const done = on('done'), excused = on('excused');
+    const target = open.length - excused.length;
+    return { m, done, excused, rostered: on('rostered'), queue: open.filter(b => !st(b)), target, todo: target - done.length };
+  }).sort((a, b) => b.todo - a.todo || a.m.localeCompare(b.m, 'th'));
+  const gone = items.filter(x => !x.todo).length;
+
+  /* กลุ่มหนึ่งกลุ่ม: หัวข้อ + เหตุผล + ชิปสาขา (กดชิปเพื่อเปลี่ยนสถานะได้ถ้ามี act) */
+  const group = (m, cls, title, why, list, act) => {
+    if (!list.length) return '';
+    const arg = act && act.to === null ? 'null' : act ? "'" + act.to + "'" : '';
+    return `<div class="ab-g ${cls}">
+      <div class="ab-g-h"><b>${title}</b><span class="n">${list.length} สาขา</span><em>${why}</em></div>
+      <div class="ab-brs">${list.map(b => act
+        ? `<span class="ab-br">${esc(brName(b))}<button class="ab-x" title="${act.tip}" onclick="_mcSet('${js(m)}','${js(b)}',${arg})">${act.ic}</button></span>`
+        : `<span class="ab-br plain">${esc(brName(b))}</span>`).join('')}</div>
+    </div>`;
+  };
+
+  return `
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">🏁 ประชุมที่ต้องครบทุกสาขา</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${items.length} ประชุม</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">ครบแล้ว ${gone} / ${items.length} ประชุม · ไม่บันทึกลงประวัติอบรม</div>
+    </div>
+    ${items.map(x => {
+      const pct = x.target ? Math.round(x.done.length / x.target * 100) : 0;
+      return `<div class="ab-item">
+        <div class="ab-top">
+          <div class="ab-name">${esc(x.m)}</div>
+          ${x.todo
+            ? `<span class="ab-score">เข้าแล้ว ${x.done.length} / ${x.target} สาขา</span>
+               <span class="cc-gap miss">ต้องจัดอีก ${x.todo} สาขา</span>`
+            : '<span class="cc-gap full">ครบทุกสาขาแล้ว</span>'}
+        </div>
+        <div class="ab-bar"><i class="${x.todo ? 'warn' : ''}" style="width:${pct}%"></i></div>
+        <div class="ab-sum">${pct}% ของสาขาที่ต้องเข้าประชุม${x.excused.length ? ' · ยกเว้นไว้ ' + x.excused.length + ' สาขา' : ''}</div>
+        ${group(x.m, 'wait', '② ยังไม่ได้เริ่ม', 'ยังไม่มีใบรายชื่อและยังไม่เข้าประชุม', x.queue,
+                { ic: '✕', tip: 'ยกเว้นสาขานี้', to: 'excused' })}
+        ${group(x.m, 'plan', '③ ทำใบรายชื่อแล้ว', 'รอวันประชุม · กด ✓ เมื่อเข้าประชุมแล้ว', x.rostered,
+                { ic: '✓', tip: 'เข้าประชุมแล้ว', to: 'done' })}
+        ${group(x.m, 'ab-g-ok', '✓ เข้าประชุมแล้ว', 'กด ↺ เพื่อเอาออกจากรายการ', x.done,
+                { ic: '↺', tip: 'เอาออก', to: null })}
+        ${group(x.m, '', '🚫 ยกเว้นไว้', 'กด ↺ เพื่อเอากลับมานับ', x.excused,
+                { ic: '↺', tip: 'เอากลับมานับ', to: null })}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
 function _mtRegister() {
   const esc = x => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const open = openBranchIds();
@@ -13458,6 +13523,8 @@ function _mtRegister() {
 function _mtPaint() {
   const box = document.getElementById('mt-register');
   if (box) box.innerHTML = _mtRegister();
+  const ab = document.getElementById('mt-allbranch');
+  if (ab) ab.innerHTML = _mtAllBranchCard();
 }
 /* เพิ่มประชุมใหม่ (ยังไม่มีใบรายชื่อก็เพิ่มได้) */
 function _mtAdd() {
