@@ -19927,14 +19927,12 @@ function _planMdHtml(bids, ym) {
 let _planF = { zone: '', branch: null, from: '', to: '', late: false };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
 function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = null; showPage(currentPage); }
 function _planClearFilter() { _planF = { zone: '', branch: null, from: '', to: '', late: false }; showPage(currentPage); }
-/* ติ๊กสาขาในดรอปดาวน์ — วาดหน้าใหม่แล้วเปิดดรอปดาวน์ค้างไว้ให้ติ๊กต่อได้ */
+/* ติ๊กสาขาในดรอปดาวน์ — ย่อดรอปดาวน์ทันทีหลังติ๊ก แล้ววาดหน้าใหม่ตามสาขาที่เลือก */
 function _planPickBranch() {
   const picked = _covMulti('plan-branch');
   _mselCloseAll();
   _planF.branch = picked;
   showPage(currentPage);
-  const w = document.getElementById('plan-branch-wrap');
-  if (w) { w.classList.add('open'); _mselPlace('plan-branch'); }
 }
 
 /* ความตรงกำหนดของเดือน ym — ทั้ง "ทำแผน" และ "อัพเดทรายชื่อ" ต้องเสร็จภายในวันที่ 10 ของเดือนนั้น (เวลาไทย)
