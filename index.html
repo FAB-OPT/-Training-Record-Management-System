@@ -14194,6 +14194,14 @@ function _tpMatchRows(rows) {
     }
     if (!e && !reason) reason = r.code && !r.name ? 'ไม่พบรหัสพนักงานนี้' : 'ไม่พบชื่อนี้ในระบบ (หรือเป็นสาขาที่คุณไม่เห็น)';
     if (e && !_isEmpEnabled(e)) { reason = 'ปิดใช้งานแล้ว'; e = null; }
+    /* ไม่มีในทะเบียน (ไม่ใช่ชื่อซ้ำหรือถูกปิดใช้งาน) → ยังเพิ่มเข้ารายชื่อได้ ใช้ชื่อ/สาขา/ตำแหน่งจากไฟล์ */
+    if (!e && r.name && (!reason || reason.indexOf('ไม่พบชื่อนี้') === 0)) {
+      const ext = { id: 'ext:' + r.line + ':' + _tpNorm(r.name), name: String(r.name).trim(),
+                    branchId: String(r.branch || '').trim(), position: String(r.position || '').trim(),
+                    empCode: String(r.code || '').trim(), external: true };
+      if (!seen[ext.id]) { seen[ext.id] = true; hit.push(ext); }
+      return;
+    }
     if (!e) { miss.push({ line: r.line, label: label, reason: reason }); return; }
     if (seen[e.id]) return;   // แถวซ้ำในไฟล์
     seen[e.id] = true; hit.push(e);
