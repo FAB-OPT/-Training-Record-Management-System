@@ -13781,7 +13781,10 @@ function _twMeetingRows(esc) {
       <div class="tw-when">—</div>
       <div class="tw-n">${done}<span> สาขา</span></div>
       <div>${stat}</div>
-      <div class="tw-act"><button class="btn btn-sm btn-outline" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})">ดู / แก้ไข</button></div>
+      <div class="tw-act">
+        <button class="btn btn-sm btn-outline" onclick="openMeetingRoster()" title="ดูรายชื่อ · เปิด PDF">ดูรายชื่อ</button>
+        <button class="btn btn-sm btn-accent" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})" title="แก้สถานะรายสาขา">แก้ไข</button>
+      </div>
     </div>`;
   }).join('');
 }
