@@ -12599,7 +12599,7 @@ function _mselHTML(id, items, opts) {
     <div class="msel-panel" id="${id}-panel">
       <div class="msel-head">
         ${withSearch ? `<input class="msel-search" id="${id}-search" placeholder="🔍 พิมพ์เพื่อค้นหา…" oninput="_mselFilter('${id}', this.value)" onclick="event.stopPropagation()">` : ''}
-        <label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAll('${id}', this.checked)"> เลือกทั้งหมด</label>
+        <label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAllToggle('${id}')"> เลือกทั้งหมด</label>
       </div>
       ${body}
       <div class="msel-none" id="${id}-none" style="display:none">ไม่พบรายการที่ตรงกับคำค้น</div>
@@ -12679,6 +12679,14 @@ function _mselAll(id, on) {
     if (c) c.checked = on;
   });
   _mselSync(id);
+}
+/* กดช่อง "เลือกทั้งหมด": ยังติ๊กไม่ครบ = ติ๊กทั้งหมดที่เห็น · ติ๊กครบแล้ว = เอาออกทั้งหมดที่เห็น
+   (ไม่ใช้ค่า checked ของช่องตรง ๆ เพราะกดเบิ้ลจะกลับไปสถานะเดิม) */
+function _mselAllToggle(id) {
+  const vis = Array.from(document.querySelectorAll('#' + id + '-panel .msel-opt[data-k]'))
+    .filter(o => o.style.display !== 'none').map(o => o.querySelector('.msel-chk')).filter(Boolean);
+  const allOn = vis.length > 0 && vis.every(c => c.checked);
+  _mselAll(id, !allOn);
 }
 function _mselSync(id, skipOnChange) {
   const w = document.getElementById(id + '-wrap'); if (!w) return;
