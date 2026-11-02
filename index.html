@@ -13109,6 +13109,7 @@ function renderTrainingPlan() {
   </div>
 
   <div id="tp-allbranch">${_tpAllBranchCard()}</div>
+  <div id="mc-cover">${_mcCard()}</div>
 
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
@@ -13257,6 +13258,68 @@ function courseTodo(name) {
   out.todo = out.urgent.length + out.queue.length;
   return out;
 }
+
+/* ══════════ ประชุมที่ต้องครบทุกสาขา — ดูภาพรวมว่าสาขาไหนเข้าแล้ว ══════════
+   เก็บในตาราง meeting_coverage (ดู supabase-meeting-coverage.sql)
+   ไม่บันทึกลงประวัติอบรมของพนักงาน เหมือนทะเบียนประชุม */
+const MEETING_COVER = ['ประชุม RGM'];
+let _mcRows = {};   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
+async function _mcLoad() {
+  const sb = _initSb(); if (!sb) return;
+  const res = await sb.from('meeting_coverage').select('meeting,branch_code,status,note').in('meeting', MEETING_COVER);
+  if (res.error) { console.warn('[meeting_coverage]', res.error.message); return; }
+  _mcRows = {};
+  (res.data || []).forEach(r => { (_mcRows[r.meeting] = _mcRows[r.meeting] || {})[r.branch_code] = r; });
+  _mcPaint();
+}
+async function _mcSet(meeting, branch, status) {
+  const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+  const res = status === null
+    ? await sb.from('meeting_coverage').delete().eq('meeting', meeting).eq('branch_code', branch)
+    : await sb.from('meeting_coverage').upsert({ meeting, branch_code: branch, status, updated_at: new Date().toISOString() });
+  if (res.error) return notify('บันทึกไม่สำเร็จ — ' + res.error.message, 'error');
+  await _mcLoad();
+}
+function _mcCard() {
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
+  const open = openBranchIds();
+  const blocks = MEETING_COVER.map(m => {
+    const rows = _mcRows[m] || {};
+    const isDone = b => rows[b] && rows[b].status === 'done';
+    const isExc = b => rows[b] && rows[b].status === 'excused';
+    const done = open.filter(isDone), exc = open.filter(isExc), todo = open.filter(b => !rows[b]);
+    const chip = (b, btns) => `<span class="ab-br">${esc(brName(b))}${btns.map(x =>
+      `<button class="ab-x" title="${x.tip}" data-mc="${x.act}" data-m="${esc(m)}" data-b="${esc(b)}">${x.ic}</button>`).join('')}</span>`;
+    const group = (cls, title, why, list, btns) => !list.length ? '' : `
+      <div class="ab-g ${cls}"><div class="ab-g-h"><b>${title}</b><span class="n">${list.length} สาขา</span><em>${why}</em></div>
+        <div class="ab-brs">${list.map(b => chip(b, btns)).join('')}</div></div>`;
+    return `
+      <div style="margin-top:6px">
+        <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px">${esc(m)}
+          <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">เข้าแล้ว ${done.length} / ${open.length} สาขา</span></div>
+        ${group('', '⏳ ยังไม่เข้า', 'กดเครื่องหมายถูกเมื่อเข้าแล้ว หรือยกเว้นสาขาที่ไม่ต้องเข้า', todo,
+          [{ act: 'done', ic: '✓', tip: 'เข้าประชุมแล้ว' }, { act: 'excused', ic: '⊘', tip: 'ยกเว้นสาขานี้' }])}
+        ${group('ab-g-ok', '✅ เข้าประชุมแล้ว', 'กด ↺ เพื่อเอาออกจากรายการ', done, [{ act: 'clear', ic: '↺', tip: 'เอาออก' }])}
+        ${group('', '🚫 ยกเว้นไว้', 'กด ↺ เพื่อเอากลับมานับ', exc, [{ act: 'clear', ic: '↺', tip: 'เอากลับมานับ' }])}
+      </div>`;
+  }).join('');
+  return `
+  <div class="card" style="margin-top:14px">
+    <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:6px">🗓 ประชุมที่ต้องครบทุกสาขา</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">ดูภาพรวมเท่านั้น ไม่บันทึกลงประวัติอบรมของพนักงาน</div>
+    ${blocks}
+  </div>`;
+}
+function _mcPaint() {
+  const box = document.getElementById('mc-cover');
+  if (box) box.innerHTML = _mcCard();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-mc]'); if (!b) return;
+  _mcSet(b.dataset.m, b.dataset.b, b.dataset.mc === 'clear' ? null : b.dataset.mc);
+});
+setInterval(() => { _mcLoad().catch(() => {}); }, 30000);
 
 /* วาดการ์ดใหม่อย่างเดียว ไม่ต้องวาดทั้งหน้า — ใช้ตอนใบรายชื่อโหลดเสร็จและตอนกดยกเว้น */
 function _abPaint() {
