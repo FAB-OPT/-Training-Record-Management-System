@@ -12704,6 +12704,7 @@ function _mselSync(id, skipOnChange) {
   const allBox = document.querySelector('#' + id + '-panel .msel-all');
   if (allBox) allBox.checked = all.length > 0 && sel.length === all.length;
   if (skipOnChange) return;   // ใช้ตอนซิงก์ caption ครั้งแรกหลังวาด DOM — ไม่ต้องยิง onChange ซ้ำ (บางหน้า onChange รีเรนเดอร์ widget นี้เองด้วย จะวนไม่รู้จบ)
+  _mselCloseAll();   // ติ๊กเสร็จ = ย่อดรอปดาวน์ (กดเปิดใหม่เมื่อจะเลือกเพิ่ม)
   const fn = w.dataset.onchange;
   if (fn && typeof window[fn] === 'function') window[fn]();
 }
