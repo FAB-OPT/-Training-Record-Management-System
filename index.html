@@ -13279,6 +13279,8 @@ async function _mcSet(meeting, branch, status) {
     : await sb.from('meeting_coverage').upsert({ meeting, branch_code: branch, status, updated_at: new Date().toISOString() });
   if (res.error) return notify('บันทึกไม่สำเร็จ — ' + res.error.message, 'error');
   await _mcLoad();
+  const ov = document.getElementById('modal-overlay');
+  if (_mcViewing && ov && ov.classList.contains('open')) _mcView(_mcViewing);
 }
 function _mcCard() {
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -13314,6 +13316,45 @@ function _mcCard() {
     <div style="font-size:12px;color:var(--text3);margin-bottom:6px">ดูและแก้ไขได้ที่นี่ · ไม่บันทึกลงประวัติอบรมของพนักงาน</div>
     ${blocks}
   </div>`;
+}
+/* ดูรายละเอียดประชุม (เหมือนดูรายชื่อของอบรม) · แก้สถานะรายสาขาในป็อปอัปได้ */
+let _mcViewing = null;
+function _mcView(m) {
+  _mcViewing = m;
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const brName = b => (BRANCH_MASTER[b] && BRANCH_MASTER[b].name) || b;
+  const open = openBranchIds();
+  const rows = _mcRows[m] || {};
+  const st = b => rows[b] ? rows[b].status : '';
+  const cnt = k => open.filter(b => st(b) === k).length;
+  const chipOf = { done: '✓ เข้าประชุมแล้ว', rostered: '📄 ทำใบรายชื่อแล้ว', excused: '🚫 ยกเว้น', '': 'ยังไม่ได้ทำใบ' };
+  const clsOf = { done: 'tw-st done', rostered: 'tw-st part', excused: 'tw-st warn', '': 'tw-st warn' };
+  const btns = k => k === 'done' ? [['clear','↺','เอาออก']]
+    : k === 'rostered' ? [['done','✓','เข้าประชุมแล้ว'],['clear','↺','เอาออก']]
+    : k === 'excused' ? [['clear','↺','เอากลับมานับ']]
+    : [['rostered','📄','ทำใบรายชื่อแล้ว'],['done','✓','เข้าประชุมแล้ว'],['excused','⊘','ยกเว้น']];
+  const list = open.slice().sort((a,b) => brName(a).localeCompare(brName(b), 'th')).map(b => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:var(--surface2);margin-bottom:6px">
+      <div style="min-width:0;font-weight:700;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(brName(b))}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span class="${clsOf[st(b)]}">${chipOf[st(b)]}</span>
+        ${btns(st(b)).map(x => `<button class="ab-x" title="${x[2]}" data-mc="${x[0]}" data-m="${esc(m)}" data-b="${esc(b)}">${x[1]}</button>`).join('')}
+      </div>
+    </div>`).join('');
+  showModal('🗓 ' + m, `
+    <div style="font-size:13px;color:var(--text2);margin-bottom:10px">ทั้งหมด ${open.length} สาขา · เข้าประชุมแล้ว ${cnt('done')} · ทำใบรายชื่อแล้ว ${cnt('rostered')} · ยกเว้น ${cnt('excused')}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">การเข้าประชุมนี้ไม่บันทึกลงประวัติอบรมของพนักงาน</div>
+    <div style="max-height:52vh;overflow:auto;padding-right:4px">${list}</div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-outline btn-sm" onclick="openMeetingRoster()">🖨 เปิด PDF ทะเบียนประชุม</button></div>`);
+}
+async function _mcDelete(m) {
+  if (!confirm('ลบข้อมูลการเข้าประชุม "' + m + '" ทั้งหมด?\n(ไม่กระทบประวัติอบรมของพนักงาน)')) return;
+  const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+  const res = await sb.from('meeting_coverage').delete().eq('meeting', m);
+  if (res.error) return notify('ลบไม่สำเร็จ — ' + res.error.message, 'error');
+  notify('ลบแล้ว');
+  _mcViewing = null;
+  await _mcLoad();
 }
 function _mcPaint() {
   const box = document.getElementById('mc-cover');
@@ -13782,8 +13823,9 @@ function _twMeetingRows(esc) {
       <div class="tw-n">${done}<span> สาขา</span></div>
       <div>${stat}</div>
       <div class="tw-act">
-        <button class="btn btn-sm btn-outline" onclick="openMeetingRoster()" title="ดูรายชื่อ · เปิด PDF">ดูรายชื่อ</button>
+        <button class="btn btn-sm btn-outline" onclick="_mcView('${esc(m)}')" title="ดูรายชื่อสาขา">ดูรายชื่อ</button>
         <button class="btn btn-sm btn-accent" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})" title="แก้สถานะรายสาขา">แก้ไข</button>
+        <button class="btn btn-sm btn-outline tp-del" onclick="_mcDelete('${esc(m)}')" title="ลบการเข้าประชุมนี้">🗑</button>
       </div>
     </div>`;
   }).join('');
