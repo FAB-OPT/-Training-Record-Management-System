@@ -12645,13 +12645,17 @@ function _mselPlace(id) {
 function _mselReplaceOpen() { document.querySelectorAll('.msel.open').forEach(w => _mselPlace(w.id.replace(/-wrap$/, ''))); }
 /* ปิดทุกแผง + ย้ายแผงกลับเข้าที่เดิม */
 function _mselCloseAll() {
+  const done = [];
   document.querySelectorAll('.msel.open').forEach(w => {
     w.classList.remove('open');
     const p = document.getElementById(w.id.replace(/-wrap$/, '') + '-panel');
     if (p) { p.classList.remove('msel-show'); if (p.parentNode !== w) w.appendChild(p); }
+    if (w.dataset.dirty) { delete w.dataset.dirty; done.push(w); }
   });
   /* แผงที่ค้างอยู่ใต้ body ทั้งที่ตัวเลือกถูกลบไปแล้ว (หน้าต่างถูกวาดใหม่ตอนเปิดอยู่) */
   document.querySelectorAll('body > .msel-panel').forEach(p => { if (!document.getElementById(p.id.replace(/-panel$/, '-wrap'))) p.remove(); });
+  /* ส่งค่าตอนยุบ ไม่ใช่ตอนติ๊กทุกครั้ง (บางหน้าวาดใหม่ทั้งหน้า) */
+  done.forEach(w => { const fn = w.dataset.onchange; if (fn && typeof window[fn] === 'function') window[fn](); });
 }
 window.addEventListener('resize', _mselReplaceOpen);
 document.addEventListener('scroll', function (e) { if (!(e.target && e.target.closest && e.target.closest && e.target.closest('.msel-panel'))) _mselReplaceOpen(); }, true);
@@ -12704,9 +12708,7 @@ function _mselSync(id, skipOnChange) {
   const allBox = document.querySelector('#' + id + '-panel .msel-all');
   if (allBox) allBox.checked = all.length > 0 && sel.length === all.length;
   if (skipOnChange) return;   // ใช้ตอนซิงก์ caption ครั้งแรกหลังวาด DOM — ไม่ต้องยิง onChange ซ้ำ (บางหน้า onChange รีเรนเดอร์ widget นี้เองด้วย จะวนไม่รู้จบ)
-  _mselCloseAll();   // ติ๊กเสร็จ = ย่อดรอปดาวน์ (กดเปิดใหม่เมื่อจะเลือกเพิ่ม)
-  const fn = w.dataset.onchange;
-  if (fn && typeof window[fn] === 'function') window[fn]();
+  w.dataset.dirty = '1';   // มีการเปลี่ยนแปลง · ส่งค่าไปหน้าตอนยุบดรอปดาวน์ (ติ๊กหลายอันได้ก่อน)
 }
 // คลิกนอกดรอปดาว = ปิด
 document.addEventListener('click', function (e) {
@@ -12785,7 +12787,7 @@ function _covAddRow() {
   const d = document.createElement('div');
   d.innerHTML = _covRowHTML(n);
   host.appendChild(d.firstElementChild);
-  _mselSync('cov-pos-' + n); _mselSync('cov-ten-' + n);
+  _mselSync('cov-pos-' + n, true); _mselSync('cov-ten-' + n, true);
 }
 function _covDelRow(n) {
   if (_covRowIds.length <= 1) { notify('ต้องมีเงื่อนไขอย่างน้อย 1 ชุด', 'error'); return; }
@@ -19928,11 +19930,9 @@ function _planMdHtml(bids, ym) {
 let _planF = { zone: '', branch: null, from: '', to: '', late: false };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
 function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = null; showPage(currentPage); }
 function _planClearFilter() { _planF = { zone: '', branch: null, from: '', to: '', late: false }; showPage(currentPage); }
-/* ติ๊กสาขาในดรอปดาวน์ — ย่อดรอปดาวน์ทันทีหลังติ๊ก แล้ววาดหน้าใหม่ตามสาขาที่เลือก */
+/* ยุบดรอปดาวน์สาขาแล้ว · รับค่าที่เลือกไว้ และวาดหน้าใหม่ตามนั้น */
 function _planPickBranch() {
-  const picked = _covMulti('plan-branch');
-  _mselCloseAll();
-  _planF.branch = picked;
+  _planF.branch = _covMulti('plan-branch');
   showPage(currentPage);
 }
 
