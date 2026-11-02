@@ -15051,6 +15051,7 @@ function _printTrainingSession(info, list, opts) {
     td.c{text-align:center}
     td.seq{font-weight:700;color:#1D4ED8}
     td.sig{height:34px}
+    td.hcell{border:0;padding:0;background:#FFFFFF}
     .toolbar{position:sticky;top:0;background:white;padding:10px 16px;border-bottom:1px solid #E5E7EB;display:flex;gap:10px;justify-content:flex-end;z-index:10;margin:-18px -18px 14px}
     .tbtn{padding:8px 16px;border:1px solid #E5E7EB;background:white;color:#1A1A1A;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sarabun',sans-serif}
     .tbtn.primary{background:#E23B3B;color:white;border-color:#E23B3B}
@@ -15066,7 +15067,10 @@ function _printTrainingSession(info, list, opts) {
     }
   </style>`;
   const html = `<div id="root">
-    <div class="head">
+    <table>
+      <thead>
+        <tr class="hrow"><td class="hcell" colspan="6">
+      <div class="head">
       <div class="head-logo">${logoUrl ? `<img src="${logoUrl}" alt="">` : ''}</div>
       <div class="head-mid">
         <div class="co">${(info.company || COMPANY_DEFAULTS[0]).replace(/</g,"&lt;")}</div>
@@ -15077,8 +15081,8 @@ function _printTrainingSession(info, list, opts) {
       </div>
       <div class="head-right"></div>
     </div>
-    <table>
-      <thead><tr>
+        </td></tr>
+        <tr>
         <!-- ตำแหน่งกว้างสุดในบรรดาคอลัมน์ตายตัว เพราะ Restaurant Manager ยาว 26 ตัวอักษร
              เดิมให้ 135px แล้วตกเป็นสองบรรทัดทุกแถว ทั้งที่ช่องสาขายังเหลือที่ว่างเยอะ -->
         <th style="width:40px">ลำดับ</th>
@@ -15087,7 +15091,8 @@ function _printTrainingSession(info, list, opts) {
         <th style="width:182px">ตำแหน่ง</th>
         <th>สาขา/หน่วยงาน</th>
         <th style="width:118px">ลายเซ็น</th>
-      </tr></thead>
+</tr>
+      </thead>
       <tbody>${trs}</tbody>
     </table>
   </div>`;
