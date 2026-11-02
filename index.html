@@ -13267,6 +13267,7 @@ let _mcRows = {};
 let _mcWarned = false;   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
 async function _mcLoad() {
   const sb = _initSb(); if (!sb) return;
+  await SB_AUTH;   // รอ sign-in ก่อนอ่าน ไม่งั้นอ่านตอนยังไม่ล็อกอินจะได้ 0 ประชุม
   const [rs, rg] = await Promise.all([sb.from('meeting_rosters').select('meeting,branch_code,info,created_at'), sb.from('meeting_register').select('name,all_branches')]);
   if (rs.error || rg.error) { console.warn('[meeting]', (rs.error || rg.error).message); return; }
   MEETING_ALL = {};
@@ -13512,6 +13513,7 @@ document.addEventListener('click', e => {
   if (b.dataset.mc === 'rostered') { _mcRosterDialog(b.dataset.m, b.dataset.b); return; }
   _mcSet(b.dataset.m, b.dataset.b, b.dataset.mc === 'clear' ? null : b.dataset.mc);
 });
+_mcLoad().catch(() => {});   // โหลดตอนเปิดหน้า (เดิมรอรอบ 30 วินาทีแรก)
 setInterval(() => { _mcLoad().catch(() => {}); }, 30000);
 
 /* วาดการ์ดใหม่อย่างเดียว ไม่ต้องวาดทั้งหน้า — ใช้ตอนใบรายชื่อโหลดเสร็จและตอนกดยกเว้น */
