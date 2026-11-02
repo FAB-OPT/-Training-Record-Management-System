@@ -13286,9 +13286,11 @@ function _mcCard() {
   const open = openBranchIds();
   const blocks = MEETING_COVER.map(m => {
     const rows = _mcRows[m] || {};
-    const isDone = b => rows[b] && rows[b].status === 'done';
-    const isExc = b => rows[b] && rows[b].status === 'excused';
-    const done = open.filter(isDone), exc = open.filter(isExc), todo = open.filter(b => !rows[b]);
+    const st = b => rows[b] ? rows[b].status : '';
+    const done = open.filter(b => st(b) === 'done');
+    const ros = open.filter(b => st(b) === 'rostered');
+    const exc = open.filter(b => st(b) === 'excused');
+    const todo = open.filter(b => !st(b));
     const chip = (b, btns) => `<span class="ab-br">${esc(brName(b))}${btns.map(x =>
       `<button class="ab-x" title="${x.tip}" data-mc="${x.act}" data-m="${esc(m)}" data-b="${esc(b)}">${x.ic}</button>`).join('')}</span>`;
     const group = (cls, title, why, list, btns) => !list.length ? '' : `
@@ -13298,16 +13300,18 @@ function _mcCard() {
       <div style="margin-top:6px">
         <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px">${esc(m)}
           <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">เข้าแล้ว ${done.length} / ${open.length} สาขา</span></div>
-        ${group('', '⏳ ยังไม่เข้า', 'กดเครื่องหมายถูกเมื่อเข้าแล้ว หรือยกเว้นสาขาที่ไม่ต้องเข้า', todo,
-          [{ act: 'done', ic: '✓', tip: 'เข้าประชุมแล้ว' }, { act: 'excused', ic: '⊘', tip: 'ยกเว้นสาขานี้' }])}
-        ${group('ab-g-ok', '✅ เข้าประชุมแล้ว', 'กด ↺ เพื่อเอาออกจากรายการ', done, [{ act: 'clear', ic: '↺', tip: 'เอาออก' }])}
+        ${group('', '① ยังไม่ได้ทำใบรายชื่อ', 'กด 📄 เมื่อทำใบแล้ว หรือ ✓ ถ้าเข้าประชุมแล้วเลย หรือ ⊘ ยกเว้น', todo,
+          [{ act: 'rostered', ic: '📄', tip: 'ทำใบรายชื่อแล้ว' }, { act: 'done', ic: '✓', tip: 'เข้าประชุมแล้ว' }, { act: 'excused', ic: '⊘', tip: 'ยกเว้นสาขานี้' }])}
+        ${group('ab-g-ok', '② เข้าประชุมแล้ว', 'กด ↺ เพื่อเอาออกจากรายการ', done, [{ act: 'clear', ic: '↺', tip: 'เอาออก' }])}
+        ${group('', '③ ทำใบรายชื่อแล้ว (รอเข้าประชุม)', 'กด ✓ เมื่อเข้าประชุมแล้ว หรือ ↺ เพื่อเอาออก', ros,
+          [{ act: 'done', ic: '✓', tip: 'เข้าประชุมแล้ว' }, { act: 'clear', ic: '↺', tip: 'เอาออก' }])}
         ${group('', '🚫 ยกเว้นไว้', 'กด ↺ เพื่อเอากลับมานับ', exc, [{ act: 'clear', ic: '↺', tip: 'เอากลับมานับ' }])}
       </div>`;
   }).join('');
   return `
   <div class="card" style="margin-top:14px">
     <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:6px">🗓 ประชุมที่ต้องครบทุกสาขา</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">ดูภาพรวมเท่านั้น ไม่บันทึกลงประวัติอบรมของพนักงาน</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">ดูและแก้ไขได้ที่นี่ · ไม่บันทึกลงประวัติอบรมของพนักงาน</div>
     ${blocks}
   </div>`;
 }
@@ -13777,7 +13781,7 @@ function _twMeetingRows(esc) {
       <div class="tw-when">—</div>
       <div class="tw-n">${done}<span> สาขา</span></div>
       <div>${stat}</div>
-      <div class="tw-act"><button class="btn btn-sm btn-outline" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})">ดูสาขา</button></div>
+      <div class="tw-act"><button class="btn btn-sm btn-outline" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})">ดู / แก้ไข</button></div>
     </div>`;
   }).join('');
 }
