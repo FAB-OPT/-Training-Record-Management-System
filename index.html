@@ -12595,7 +12595,7 @@ function _mselHTML(id, items, opts) {
   // ใส่ช่องค้นหาเมื่อรายการเยอะพอที่จะเลื่อนหาไม่ไหว (สาขามี 60 กว่าแห่ง)
   const withSearch = items.length > 8;
   return `<div class="msel" id="${id}-wrap" data-onchange="${opts.onChange || ''}" data-none="${opts.noneText || '— เลือก —'}">
-    <button type="button" class="form-select msel-btn" id="${id}-btn" onclick="_mselToggle('${id}')"><span class="msel-cap"></span><span class="msel-car">▼</span></button>
+    <button type="button" class="form-select msel-btn" id="${id}-btn" onclick="_mselToggle('${id}')"><span class="msel-cap">${opts.caption || ''}</span><span class="msel-car">▼</span></button>
     <div class="msel-panel" id="${id}-panel">
       <div class="msel-head">
         ${withSearch ? `<input class="msel-search" id="${id}-search" placeholder="🔍 พิมพ์เพื่อค้นหา…" oninput="_mselFilter('${id}', this.value)" onclick="event.stopPropagation()">` : ''}
@@ -19916,9 +19916,18 @@ function _planMdHtml(bids, ym) {
   _planMdBids = bids;
   return `<div class="po-md" id="po-md">${_planMdInner(bids, ym)}</div>`;
 }
-let _planF = { zone: '', branch: '', from: '', to: '', late: false };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
-function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = ''; showPage(currentPage); }
-function _planClearFilter() { _planF = { zone: '', branch: '', from: '', to: '', late: false }; showPage(currentPage); }
+let _planF = { zone: '', branch: null, from: '', to: '', late: false };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
+function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = null; showPage(currentPage); }
+function _planClearFilter() { _planF = { zone: '', branch: null, from: '', to: '', late: false }; showPage(currentPage); }
+/* ติ๊กสาขาในดรอปดาวน์ — วาดหน้าใหม่แล้วเปิดดรอปดาวน์ค้างไว้ให้ติ๊กต่อได้ */
+function _planPickBranch() {
+  const picked = _covMulti('plan-branch');
+  _mselCloseAll();
+  _planF.branch = picked;
+  showPage(currentPage);
+  const w = document.getElementById('plan-branch-wrap');
+  if (w) { w.classList.add('open'); _mselPlace('plan-branch'); }
+}
 
 /* ความตรงกำหนดของเดือน ym — ทั้ง "ทำแผน" และ "อัพเดทรายชื่อ" ต้องเสร็จภายในวันที่ 10 ของเดือนนั้น (เวลาไทย)
    firstIso = เวลาแรกสุดที่สาขาทำเรื่องนั้นในเดือนนี้ (ไม่มี = ยังไม่ทำ)
@@ -19963,10 +19972,10 @@ function renderAdminPlanOverview() {
   const zones = [...new Set(allBids.map(b => BRANCH_MASTER[b].manager || '').filter(Boolean))].sort();
   if (_planF.zone && !zones.includes(_planF.zone)) _planF.zone = '';
   const zoneBids = allBids.filter(b => !_planF.zone || (BRANCH_MASTER[b].manager || '') === _planF.zone);
-  if (_planF.branch && !zoneBids.includes(_planF.branch)) _planF.branch = '';
-  const bids = zoneBids.filter(b => !_planF.branch || b === _planF.branch);
+  if (Array.isArray(_planF.branch)) _planF.branch = _planF.branch.filter(b => zoneBids.includes(b));
+  const bids = zoneBids.filter(b => _planF.branch === null || _planF.branch.includes(b));
   const inRange = d => (!_planF.from || (d && d >= _planF.from)) && (!_planF.to || (d && d <= _planF.to));
-  const filtering = !!(_planF.zone || _planF.branch || _planF.from || _planF.to || _planF.late);
+  const filtering = !!(_planF.zone || _planF.branch !== null || _planF.from || _planF.to || _planF.late);
   const rows = bids.map(bid => {
     const a = _planAudit(bid, ym);
     const k = a.items.filter(it => _planGroup(it.moduleId) === 'kitchen');
@@ -20027,7 +20036,7 @@ function renderAdminPlanOverview() {
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
       ${zones.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">โซน / BZM</div><select class="form-select" style="min-width:220px;height:50px;font-size:16px" onchange="_planSetFilter('zone', this.value)"><option value="">ทุกโซน</option>${zones.map(z => `<option value="${_escH(z)}"${_planF.zone === z ? ' selected' : ''}>${_escH(z)}</option>`).join('')}</select></div>` : ''}
-      ${allBids.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">สาขา</div><select class="form-select" style="min-width:220px;height:50px;font-size:16px" onchange="_planSetFilter('branch', this.value)"><option value="">ทุกสาขา</option>${zoneBids.slice().sort().map(b => `<option value="${b}"${_planF.branch === b ? ' selected' : ''}>${_escH(_bName(b))}</option>`).join('')}</select></div>` : ''}
+      ${allBids.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">สาขา</div><div style="min-width:220px">${_mselHTML('plan-branch', zoneBids.slice().sort().map(b => ({ v: b, label: _bName(b) })), { selected: _planF.branch, allChecked: _planF.branch === null, onChange: '_planPickBranch', noneText: 'ทุกสาขา', caption: _planF.branch === null ? 'ทุกสาขา' : !_planF.branch.length ? 'ยังไม่ได้เลือก' : _planF.branch.length === zoneBids.length ? 'ทุกสาขา' : _planF.branch.length === 1 ? _bName(_planF.branch[0]) : 'เลือก ' + _planF.branch.length + ' สาขา' })}</div></div>` : ''}
       <div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">วันที่วางแผนสอน ตั้งแต่</div><input type="date" class="form-input" style="height:50px;font-size:16px" value="${_planF.from}" onchange="_planSetFilter('from', this.value)"></div>
       <div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">ถึง</div><input type="date" class="form-input" style="height:50px;font-size:16px" value="${_planF.to}" onchange="_planSetFilter('to', this.value)"></div>
       ${bzm ? '' : `<button class="btn btn-sm ${_planF.late ? 'btn-accent' : 'btn-outline'}" style="height:50px;font-size:15px" onclick="_planSetFilter('late', ${!_planF.late})">⏰ เฉพาะสาขาที่ล่าช้า</button>`}
