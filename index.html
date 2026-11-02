@@ -13109,7 +13109,7 @@ function renderTrainingPlan() {
   </div>
 
   <div id="tp-allbranch">${_tpAllBranchCard()}</div>
-  <div id="mc-cover">${_mcCard()}</div>
+  <div id="mt-register">${_mtRegister()}</div>
 
   <!-- ทะเบียนหลักสูตร — เปลี่ยนจากการ์ดใหญ่ 20 ใบ (เลื่อนยาว 4 หน้าจอ) เป็นตารางแน่น ๆ
        ข้อมูลจริงมีแค่ชื่อกับจำนวนคนที่ผ่าน ไม่คุ้มกับการ์ดที่กินพื้นที่ขนาดนั้น -->
@@ -13411,10 +13411,37 @@ async function _mcRosterPrint(id) {
   if (r.error || !r.data) { alert('เปิดใบรายชื่อไม่สำเร็จ' + (r.error ? '\n' + r.error.message : '')); return; }
   _printTrainingSession(r.data.info, r.data.people, MEETING_ROSTER_OPTS);
 }
+/* ทะเบียนประชุม — แยกจากทะเบียนหลักสูตร (ไม่บันทึกประวัติ ไม่มีเช็คชื่อ) */
+function _mtRegister() {
+  const esc = x => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const rows = MEETING_COVER.map(m => `
+    <div class="tw-row" style="grid-template-columns:1fr auto">
+      <div style="min-width:0"><div class="tw-name">${esc(m)}</div>
+        <div class="tw-sub">ไม่บันทึกลงประวัติอบรม · ไม่มีเช็คชื่อ</div></div>
+      <div class="tw-act">
+        <button class="btn btn-sm btn-outline" onclick="_mcView('${esc(m)}')">ดูรายชื่อ</button>
+        <button class="btn btn-sm btn-outline tp-del" onclick="_mcDelete('${esc(m)}')" title="ลบประชุมนี้">🗑</button>
+      </div>
+    </div>`).join('');
+  return `
+  <div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px"><div style="font-weight:800;font-size:15px;color:var(--text)">🗓 ทะเบียนประชุม</div>
+        <span class="tp-chip" style="background:var(--surface2);color:var(--text2)">${MEETING_COVER.length} ประชุม</span></div>
+      <button class="btn btn-sm btn-accent" onclick="openMeetingRoster()">+ เพิ่มประชุม</button>
+    </div>
+    ${rows || '<div style="text-align:center;padding:18px;font-size:13px;color:var(--text3)">ยังไม่มีประชุม · กด + เพิ่มประชุม แล้วทำรายชื่อ</div>'}
+  </div>`;
+}
+function _mtPaint() {
+  const box = document.getElementById('mt-register');
+  if (box) box.innerHTML = _mtRegister();
+}
 function _mcPaint() {
   const box = document.getElementById('mc-cover');
   if (box) box.innerHTML = _mcCard();
-  if (typeof _twPaint === 'function') _twPaint();   // อัปเดตแถวประชุมในรายการด้วย
+  _mtPaint();
+  if (typeof _twPaint === 'function') _twPaint();
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-mc]'); if (!b) return;
@@ -13860,7 +13887,7 @@ function _twError(e) {
 /* แท็บกรอง — ค่าเริ่มต้นคือทั้งหมด เพราะงานที่ค้างอยู่มักปนกันทั้งสองแบบ */
 /* แถวประชุมในรายการ (แท็บ "ทั้งหมด") — แสดงความคืบหน้าเท่านั้น ไม่บันทึกประวัติอบรม */
 function _twMeetingRows(esc) {
-  if (_twTab !== 'all') return '';
+  return '';   // ประชุมแยกไปอยู่ทะเบียนประชุมแล้ว
   const open = openBranchIds();
   return MEETING_COVER.map(m => {
     const rows = _mcRows[m] || {};
