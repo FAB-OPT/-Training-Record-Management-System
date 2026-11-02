@@ -13314,6 +13314,7 @@ function _mcCard() {
 function _mcPaint() {
   const box = document.getElementById('mc-cover');
   if (box) box.innerHTML = _mcCard();
+  if (typeof _twPaint === 'function') _twPaint();   // อัปเดตแถวประชุมในรายการด้วย
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-mc]'); if (!b) return;
@@ -13756,6 +13757,30 @@ function _twError(e) {
       : '⚠️ โหลดไม่สำเร็จ — ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ')}</div>`;
 }
 /* แท็บกรอง — ค่าเริ่มต้นคือทั้งหมด เพราะงานที่ค้างอยู่มักปนกันทั้งสองแบบ */
+/* แถวประชุมในรายการ (แท็บ "ทั้งหมด") — แสดงความคืบหน้าเท่านั้น ไม่บันทึกประวัติอบรม */
+function _twMeetingRows(esc) {
+  if (_twTab !== 'all') return '';
+  const open = openBranchIds();
+  return MEETING_COVER.map(m => {
+    const rows = _mcRows[m] || {};
+    const done = open.filter(b => rows[b] && rows[b].status === 'done').length;
+    const exc = open.filter(b => rows[b] && rows[b].status === 'excused').length;
+    const todo = open.length - done - exc;
+    const stat = todo > 0
+      ? `<span class="tw-st part">เข้าแล้ว ${done} / ${open.length} สาขา</span>`
+      : '<span class="tw-st done">✓ เข้าครบทุกสาขา</span>';
+    return `<div class="tw-row">
+      <div style="min-width:0">
+        <div class="tw-name">${esc(m)} <span style="font-size:11.5px;color:var(--text3);font-weight:600">ประชุม</span></div>
+        <div class="tw-sub">ไม่บันทึกลงประวัติอบรมของพนักงาน${exc ? ' · ยกเว้น ' + exc + ' สาขา' : ''}</div>
+      </div>
+      <div class="tw-when">—</div>
+      <div class="tw-n">${done}<span> สาขา</span></div>
+      <div>${stat}</div>
+      <div class="tw-act"><button class="btn btn-sm btn-outline" onclick="document.getElementById('mc-cover').scrollIntoView({behavior:'smooth'})">ดูสาขา</button></div>
+    </div>`;
+  }).join('');
+}
 let _twTab = 'all';
 function _twSetTab(t) { _twTab = t; _twPaint(); }
 function _twPaint() {
@@ -13786,7 +13811,7 @@ function _twPaint() {
     <div class="tw-head">
       <div>หลักสูตร / บริษัท</div><div>วันที่อบรม</div><div style="text-align:right">คน</div><div>สถานะ</div><div style="text-align:right">จัดการ</div>
     </div>
-    ${items.map(it => _twRowHTML(it, esc, js)).join('')}
+    ${items.map(it => _twRowHTML(it, esc, js)).join('')}${_twMeetingRows(esc)}
   </div>`;
 }
 function _twRowHTML(it, esc, js) {
