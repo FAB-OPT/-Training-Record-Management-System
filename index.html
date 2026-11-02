@@ -13262,11 +13262,15 @@ function courseTodo(name) {
 /* ══════════ ประชุมที่ต้องครบทุกสาขา — ดูภาพรวมว่าสาขาไหนเข้าแล้ว ══════════
    เก็บในตาราง meeting_coverage (ดู supabase-meeting-coverage.sql)
    ไม่บันทึกลงประวัติอบรมของพนักงาน เหมือนทะเบียนประชุม */
-const MEETING_COVER = ['ประชุม RGM'];
+let MEETING_COVER = [];   // รายการประชุม = ชื่อที่มีใบรายชื่อ (ลบแล้วหายจากรายการ)
 let _mcRows = {};
 let _mcWarned = false;   // { ชื่อประชุม: { รหัสสาขา: {status, note} } }
 async function _mcLoad() {
   const sb = _initSb(); if (!sb) return;
+  const rs = await sb.from('meeting_rosters').select('meeting');
+  if (rs.error) { console.warn('[meeting_rosters]', rs.error.message); return; }
+  MEETING_COVER = [...new Set((rs.data || []).map(r => r.meeting))].sort((a, b) => a.localeCompare(b, 'th'));
+  if (!MEETING_COVER.length) { _mcRows = {}; _mcPaint(); return; }
   const res = await sb.from('meeting_coverage').select('meeting,branch_code,status,note').in('meeting', MEETING_COVER);
   if (res.error) { if (!_mcWarned) { _mcWarned = true; alert('โหลดการเข้าประชุมไม่สำเร็จ\n' + res.error.message); } return; }
   _mcRows = {};
@@ -13352,6 +13356,7 @@ function _mcView(m) {
 async function _mcDelete(m) {
   if (!confirm('ลบข้อมูลการเข้าประชุม "' + m + '" ทั้งหมด?\n(ไม่กระทบประวัติอบรมของพนักงาน)')) return;
   const sb = _initSb(); if (!sb) return notify('ยังเชื่อมต่อระบบไม่ได้', 'error');
+  await sb.from('meeting_rosters').delete().eq('meeting', m);
   const res = await sb.from('meeting_coverage').delete().eq('meeting', m);
   if (res.error) return notify('ลบไม่สำเร็จ — ' + res.error.message, 'error');
   notify('ลบแล้ว');
@@ -14748,7 +14753,6 @@ function _openMeetingForm(list) {
   showModal('🧾 ทะเบียนรายชื่อผู้เข้าประชุม', `
     <div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">ผู้เข้าประชุม ${list.length} คน · ออกเป็น PDF อย่างเดียว ไม่บันทึกลงประวัติการอบรม</div>
     <div class="form-row">
-      <div><label class="form-label">ประชุม (ตามรายการที่ต้องครบทุกสาขา) *</label><select class="form-input" id="mt-meet">${MEETING_COVER.map(x => `<option value="${_escH(x)}">${_escH(x)}</option>`).join('')}</select></div>
       <div><label class="form-label">ชื่อการประชุม *</label><input class="form-input" id="mt-name" placeholder="เช่น ประชุมประจำเดือน ต.ค. 2569"></div>
       <div><label class="form-label">บริษัท</label><select class="form-input" id="mt-company">${opts}</select></div>
     </div>
@@ -14770,7 +14774,7 @@ function _openMeetingForm(list) {
       place: document.getElementById('mt-place').value.trim(),
       trainer: document.getElementById('mt-host').value.trim(),
     };
-    const meet = document.getElementById('mt-meet').value;
+    const meet = name;   // ชื่อการประชุมคือรายการที่จะขึ้นในการ์ด
     closeModal();
     /* บันทึกใบรายชื่อแยกตามสาขาไว้ให้เปิดซ้ำได้ + ตั้งสถานะสาขา · ไม่เรียก _tsArchiveIssued: ไม่บันทึกประวัติอบรม */
     _mcSaveRoster(meet, info, list).then(() => _printTrainingSession(info, list, MEETING_ROSTER_OPTS));
