@@ -19919,35 +19919,29 @@ function _cfAgg(rows) {
 }
 function _cfBoxHtml(ctx, rows, code) {
   const canPlan = ctx === 'plan' ? _coachingReady && (currentUser?.type === 'branch' || isAdminRole()) : true;
-  const list = rows.slice(0, 12), pend = list.filter(r => !r.modules).length;
-  const grp = id => (MODULES[id] && MODULES[id].group === 'Cook') ? ['k', 'ครัว'] : ['s', 'บริการ'];
-  const gtag = id => { const g = grp(id); return '<span class="cf-gr ' + g[0] + '">' + g[1] + '</span>'; };
-  const subjSet = new Set(); list.forEach(r => (r.modules || []).forEach(x => (x.subs || []).forEach(sb => subjSet.add(x.id + '|' + sb))));
   const btn = (mid, subs) => {
     const i = _cfPick.push({ mid, subs, ctx }) - 1;
     return '<button type="button" class="cf-chip" onclick="cfUse(' + i + ')">' + (ctx === 'plan' ? '+ ใส่ในแผน' : 'ใช้หัวข้อนี้') + '</button>';
   };
-  const cases = list.map((r, i) => {
+  const one = r => {
     const isFb = r.channel === 'facebook';
     const tag = isFb ? 'Facebook' : 'VOC ' + (r.s != null ? r.s + '/10' : '');
     const cls = isFb ? 'fb' : (r.s != null && r.s <= 3 ? 'hi' : 'md');
     const c = String(r.c || '').replace(/\s+/g, ' ').trim();
-    const mods = (r.modules || []).filter(x => MODULES[x.id]);
-    const chips = !r.modules ? '<span class="cf-wait">⏳ กำลังวิเคราะห์…</span>'
-      : mods.map(x => gtag(x.id) + '<span class="cf-sub">' + _escH(MODULES[x.id].name.replace('Module ', 'M')) + '</span>').join('');
-    const body = !r.modules ? '' : '<div class="cf-bd"><div class="cf-meta">' + _escH(fmtDate(r.d)) + (r.reason ? ' · <span class="cf-why">ต้นเหตุ: ' + _escH(r.reason) + '</span>' : '') + '</div>' +
-      mods.map(x => {
-        const subs = (x.subs || []).slice(0, 3);
-        return '<div class="cf-t"><div class="cf-tn">' + gtag(x.id) + _escH(MODULES[x.id].name) + '</div>' + (canPlan ? btn(x.id, subs) : '') +
-          (subs.length ? '<div class="cf-subs">' + subs.map(sb => '<span class="cf-sub">' + _escH(sb) + '</span>').join('') + '</div>' : '') + '</div>';
-      }).join('') + '</div>';
-    return '<details class="cf-case"' + (i === 0 && r.modules ? ' open' : '') + '><summary><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span>' +
-      '<div class="cf-sm"><div class="cf-q">“' + _escH(c) + '”</div><div class="cf-chips">' + chips + '</div></div><span class="cf-chv">▼</span></summary>' + body + '</details>';
-  }).join('');
-  const sum = subjSet.size ? '<div class="cf-sum"><span class="cf-pill">ควรสอน ' + subjSet.size + ' หัวข้อ</span><span class="cf-pill">จาก ' + list.length + ' เคส</span>' +
-    (pend ? '<span class="cf-pill wait">กำลังวิเคราะห์ ' + pend + ' เคส…</span>' : '') + '</div>' : '';
-  return '<div class="cf-box"><div class="cf-head"><span class="cf-ic">💡</span><span><b>เสียงลูกค้าที่ควรทบทวน · ' + rows.length + ' เคส</b>' +
-    '<span class="cf-sub2">30 วันล่าสุด · แตะเคสเพื่อดูว่าควรสอนอะไร</span></span></div>' + sum + cases + '</div>';
+    const mods = (r.modules || []).filter(x => MODULES[x.id]).slice(0, 2);
+    const teach = !r.modules ? '<div class="cf-wait">⏳ กำลังวิเคราะห์ว่าควรสอนอะไร…</div>'
+      : mods.map(x => {
+          const subs = (x.subs || []).slice(0, 3);
+          return '<div class="cf-t"><div class="cf-tx"><div class="cf-ts">' + _escH(subs.length ? subs.join(' · ') : MODULES[x.id].name) + '</div>' +
+            '<div class="cf-tm">' + _escH(MODULES[x.id].name) + '</div></div>' + (canPlan ? btn(x.id, subs) : '') + '</div>';
+        }).join('');
+    return '<div class="cf-case" title="' + _escH(r.reason || '') + '"><div class="cf-top"><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span><span class="cf-dt">' + _escH(fmtDate(r.d)) + '</span></div>' +
+      '<div class="cf-q">“' + _escH(c) + '”</div>' + (teach ? '<div class="cf-tl">ควรสอน</div>' + teach : '') + '</div>';
+  };
+  const all = rows.slice(0, 12), first = all.slice(0, 3), rest = all.slice(3);
+  return '<div class="cf-box"><div class="cf-head"><span class="cf-ic">💡</span><span><b>เสียงลูกค้า 30 วันล่าสุด · ' + rows.length + ' เคส</b>' +
+    '<span class="cf-sub2">ลูกค้าบ่นเรื่องอะไร → ควรสอนอะไร</span></span></div>' + first.map(one).join('') +
+    (rest.length ? '<details class="cf-more"><summary>ดูอีก ' + rest.length + ' เคส</summary>' + rest.map(one).join('') + '</details>' : '') + '</div>';
 }
 function _cfRenderAll() {
   document.querySelectorAll('.cf-hints').forEach(function (el) {
@@ -19970,28 +19964,20 @@ function _cfMount() {
 (function () {
   const st = document.createElement('style');
   st.textContent =
-    '.cf-box{border:1px solid #FFD2B0;background:var(--accent-light);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:grid;gap:9px}' +
-    '.cf-head{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--text);line-height:1.45}' +
+    '.cf-box{border:1px solid #FFD2B0;background:var(--accent-light);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:grid;gap:10px}' +
+    '.cf-head{display:flex;gap:10px;align-items:center;font-size:14.5px;color:var(--text);line-height:1.4}' +
     '.cf-ic{width:30px;height:30px;border-radius:9px;background:var(--accent);display:grid;place-items:center;font-size:16px;flex:none}' +
     '.cf-sub2{display:block;font-size:12.5px;color:var(--text2)}' +
-    '.cf-sum{display:flex;gap:7px;flex-wrap:wrap}.cf-pill{font-size:12.5px;font-weight:800;border-radius:999px;padding:3px 12px;background:var(--surface);border:1px solid var(--border);color:var(--text)}.cf-pill.wait{color:#B45309;border-color:#FDE68A}' +
-    '.cf-case{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}' +
-    '.cf-case>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 13px;min-height:56px}' +
-    '.cf-case>summary::-webkit-details-marker{display:none}' +
-    '.cf-sc{font-size:12.5px;font-weight:800;border-radius:999px;padding:3px 11px;white-space:nowrap}.cf-sc.hi{background:var(--red-light);color:var(--red)}.cf-sc.md{background:#FEF3C7;color:#B45309}.cf-sc.fb{background:var(--blue-light);color:var(--blue)}' +
-    '.cf-sm{min-width:0}.cf-q{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-    '.cf-case[open] .cf-q{white-space:normal;overflow:visible}' +
-    '.cf-chips{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;align-items:center}' +
-    '.cf-chv{color:var(--text3);font-size:12px;transition:transform .2s}.cf-case[open] .cf-chv{transform:rotate(180deg)}' +
-    '.cf-gr{font-size:11px;font-weight:800;border-radius:6px;padding:1px 7px;white-space:nowrap}.cf-gr.k{background:#FFEDD5;color:#9A3412}.cf-gr.s{background:var(--green-light);color:#166534}' +
-    '.cf-sub{display:inline-block;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:2px 9px;color:var(--text2)}' +
-    '.cf-bd{padding:0 13px 12px;border-top:1px solid var(--border)}' +
-    '.cf-meta{font-size:12.5px;color:var(--text3);padding:9px 0 4px}.cf-why{color:#C2410C}' +
-    '.cf-t{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px dashed var(--border)}' +
-    '.cf-tn{font-weight:700;font-size:13.5px;color:var(--text);display:flex;gap:6px;align-items:center;flex-wrap:wrap}' +
-    '.cf-subs{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap}' +
-    '.cf-chip{border:1.5px solid var(--accent);background:var(--surface);color:#C2410C;font-family:inherit;font-size:12.5px;font-weight:800;border-radius:999px;padding:6px 14px;min-height:34px;cursor:pointer;white-space:nowrap}' +
+    '.cf-case{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 14px;display:grid;gap:7px}' +
+    '.cf-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.cf-dt{font-size:12px;color:var(--text3)}' +
+    '.cf-sc{font-size:12.5px;font-weight:800;border-radius:999px;padding:2px 11px;white-space:nowrap}.cf-sc.hi{background:var(--red-light);color:var(--red)}.cf-sc.md{background:#FEF3C7;color:#B45309}.cf-sc.fb{background:var(--blue-light);color:var(--blue)}' +
+    '.cf-q{font-size:14.5px;line-height:1.5;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
+    '.cf-tl{font-size:12px;font-weight:800;color:#C2410C;margin-top:2px}' +
+    '.cf-t{display:flex;align-items:center;gap:12px;justify-content:space-between;background:var(--accent-light);border-radius:10px;padding:8px 10px 8px 12px}' +
+    '.cf-tx{min-width:0}.cf-ts{font-size:14px;font-weight:700;color:var(--text);line-height:1.4}.cf-tm{font-size:12px;color:var(--text3)}' +
+    '.cf-chip{flex:none;border:1.5px solid var(--accent);background:var(--surface);color:#C2410C;font-family:inherit;font-size:12.5px;font-weight:800;border-radius:999px;padding:6px 14px;min-height:36px;cursor:pointer;white-space:nowrap}' +
     '.cf-chip:hover{background:var(--accent);color:#fff}' +
+    '.cf-more{display:grid;gap:10px}.cf-more>summary{cursor:pointer;font-size:13px;font-weight:800;color:#C2410C;padding:2px 2px 4px}.cf-more[open]>summary{margin-bottom:2px}' +
     '.cf-wait{font-size:12.5px;color:#B45309}';
   document.head.appendChild(st);
   new MutationObserver(function () { _cfMount(); }).observe(document.body, { childList: true, subtree: true });
