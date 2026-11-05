@@ -523,6 +523,7 @@
     border: 1px solid var(--border2); border-radius: 7px; background: var(--white); outline: none;
   }
   .msel-search:focus { border-color: var(--accent); }
+  .msel-done { border: 0; background: var(--accent); color: #fff; font: inherit; font-size: 12.5px; font-weight: 800; padding: 6px 16px; border-radius: 999px; cursor: pointer; flex: none; }
   .msel-none { padding: 14px 8px; text-align: center; font-size: 12.5px; color: var(--text3); }
   .msel-opt { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text); }
   .msel-opt:hover { background: var(--surface2); }
@@ -12599,7 +12600,10 @@ function _mselHTML(id, items, opts) {
     <div class="msel-panel" id="${id}-panel">
       <div class="msel-head">
         ${withSearch ? `<input class="msel-search" id="${id}-search" placeholder="🔍 พิมพ์เพื่อค้นหา…" oninput="_mselFilter('${id}', this.value)" onclick="event.stopPropagation()">` : ''}
-        <label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAllToggle('${id}')"> เลือกทั้งหมด</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <label class="msel-opt" style="padding:2px 0"><input type="checkbox" class="msel-all" onchange="_mselAllToggle('${id}')"> เลือกทั้งหมด</label>
+          <button type="button" class="msel-done" onclick="event.stopPropagation();_mselCloseAll()">เสร็จ</button>
+        </div>
       </div>
       ${body}
       <div class="msel-none" id="${id}-none" style="display:none">ไม่พบรายการที่ตรงกับคำค้น</div>
@@ -12710,6 +12714,7 @@ function _mselSync(id, skipOnChange) {
   if (skipOnChange) return;   // ใช้ตอนซิงก์ caption ครั้งแรกหลังวาด DOM — ไม่ต้องยิง onChange ซ้ำ (บางหน้า onChange รีเรนเดอร์ widget นี้เองด้วย จะวนไม่รู้จบ)
   w.dataset.dirty = '1';   // มีการเปลี่ยนแปลง · ส่งค่าไปหน้าตอนยุบดรอปดาวน์ (ติ๊กหลายอันได้ก่อน)
 }
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') _mselCloseAll(); });   // กด Esc = ปิด
 // คลิกนอกดรอปดาว = ปิด
 document.addEventListener('click', function (e) {
   if (!e.target.closest || (!e.target.closest('.msel') && !e.target.closest('.msel-panel'))) _mselCloseAll();
