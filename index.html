@@ -19308,6 +19308,16 @@ function openPlanItem(grp, itemId, restricted) {
       return;
     }
     const p = getCoachingPlan(bid, ym);
+    /* แก้วันที่สอนไปอยู่เดือนอื่น → ย้ายแผนไปเดือนใหม่ตามวันที่ที่แก้เลย (เอาออกจากเดือนเดิม ใส่ในเดือนใหม่ แล้วพาหน้าไปดูเดือนนั้น) */
+    const _nym = _ymOf(planDate);
+    if (itemId && it0 && _nym && _nym !== ym) {
+      _savePlan(bid, ym, (p.items || []).filter(x => x.id !== rec.id));
+      const _pn = getCoachingPlan(bid, _nym);
+      _savePlan(bid, _nym, (_pn.items || []).filter(x => x.id !== rec.id).concat([rec]));
+      _planMonth = _nym;
+      closeModal(); showPage(currentPage); notify('บันทึกแล้ว · ย้ายแผนไปเดือน ' + _ymLabel(_nym));
+      return;
+    }
     const items = (p.items || []).filter(x => x.id !== rec.id);
     const at = itemId ? (p.items || []).findIndex(x => x.id === itemId) : -1;
     if (at >= 0) items.splice(at, 0, rec); else items.push(rec);
