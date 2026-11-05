@@ -18747,9 +18747,27 @@ function _maybeNotifyBranchAck() {
   setTimeout(() => notify(`✅ BZM ${latest.bzmAckBy} รับทราบแผนการสอนงานแล้ว ${fmtDateTime(latest.bzmAckAt)}`), 1500);
 }
 
+/* แผนที่ค้างอยู่ผิดเดือน (เคยแก้วันที่สอนไปเดือนอื่นก่อนระบบย้ายให้อัตโนมัติ) → ย้ายไปเดือนตามวันที่สอนให้เอง
+   เฉพาะแผนที่ยังไม่มีบันทึกการสอนผูก (ไม่ทำให้แผนที่สอนไปแล้วหลุดจากบันทึก) · ย้ายแล้วพาหน้าไปดูเดือนใหม่ */
+function _cpHealMisplaced(bid, ym) {
+  try {
+    const p = getCoachingPlan(bid, ym), stay = [], moved = {};
+    (p.items || []).forEach(it => {
+      const nym = _ymOf(it.planDate || '');
+      if (nym && nym !== ym && !(Array.isArray(it.linked) && it.linked.length) && !_planItemDone(bid, ym, it)) (moved[nym] = moved[nym] || []).push(it);
+      else stay.push(it);
+    });
+    const months = Object.keys(moved); if (!months.length) return false;
+    _savePlan(bid, ym, stay);
+    months.forEach(m => { const pn = getCoachingPlan(bid, m), ids = new Set(moved[m].map(x => x.id)); _savePlan(bid, m, (pn.items || []).filter(x => !ids.has(x.id)).concat(moved[m])); });
+    if (months.length === 1) { _planMonth = months[0]; setTimeout(() => notify('ย้ายแผนที่แก้วันที่แล้วไปเดือน ' + _ymLabel(months[0]) + ' ให้แล้ว'), 50); }
+    return true;
+  } catch (e) { console.warn('heal plan', e); return false; }
+}
 function renderCoachingPlanPanel(bid) {
   if (!bid || bid === 'ALL') return '';
   if (!_planMonth) _planMonth = _ymNow();
+  if (_coachingReady && (currentUser?.type === 'branch' || isAdminRole())) _cpHealMisplaced(bid, _planMonth);
   const ym = _planMonth, plan = getCoachingPlan(bid, ym);
   const items = plan.items || [];
   const canEdit = _coachingReady && (currentUser?.type === 'branch' || isAdminRole());
