@@ -19867,9 +19867,12 @@ function _planPickerHtml(bid) {
 /* ===== เชื่อม Customer Feedback (VOC/Facebook) → คำแนะนำหัวข้อสอนงาน =====
    ดึงข้อร้องเรียน 30 วันของสาขาจากฐานข้อมูลฮับ (FAB HUB) แล้วให้ฟังก์ชัน analyze-complaints วิเคราะห์ว่าควรสอน Module/หัวข้อย่อยไหน
    ล้มเหลวเงียบๆ — ไม่มีข้อมูลหรือเชื่อมต่อไม่ได้ ก็ไม่แสดงกล่อง ไม่กระทบการทำงานอื่น */
+/* สวิตช์เปิด/ปิดกล่องแนะนำ: ปิดไว้ก่อนจนกว่าจะตั้งคีย์ AI (ANTHROPIC_API_KEY) ใน Supabase เสร็จ แล้วเปลี่ยนเป็น true */
+const CF_HINTS_ON = false;
 const CF_URL = 'https://pzspcjqlxoqnbtvlfjsy.supabase.co';
 const CF_KEY = 'sb_publishable_n1w7k8mdxGbtaHKZ4xnNWA_wxUHhEtP';
 let _cfSb = null, _cfAuth = null;
+const _cfTried = {};          // สาขาที่เรียกวิเคราะห์ไปแล้วในรอบนี้
 const _cfCache = {};          // code → { t, rows }
 const _cfPick = [];           // ชิปที่กดได้ (เก็บ moduleId + หัวข้อย่อยไว้ที่นี่ ไม่ใส่ในแอตทริบิวต์)
 function _cfClient() {
@@ -19891,13 +19894,16 @@ async function _cfFetch(code) {
   let rows = await get(); if (rows == null) return null;
   _cfCache[code] = { t: Date.now(), rows };
   _cfRenderAll();
-  if (rows.some(x => !x.modules)) {                       // ยังมีคอมเมนต์ที่ไม่เคยวิเคราะห์ → ให้ฟังก์ชันวิเคราะห์แล้วดึงใหม่
+  /* ยังมีคอมเมนต์ที่ไม่เคยวิเคราะห์ หรือได้แค่ผลจากกฎคำสำคัญ (เมื่อ AI ใช้ไม่ได้ตอนนั้น) → ให้ฟังก์ชันวิเคราะห์ด้วย AI แล้วดึงใหม่ · ลองซ้ำได้ครั้งเดียวต่อสาขาต่อการเปิดหน้า */
+  if (rows.some(x => !x.modules || x.method !== 'ai') && !_cfTried[code]) {
+    _cfTried[code] = 1;
     try { await c.functions.invoke('analyze-complaints', { body: { code, days: 30 } }); } catch (_) {}
     const r2 = await get(); if (r2) { rows = r2; _cfCache[code] = { t: Date.now(), rows }; }
   }
   return rows;
 }
 function _cfHintsHtml(ctx) {
+  if (!CF_HINTS_ON) return '';
   const bid = getBranchId();
   if (!/^\d{4}$/.test(String(bid || ''))) return '';
   return '<div class="cf-hints" data-ctx="' + ctx + '" data-code="' + bid + '"></div>';
