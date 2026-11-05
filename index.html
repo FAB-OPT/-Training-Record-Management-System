@@ -19956,7 +19956,7 @@ function cfEdSave() {
   _cfOv[r.id] = list; _cfSaveAll(); _cfEd = null; _cfRefresh();
 }
 /* ---- ลบ (ต้องระบุสาเหตุ) ---- */
-function _cfDmOpts() { return CF_REASONS.concat(_cfDm && _cfDm.idx >= 0 ? ['หัวข้อนี้ไม่เกี่ยวกับเคสนี้'] : []).concat(['อื่นๆ (ระบุเอง)']); }
+function _cfDmOpts() { return CF_REASONS.concat(_cfDm && _cfDm.idx >= 0 ? ['Module นี้ไม่เกี่ยวกับเคสนี้'] : []).concat(['อื่นๆ (ระบุเอง)']); }
 function cfAskDel(rid, idx) { _cfEd = null; _cfDm = { rid, idx, reason: '', other: '' }; _cfRefresh(); }
 function cfDmPick(i) { if (!_cfDm) return; _cfDm.reason = _cfDmOpts()[i]; _cfRefresh(); }
 function cfDmCancel() { _cfDm = null; _cfRefresh(); }
@@ -19978,7 +19978,7 @@ function cfDmOk() {
 function cfRestore(rid) { delete _cfDis[rid]; const r = _cfRow(rid); if (r) { r.dismissed = _cfSrvDis(r).filter(x => x.module); _cfSrvCall('train_dismiss_restore', { p_row: rid }); } _cfSaveAll(); _cfRefresh(); }
 function _cfDmHtml() {
   const d = _cfDm, opts = _cfDmOpts(), other = d.reason.indexOf('อื่นๆ') === 0;
-  return '<div class="cf-dm"><div class="cf-dmt">' + (d.idx < 0 ? 'ไม่ต้องสอนเคสนี้ เพราะอะไร?' : 'ลบหัวข้อนี้ เพราะอะไร?') + ' <span class="cf-req">ต้องเลือกสาเหตุ</span></div>' +
+  return '<div class="cf-dm"><div class="cf-dmt">' + (d.idx < 0 ? 'ไม่ต้องสอนเคสนี้ เพราะอะไร?' : 'ลบ Module นี้ เพราะอะไร?') + ' <span class="cf-req">ต้องเลือกสาเหตุ</span></div>' +
     opts.map((o, i) => '<label class="cf-ck"><input type="radio" name="cfdm"' + (o === d.reason ? ' checked' : '') + ' onchange="cfDmPick(' + i + ')"> ' + _escH(o) + '</label>').join('') +
     (other ? '<textarea id="cf-dm-other" class="cf-ta" rows="2" placeholder="พิมพ์สาเหตุ…"></textarea>' : '') +
     '<div class="cf-eda"><button type="button" class="cf-chip fill" onclick="cfDmOk()">ยืนยันลบ</button><button type="button" class="cf-lnk" onclick="cfDmCancel()">ยกเลิก</button></div></div>';
@@ -20014,11 +20014,11 @@ function _cfBoxHtml(ctx, rows, code) {
         const subs = x.subs;
         return '<div class="cf-t"><div class="cf-tx"><div class="cf-ts">' + _escH(subs.length ? subs.join(' · ') : MODULES[x.id].name) + '</div>' +
           '<div class="cf-tm">' + _escH(MODULES[x.id].name) + '</div></div>' +
-          '<div class="cf-ac"><button type="button" class="cf-lnk" onclick="cfEdit(' + r.id + ',' + i + ')">✎ แก้ไข</button>' +
-          '<button type="button" class="cf-lnk del x" onclick="cfAskDel(' + r.id + ',' + i + ')">✕ ลบ</button>' + (canPlan ? btn(x.id, subs) : '') + '</div></div>';
+          '<div class="cf-ac"><button type="button" class="cf-lnk" onclick="cfEdit(' + r.id + ',' + i + ')">✎ แก้ไข Module</button>' +
+          '<button type="button" class="cf-lnk del x" onclick="cfAskDel(' + r.id + ',' + i + ')">✕ ลบ Module</button>' + (canPlan ? btn(x.id, subs) : '') + '</div></div>';
       }).join('');
       if (editing && _cfEd.idx >= mods.length) teach += _cfEditorHtml();
-      else if (!editing && !dm) teach += '<div class="cf-bl"><button type="button" class="cf-lnk add" onclick="cfEdit(' + r.id + ',' + mods.length + ')">+ เพิ่มหัวข้ออื่น</button>' +
+      else if (!editing && !dm) teach += '<div class="cf-bl"><button type="button" class="cf-lnk add" onclick="cfEdit(' + r.id + ',' + mods.length + ')">+ เพิ่ม Module อื่น</button>' +
         '<button type="button" class="cf-lnk del" onclick="cfAskDel(' + r.id + ',-1)">ไม่ต้องสอนเคสนี้</button></div>';
     }
     return '<div class="cf-case"><div class="cf-top"><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span><span class="cf-dt">' + _escH(fmtDate(r.d)) + '</span></div>' +
@@ -20032,7 +20032,7 @@ function _cfBoxHtml(ctx, rows, code) {
       ' <button type="button" class="cf-lnk" onclick="cfRestore(' + r.id + ')">↩ กู้คืน</button></div></div>';
   }).join('') + '</details>' : '';
   return '<div class="cf-box"><div class="cf-head"><span class="cf-ic">💡</span><span><b>แนะนำหัวข้อที่ควรสอนงาน จากคอมเพลนของลูกค้า</b>' +
-    '<span class="cf-sub2">30 วันล่าสุด · ' + live.length + ' เคส · แก้ไขหรือลบหัวข้อได้</span></span></div>' +
+    '<span class="cf-sub2">30 วันล่าสุด · ' + live.length + ' เคส · แก้ไขหรือลบ Module ได้</span></span></div>' +
     (first.length ? first.map(one).join('') : '<div class="cf-wait">ไม่มีเคสที่ต้องสอนแล้ว</div>') +
     (rest.length ? '<details class="cf-more"' + ((_cfEd && rest.some(r => r.id === _cfEd.rid)) || (_cfDm && rest.some(r => r.id === _cfDm.rid)) ? ' open' : '') + '><summary>ดูอีก ' + rest.length + ' เคส</summary>' + rest.map(one).join('') + '</details>' : '') + goneHtml + '</div>';
 }
@@ -24302,7 +24302,7 @@ function _cfOvAgg(rows) {
     const mods = (r.modules || []).filter(x => MODULES[x.id] && !dmods.has(x.id));
     const b = A.br.get(code) || { code, rows: [], active: 0, subs: new Map() }; A.br.set(code, b); b.rows.push(r);
     A.total++; if (!r.modules) A.pending++; else A.analyzed++;
-    dis.forEach(x => { const k = CF_REASONS.includes(x.reason) || x.reason === 'หัวข้อนี้ไม่เกี่ยวกับเคสนี้' ? x.reason : 'อื่นๆ'; A.why.set(k, (A.why.get(k) || 0) + 1); });
+    dis.forEach(x => { const k = CF_REASONS.includes(x.reason) || x.reason === 'Module นี้ไม่เกี่ยวกับเคสนี้' ? x.reason : 'อื่นๆ'; A.why.set(k, (A.why.get(k) || 0) + 1); });
     if (cd) { A.gone++; A.goneList.push({ r, d: cd }); return; }
     A.active++; b.active++;
     mods.forEach(x => (x.subs || []).forEach(sb => {
@@ -24362,7 +24362,7 @@ function renderCfOverview() {
       '<span class="cfo-pill' + (b.active ? '' : ' z') + '">' + b.active + ' เคส</span><span style="color:var(--text3);font-size:12px">' + (open ? '▲' : '▼') + '</span>' +
       (topS.length ? '<div class="cfo-bt">ควรสอน: ' + _escH(topS.join(' · ')) + '</div>' : '') + '</div>' + cases + '</div>';
   }).join('') || '<div style="color:var(--text3);font-size:13px">ไม่มีข้อร้องเรียนในช่วงนี้ 🎉</div>';
-  const wy = ['คอมเพลนไม่ชัดเจน', 'ไม่เกิดขึ้นจริง', 'แก้ไขแล้ว', 'หัวข้อนี้ไม่เกี่ยวกับเคสนี้', 'อื่นๆ'].map(k => [k, A.why.get(k) || 0]);
+  const wy = ['คอมเพลนไม่ชัดเจน', 'ไม่เกิดขึ้นจริง', 'แก้ไขแล้ว', 'Module นี้ไม่เกี่ยวกับเคสนี้', 'อื่นๆ'].map(k => [k, A.why.get(k) || 0]);
   const wmx = Math.max(1, ...wy.map(x => x[1]));
   const goneHtml = (A.gone || A.why.size) ? '<div class="cfo-card"><div class="cfo-h">เคส/หัวข้อที่ถูกลบ และสาเหตุ <small>ทุกคนที่กดลบต้องระบุสาเหตุ</small></div>' +
     wy.map(x => '<div class="cfo-wy"><span>' + _escH(x[0]) + '</span><div class="cfo-bar"><i style="width:' + Math.round(x[1] / wmx * 100) + '%;background:var(--red)"></i></div><b>' + x[1] + '</b></div>').join('') +
