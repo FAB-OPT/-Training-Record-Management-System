@@ -3858,6 +3858,9 @@ function canViewPage(page) { return getPagePerm(page) !== 'none'; }
 function canEditPage(page) { return getPagePerm(page) === 'full'; }
 
 // All admin-area pages available for granular permission selection
+/* ภาพรวม "เสียงลูกค้า → หัวข้อที่ควรสอน" สำหรับแอดมิน/VP/COO/BZM · เปิดเป็น true หลังรัน supabase/train-hints-v2.sql ในฮับแล้ว */
+const CF_OVERVIEW_ON = false;
+const CF_OVERVIEW_PAGE = { page: 'admin-voc-train', icon: '💡', label: 'เสียงลูกค้า' };
 const ALL_ADMIN_PAGES = [
   { page: 'admin-dashboard',       icon: '🏠',  label: 'แดชบอร์ด' },
   { page: 'admin-manage',          icon: '👥',  label: 'จัดการสาขา & พนักงาน' },
@@ -3876,6 +3879,7 @@ const ALL_ADMIN_PAGES = [
   { page: 'admin-chat-logs',       icon: '💬',  label: 'ประวัติแชตบอท' },
   { page: 'admin-reports',         icon: '📊',  label: 'ออกรายงาน' },
 ];
+if (CF_OVERVIEW_ON) ALL_ADMIN_PAGES.push({ ...CF_OVERVIEW_PAGE, label: 'เสียงลูกค้า → หัวข้อสอนงาน' });
 
 // Team Management codes — keyed by 6-digit pin. Each entry has name/nick/role.
 // All entries grant the same Team Management access; role is informational only.
@@ -7948,6 +7952,7 @@ const EXEC_NAV_ITEMS = [
   { page: 'admin-trainings',       icon: '📚',  label: 'การสอน' },
   { page: 'admin-reports',         icon: '📊',  label: 'รายงาน' },
 ];
+if (CF_OVERVIEW_ON) [ADMIN_NAV_ITEMS, BZM_NAV_ITEMS, EXEC_NAV_ITEMS].forEach(a => a.push(CF_OVERVIEW_PAGE));
 function getActiveNavItems() {
   // Per-user override (set in จัดการผู้ใช้งาน) — picks exactly which menu items to show
   const perms = currentUser?.pagePerms;
@@ -7971,6 +7976,7 @@ const _bnavMoreLabels = {
   'admin-reports':    'ออกรายงาน',
   'admin-training-plan': 'จัดอบรม',
   'exec-alerts':      'แจ้งเตือนสำคัญ',
+  'admin-voc-train':  'เสียงลูกค้า',
   'cases':            'ติดต่อ Admin',
   'reports':          'ออกรายงาน',
 };
@@ -8053,6 +8059,7 @@ const _SIDEBAR_LABELS = {
   'admin-cases':          { admin: 'เคสจากสาขา',                     bzm: 'เคสในโซน',                    exec: 'เคสทั้งระบบ' },
   'exec-leaderboard':     { admin: 'จัดอันดับโซน BZM',                bzm: '',                            exec: 'จัดอันดับโซน BZM' },
   'exec-alerts':          { admin: '',                              bzm: 'แจ้งเตือนในโซน',              exec: 'แจ้งเตือนสำคัญ' },
+  'admin-voc-train':      { admin: 'เสียงลูกค้า → หัวข้อสอนงาน',       bzm: 'เสียงลูกค้าในโซน → หัวข้อสอนงาน', exec: 'เสียงลูกค้า → หัวข้อสอนงาน' },
 };
 function _sidebarLabelFor(page) {
   const k = isBzmRole() ? 'bzm' : (isExecRole() ? 'exec' : 'admin');
@@ -8127,6 +8134,7 @@ function showPage(page) {
     'admin-bzm': () => { _adminManageTab = 'bzm'; return renderAdminManage(); },
     'exec-leaderboard': renderExecLeaderboard,
     'exec-alerts': renderExecAlerts,
+    'admin-voc-train': renderCfOverview,
     'admin-chat-logs': renderAdminChatLogs,
     'admin-users': renderAdminUsers,
     'cases': renderBranchCases,
@@ -19926,7 +19934,15 @@ const CF_REASONS = ['คอมเพลนไม่ชัดเจน', 'ไม�
 function _cfSaveAll() { try { localStorage.setItem('cfOv', JSON.stringify(_cfOv)); localStorage.setItem('cfDis', JSON.stringify(_cfDis)); localStorage.setItem('cfLog', JSON.stringify(_cfLog.slice(-300))); } catch (_) {} }
 function _cfRefresh() { _cfVer++; _cfRenderAll(); }
 function _cfRow(id) { for (const k in _cfCache) { const r = _cfCache[k].rows.find(x => x.id === id); if (r) return r; } return null; }
-function _cfMods(r) { return (_cfOv[r.id] || r.modules || []).filter(x => MODULES[x.id]).map(x => ({ id: x.id, subs: (x.subs || []).slice(0, 3) })); }
+function _cfSrvDis(r) { return Array.isArray(r.dismissed) ? r.dismissed : []; }
+function _cfCaseDis(r) { const a = _cfSrvDis(r).find(x => !x.module); return a ? { reason: a.reason, by: a.by || '' } : (_cfDis[r.id] || null); }
+function _cfMods(r) {
+  const gone = new Set(_cfSrvDis(r).filter(x => x.module).map(x => x.module));
+  return (_cfOv[r.id] || r.modules || []).filter(x => MODULES[x.id] && !gone.has(x.id)).map(x => ({ id: x.id, subs: (x.subs || []).slice(0, 3) }));
+}
+async function _cfSrvCall(fn, args) {
+  try { const c = _cfClient(); if (!c || !(await _cfAuth)) return false; const r = await c.rpc(fn, args); return !r.error; } catch (_) { return false; }
+}
 /* ---- แก้ไขหัวข้อ ---- */
 function cfEdit(rid, idx) { const r = _cfRow(rid); if (!r) return; const m = _cfMods(r)[idx]; _cfDm = null; _cfEd = { rid, idx, mid: m ? m.id : '', subs: m ? m.subs.slice() : [] }; _cfRefresh(); }
 function cfEdMod(v) { if (!_cfEd) return; _cfEd.mid = v; _cfEd.subs = []; _cfRefresh(); }
@@ -19950,11 +19966,16 @@ function cfDmOk() {
   const reason = other ? String((ta && ta.value) || '').trim() : d.reason;
   if (!reason) { notify(other ? 'พิมพ์สาเหตุที่ลบก่อน' : 'เลือกสาเหตุที่ลบก่อน', 'error'); return; }
   const by = (currentUser && (currentUser.name || currentUser.branchId)) || '';
-  if (d.idx < 0) { _cfDis[r.id] = { reason, at: Date.now() }; _cfLog.push({ rid: r.id, mid: null, reason, at: Date.now(), by }); }
-  else { const list = _cfMods(r), m = list[d.idx]; list.splice(d.idx, 1); _cfOv[r.id] = list; _cfLog.push({ rid: r.id, mid: m ? m.id : null, subs: m ? m.subs : [], reason, at: Date.now(), by }); }
+  if (d.idx < 0) {
+    _cfDis[r.id] = { reason, at: Date.now() }; _cfLog.push({ rid: r.id, mid: null, reason, at: Date.now(), by });
+    _cfSrvCall('train_dismiss', { p_row: r.id, p_module: '', p_reason: reason, p_by: by, p_subs: null }).then(ok => { if (ok) { r.dismissed = _cfSrvDis(r).concat([{ module: null, reason, by, at: new Date().toISOString() }]); delete _cfDis[r.id]; _cfSaveAll(); _cfRefresh(); } });
+  } else {
+    const list = _cfMods(r), m = list[d.idx]; list.splice(d.idx, 1); _cfOv[r.id] = list; _cfLog.push({ rid: r.id, mid: m ? m.id : null, subs: m ? m.subs : [], reason, at: Date.now(), by });
+    if (m) _cfSrvCall('train_dismiss', { p_row: r.id, p_module: m.id, p_reason: reason, p_by: by, p_subs: m.subs }).then(ok => { if (ok) r.dismissed = _cfSrvDis(r).concat([{ module: m.id, reason, by, at: new Date().toISOString() }]); });
+  }
   _cfSaveAll(); _cfDm = null; _cfRefresh();
 }
-function cfRestore(rid) { delete _cfDis[rid]; _cfSaveAll(); _cfRefresh(); }
+function cfRestore(rid) { delete _cfDis[rid]; const r = _cfRow(rid); if (r) { r.dismissed = _cfSrvDis(r).filter(x => x.module); _cfSrvCall('train_dismiss_restore', { p_row: rid }); } _cfSaveAll(); _cfRefresh(); }
 function _cfDmHtml() {
   const d = _cfDm, opts = _cfDmOpts(), other = d.reason.indexOf('อื่นๆ') === 0;
   return '<div class="cf-dm"><div class="cf-dmt">' + (d.idx < 0 ? 'ไม่ต้องสอนเคสนี้ เพราะอะไร?' : 'ลบหัวข้อนี้ เพราะอะไร?') + ' <span class="cf-req">ต้องเลือกสาเหตุ</span></div>' +
@@ -20003,11 +20024,11 @@ function _cfBoxHtml(ctx, rows, code) {
     return '<div class="cf-case"><div class="cf-top"><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span><span class="cf-dt">' + _escH(fmtDate(r.d)) + '</span></div>' +
       '<div class="cf-q">“' + _escH(c) + '”</div>' + teach + '</div>';
   };
-  const live = rows.filter(r => !_cfDis[r.id]), gone = rows.filter(r => _cfDis[r.id]);
+  const live = rows.filter(r => !_cfCaseDis(r)), gone = rows.filter(r => _cfCaseDis(r));
   const all = live.slice(0, 12), first = all.slice(0, 3), rest = all.slice(3);
   const goneHtml = gone.length ? '<details class="cf-more cf-gone"><summary>เคสที่ลบแล้ว (' + gone.length + ')</summary>' + gone.map(r => {
     const c = String(r.c || '').replace(/\s+/g, ' ').trim();
-    return '<div class="cf-g"><div class="cf-gq">“' + _escH(c.length > 90 ? c.slice(0, 90) + '…' : c) + '”</div><div class="cf-gr">สาเหตุที่ลบ: ' + _escH(_cfDis[r.id].reason) +
+    return '<div class="cf-g"><div class="cf-gq">“' + _escH(c.length > 90 ? c.slice(0, 90) + '…' : c) + '”</div><div class="cf-gr">สาเหตุที่ลบ: ' + _escH(_cfCaseDis(r).reason) +
       ' <button type="button" class="cf-lnk" onclick="cfRestore(' + r.id + ')">↩ กู้คืน</button></div></div>';
   }).join('') + '</details>' : '';
   return '<div class="cf-box"><div class="cf-head"><span class="cf-ic">💡</span><span><b>แนะนำหัวข้อที่ควรสอนงาน จากคอมเพลนของลูกค้า</b>' +
@@ -20901,7 +20922,7 @@ function deleteTransferRequestRow(id) {
 const NAV_GROUP_V2 = [
   ['ภาพรวม',            ['admin-dashboard', 'exec-alerts']],
   ['คนและสาขา',          ['admin-manage', 'admin-transfers', 'admin-branch-updates']],
-  ['การสอนงาน',          ['admin-plan-overview', 'admin-plan-ack', 'admin-trainings']],
+  ['การสอนงาน',          ['admin-plan-overview', 'admin-plan-ack', 'admin-trainings', 'admin-voc-train']],
   ['อบรมและข้อสอบ',      ['admin-course-history', 'admin-training-plan', 'admin-quiz', 'admin-quiz-stats']],
   ['ติดตามและรายงาน',    ['exec-leaderboard', 'admin-cases', 'admin-reports']],
   ['ระบบ',              ['admin-users', 'admin-chat-logs']],
@@ -24212,6 +24233,115 @@ function renderAdminChatLogs() {
     <button class="tm-btn-o" style="color:var(--red)" onclick="clearChatLogs('all')">🗑 ล้างประวัติทั้งหมด</button>
     <button class="tm-btn-o" style="color:var(--red)" onclick="clearChatEverywhere()" title="ลบทั้งฝั่งเซิร์ฟเวอร์ และล้างกล่องแชตของทุกเครื่องทุกสาขา">🌐 ล้างทุกเครื่องทุกสาขา</button>
   </div>` : ''}`;
+}
+
+/* ===== หน้าภาพรวม: เสียงลูกค้า → หัวข้อที่ควรสอน (แอดมิน / VP / COO / BZM) ===== */
+let _cfOvw = { days: 30, rows: null, err: '', loading: false, zone: '', open: {}, prog: '' };
+const _cfOvName = c => (BRANCH_MASTER[c] && BRANCH_MASTER[c].name) || c;
+const _cfOvZone = c => (BRANCH_MASTER[c] && BRANCH_MASTER[c].manager) || 'ไม่ระบุ BZM';
+function _cfOvRender() { if (currentPage === 'admin-voc-train') { const m = document.getElementById('main-content'); if (m) m.innerHTML = renderCfOverview(); } }
+async function cfOvLoad() {
+  if (_cfOvw.loading) return;
+  _cfOvw.loading = true; _cfOvw.err = ''; _cfOvRender();
+  try {
+    const c = _cfClient(); if (!c) throw new Error('no-client');
+    if (!(await _cfAuth)) throw new Error('no-auth');
+    const codes = getAccessibleBranches().filter(b => /^\d{4}$/.test(String(b)));
+    const r = await c.rpc('train_hints_overview', { p_codes: codes, p_days: _cfOvw.days });
+    if (r.error) throw r.error;
+    _cfOvw.rows = r.data || [];
+  } catch (e) { _cfOvw.rows = null; _cfOvw.err = /PGRST202|schema cache|does not exist|Could not find/i.test(String((e && (e.message || e.code)) || e)) ? 'setup' : 'fail'; }
+  _cfOvw.loading = false; _cfOvRender();
+}
+function cfOvDays(n) { _cfOvw.days = n; _cfOvw.rows = null; cfOvLoad(); }
+function cfOvZone(v) { _cfOvw.zone = v; _cfOvRender(); }
+function cfOvOpen(c) { _cfOvw.open[c] = !_cfOvw.open[c]; _cfOvRender(); }
+async function cfOvAnalyze() {
+  const c = _cfClient(); if (!c || !_cfOvw.rows) return;
+  const todo = [...new Set(_cfOvw.rows.filter(r => !r.modules).map(r => String(r.br).slice(0, 4)))].slice(0, 15);
+  for (let i = 0; i < todo.length; i++) {
+    _cfOvw.prog = 'กำลังวิเคราะห์ ' + (i + 1) + '/' + todo.length + ' สาขา…'; _cfOvRender();
+    try { await c.functions.invoke('analyze-complaints', { body: { code: todo[i], days: _cfOvw.days } }); } catch (_) {}
+  }
+  _cfOvw.prog = ''; _cfOvw.loading = false; await cfOvLoad();
+}
+function _cfOvAgg(rows) {
+  const A = { total: 0, active: 0, gone: 0, analyzed: 0, pending: 0, subs: new Map(), br: new Map(), why: new Map(), goneList: [] };
+  rows.forEach(r => {
+    const code = String(r.br).slice(0, 4), dis = Array.isArray(r.dismissed) ? r.dismissed : [];
+    const cd = dis.find(x => !x.module), dmods = new Set(dis.filter(x => x.module).map(x => x.module));
+    const mods = (r.modules || []).filter(x => MODULES[x.id] && !dmods.has(x.id));
+    const b = A.br.get(code) || { code, rows: [], active: 0, subs: new Map() }; A.br.set(code, b); b.rows.push(r);
+    A.total++; if (!r.modules) A.pending++; else A.analyzed++;
+    dis.forEach(x => { const k = CF_REASONS.includes(x.reason) || x.reason === 'หัวข้อนี้ไม่เกี่ยวกับเคสนี้' ? x.reason : 'อื่นๆ'; A.why.set(k, (A.why.get(k) || 0) + 1); });
+    if (cd) { A.gone++; A.goneList.push({ r, d: cd }); return; }
+    A.active++; b.active++;
+    mods.forEach(x => (x.subs || []).forEach(sb => {
+      const k = x.id + '|' + sb;
+      const t = A.subs.get(k) || { id: x.id, sub: sb, n: 0, br: new Set() }; t.n++; t.br.add(code); A.subs.set(k, t);
+      b.subs.set(k, (b.subs.get(k) || 0) + 1);
+    }));
+  });
+  return A;
+}
+function renderCfOverview() {
+  if (!_cfOvw.rows && !_cfOvw.loading && !_cfOvw.err) setTimeout(cfOvLoad, 0);
+  const scope = isBzmRole() ? 'สาขาในโซนของคุณ' : (isExecRole() ? 'ทุกสาขา' : 'ทุกสาขา');
+  const nBr = getAccessibleBranches().length;
+  const head = '<div class="page-hero"><div class="page-hero-body"><div class="page-hero-title">เสียงลูกค้า → หัวข้อที่ควรสอน</div>' +
+    '<div class="page-hero-sub">คอมเพลนจาก VOC (คะแนน ≤ 6) และ Facebook ' + _cfOvw.days + ' วันล่าสุด · ' + scope + ' ' + nBr + ' สาขา</div></div>' +
+    '<div class="cfo-ctl">' + [30, 60, 90].map(n => '<button type="button" class="cfo-day' + (n === _cfOvw.days ? ' on' : '') + '" onclick="cfOvDays(' + n + ')">' + n + ' วัน</button>').join('') + '</div></div>';
+  const css = '<style>.cfo-ctl{display:flex;gap:6px;flex-wrap:wrap}.cfo-day{border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);font:700 13px inherit;font-family:inherit;border-radius:999px;padding:7px 15px;cursor:pointer;min-height:38px}.cfo-day.on{background:var(--text);color:#fff;border-color:var(--text)}' +
+    '.cfo-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}.cfo-kc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}.cfo-kn{font-size:30px;font-weight:800;line-height:1.1}.cfo-kl{font-size:12.5px;color:var(--text3);margin-top:3px}' +
+    '.cfo-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px}.cfo-h{font-size:15.5px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.cfo-h small{font-size:12.5px;font-weight:500;color:var(--text3)}' +
+    '.cfo-tp{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:8px 0;border-top:1px dashed var(--border)}.cfo-tp:first-of-type{border-top:0}.cfo-rk{font-weight:800;color:var(--accent);text-align:center}.cfo-tn{font-weight:700;font-size:14px;line-height:1.35}.cfo-tm{font-size:12px;color:var(--text3)}.cfo-bar{grid-column:2/-1;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden}.cfo-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}.cfo-ct{font-size:12.5px;font-weight:700;color:var(--text2);white-space:nowrap}' +
+    '.cfo-br{border-top:1px solid var(--border)}.cfo-br:first-child{border-top:0}.cfo-bh{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:11px 2px;cursor:pointer;min-height:52px}.cfo-bn{font-weight:700;font-size:14px}.cfo-bz{font-size:12px;color:var(--text3)}.cfo-pill{font-size:12.5px;font-weight:800;border-radius:999px;padding:3px 11px;background:var(--accent-light);color:#C2410C;white-space:nowrap}.cfo-pill.z{background:var(--surface2);color:var(--text3)}' +
+    '.cfo-bt{font-size:12.5px;color:var(--text2);grid-column:1/-1;margin-top:-4px;padding-bottom:4px}.cfo-cs{padding:2px 2px 12px;display:grid;gap:8px}.cfo-c{background:var(--surface2);border-radius:10px;padding:9px 12px;display:grid;gap:4px}.cfo-ch{display:flex;justify-content:space-between;font-size:12px;color:var(--text3)}.cfo-q{font-size:13.5px;line-height:1.5}.cfo-sb{font-size:12.5px;color:#C2410C;font-weight:600}.cfo-gn{font-size:12.5px;color:var(--red)}' +
+    '.cfo-wy{display:grid;grid-template-columns:150px minmax(0,1fr) 34px;gap:10px;align-items:center;padding:5px 0;font-size:13px}.cfo-wy .cfo-bar{grid-column:auto}.cfo-sel{font-family:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);max-width:100%}</style>';
+  if (_cfOvw.loading && !_cfOvw.rows) return css + head + '<div class="cfo-card" style="text-align:center;color:var(--text3)">⏳ กำลังโหลดข้อมูล…' + (_cfOvw.prog ? '<br>' + _cfOvw.prog : '') + '</div>';
+  if (_cfOvw.err === 'setup') return css + head + '<div class="cfo-card"><div class="cfo-h">⚙️ ยังไม่ได้ติดตั้งฐานข้อมูลส่วนภาพรวม</div><div style="color:var(--text2);line-height:1.6">ต้องรันไฟล์ <b>supabase/train-hints-v2.sql</b> ในโปรเจกต์ FAB HUB ก่อน แล้วกดรีเฟรชหน้านี้</div></div>';
+  if (_cfOvw.err) return css + head + '<div class="cfo-card"><div class="cfo-h">โหลดข้อมูลไม่สำเร็จ</div><button type="button" class="cfo-day on" onclick="cfOvLoad()">ลองใหม่</button></div>';
+  let rows = _cfOvw.rows || [];
+  if (_cfOvw.zone) rows = rows.filter(r => _cfOvZone(String(r.br).slice(0, 4)) === _cfOvw.zone);
+  const A = _cfOvAgg(rows);
+  const zones = [...new Set(getAccessibleBranches().map(_cfOvZone))].sort();
+  const zoneSel = zones.length > 1 ? '<select class="cfo-sel" onchange="cfOvZone(this.value)"><option value="">ทุกโซน (BZM)</option>' + zones.map(z => '<option value="' + _escH(z) + '"' + (z === _cfOvw.zone ? ' selected' : '') + '>' + _escH(z) + '</option>').join('') + '</select>' : '';
+  const kpi = '<div class="cfo-k">' +
+    [[A.active, 'เคสที่ควรทบทวน'], [[...A.br.values()].filter(b => b.active).length, 'สาขาที่มีเคส'], [new Set([...A.subs.values()].map(t => t.sub + t.id)).size, 'หัวข้อที่ควรสอน'], [A.gone, 'เคสที่ลบแล้ว']]
+      .map(k => '<div class="cfo-kc"><div class="cfo-kn">' + k[0] + '</div><div class="cfo-kl">' + k[1] + '</div></div>').join('') + '</div>';
+  const tools = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">' + zoneSel +
+    (A.pending ? '<button type="button" class="cfo-day on" onclick="cfOvAnalyze()">วิเคราะห์ที่ค้าง (' + A.pending + ' เคส)</button>' : '') +
+    (_cfOvw.prog ? '<span style="font-size:13px;color:#B45309">' + _cfOvw.prog + '</span>' : '') +
+    '<button type="button" class="cfo-day" onclick="cfOvLoad()">↻ รีเฟรช</button></div>';
+  const top = [...A.subs.values()].sort((a, b) => b.n - a.n || b.br.size - a.br.size).slice(0, 10), mx = top.length ? top[0].n : 1;
+  const topHtml = top.length ? top.map((t, i) => '<div class="cfo-tp"><div class="cfo-rk">' + (i + 1) + '</div><div><div class="cfo-tn">' + _escH(t.sub) + '</div><div class="cfo-tm">' + _escH(MODULES[t.id].name) + '</div></div>' +
+    '<div class="cfo-ct">' + t.n + ' เคส · ' + t.br.size + ' สาขา</div><div class="cfo-bar"><i style="width:' + Math.max(6, Math.round(t.n / mx * 100)) + '%"></i></div></div>').join('')
+    : '<div style="color:var(--text3);font-size:13px">ยังไม่มีหัวข้อ' + (A.pending ? ' · กด "วิเคราะห์ที่ค้าง" ด้านบน' : '') + '</div>';
+  const brs = [...A.br.values()].sort((a, b) => b.active - a.active || b.rows.length - a.rows.length);
+  const brHtml = brs.map(b => {
+    const topS = [...b.subs.entries()].sort((x, y) => y[1] - x[1]).slice(0, 2).map(e => e[0].split('|')[1]);
+    const open = !!_cfOvw.open[b.code];
+    const cases = open ? '<div class="cfo-cs">' + b.rows.map(r => {
+      const dis = Array.isArray(r.dismissed) ? r.dismissed : [], cd = dis.find(x => !x.module), dm = new Set(dis.filter(x => x.module).map(x => x.module));
+      const mods = (r.modules || []).filter(x => MODULES[x.id] && !dm.has(x.id));
+      const tag = r.channel === 'facebook' ? 'Facebook' : 'VOC ' + r.s + '/10', c = String(r.c || '').replace(/\s+/g, ' ').trim();
+      return '<div class="cfo-c"' + (cd ? ' style="opacity:.65"' : '') + '><div class="cfo-ch"><b>' + _escH(tag) + '</b><span>' + _escH(fmtDate(r.d)) + '</span></div><div class="cfo-q">“' + _escH(c.length > 200 ? c.slice(0, 200) + '…' : c) + '”</div>' +
+        (cd ? '<div class="cfo-gn">ลบแล้ว: ' + _escH(cd.reason) + (cd.by ? ' · ' + _escH(cd.by) : '') + '</div>'
+          : (!r.modules ? '<div class="cfo-tm">⏳ ยังไม่ได้วิเคราะห์</div>' : mods.map(x => '<div class="cfo-sb">สอน: ' + _escH((x.subs || []).join(' · ') || MODULES[x.id].name) + ' <span style="color:var(--text3);font-weight:500">(' + _escH(MODULES[x.id].name) + ')</span></div>').join(''))) + '</div>';
+    }).join('') + '</div>' : '';
+    return '<div class="cfo-br"><div class="cfo-bh" onclick="cfOvOpen(\'' + b.code + '\')"><div><div class="cfo-bn">' + _escH(_cfOvName(b.code)) + '</div><div class="cfo-bz">' + _escH(_cfOvZone(b.code)) + '</div></div>' +
+      '<span class="cfo-pill' + (b.active ? '' : ' z') + '">' + b.active + ' เคส</span><span style="color:var(--text3);font-size:12px">' + (open ? '▲' : '▼') + '</span>' +
+      (topS.length ? '<div class="cfo-bt">ควรสอน: ' + _escH(topS.join(' · ')) + '</div>' : '') + '</div>' + cases + '</div>';
+  }).join('') || '<div style="color:var(--text3);font-size:13px">ไม่มีข้อร้องเรียนในช่วงนี้ 🎉</div>';
+  const wy = ['คอมเพลนไม่ชัดเจน', 'ไม่เกิดขึ้นจริง', 'แก้ไขแล้ว', 'หัวข้อนี้ไม่เกี่ยวกับเคสนี้', 'อื่นๆ'].map(k => [k, A.why.get(k) || 0]);
+  const wmx = Math.max(1, ...wy.map(x => x[1]));
+  const goneHtml = (A.gone || A.why.size) ? '<div class="cfo-card"><div class="cfo-h">เคส/หัวข้อที่ถูกลบ และสาเหตุ <small>ทุกคนที่กดลบต้องระบุสาเหตุ</small></div>' +
+    wy.map(x => '<div class="cfo-wy"><span>' + _escH(x[0]) + '</span><div class="cfo-bar"><i style="width:' + Math.round(x[1] / wmx * 100) + '%;background:var(--red)"></i></div><b>' + x[1] + '</b></div>').join('') +
+    (A.goneList.length ? '<div style="margin-top:10px;display:grid;gap:6px">' + A.goneList.slice(0, 15).map(g => '<div class="cfo-c"><div class="cfo-ch"><b>' + _escH(_cfOvName(String(g.r.br).slice(0, 4))) + '</b><span>' + _escH(fmtDate(g.d.at || g.r.d)) + '</span></div><div class="cfo-q">“' +
+      _escH(String(g.r.c || '').replace(/\s+/g, ' ').trim().slice(0, 120)) + '”</div><div class="cfo-gn">สาเหตุที่ลบ: ' + _escH(g.d.reason) + (g.d.by ? ' · ' + _escH(g.d.by) : '') + '</div></div>').join('') + '</div>' : '') + '</div>' : '';
+  return css + head + tools + kpi +
+    '<div class="cfo-card"><div class="cfo-h">หัวข้อที่ควรสอนมากที่สุด <small>นับจากจำนวนเคสที่เกี่ยวข้อง</small></div>' + topHtml + '</div>' +
+    '<div class="cfo-card"><div class="cfo-h">รายสาขา <small>แตะชื่อสาขาเพื่อดูคอมเมนต์และหัวข้อที่ควรสอน</small></div>' + brHtml + '</div>' + goneHtml;
 }
 
 function renderExecAlerts() {
