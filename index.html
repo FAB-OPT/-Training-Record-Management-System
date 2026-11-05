@@ -19917,6 +19917,59 @@ function _cfAgg(rows) {
   }));
   return Object.values(m).sort((a, b) => b.n - a.n).slice(0, 5);
 }
+/* หัวข้อที่ผู้ใช้แก้ไขเอง (เปลี่ยน Module/หัวข้อย่อย · ลบ · เพิ่ม) — จำไว้ในเครื่องนี้ ไม่ทับผลวิเคราะห์ของระบบ
+   การลบ (ทั้งเคสหรือรายหัวข้อ) ต้องระบุสาเหตุเสมอ และเก็บบันทึกไว้ใน cfLog */
+function _cfLoad(k, d) { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (_) { return d; } }
+let _cfOv = _cfLoad('cfOv', {}), _cfDis = _cfLoad('cfDis', {}), _cfLog = _cfLoad('cfLog', []);
+let _cfEd = null, _cfDm = null, _cfVer = 0;
+const CF_REASONS = ['คอมเพลนไม่ชัดเจน', 'ไม่เกิดขึ้นจริง', 'แก้ไขแล้ว'];
+function _cfSaveAll() { try { localStorage.setItem('cfOv', JSON.stringify(_cfOv)); localStorage.setItem('cfDis', JSON.stringify(_cfDis)); localStorage.setItem('cfLog', JSON.stringify(_cfLog.slice(-300))); } catch (_) {} }
+function _cfRefresh() { _cfVer++; _cfRenderAll(); }
+function _cfRow(id) { for (const k in _cfCache) { const r = _cfCache[k].rows.find(x => x.id === id); if (r) return r; } return null; }
+function _cfMods(r) { return (_cfOv[r.id] || r.modules || []).filter(x => MODULES[x.id]).map(x => ({ id: x.id, subs: (x.subs || []).slice(0, 3) })); }
+/* ---- แก้ไขหัวข้อ ---- */
+function cfEdit(rid, idx) { const r = _cfRow(rid); if (!r) return; const m = _cfMods(r)[idx]; _cfDm = null; _cfEd = { rid, idx, mid: m ? m.id : '', subs: m ? m.subs.slice() : [] }; _cfRefresh(); }
+function cfEdMod(v) { if (!_cfEd) return; _cfEd.mid = v; _cfEd.subs = []; _cfRefresh(); }
+function cfEdSub(i, on) { if (!_cfEd) return; const sb = ((MODULES[_cfEd.mid] || {}).subtopics || [])[i]; if (!sb) return; _cfEd.subs = _cfEd.subs.filter(x => x !== sb); if (on) _cfEd.subs.push(sb); }
+function cfEdCancel() { _cfEd = null; _cfRefresh(); }
+function cfEdSave() {
+  const e = _cfEd, r = e && _cfRow(e.rid); if (!r) return;
+  if (!e.mid || !e.subs.length) { notify('เลือก Module และหัวข้อย่อยอย่างน้อย 1 หัวข้อ', 'error'); return; }
+  const list = _cfMods(r); const item = { id: e.mid, subs: e.subs.slice(0, 3) };
+  if (e.idx < list.length) list[e.idx] = item; else list.push(item);
+  _cfOv[r.id] = list; _cfSaveAll(); _cfEd = null; _cfRefresh();
+}
+/* ---- ลบ (ต้องระบุสาเหตุ) ---- */
+function _cfDmOpts() { return CF_REASONS.concat(_cfDm && _cfDm.idx >= 0 ? ['หัวข้อนี้ไม่เกี่ยวกับเคสนี้'] : []).concat(['อื่นๆ (ระบุเอง)']); }
+function cfAskDel(rid, idx) { _cfEd = null; _cfDm = { rid, idx, reason: '', other: '' }; _cfRefresh(); }
+function cfDmPick(i) { if (!_cfDm) return; _cfDm.reason = _cfDmOpts()[i]; _cfRefresh(); }
+function cfDmCancel() { _cfDm = null; _cfRefresh(); }
+function cfDmOk() {
+  const d = _cfDm, r = d && _cfRow(d.rid); if (!r) return;
+  const other = d.reason.indexOf('อื่นๆ') === 0, ta = document.getElementById('cf-dm-other');
+  const reason = other ? String((ta && ta.value) || '').trim() : d.reason;
+  if (!reason) { notify(other ? 'พิมพ์สาเหตุที่ลบก่อน' : 'เลือกสาเหตุที่ลบก่อน', 'error'); return; }
+  const by = (currentUser && (currentUser.name || currentUser.branchId)) || '';
+  if (d.idx < 0) { _cfDis[r.id] = { reason, at: Date.now() }; _cfLog.push({ rid: r.id, mid: null, reason, at: Date.now(), by }); }
+  else { const list = _cfMods(r), m = list[d.idx]; list.splice(d.idx, 1); _cfOv[r.id] = list; _cfLog.push({ rid: r.id, mid: m ? m.id : null, subs: m ? m.subs : [], reason, at: Date.now(), by }); }
+  _cfSaveAll(); _cfDm = null; _cfRefresh();
+}
+function cfRestore(rid) { delete _cfDis[rid]; _cfSaveAll(); _cfRefresh(); }
+function _cfDmHtml() {
+  const d = _cfDm, opts = _cfDmOpts(), other = d.reason.indexOf('อื่นๆ') === 0;
+  return '<div class="cf-dm"><div class="cf-dmt">' + (d.idx < 0 ? 'ไม่ต้องสอนเคสนี้ เพราะอะไร?' : 'ลบหัวข้อนี้ เพราะอะไร?') + ' <span class="cf-req">ต้องเลือกสาเหตุ</span></div>' +
+    opts.map((o, i) => '<label class="cf-ck"><input type="radio" name="cfdm"' + (o === d.reason ? ' checked' : '') + ' onchange="cfDmPick(' + i + ')"> ' + _escH(o) + '</label>').join('') +
+    (other ? '<textarea id="cf-dm-other" class="cf-ta" rows="2" placeholder="พิมพ์สาเหตุ…"></textarea>' : '') +
+    '<div class="cf-eda"><button type="button" class="cf-chip fill" onclick="cfDmOk()">ยืนยันลบ</button><button type="button" class="cf-lnk" onclick="cfDmCancel()">ยกเลิก</button></div></div>';
+}
+function _cfEditorHtml() {
+  const e = _cfEd, subs = (MODULES[e.mid] || {}).subtopics || [];
+  const opt = g => Object.keys(MODULES).filter(id => MODULES[id].group === g).map(id => '<option value="' + id + '"' + (id === e.mid ? ' selected' : '') + '>' + _escH(MODULES[id].name) + '</option>').join('');
+  return '<div class="cf-ed"><select class="cf-sel" onchange="cfEdMod(this.value)"><option value="">— เลือก Module —</option>' +
+    '<optgroup label="ครัว">' + opt('Cook') + '</optgroup><optgroup label="บริการ">' + opt('Service') + '</optgroup></select>' +
+    (e.mid ? '<div class="cf-eds">' + subs.map((sb, i) => '<label class="cf-ck"><input type="checkbox"' + (e.subs.includes(sb) ? ' checked' : '') + ' onchange="cfEdSub(' + i + ',this.checked)"> ' + _escH(sb) + '</label>').join('') + '</div>' : '') +
+    '<div class="cf-eda"><button type="button" class="cf-chip fill" onclick="cfEdSave()">ตกลง</button><button type="button" class="cf-lnk" onclick="cfEdCancel()">ยกเลิก</button></div></div>';
+}
 function _cfBoxHtml(ctx, rows, code) {
   const canPlan = ctx === 'plan' ? _coachingReady && (currentUser?.type === 'branch' || isAdminRole()) : true;
   const btn = (mid, subs) => {
@@ -19928,27 +19981,46 @@ function _cfBoxHtml(ctx, rows, code) {
     const tag = isFb ? 'Facebook' : 'VOC ' + (r.s != null ? r.s + '/10' : '');
     const cls = isFb ? 'fb' : (r.s != null && r.s <= 3 ? 'hi' : 'md');
     const c = String(r.c || '').replace(/\s+/g, ' ').trim();
-    const mods = (r.modules || []).filter(x => MODULES[x.id]).slice(0, 2);
-    const teach = !r.modules ? '<div class="cf-wait">⏳ กำลังวิเคราะห์ว่าควรสอนอะไร…</div>'
-      : mods.map(x => {
-          const subs = (x.subs || []).slice(0, 3);
-          return '<div class="cf-t"><div class="cf-tx"><div class="cf-ts">' + _escH(subs.length ? subs.join(' · ') : MODULES[x.id].name) + '</div>' +
-            '<div class="cf-tm">' + _escH(MODULES[x.id].name) + '</div>' + ((x.why || r.reason) ? '<div class="cf-by">เพราะ: ' + _escH(x.why || r.reason) + '</div>' : '') + '</div>' + (canPlan ? btn(x.id, subs) : '') + '</div>';
-        }).join('');
-    return '<div class="cf-case" title="' + _escH(r.reason || '') + '"><div class="cf-top"><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span><span class="cf-dt">' + _escH(fmtDate(r.d)) + '</span></div>' +
+    const editing = _cfEd && _cfEd.rid === r.id, dm = _cfDm && _cfDm.rid === r.id;
+    let teach;
+    if (!r.modules) teach = '<div class="cf-wait">⏳ กำลังวิเคราะห์ว่าควรสอนอะไร…</div>';
+    else if (dm && _cfDm.idx < 0) teach = _cfDmHtml();
+    else {
+      const mods = _cfMods(r);
+      teach = mods.map((x, i) => {
+        if (editing && _cfEd.idx === i) return _cfEditorHtml();
+        if (dm && _cfDm.idx === i) return _cfDmHtml();
+        const subs = x.subs;
+        return '<div class="cf-t"><div class="cf-tx"><div class="cf-ts">' + _escH(subs.length ? subs.join(' · ') : MODULES[x.id].name) + '</div>' +
+          '<div class="cf-tm">' + _escH(MODULES[x.id].name) + '</div></div>' +
+          '<div class="cf-ac"><button type="button" class="cf-lnk" onclick="cfEdit(' + r.id + ',' + i + ')">✎ แก้ไข</button>' +
+          '<button type="button" class="cf-lnk del x" onclick="cfAskDel(' + r.id + ',' + i + ')">✕ ลบ</button>' + (canPlan ? btn(x.id, subs) : '') + '</div></div>';
+      }).join('');
+      if (editing && _cfEd.idx >= mods.length) teach += _cfEditorHtml();
+      else if (!editing && !dm) teach += '<div class="cf-bl"><button type="button" class="cf-lnk add" onclick="cfEdit(' + r.id + ',' + mods.length + ')">+ เพิ่มหัวข้ออื่น</button>' +
+        '<button type="button" class="cf-lnk del" onclick="cfAskDel(' + r.id + ',-1)">ไม่ต้องสอนเคสนี้</button></div>';
+    }
+    return '<div class="cf-case"><div class="cf-top"><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span><span class="cf-dt">' + _escH(fmtDate(r.d)) + '</span></div>' +
       '<div class="cf-q">“' + _escH(c) + '”</div>' + teach + '</div>';
   };
-  const all = rows.slice(0, 12), first = all.slice(0, 3), rest = all.slice(3);
+  const live = rows.filter(r => !_cfDis[r.id]), gone = rows.filter(r => _cfDis[r.id]);
+  const all = live.slice(0, 12), first = all.slice(0, 3), rest = all.slice(3);
+  const goneHtml = gone.length ? '<details class="cf-more cf-gone"><summary>เคสที่ลบแล้ว (' + gone.length + ')</summary>' + gone.map(r => {
+    const c = String(r.c || '').replace(/\s+/g, ' ').trim();
+    return '<div class="cf-g"><div class="cf-gq">“' + _escH(c.length > 90 ? c.slice(0, 90) + '…' : c) + '”</div><div class="cf-gr">สาเหตุที่ลบ: ' + _escH(_cfDis[r.id].reason) +
+      ' <button type="button" class="cf-lnk" onclick="cfRestore(' + r.id + ')">↩ กู้คืน</button></div></div>';
+  }).join('') + '</details>' : '';
   return '<div class="cf-box"><div class="cf-head"><span class="cf-ic">💡</span><span><b>แนะนำหัวข้อที่ควรสอนงาน จากคอมเพลนของลูกค้า</b>' +
-    '<span class="cf-sub2">30 วันล่าสุด · ' + rows.length + ' เคส</span></span></div>' + first.map(one).join('') +
-    (rest.length ? '<details class="cf-more"><summary>ดูอีก ' + rest.length + ' เคส</summary>' + rest.map(one).join('') + '</details>' : '') + '</div>';
+    '<span class="cf-sub2">30 วันล่าสุด · ' + live.length + ' เคส · แก้ไขหรือลบหัวข้อได้</span></span></div>' +
+    (first.length ? first.map(one).join('') : '<div class="cf-wait">ไม่มีเคสที่ต้องสอนแล้ว</div>') +
+    (rest.length ? '<details class="cf-more"' + ((_cfEd && rest.some(r => r.id === _cfEd.rid)) || (_cfDm && rest.some(r => r.id === _cfDm.rid)) ? ' open' : '') + '><summary>ดูอีก ' + rest.length + ' เคส</summary>' + rest.map(one).join('') + '</details>' : '') + goneHtml + '</div>';
 }
 function _cfRenderAll() {
   document.querySelectorAll('.cf-hints').forEach(function (el) {
     const code = el.dataset.code, ctx = el.dataset.ctx, hit = _cfCache[code];
     if (!hit) return;
     if (!hit.rows.length) { el.innerHTML = ''; return; }
-    const sig = ctx + '|' + hit.t;
+    const sig = ctx + '|' + hit.t + '|' + _cfVer;
     if (el.dataset.sig === sig) return;
     el.dataset.sig = sig; el.innerHTML = _cfBoxHtml(ctx, hit.rows, code);
   });
@@ -19973,12 +20045,25 @@ function _cfMount() {
     '.cf-sc{font-size:12.5px;font-weight:800;border-radius:999px;padding:2px 11px;white-space:nowrap}.cf-sc.hi{background:var(--red-light);color:var(--red)}.cf-sc.md{background:#FEF3C7;color:#B45309}.cf-sc.fb{background:var(--blue-light);color:var(--blue)}' +
     '.cf-q{font-size:14.5px;line-height:1.5;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
     '.cf-t{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;justify-content:space-between;background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:8px 10px 8px 12px}' +
-    '.cf-by{font-size:12.5px;color:#C2410C;margin-top:3px;line-height:1.45}' +
     '.cf-tx{flex:1 1 200px;min-width:0}.cf-ts{font-size:14px;font-weight:700;color:var(--text);line-height:1.4}.cf-tm{font-size:12px;color:var(--text3)}' +
     '.cf-chip{flex:none;border:1.5px solid var(--accent);background:var(--surface);color:#C2410C;font-family:inherit;font-size:12.5px;font-weight:800;border-radius:999px;padding:6px 14px;min-height:36px;cursor:pointer;white-space:nowrap}' +
     '.cf-chip:hover{background:var(--accent);color:#fff}' +
     '.cf-more{display:grid;gap:10px}.cf-more>summary{cursor:pointer;font-size:13px;font-weight:800;color:#C2410C;padding:2px 2px 4px}.cf-more[open]>summary{margin-bottom:2px}' +
-    '.cf-wait{font-size:12.5px;color:#B45309}';
+    '.cf-wait{font-size:12.5px;color:#B45309}' +
+    '.cf-ac{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}' +
+    '.cf-lnk{border:0;background:none;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer;padding:6px 4px;min-height:34px}.cf-lnk:hover{color:#C2410C;text-decoration:underline}' +
+    '.cf-lnk.add{justify-self:start;color:#C2410C}.cf-lnk.del{color:var(--red);margin-left:auto}.cf-lnk.del.x{margin-left:0}' +
+    '.cf-bl{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}' +
+    '.cf-dm{background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;padding:10px 12px;display:grid;gap:4px}' +
+    '.cf-dmt{font-size:13.5px;font-weight:800;color:var(--text)}.cf-req{font-size:11.5px;font-weight:700;color:var(--red);margin-left:4px}' +
+    '.cf-ta{width:100%;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;resize:vertical}' +
+    '.cf-gone>summary{color:var(--text3)}.cf-g{background:var(--surface);border:1px dashed var(--border2);border-radius:10px;padding:8px 12px;display:grid;gap:3px}' +
+    '.cf-gq{font-size:13px;color:var(--text3)}.cf-gr{font-size:12.5px;color:var(--text2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}' +
+    '.cf-ed{background:var(--surface2);border:1.5px solid var(--accent);border-radius:10px;padding:10px 12px;display:grid;gap:9px}' +
+    '.cf-sel{width:100%;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text)}' +
+    '.cf-eds{display:grid;gap:2px;max-height:210px;overflow:auto}' +
+    '.cf-ck{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;padding:6px 4px;cursor:pointer;line-height:1.4}.cf-ck input{width:18px;height:18px;accent-color:var(--accent);margin-top:1px;flex:none}' +
+    '.cf-eda{display:flex;align-items:center;gap:6px}.cf-chip.fill{background:var(--accent);color:#fff}';
   document.head.appendChild(st);
   new MutationObserver(function () { _cfMount(); }).observe(document.body, { childList: true, subtree: true });
 })();
