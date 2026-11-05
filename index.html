@@ -3859,7 +3859,7 @@ function canEditPage(page) { return getPagePerm(page) === 'full'; }
 
 // All admin-area pages available for granular permission selection
 /* ภาพรวม "เสียงลูกค้า → หัวข้อที่ควรสอน" สำหรับแอดมิน/VP/COO/BZM · เปิดเป็น true หลังรัน supabase/train-hints-v2.sql ในฮับแล้ว */
-const CF_OVERVIEW_ON = false;
+const CF_OVERVIEW_ON = true;
 const CF_OVERVIEW_PAGE = { page: 'admin-voc-train', icon: '💡', label: 'เสียงลูกค้า' };
 const ALL_ADMIN_PAGES = [
   { page: 'admin-dashboard',       icon: '🏠',  label: 'แดชบอร์ด' },
