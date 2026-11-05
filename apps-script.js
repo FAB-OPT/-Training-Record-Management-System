@@ -233,7 +233,7 @@ function _chatCfgOf(req) {
   return {
     provider: CHAT_OK_PROVIDER.indexOf(c.provider) >= 0 ? c.provider : '',
     models: models.length ? models : null,
-    claudeModel: CHAT_OK_CLAUDE.indexOf(c.claudeModel) >= 0 ? c.claudeModel : 'claude-sonnet-4-5'
+    claudeModel: CHAT_OK_CLAUDE.indexOf(c.claudeModel) >= 0 ? c.claudeModel : 'claude-haiku-4-5-20251001'
   };
 }
 function chatWithClaude(req) {
