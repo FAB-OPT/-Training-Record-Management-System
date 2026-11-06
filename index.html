@@ -20289,6 +20289,8 @@ function _planMdHtml(bids, ym) {
 }
 let _planF = { zone: '', branch: null, from: '', to: '', late: false };   // ตัวกรองหน้าแผนการสอนงาน (Admin/BZM)
 function _planSetFilter(k, v) { _planF[k] = v; if (k === 'zone') _planF.branch = null; showPage(currentPage); }
+let _planTab = 'all';   // แท็บสถานะของหน้าแผนการสอนงาน (Admin/BZM)
+function _planSetTab(t) { _planTab = t; showPage(currentPage); }
 function _planClearFilter() { _planF = { zone: '', branch: null, from: '', to: '', late: false }; showPage(currentPage); }
 /* ยุบดรอปดาวน์สาขาแล้ว · รับค่าที่เลือกไว้ และวาดหน้าใหม่ตามนั้น */
 function _planPickBranch() {
@@ -20356,7 +20358,7 @@ function renderAdminPlanOverview() {
     }
     return { bid, name: (BRANCH_MASTER[bid].name || bid).replace(bid + ' ', ''), a,
       k: k.length, kd: d(k), s: s.length, sd: d(s), pp };
-  }).filter(r => bzm ? r.a.items.length : (r.a.items.length || r.a.recs.length || _isLatePunct(r.pp)))
+  }).filter(r => bzm ? r.a.items.length : true)
     .filter(r => !_planF.late || _isLatePunct(r.pp))
     .filter(r => !(_planF.from || _planF.to) || r.a.items.some(it => inRange(it.planDate)))
     .sort((x, y) => bzm ? x.bid.localeCompare(y.bid) : ((y.a.off.length - x.a.off.length) || x.bid.localeCompare(y.bid)));
@@ -20383,6 +20385,47 @@ function renderAdminPlanOverview() {
     if (!ts.length) return '<span style="color:var(--text4)">—</span>';
     return _escH(fmtDateTime(ts[0])) + (ts.length > 1 && fmtDateTime(ts[ts.length - 1]) !== fmtDateTime(ts[0]) ? `<br><span style="color:var(--text3)">ล่าสุด ${_escH(fmtDateTime(ts[ts.length - 1]))}</span>` : '');
   };
+  /* ===== หน้าตาใหม่: หัวความคืบหน้า + แท็บสถานะ + แถวรายสาขา ===== */
+  const _tabOf = r => ({ noplan: !r.a.items.length, planned: r.a.items.length > 0, late: _isLatePunct(r.pp), off: r.a.off.length > 0, ack: !!needAckByBranch[r.bid] });
+  const _poTabDefs = bzm ? [['all', 'ทั้งหมด'], ['ack', 'รอรับทราบ']]
+    : [['all', 'ทั้งหมด'], ['noplan', 'ยังไม่วางแผน'], ['planned', 'วางแผนแล้ว'], ['late', 'ล่าช้า'], ['off', 'มีบันทึกนอกแผน']];
+  if (!_poTabDefs.some(t => t[0] === _planTab)) _planTab = 'all';
+  const vis = rows.filter(r => _planTab === 'all' || _tabOf(r)[_planTab]);
+  const _poTabs = '<div class="po3-tabs">' + _poTabDefs.map(t => '<button type="button" class="' + (t[0] === _planTab ? 'on' : '') + '" onclick="_planSetTab(\'' + t[0] + '\')">' + t[1] +
+    '<i>' + (t[0] === 'all' ? rows.length : rows.filter(r => _tabOf(r)[t[0]]).length) + '</i></button>').join('') + '</div>';
+  const _nick = b => { const m = String((BRANCH_MASTER[b] || {}).manager || '').match(/\(([^)]+)\)/); return m ? m[1] : String((BRANCH_MASTER[b] || {}).manager || ''); };
+  const _poRows = '<div class="po3-list' + (bzm ? ' bz' : '') + '">' + vis.map(r => {
+    const planned = r.a.items.length, taughtAll = planned && !r.a.notYet.length;
+    const chip = bzm ? '' : (taughtAll ? '<span class="badge badge-green">✓ สอนครบ</span>' : _punctBadge(r.pp, 'ทำแผน'));
+    const madeTs = r.a.items.map(it => it.createdAt).filter(x => x && !isNaN(new Date(x))).sort();
+    return '<div class="po3-rw"><span class="po3-dot" style="background:' + (planned ? 'var(--green)' : '#B45309') + '"></span>' +
+      '<div class="po3-br"><b style="color:var(--accent)">' + r.bid + '</b> ' + _escH(r.name) + '<div class="po3-mut">' + _escH(_nick(r.bid)) + '</div></div>' +
+      '<div class="po3-x">' + (planned ? 'ครัว ' + (r.k ? r.kd + '/' + r.k : '—') + ' · บริการ ' + (r.s ? r.sd + '/' + r.s : '—') + (r.a.notYet.length ? '<div class="po3-mut">ยังไม่สอน ' + r.a.notYet.length + '</div>' : '') : '<span class="po3-mut">ยังไม่วางแผน</span>') + '</div>' +
+      '<div class="po3-x">' + (planned ? 'วางแผน ' + dates(r) + (madeTs.length ? '<div class="po3-mut">จัดทำ ' + _escH(fmtDateTime(madeTs[0])) + '</div>' : '') : '<span class="po3-mut">—</span>') + '</div>' +
+      (bzm ? '' : '<div class="po3-x">' + (r.a.off.length ? '<span class="badge badge-yellow">' + r.a.off.length + ' ครั้ง</span>' : '<span class="po3-mut">—</span>') + '</div>') +
+      '<div class="po3-end">' + chip + (needAckByBranch[r.bid] ? '<span class="badge" style="background:#3B82F6;color:#fff" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">' + needAckByBranch[r.bid] + ' ใหม่</span>' : '') +
+      '<button class="btn btn-sm btn-outline po-view" onclick="openPlanAudit(\'' + r.bid + '\')">ดู</button></div></div>';
+  }).join('') + '</div>';
+  const _pctP = bids.length ? Math.round(withPlan / bids.length * 100) : 0, _pctT = _allItems.length ? Math.round(_taughtN / _allItems.length * 100) : 0;
+  const _kN = _allItems.filter(x => _planGroup(x.it.moduleId) === 'kitchen').length, _sN = _allItems.length - _kN;
+  const _poHero = '<style>' +
+    '.po2-big{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}@media(max-width:760px){.po2-big{grid-template-columns:1fr}}' +
+    '.po2-c{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}.po2-l{font-size:15px;color:var(--text3)}.po2-n{font-size:42px;font-weight:800;line-height:1.05}.po2-n small{font-size:19px;color:var(--text3);font-weight:600}' +
+    '.po2-bar{height:12px;background:var(--surface2);border-radius:99px;overflow:hidden;margin:10px 0 6px}.po2-bar i{display:block;height:100%;border-radius:99px}.po2-s{font-size:14px;color:var(--text3)}' +
+    '.po2-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.po2-chip{font-size:13.5px;font-weight:800;border-radius:999px;padding:4px 13px}' +
+    '.po3-tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);overflow-x:auto;margin-bottom:6px}.po3-tabs button{font:800 14px inherit;font-family:inherit;border:0;background:none;padding:11px 15px;cursor:pointer;color:var(--text2);white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px}.po3-tabs button.on{color:var(--text);border-color:var(--accent)}.po3-tabs i{font-style:normal;font-size:12px;background:var(--surface2);border-radius:99px;padding:1px 9px;margin-left:5px}.po3-tabs button.on i{background:var(--accent);color:#fff}' +
+    '.po3-rw{display:grid;grid-template-columns:12px minmax(0,1.7fr) minmax(0,1.2fr) minmax(0,1.3fr) 92px 270px;gap:12px;align-items:center;padding:11px 6px;border-top:1px solid var(--border)}.po3-list.bz .po3-rw{grid-template-columns:12px minmax(0,1.7fr) minmax(0,1.2fr) minmax(0,1.3fr) 200px}' +
+    '.po3-rw:first-child{border-top:0}.po3-dot{width:11px;height:11px;border-radius:50%}.po3-br{font-size:15px}.po3-mut{font-size:12.5px;color:var(--text3)}.po3-x{font-size:14px}.po3-end{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}' +
+    '@media(max-width:860px){.po3-rw,.po3-list.bz .po3-rw{grid-template-columns:12px minmax(0,1fr) auto}.po3-x{display:none}.po3-end .badge:not(.badge-green){display:none}}' +
+    '</style>' +
+    '<div class="po2-big"><div class="po2-c"><div class="po2-l">สาขาที่วางแผนแล้ว</div><div class="po2-n">' + withPlan + '<small>/' + bids.length + ' สาขา</small></div><div class="po2-bar"><i style="width:' + _pctP + '%;background:var(--accent)"></i></div><div class="po2-s">' + _pctP + '% · ' + (_noPlanBranches ? 'ยังไม่ทำแผน ' + _noPlanBranches + ' สาขา' : 'ครบทุกสาขา') + (bzm ? '' : ' · ล่าช้า ' + (_planLateN + _planMissN)) + '</div></div>' +
+    '<div class="po2-c"><div class="po2-l">สอนแล้วตามแผน</div><div class="po2-n">' + _taughtN + '<small>/' + _allItems.length + ' แผน</small></div><div class="po2-bar"><i style="width:' + _pctT + '%;background:var(--green)"></i></div><div class="po2-s">' + _pctT + '% · ประเมินแล้ว ' + _evaluatedN + ' · ยังไม่สอน ' + (_allItems.length - _taughtN) + '</div></div></div>' +
+    '<div class="po2-chips">' +
+    (bzm ? '<span class="po2-chip" style="background:#DBEAFE;color:#1E40AF">🔔 รอรับทราบ ' + rows.reduce((t, r) => t + (needAckByBranch[r.bid] || 0), 0) + ' (แผนใหม่/อัปเดต)</span>'
+      : (offTotal ? '<span class="po2-chip" style="background:#FEF3C7;color:#B45309">⚠ บันทึกนอกแผน ' + offTotal + ' ครั้ง ใน ' + offBranches + ' สาขา</span>' : '<span class="po2-chip" style="background:var(--green-light);color:var(--green)">✓ ไม่มีบันทึกนอกแผน</span>') +
+        '<span class="po2-chip" style="background:' + ((_planLateN + _planMissN) ? '#FEE2E2' : 'var(--surface2)') + ';color:' + ((_planLateN + _planMissN) ? '#B91C1C' : 'var(--text2)') + '">⏰ ทำแผนล่าช้า ' + (_planLateN + _planMissN) + ' · กำหนดภายในวันที่ ' + BU_DEADLINE_DAY + '</span>') +
+    '<span class="po2-chip" style="background:var(--accent-light);color:#C2410C">🔁 ต้องสอนใหม่ ' + _redoN + '</span>' +
+    '<span class="po2-chip" style="background:var(--surface2);color:var(--text2)">ครัว ' + _kN + ' · บริการ ' + _sN + ' แผน</span></div>';
   return `<div class="card po-card" style="margin-bottom:16px">
     <div class="po-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <div class="po-title" style="flex:1;min-width:240px;font-weight:800;font-size:22px">📅 แผนการสอนงาน${bzm ? '' : ' · ตรวจการสอนเทียบแผน'}
@@ -20392,15 +20435,7 @@ function renderAdminPlanOverview() {
       <b style="min-width:150px;text-align:center;font-size:17px">${_ymLabel(ym)}</b>
       <button class="btn btn-sm btn-outline" onclick="setPlanMonth(1)">›</button>
     </div>
-    <div class="stats-grid sum3" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
-      ${_sumCard('🏪', 'สาขาที่วางแผนแล้ว', withPlan + '/' + bids.length, _noPlanBranches ? 'ยังไม่ทำแผน ' + _noPlanBranches + ' สาขา' : 'ครบทุกสาขา', _noPlanBranches ? '#B45309' : 'var(--green)')}
-      ${_sumCard('📋', 'แผนทั้งหมด', _allItems.length, 'ครัว ' + _allItems.filter(x => _planGroup(x.it.moduleId) === 'kitchen').length + ' · บริการ ' + _allItems.filter(x => _planGroup(x.it.moduleId) === 'service').length)}
-      ${_sumCard('✅', 'สอนแล้ว', _taughtN + '/' + _allItems.length, 'ประเมินแล้ว ' + _evaluatedN, 'var(--green)')}
-      ${_sumCard('⏳', 'ยังไม่สอน', _allItems.length - _taughtN, '', _allItems.length - _taughtN ? '#B45309' : 'var(--text)')}
-      ${_sumCard('🔁', 'ต้องสอนใหม่', _redoN, '', _redoN ? 'var(--red)' : 'var(--text)')}
-      ${bzm ? _sumCard('🔔', 'รอรับทราบ', rows.reduce((t, r) => t + (needAckByBranch[r.bid] || 0), 0), 'แผนใหม่/อัปเดต', '#2563EB') : _sumCard('⚠️', 'บันทึกนอกแผน', offTotal, 'ใน ' + offBranches + ' สาขา', offTotal ? '#B45309' : 'var(--green)')}
-      ${bzm ? '' : _sumCard('⏰', 'ทำแผนล่าช้า', _planLateN + _planMissN, 'กำหนดภายในวันที่ ' + BU_DEADLINE_DAY + ' · ทำช้า ' + _planLateN + ' · ยังไม่ทำ ' + _planMissN, (_planLateN + _planMissN) ? 'var(--red)' : 'var(--green)')}
-    </div>
+    ${_poHero}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
       ${zones.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">โซน / BZM</div><select class="form-select" style="min-width:220px;height:50px;font-size:16px" onchange="_planSetFilter('zone', this.value)"><option value="">ทุกโซน</option>${zones.map(z => `<option value="${_escH(z)}"${_planF.zone === z ? ' selected' : ''}>${_escH(z)}</option>`).join('')}</select></div>` : ''}
       ${allBids.length > 1 ? `<div><div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">สาขา</div><div style="min-width:220px">${_mselHTML('plan-branch', zoneBids.slice().sort().map(b => ({ v: b, label: _bName(b) })), { selected: _planF.branch, allChecked: _planF.branch === null, onChange: '_planPickBranch', noneText: 'ทุกสาขา', caption: _planF.branch === null ? 'ทุกสาขา' : !_planF.branch.length ? 'ยังไม่ได้เลือก' : _planF.branch.length === zoneBids.length ? 'ทุกสาขา' : _planF.branch.length === 1 ? _bName(_planF.branch[0]) : 'เลือก ' + _planF.branch.length + ' สาขา' })}</div></div>` : ''}
@@ -20411,20 +20446,7 @@ function renderAdminPlanOverview() {
     </div>
     ${bzm && _coachingReady ? _planMdHtml(bids, ym) : ''}
     ${!_coachingReady ? `<div style="font-size:12.5px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 12px">ยังไม่ได้เปิดใช้งาน — รันไฟล์ supabase-coaching-plan-transfer.sql ใน Supabase ก่อน</div>` :
-    rows.length ? `<div class="table-wrap${bzm ? ' po-tbl-m' : ''}"><table class="cards-on-mobile po-table">
-      <thead><tr><th>สาขา</th><th style="text-align:center">ครัว<br><small>สอนแล้ว/แผน</small></th><th style="text-align:center">บริการ<br><small>สอนแล้ว/แผน</small></th>
-        <th>วันที่วางแผนสอน</th><th>สาขาจัดทำเมื่อ</th>${bzm ? '' : `<th>ทำแผนตามกำหนด<br><small>ภายในวันที่ ${BU_DEADLINE_DAY}</small></th>`}<th style="text-align:center">ยังไม่สอน</th>${bzm ? '' : '<th style="text-align:center">บันทึกนอกแผน</th>'}<th></th></tr></thead>
-      <tbody>${rows.map(r => `<tr>
-        <td data-label="สาขา"><b style="color:var(--accent)">${r.bid}</b> ${_escH(r.name)}${r.a.items.length ? '' : ' <span class="badge" style="font-size:12.5px">ยังไม่วางแผน</span>'}</td>
-        <td data-label="ครัว สอนแล้ว/แผน" style="text-align:center">${cell(r.k, r.kd)}</td><td data-label="บริการ สอนแล้ว/แผน" style="text-align:center">${cell(r.s, r.sd)}</td>
-        <td data-label="วันที่วางแผนสอน" style="font-size:14.5px">${dates(r)}</td>
-        <td data-label="สาขาจัดทำเมื่อ" style="font-size:14.5px;white-space:nowrap">${madeAt(r)}</td>
-        ${bzm ? '' : `<td data-label="ทำแผนตามกำหนด" style="white-space:nowrap">${_punctBadge(r.pp, 'ทำแผน')}</td>`}
-        <td data-label="ยังไม่สอน" style="text-align:center">${r.a.notYet.length || '<span style="color:var(--text4)">0</span>'}</td>
-        ${bzm ? '' : `<td data-label="บันทึกนอกแผน" style="text-align:center">${r.a.off.length ? `<span class="badge badge-yellow">${r.a.off.length} ครั้ง</span>` : '<span style="color:var(--green);font-weight:700">✓ ตรงแผน</span>'}</td>`}
-        <td data-label="actions" style="text-align:right">${needAckByBranch[r.bid] ? `<span class="badge" style="background:#3B82F6;color:#fff;margin-right:4px" title="แผนใหม่/อัปเดตที่ยังไม่ได้กดรับทราบ">${needAckByBranch[r.bid]} ใหม่</span>` : ''}<button class="btn btn-sm btn-outline po-view" onclick="openPlanAudit('${r.bid}')">ดู</button></td>
-      </tr>`).join('')}</tbody>
-    </table></div>` : '<div style="font-size:13px;color:var(--text3)">' + (filtering ? 'ไม่พบสาขาตามตัวกรองที่เลือก' : 'เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน') + '</div>'}
+    rows.length ? `${_poTabs}${vis.length ? _poRows : '<div style="padding:22px;text-align:center;color:var(--text3);font-size:14px">ไม่มีสาขาในหมวดนี้</div>'}` : '<div style="font-size:13px;color:var(--text3)">' + (filtering ? 'ไม่พบสาขาตามตัวกรองที่เลือก' : 'เดือนนี้ยังไม่มีทั้งแผนและบันทึกการสอน') + '</div>'}
   </div>`;
 }
 // เมนูเต็มหน้า (แยกจากวิดเจ็ตที่แทรกในหน้า "การสอน") — ให้ BZM เข้าถึงแผนการสอนงานทั้งโซนได้ตรง ๆ จากเมนู
