@@ -3203,6 +3203,13 @@ body.admin-user .btn-navy{background:var(--primary)}
 .bu-opt-row,.emp-pick-row{transition:background .12s,border-color .12s}
 .bu-opt-row:hover,.emp-pick-row:hover{background:var(--surface2);border-color:var(--border2)}
 .bu-opt-row:active,.emp-pick-row:active{transform:scale(.99)}
+.bu-q{border:1.5px solid var(--accent);background:var(--accent-light);border-radius:12px;padding:10px 12px;margin-bottom:14px;display:grid;gap:7px}
+.bu-q-h{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:13.5px}
+.bu-q-clear{border:0;background:none;color:var(--red);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.bu-q-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+.bu-q-ic{font-size:16px}.bu-q-tx{flex:1;min-width:0;font-size:12.5px;color:var(--text2);line-height:1.4}.bu-q-tx b{color:var(--text);font-size:13.5px}
+.bu-q-x{border:0;background:none;color:var(--text3);font-size:15px;cursor:pointer;width:32px;height:32px;border-radius:8px}.bu-q-x:hover{background:var(--red-light);color:var(--red)}
+.bu-q-hint{font-size:11.5px;color:var(--text3)}
 .bu-last-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
 @media (max-width:480px){
   .emp-title-text{font-size:15px!important}
@@ -9531,7 +9538,7 @@ function renderEmployees() {
         <div class="bu-last-pill" style="${_buLast ? 'background:var(--green-light);color:var(--green)' : 'background:var(--accent-light);color:var(--accent)'}">🕐 ${_buLast ? `อัพเดทล่าสุด ${fmtDateTime(_buLast.at)} โดย ${_escH(_buLast.by || '—')}` : 'ยังไม่เคยอัพเดทข้อมูลพนักงาน'}</div>
       </div>
     </div>
-    <button class="btn btn-accent" onclick="openBranchUpdateMenu()">🔄 อัพเดทข้อมูลพนักงาน</button>
+    <button class="btn btn-accent" onclick="openBranchUpdateMenu()">🔄 อัพเดทข้อมูลพนักงาน${_buQueue().length ? ' (' + _buQueue().length + ')' : ''}</button>
   </div>
   <div class="card">
     <div class="filter-bar emp-filter-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
@@ -9617,7 +9624,8 @@ function _joinNick(name, nick) {
   const n = String(name || '').trim(), k = String(nick || '').trim().replace(/^\(|\)$/g, '').trim();
   return k ? n + ' (' + k + ')' : n;
 }
-function openAddEmployee() {
+function openAddEmployee(opts) {
+  const batch = !!(opts && opts.batch);   // มาจากเมนูอัพเดท: เก็บเข้ารายการรอบันทึก ยังไม่บันทึกทันที
   const groupOpts = Object.keys(POSITION_BY_GROUP).map(g=>`<option value="${g}">${g}</option>`).join('');
   showModal('เพิ่มพนักงานใหม่', `
     <div class="form-row">
@@ -9681,16 +9689,30 @@ function openAddEmployee() {
       // Admin (Team Management) can still add with confirmation
       showConfirm(
         `พบพนักงานที่ปิดการใช้งานแล้วของสาขานี้ ตรงกับข้อมูลที่กำลังเพิ่ม${dupInfo}<br>ต้องการเพิ่มพนักงานใหม่หรือไม่?`,
-        () => _commitAddEmployee(bid, empCode, name, pos, start, st),
+        () => _commitAddEmployee(bid, empCode, name, pos, start, st, batch),
         { title:'พบข้อมูลซ้ำ', icon:'⚠', danger:false, confirmText:'เพิ่มต่อไป' }
       );
       return;
     }
-    _commitAddEmployee(bid, empCode, name, pos, start, st);
-  });
+    _commitAddEmployee(bid, empCode, name, pos, start, st, batch);
+  }, batch ? 'เพิ่มเข้ารายการ' : undefined);
+  if (batch) _buBackButtons();
 }
 
-function _commitAddEmployee(bid, empCode, name, pos, start, st) {
+function _commitAddEmployee(bid, empCode, name, pos, start, st, batch) {
+  if (batch) {   // เก็บเข้ารายการรอบันทึก
+    if (_buQueue().some(q => q.type === 'add' && String(q.empCode).toLowerCase() === String(empCode).toLowerCase())) { notify('รหัส ' + empCode + ' ซ้ำกับพนักงานใหม่ที่เพิ่มไว้ในรายการแล้ว', 'error'); return; }
+    _buQueuePush({ type: 'add', bid, empCode, name, pos, start, st });
+    closeModal(); openBranchUpdateMenu();
+    return;
+  }
+  _commitAddEmployeeCore(bid, empCode, name, pos, start, st);
+  closeModal();
+  showPage('employees');
+  notify('เพิ่มพนักงานสำเร็จ');
+}
+function _commitAddEmployeeCore(bid, empCode, name, pos, start, st) {
+  if (!DB.employees[bid]) DB.employees[bid] = [];
   const _ne = mkEmployee(bid, name, pos, start, st.status);
   _ne.empCode = empCode;
   if (st.disabledReason) _ne.disabledReason = st.disabledReason;
@@ -9698,9 +9720,7 @@ function _commitAddEmployee(bid, empCode, name, pos, start, st) {
   DB.employees[bid].push(_ne);
   gsSave('employees', _ne.id, _ne);
   if (currentUser.type === 'branch') logBranchUpdate(bid, 'add', _ne.id, _ne.name, ['ตำแหน่ง: ' + (_ne.position || '—'), 'วันเริ่มงาน: ' + (_ne.startDate ? fmtDate(_ne.startDate) : '—')].join(' · '));
-  closeModal();
-  showPage('employees');
-  notify('เพิ่มพนักงานสำเร็จ');
+  return _ne;
 }
 
 /* ตรวจรหัสพนักงานที่แก้ — คืนข้อความผิดพลาด หรือ '' ถ้าใช้ได้ (ห้ามว่าง ห้ามซ้ำคนอื่น) */
@@ -9718,7 +9738,8 @@ function _empCodeApply(e, newCode) {
     if (c.empId === e.id && (c.empCode || '') !== newCode) { c.empCode = newCode; gsSave('courseHistory', c.id, c); }
   });
 }
-function openEditEmployee(id) {
+function openEditEmployee(id, opts) {
+  const batch = !!(opts && opts.batch);   // มาจากเมนูอัพเดท: เก็บเข้ารายการรอบันทึก
   const e = getEmployee(id); if(!e) return;
   // Branch users can't edit disabled employees (only admin can)
   if (currentUser.type === 'branch' && !_isEmpEnabled(e)) {
@@ -9748,32 +9769,43 @@ function openEditEmployee(id) {
     const newCode = document.getElementById('emp-code-edit').value.trim();
     const codeErr = _empCodeError(e, newCode);
     if (codeErr) { notify(codeErr, 'error'); return; }
-    const wasEnabled = _isEmpEnabled(e);
-    const _before = { code: e.empCode || '', name: e.name, position: e.position, startDate: e.startDate, status: e.status, reason: e.disabledReason || '' };
-    _empCodeApply(e, newCode);
-    { const _sp = _splitNick(document.getElementById('emp-name').value); e.name = _joinNick(_sp.name, document.getElementById('emp-nick').value.trim() || _sp.nick); }
-    e.position=document.getElementById('emp-pos').value.trim();
-    e.positionGroup=getPositionGroup(e.position);
-    e.startDate=document.getElementById('emp-start').value;
-    e.status=st.status;
-    if (st.disabledReason) e.disabledReason = st.disabledReason; else delete e.disabledReason;
-    // Track when status flips
-    if (st.status === 'resigned' && wasEnabled) e.disabledAt = new Date().toISOString();
-    else if (st.status === 'active') delete e.disabledAt;
-    gsSave('employees', e.id, e);
-    if (currentUser.type === 'branch') {
-      /* จดว่าแก้อะไรบ้าง (ค่าเดิม → ค่าใหม่) เพื่อให้ Admin ตรวจย้อนหลังได้ */
-      const d = x => x ? fmtDate(x) : '—', ch = [];
-      if (_before.code !== e.empCode) ch.push('รหัสพนักงาน: ' + (_before.code || '—') + ' → ' + (e.empCode || '—'));
-      if (_before.name !== e.name) ch.push('ชื่อ: ' + (_before.name || '—') + ' → ' + (e.name || '—'));
-      if ((_before.position || '') !== (e.position || '')) ch.push('ตำแหน่ง: ' + (_before.position || '—') + ' → ' + (e.position || '—'));
-      if ((_before.startDate || '') !== (e.startDate || '')) ch.push('วันเริ่มงาน: ' + d(_before.startDate) + ' → ' + d(e.startDate));
-      if (_before.status !== e.status) ch.push('สถานะ: ' + (_before.status === 'resigned' ? 'ปิดใช้งาน' : 'เปิดใช้งาน') + ' → ' + (e.status === 'resigned' ? 'ปิดใช้งาน' : 'เปิดใช้งาน'));
-      if (e.status === 'resigned' && (_before.reason !== (e.disabledReason || ''))) ch.push('เหตุผลปิดใช้งาน: ' + (e.disabledReason || '—'));
-      logBranchUpdate(e.branchId, 'edit', e.id, e.name, ch.length ? ch.join(' · ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+    const v = { code: newCode, nameRaw: document.getElementById('emp-name').value, nick: document.getElementById('emp-nick').value.trim(),
+      pos: document.getElementById('emp-pos').value.trim(), start: document.getElementById('emp-start').value, st };
+    if (batch) {
+      if (_buQueue().some(q => q.type === 'add' && String(q.empCode).toLowerCase() === newCode.toLowerCase())) { notify('รหัส ' + newCode + ' ซ้ำกับพนักงานใหม่ที่เพิ่มไว้ในรายการ', 'error'); return; }
+      _buQueuePush({ type: 'edit', empId: e.id, v }); closeModal(); openBranchUpdateMenu(); return;
     }
+    _applyEmpEdit(e, v);
     closeModal(); showPage('employees'); notify('อัปเดตข้อมูลสำเร็จ');
-  });
+  }, batch ? 'เพิ่มเข้ารายการ' : undefined);
+  if (batch) _buBackButtons();
+}
+/* สิ่งที่จะเปลี่ยน เทียบกับข้อมูลปัจจุบัน (ใช้ทั้งในรายการรอบันทึกและในประวัติการอัพเดท) */
+function _empEditChanges(e, v) {
+  const sp = _splitNick(v.nameRaw), newName = _joinNick(sp.name, v.nick || sp.nick);
+  const d = x => x ? fmtDate(x) : '—', ch = [];
+  if ((e.empCode || '') !== v.code) ch.push('รหัสพนักงาน: ' + (e.empCode || '—') + ' → ' + (v.code || '—'));
+  if (e.name !== newName) ch.push('ชื่อ: ' + (e.name || '—') + ' → ' + (newName || '—'));
+  if ((e.position || '') !== (v.pos || '')) ch.push('ตำแหน่ง: ' + (e.position || '—') + ' → ' + (v.pos || '—'));
+  if ((e.startDate || '') !== (v.start || '')) ch.push('วันเริ่มงาน: ' + d(e.startDate) + ' → ' + d(v.start));
+  if (e.status !== v.st.status) ch.push('สถานะ: ' + (e.status === 'resigned' ? 'ปิดใช้งาน' : 'เปิดใช้งาน') + ' → ' + (v.st.status === 'resigned' ? 'ปิดใช้งาน' : 'เปิดใช้งาน'));
+  if (v.st.status === 'resigned' && ((e.disabledReason || '') !== (v.st.disabledReason || ''))) ch.push('เหตุผลปิดใช้งาน: ' + (v.st.disabledReason || '—'));
+  return ch;
+}
+function _applyEmpEdit(e, v) {
+  const ch = _empEditChanges(e, v), wasEnabled = _isEmpEnabled(e);
+  const sp = _splitNick(v.nameRaw);
+  _empCodeApply(e, v.code);
+  e.name = _joinNick(sp.name, v.nick || sp.nick);
+  e.position = v.pos;
+  e.positionGroup = getPositionGroup(e.position);
+  e.startDate = v.start;
+  e.status = v.st.status;
+  if (v.st.disabledReason) e.disabledReason = v.st.disabledReason; else delete e.disabledReason;
+  if (v.st.status === 'resigned' && wasEnabled) e.disabledAt = new Date().toISOString();
+  else if (v.st.status === 'active') delete e.disabledAt;
+  gsSave('employees', e.id, e);
+  if (currentUser.type === 'branch') logBranchUpdate(e.branchId, 'edit', e.id, e.name, ch.length ? ch.join(' · ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
 }
 
 // ==================== อัพเดทข้อมูลพนักงาน (branch_updates) ====================
@@ -9863,6 +9895,55 @@ function _buRequireName() {
   try { localStorage.setItem(_buWhoKey(), v); } catch (_) {}
   return true;
 }
+/* ───── รายการรอบันทึก: ทำหลายรายการ (เพิ่ม/แก้ไข/ขอย้าย) แล้วบันทึกครั้งเดียว ───── */
+let _buQ = null, _buQBid = null;
+const _buQKey = () => 'opt_bu_q_' + getBranchId();
+function _buQueue() {
+  const b = getBranchId();
+  if (_buQ === null || _buQBid !== b) { _buQBid = b; try { _buQ = JSON.parse(localStorage.getItem(_buQKey()) || '[]') || []; } catch (_) { _buQ = []; } }
+  return _buQ;
+}
+function _buQSave() { try { localStorage.setItem(_buQKey(), JSON.stringify(_buQ || [])); } catch (_) {} }
+function _buQueuePush(item) {
+  const q = _buQueue();
+  if (item.type !== 'add') { const i = q.findIndex(x => x.type === item.type && x.empId === item.empId); if (i >= 0) q.splice(i, 1); }   // คนเดิมทำซ้ำ = ใช้ค่าล่าสุด
+  q.push(item); _buQSave();
+}
+function _buQueueRemove(i) { _buQueue().splice(i, 1); _buQSave(); openBranchUpdateMenu(); }
+function _buQueueClear() { _buQ = []; _buQSave(); }
+function _buBackButtons() {   // ยกเลิกในฟอร์ม = กลับมาที่เมนูอัพเดท (รายการที่เก็บไว้ไม่หาย)
+  const b = document.querySelector('#modal-overlay .modal-footer .btn-outline'); if (b) b.setAttribute('onclick', 'openBranchUpdateMenu()');
+  const x = document.querySelector('#modal-overlay .modal-close'); if (x) x.setAttribute('onclick', 'openBranchUpdateMenu()');
+}
+function _buQueueHtml() {
+  const q = _buQueue(); if (!q.length) return '';
+  const rows = q.map((it, i) => {
+    let ic, tt, ds;
+    if (it.type === 'add') { ic = '➕'; tt = 'เพิ่ม ' + _escH(it.name); ds = _escH((it.pos || '—') + ' · เริ่มงาน ' + (it.start ? fmtDate(it.start) : '—')); }
+    else if (it.type === 'edit') { const e = getEmployee(it.empId); ic = '✏️'; tt = 'แก้ไข ' + _escH(e ? e.name : '(ไม่พบพนักงาน)'); ds = _escH(e ? (_empEditChanges(e, it.v).join(' · ') || 'ไม่มีการเปลี่ยนแปลง') : ''); }
+    else { const e = getEmployee(it.empId); ic = '🔁'; tt = 'ขอย้าย ' + _escH(e ? e.name : '(ไม่พบพนักงาน)'); ds = _escH('ไปสาขา ' + _bName(it.v.to) + ' · ' + fmtDate(it.v.date)); }
+    return '<div class="bu-q-row"><span class="bu-q-ic">' + ic + '</span><div class="bu-q-tx"><b>' + tt + '</b><div>' + ds + '</div></div><button type="button" class="bu-q-x" title="เอาออกจากรายการ" onclick="_buQueueRemove(' + i + ')">✕</button></div>';
+  }).join('');
+  return '<div class="bu-q"><div class="bu-q-h"><span>รายการรอบันทึก (' + q.length + ')</span><button type="button" class="bu-q-clear" onclick="if(confirm(\'ล้างรายการทั้งหมด?\')){_buQueueClear();openBranchUpdateMenu()}">ล้างทั้งหมด</button></div>' + rows +
+    '<div class="bu-q-hint">เลือกทำรายการอื่นเพิ่มได้ด้านล่าง แล้วกด “บันทึกทั้งหมด” ครั้งเดียว · ยังไม่บันทึกจนกว่าจะกดปุ่ม</div></div>';
+}
+function _buSaveAll() {
+  if (!_buRequireName()) return;
+  const q = _buQueue().slice(), fail = []; let ok = 0;
+  q.forEach(it => {
+    try {
+      if (it.type === 'add') _commitAddEmployeeCore(it.bid, it.empCode, it.name, it.pos, it.start, it.st);
+      else {
+        const e = getEmployee(it.empId); if (!e) throw new Error('ไม่พบพนักงาน');
+        if (it.type === 'edit') _applyEmpEdit(e, it.v); else _applyTransferReq(e, it.v);
+      }
+      ok++;
+    } catch (err) { console.warn('bu save item failed', err); fail.push(it); }
+  });
+  _buQ = fail; _buQSave();
+  closeModal(); showPage('employees');
+  notify(fail.length ? 'บันทึกสำเร็จ ' + ok + ' รายการ · ไม่สำเร็จ ' + fail.length + ' (ยังค้างในรายการ)' : 'บันทึกทั้งหมด ' + ok + ' รายการแล้ว', fail.length ? 'error' : 'success');
+}
 function openBranchUpdateMenu() {
   const bid = getBranchId();
   const last = getLastBranchUpdate(bid);
@@ -9878,14 +9959,15 @@ function openBranchUpdateMenu() {
       <label class="form-label">ชื่อผู้อัพเดทข้อมูล <span class="req">*</span></label>
       <input class="form-input" id="bu-who" placeholder="ชื่อคนที่ลงข้อมูลครั้งนี้" value="${_escH(_buWho(bid) || currentUser?.name || '')}">
     </div>
+    ${_buQueueHtml()}
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${_buOptRow('➕', 'var(--accent-light)', 'var(--accent)', 'เพิ่มพนักงานใหม่', 'กรอกข้อมูลพนักงานที่เพิ่งเข้าทำงาน', "if(!_buRequireName())return;closeModal();openAddEmployee()")}
+      ${_buOptRow('➕', 'var(--accent-light)', 'var(--accent)', 'เพิ่มพนักงานใหม่', 'กรอกข้อมูลพนักงานที่เพิ่งเข้าทำงาน', "if(!_buRequireName())return;closeModal();openAddEmployee({batch:true})")}
       ${_buOptRow('✏️', '#DBEAFE', '#2563EB', 'แก้ไขข้อมูลพนักงาน', 'เลือกคนจากรายชื่อ แล้วแก้รหัส/ชื่อ/ตำแหน่ง/สถานะ', "if(!_buRequireName())return;closeModal();openEmpPickerForUpdate('edit')")}
       ${_buOptRow('🔁', 'var(--surface3, #EEE)', 'var(--text)', 'ขอย้ายสาขาพนักงาน', 'เลือกคนที่จะย้าย ส่งคำขอให้ Admin อนุมัติ', "if(!_buRequireName())return;closeModal();openEmpPickerForUpdate('transfer')")}
     </div>
-    <div style="height:1px;background:var(--border);margin:16px 0"></div>
-    ${_buOptRow('✓', 'var(--green-light)', 'var(--green)', 'ยืนยันไม่มีการเปลี่ยนแปลงรอบนี้', 'ตรวจแล้ว ข้อมูลพนักงานสาขานี้ยังถูกต้องเหมือนเดิม', "if(!_buRequireName())return;confirmNoBranchUpdate()")}
-  `, null, 'ปิด');
+    ${_buQueue().length ? '' : `<div style="height:1px;background:var(--border);margin:16px 0"></div>
+    ${_buOptRow('✓', 'var(--green-light)', 'var(--green)', 'ยืนยันไม่มีการเปลี่ยนแปลงรอบนี้', 'ตรวจแล้ว ข้อมูลพนักงานสาขานี้ยังถูกต้องเหมือนเดิม', "if(!_buRequireName())return;confirmNoBranchUpdate()")}`}
+  `, _buQueue().length ? _buSaveAll : null, _buQueue().length ? 'บันทึกทั้งหมด (' + _buQueue().length + ')' : undefined, 'ปิด');
 }
 function confirmNoBranchUpdate() {
   const bid = getBranchId();
@@ -9894,7 +9976,7 @@ function confirmNoBranchUpdate() {
 }
 /* เลือกพนักงานก่อนไปแก้ไข/ขอย้าย เพราะปุ่มอัพเดทเป็นปุ่มเดียวระดับหน้า ไม่ใช่ต่อแถวเหมือนเดิม */
 function _buPickRowHtml(e, action) {
-  return `<div class="emp-pick-row" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer" onclick="closeModal();${action==='transfer'?`openTransferRequest('${e.id}')`:`openEditEmployee('${e.id}')`}">
+  return `<div class="emp-pick-row" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer" onclick="closeModal();${action==='transfer'?`openTransferRequest('${e.id}',{batch:true})`:`openEditEmployee('${e.id}',{batch:true})`}">
       <div style="flex:1;min-width:0"><strong style="font-size:13px">${_escH(e.name)}</strong><div style="font-size:11.5px;color:var(--text3)">${_escH(e.position||'')}</div></div>
       <span style="color:var(--text3);font-size:16px;flex-shrink:0">›</span>
     </div>`;
@@ -9909,6 +9991,7 @@ function openEmpPickerForUpdate(action) {
       ${emps.length ? emps.map(e => _buPickRowHtml(e, action)).join('') : '<div style="text-align:center;color:var(--text3);padding:20px">ไม่มีพนักงานที่แก้ไขได้</div>'}
     </div>
   `, null, 'ยกเลิก');
+  _buBackButtons();
   window._buPickAction = action; window._buPickEmps = emps;
 }
 function _filterEmpPicker(action) {
@@ -20526,7 +20609,8 @@ const _XFER_ST = { pending:['รออนุมัติ','badge-yellow'], appro
 const _xferBadge = st => { const x = _XFER_ST[st] || [st, '']; return `<span class="badge ${x[1]}" style="white-space:nowrap">${x[0]}</span>`; };
 const _bName = bid => BRANCH_MASTER[bid] ? `${bid} ${String(BRANCH_MASTER[bid].name || '').replace(bid + ' ', '')}` : bid;
 
-function openTransferRequest(empId) {
+function openTransferRequest(empId, _o) {
+  const batch = !!(_o && _o.batch);   // มาจากเมนูอัพเดท: เก็บเข้ารายการรอบบันทึก
   if (!_xferReady) { notify('ระบบขอย้ายสาขายังไม่เปิดใช้งาน — แจ้ง Admin', 'error'); return; }
   const e = getEmployee(empId); if (!e) return;
   if ((DB.transferRequests || []).some(r => r.empId === empId && r.status === 'pending')) {
@@ -20554,17 +20638,24 @@ function openTransferRequest(empId) {
     if (!to) { notify('กรุณาเลือกสาขาปลายทาง', 'error'); return; }
     if (!date) { notify('กรุณาเลือกวันที่', 'error'); return; }
     if (!reason) { notify('กรุณาใส่เหตุผล', 'error'); return; }
-    const r = { id: genId('X'), empId, empName: e.name, empCode: e.empCode || '', position: e.position || '',
-      fromBranch: e.branchId, toBranch: to, moveDate: date, reason, status: 'pending',
-      requestedBy: currentUser?.name || currentUser?.nick || e.branchId, requestedAt: new Date().toISOString() };
-    if (!DB.transferRequests) DB.transferRequests = [];
-    DB.transferRequests.push(r);
-    gsSave('transferRequests', r.id, r);
-    if (currentUser.type === 'branch') logBranchUpdate(e.branchId, 'transfer', e.id, e.name, `ขอย้ายไป ${to}`);
+    const v = { to, date, reason };
+    if (batch) { _buQueuePush({ type: 'transfer', empId, v }); closeModal(); openBranchUpdateMenu(); return; }
+    _applyTransferReq(e, v);
     closeModal(); showPage(currentPage); notify('ส่งคำขอย้ายสาขาแล้ว รอ Admin อนุมัติ');
-  }, 'ส่งคำขอ');
+  }, batch ? 'เพิ่มเข้ารายการ' : 'ส่งคำขอ');
+  if (batch) _buBackButtons();
 }
 
+function _applyTransferReq(e, v) {
+  if ((DB.transferRequests || []).some(r => r.empId === e.id && r.status === 'pending')) throw new Error('มีคำขอย้ายที่รออนุมัติอยู่แล้ว');
+  const r = { id: genId('X'), empId: e.id, empName: e.name, empCode: e.empCode || '', position: e.position || '',
+    fromBranch: e.branchId, toBranch: v.to, moveDate: v.date, reason: v.reason, status: 'pending',
+    requestedBy: currentUser?.name || currentUser?.nick || e.branchId, requestedAt: new Date().toISOString() };
+  if (!DB.transferRequests) DB.transferRequests = [];
+  DB.transferRequests.push(r);
+  gsSave('transferRequests', r.id, r);
+  if (currentUser.type === 'branch') logBranchUpdate(e.branchId, 'transfer', e.id, e.name, 'ขอย้ายไป ' + v.to);
+}
 function cancelTransferRequest(id) {
   const r = (DB.transferRequests || []).find(x => x.id === id); if (!r || r.status !== 'pending') return;
   if (!confirm(`ยกเลิกคำขอย้าย ${r.empName} ?`)) return;
