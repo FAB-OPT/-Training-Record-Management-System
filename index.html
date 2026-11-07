@@ -19960,6 +19960,8 @@ function _planPickerHtml(bid) {
    ล้มเหลวเงียบๆ — ไม่มีข้อมูลหรือเชื่อมต่อไม่ได้ ก็ไม่แสดงกล่อง ไม่กระทบการทำงานอื่น */
 /* สวิตช์เปิด/ปิดกล่องแนะนำ: ปิดไว้ก่อนจนกว่าจะตั้งคีย์ AI (ANTHROPIC_API_KEY) ใน Supabase เสร็จ แล้วเปลี่ยนเป็น true */
 const CF_HINTS_ON = true;
+/* Module มาตรฐานการทำงาน (5.x CEM/OSS/VOC) กว้างเกินไป เข้าได้กับทุกคอมเพลน → ไม่แนะนำอัตโนมัติ (ผู้ใช้กด “+ เพิ่ม Module อื่น” เองได้) */
+const CF_GENERIC = new Set(['S005', 'C005']);
 const CF_URL = 'https://pzspcjqlxoqnbtvlfjsy.supabase.co';
 const CF_KEY = 'sb_publishable_n1w7k8mdxGbtaHKZ4xnNWA_wxUHhEtP';
 let _cfSb = null, _cfAuth = null;
@@ -19986,7 +19988,7 @@ async function _cfFetch(code) {
   _cfCache[code] = { t: Date.now(), rows };
   _cfRenderAll();
   /* ยังมีคอมเมนต์ที่ไม่เคยวิเคราะห์ หรือได้แค่ผลจากกฎคำสำคัญ (เมื่อ AI ใช้ไม่ได้ตอนนั้น) → ให้ฟังก์ชันวิเคราะห์ด้วย AI แล้วดึงใหม่ · ลองซ้ำได้ครั้งเดียวต่อสาขาต่อการเปิดหน้า */
-  if (rows.some(x => !x.modules || x.method !== 'ai' || x.modules.some(m => !m.why)) && !_cfTried[code]) {
+  if (rows.some(x => !x.modules || x.method !== 'ai' || x.modules.some(m => !m.why || CF_GENERIC.has(m.id))) && !_cfTried[code]) {
     _cfTried[code] = 1;
     try { await c.functions.invoke('analyze-complaints', { body: { code, days: 30 } }); } catch (_) {}
     const r2 = await get(); if (r2) { rows = r2; _cfCache[code] = { t: Date.now(), rows }; }
@@ -20021,7 +20023,7 @@ function _cfSrvDis(r) { return Array.isArray(r.dismissed) ? r.dismissed : []; }
 function _cfCaseDis(r) { const a = _cfSrvDis(r).find(x => !x.module); return a ? { reason: a.reason, by: a.by || '' } : (_cfDis[r.id] || null); }
 function _cfMods(r) {
   const gone = new Set(_cfSrvDis(r).filter(x => x.module).map(x => x.module));
-  return (_cfOv[r.id] || r.modules || []).filter(x => MODULES[x.id] && !gone.has(x.id)).map(x => ({ id: x.id, subs: (x.subs || []).slice(0, 3) }));
+  return (_cfOv[r.id] || (r.modules || []).filter(x => !CF_GENERIC.has(x.id))).filter(x => MODULES[x.id] && !gone.has(x.id)).map(x => ({ id: x.id, subs: (x.subs || []).slice(0, 3) }));
 }
 async function _cfSrvCall(fn, args) {
   try { const c = _cfClient(); if (!c || !(await _cfAuth)) return false; const r = await c.rpc(fn, args); return !r.error; } catch (_) { return false; }
@@ -24413,7 +24415,7 @@ function _cfOvAgg(rows) {
   rows.forEach(r => {
     const code = String(r.br).slice(0, 4), dis = Array.isArray(r.dismissed) ? r.dismissed : [];
     const cd = dis.find(x => !x.module), dmods = new Set(dis.filter(x => x.module).map(x => x.module));
-    const mods = (r.modules || []).filter(x => MODULES[x.id] && !dmods.has(x.id));
+    const mods = (r.modules || []).filter(x => MODULES[x.id] && !dmods.has(x.id) && !CF_GENERIC.has(x.id));
     const b = A.br.get(code) || { code, rows: [], active: 0, subs: new Map() }; A.br.set(code, b); b.rows.push(r);
     A.total++; if (!r.modules) A.pending++; else A.analyzed++;
     dis.forEach(x => { const k = CF_REASONS.includes(x.reason) || x.reason === 'Module นี้ไม่เกี่ยวกับเคสนี้' ? x.reason : 'อื่นๆ'; A.why.set(k, (A.why.get(k) || 0) + 1); });
@@ -24466,7 +24468,7 @@ function renderCfOverview() {
     const open = !!_cfOvw.open[b.code];
     const cases = open ? '<div class="cfo-cs">' + b.rows.map(r => {
       const dis = Array.isArray(r.dismissed) ? r.dismissed : [], cd = dis.find(x => !x.module), dm = new Set(dis.filter(x => x.module).map(x => x.module));
-      const mods = (r.modules || []).filter(x => MODULES[x.id] && !dm.has(x.id));
+      const mods = (r.modules || []).filter(x => MODULES[x.id] && !dm.has(x.id) && !CF_GENERIC.has(x.id));
       const tag = r.channel === 'facebook' ? 'Facebook' : 'VOC ' + r.s + '/10', c = String(r.c || '').replace(/\s+/g, ' ').trim();
       return '<div class="cfo-c"' + (cd ? ' style="opacity:.65"' : '') + '><div class="cfo-ch"><b>' + _escH(tag) + '</b><span>' + _escH(fmtDate(r.d)) + '</span></div><div class="cfo-q">“' + _escH(c.length > 200 ? c.slice(0, 200) + '…' : c) + '”</div>' +
         (cd ? '<div class="cfo-gn">ลบแล้ว: ' + _escH(cd.reason) + (cd.by ? ' · ' + _escH(cd.by) : '') + '</div>'
