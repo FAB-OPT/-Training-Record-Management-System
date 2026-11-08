@@ -25043,12 +25043,11 @@ function _kbField(t) {
   return !/^(checkbox|radio|button|submit|reset|range|file|date|time|datetime-local|month|week|color|hidden|image)$/i.test(t.type || 'text');
 }
 function _isMobileModal() { return !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches); }
+/* ไม่ล็อกหน้าต่างตามคีย์บอร์ดแล้ว (เคยลองบน iPhone แล้วเหลือช่องว่างใต้หน้าต่าง และช่องค้นหาพนักงานพิมพ์แล้วไม่เห็นตัวอักษร)
+   เหลือแค่ซ่อนปุ่มล่างตอนคีย์บอร์ดขึ้น ให้ iOS เลื่อนช่องขึ้นมาเองเหมือนเดิม */
 function _pinModalToViewport() {
-  const ov = document.getElementById('modal-overlay'), vv = window.visualViewport;
-  if (ov) {
-    if (ov.classList.contains('kb') && vv && _isMobileModal()) { ov.style.top = vv.offsetTop + 'px'; ov.style.bottom = 'auto'; ov.style.height = vv.height + 'px'; }
-    else { ov.style.top = ''; ov.style.bottom = ''; ov.style.height = ''; }
-  }
+  const ov = document.getElementById('modal-overlay');
+  if (ov) { ov.style.top = ''; ov.style.bottom = ''; ov.style.height = ''; }
   _setAppVh();
 }
 document.addEventListener('focusin', function (e) {
@@ -25075,14 +25074,12 @@ document.addEventListener('focusout', function (e) {
 });
 function _setAppVh() {
   try {
-    const ov = document.getElementById('modal-overlay'), vv = window.visualViewport;
-    const h = (ov && ov.classList.contains('kb') && vv && _isMobileModal()) ? vv.height : window.innerHeight;
-    document.documentElement.style.setProperty('--app-vh', (h * 0.01) + 'px');
+    document.documentElement.style.setProperty('--app-vh', (window.innerHeight * 0.01) + 'px');
   } catch (_) {}
 }
 window.addEventListener('resize', _setAppVh);
 window.addEventListener('orientationchange', _setAppVh);
-if (window.visualViewport) { window.visualViewport.addEventListener('resize', _pinModalToViewport); window.visualViewport.addEventListener('scroll', _pinModalToViewport); }
+if (window.visualViewport) window.visualViewport.addEventListener('resize', _setAppVh);
 _setAppVh();
 function showModal(title, body, onConfirm, confirmText, cancelText) {
   _setAppVh();
