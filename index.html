@@ -25030,24 +25030,59 @@ function downloadExcelTemplate() {
 
 // ==================== MODAL ====================
 /* ความสูงพื้นที่มองเห็นจริงของเบราว์เซอร์มือถือ (แถบ URL/แถบเครื่องมือล่างย่อ-ขยายได้) — ใช้แทน vh กับป็อปอัพ */
-/* คีย์บอร์ดขึ้นตอนกดช่องค้นหาชื่อ → ซ่อนปุ่มล่างของหน้าต่าง + เลื่อนช่องขึ้นบนสุดของเนื้อหา ให้เห็นรายชื่อ */
+/* คีย์บอร์ดขึ้น (กดช่องพิมพ์ในหน้าต่างใดก็ตาม) → ซ่อนปุ่มล่างของหน้าต่างชั่วคราว + เลื่อนช่องขึ้นมาให้เห็น
+   เดิมทำเฉพาะช่องค้นหาชื่อ ช่องอื่น (เช่นรายละเอียดการสอนงาน) ปุ่ม บันทึก/ยกเลิก/ย้อนกลับ ที่ซ้อนกันสามปุ่มจึงลอยกลางจอ
+   และเด้งตามคีย์บอร์ดบน iPhone · ตอนคีย์บอร์ดขึ้นล็อกหน้าต่างให้อยู่ในพื้นที่ที่มองเห็นจริง (visualViewport) ไม่ให้เด้ง
+   พิมพ์เสร็จกดปุ่ม ✓ ของคีย์บอร์ด (หรือแตะช่องอื่น) ปุ่มล่างจะกลับมาอยู่ที่เดิม */
+function _kbField(t) {
+  if (!t || !t.closest) return false;
+  if (t.closest('.emp-select-box')) return true;
+  const tag = (t.tagName || '').toLowerCase();
+  if (tag === 'textarea') return true;
+  if (tag !== 'input') return false;
+  return !/^(checkbox|radio|button|submit|reset|range|file|date|time|datetime-local|month|week|color|hidden|image)$/i.test(t.type || 'text');
+}
+function _isMobileModal() { return !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches); }
+function _pinModalToViewport() {
+  const ov = document.getElementById('modal-overlay'), vv = window.visualViewport;
+  if (ov) {
+    if (ov.classList.contains('kb') && vv && _isMobileModal()) { ov.style.top = vv.offsetTop + 'px'; ov.style.bottom = 'auto'; ov.style.height = vv.height + 'px'; }
+    else { ov.style.top = ''; ov.style.bottom = ''; ov.style.height = ''; }
+  }
+  _setAppVh();
+}
 document.addEventListener('focusin', function (e) {
-  const t = e.target; if (!t || !t.closest || !t.closest('.emp-select-box')) return;
+  const t = e.target; if (!_kbField(t)) return;
   const ov = document.getElementById('modal-overlay'); if (!ov || !ov.contains(t)) return;
+  const isEmp = !!t.closest('.emp-select-box');
+  if (!isEmp && !_isMobileModal()) return;
   ov.classList.add('kb');
-  setTimeout(function () {
-    const body = ov.querySelector('.modal-body'), box = t.closest('.emp-select-box'); if (!body || !box) return;
-    body.scrollTop += box.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
-  }, 320);
+  _pinModalToViewport();
+  const adjust = function () {
+    const body = ov.querySelector('.modal-body'); if (!body || !ov.contains(t)) return;
+    const box = isEmp ? t.closest('.emp-select-box') : t; if (!box) return;
+    body.scrollTop += box.getBoundingClientRect().top - body.getBoundingClientRect().top - (isEmp ? 8 : 70);
+  };
+  setTimeout(adjust, 320);
+  if (!isEmp) setTimeout(adjust, 700);   // คีย์บอร์ดบน iPhone เลื่อนขึ้นช้า วัดซ้ำอีกรอบ
 });
 document.addEventListener('focusout', function (e) {
-  const t = e.target; if (!t || !t.closest || !t.closest('.emp-select-box')) return;
-  setTimeout(function () { const ov = document.getElementById('modal-overlay'); if (ov && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.emp-select-box'))) ov.classList.remove('kb'); }, 120);
+  const t = e.target; if (!_kbField(t)) return;
+  setTimeout(function () {
+    const ov = document.getElementById('modal-overlay');
+    if (ov && !_kbField(document.activeElement)) { ov.classList.remove('kb'); _pinModalToViewport(); }
+  }, 120);
 });
-function _setAppVh() { try { document.documentElement.style.setProperty('--app-vh', (window.innerHeight * 0.01) + 'px'); } catch (_) {} }
+function _setAppVh() {
+  try {
+    const ov = document.getElementById('modal-overlay'), vv = window.visualViewport;
+    const h = (ov && ov.classList.contains('kb') && vv && _isMobileModal()) ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-vh', (h * 0.01) + 'px');
+  } catch (_) {}
+}
 window.addEventListener('resize', _setAppVh);
 window.addEventListener('orientationchange', _setAppVh);
-if (window.visualViewport) window.visualViewport.addEventListener('resize', _setAppVh);
+if (window.visualViewport) { window.visualViewport.addEventListener('resize', _pinModalToViewport); window.visualViewport.addEventListener('scroll', _pinModalToViewport); }
 _setAppVh();
 function showModal(title, body, onConfirm, confirmText, cancelText) {
   _setAppVh();
@@ -25064,7 +25099,7 @@ function showModal(title, body, onConfirm, confirmText, cancelText) {
   ov.classList.add('open');
   window._modalConfirm=onConfirm;
 }
-function closeModal(){const o=document.getElementById('modal-overlay');if(o)o.classList.remove('open');}
+function closeModal(){const o=document.getElementById('modal-overlay');if(o){o.classList.remove('open','kb');o.style.top='';o.style.bottom='';o.style.height='';_setAppVh();}}
 function modalConfirm(){if(window._modalConfirm)window._modalConfirm();}
 
 // Custom confirm dialog — replaces native browser confirm()
