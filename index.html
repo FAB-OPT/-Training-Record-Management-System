@@ -20012,6 +20012,16 @@ function _cfAgg(rows) {
 }
 /* หัวข้อที่ผู้ใช้แก้ไขเอง (เปลี่ยน Module/หัวข้อย่อย · ลบ · เพิ่ม) — จำไว้ในเครื่องนี้ ไม่ทับผลวิเคราะห์ของระบบ
    การลบ (ทั้งเคสหรือรายหัวข้อ) ต้องระบุสาเหตุเสมอ และเก็บบันทึกไว้ใน cfLog */
+/* ช่องทางที่ลูกค้าส่งเสียงมา + คะแนนหมายถึงอะไร
+   VOC = แบบสำรวจความพึงพอใจหลังใช้บริการ (ลูกค้าให้ 0-10) · Facebook = ข้อความ/คอมเมนต์จากเพจ (ไม่มีคะแนน)
+   เกณฑ์เดียวกับที่ใช้คิด NPS: 9-10 พอใจมาก · 7-8 กลาง · 0-6 ไม่พอใจ (ระบบดึงมาแนะนำเฉพาะ 0-6 กับ Facebook) */
+function _cfLevel(s) { s = Number(s); return s <= 3 ? 'ไม่พอใจมาก' : s <= 6 ? 'ไม่พอใจ' : s <= 8 ? 'กลาง ๆ' : 'พอใจมาก'; }
+function _cfTag(r) { return r.channel === 'facebook' ? 'Facebook' : (r.s != null ? 'VOC · ลูกค้าให้ ' + r.s + '/10' : 'VOC'); }
+function _cfSrcLine(r) {
+  if (r.channel === 'facebook') return 'ช่องทาง: Facebook (ข้อความ/คอมเมนต์จากเพจ) · ไม่มีคะแนน';
+  const topic = [r.main, r.sub].filter(x => x && String(x).trim()).map(x => String(x).trim()).join(' › ');
+  return 'ช่องทาง: VOC (แบบสำรวจหลังใช้บริการ)' + (r.s != null ? ' · ระดับ: ' + _cfLevel(r.s) + ' (เกณฑ์ 0–6 ไม่พอใจ · 7–8 กลาง · 9–10 พอใจมาก)' : '') + (topic ? ' · หัวข้อที่ลูกค้าพูดถึง: ' + topic : '');
+}
 function _cfLoad(k, d) { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (_) { return d; } }
 let _cfOv = _cfLoad('cfOv', {}), _cfDis = _cfLoad('cfDis', {}), _cfLog = _cfLoad('cfLog', []);
 let _cfEd = null, _cfDm = null, _cfVer = 0;
@@ -20084,7 +20094,7 @@ function _cfBoxHtml(ctx, rows, code) {
   };
   const one = r => {
     const isFb = r.channel === 'facebook';
-    const tag = isFb ? 'Facebook' : (r.s != null ? 'ลูกค้าให้ ' + r.s + '/10' : 'VOC');
+    const tag = _cfTag(r);
     const cls = isFb ? 'fb' : (r.s != null && r.s <= 3 ? 'hi' : 'md');
     const c = String(r.c || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
     const editing = _cfEd && _cfEd.rid === r.id, dm = _cfDm && _cfDm.rid === r.id;
@@ -20107,7 +20117,7 @@ function _cfBoxHtml(ctx, rows, code) {
         '<button type="button" class="cf-lnk del" onclick="cfAskDel(' + r.id + ',-1)">ไม่ต้องสอนเคสนี้</button></div>';
     }
     return '<div class="cf-case"><div class="cf-top"><span class="cf-sc ' + cls + '">' + _escH(tag) + '</span><span class="cf-dt">' + _escH(fmtDate(r.d)) + '</span></div>' +
-      '<div class="cf-q">“' + _escH(c) + '”</div>' + teach + '</div>';
+      '<div class="cf-src">' + _escH(_cfSrcLine(r)) + '</div><div class="cf-q">“' + _escH(c) + '”</div>' + teach + '</div>';
   };
   const live = rows.filter(r => !_cfCaseDis(r)), gone = rows.filter(r => _cfCaseDis(r));
   const all = live.slice(0, 12), first = all.slice(0, 3), rest = all.slice(3);
@@ -20147,7 +20157,7 @@ function _cfMount() {
     '.cf-ic{width:30px;height:30px;border-radius:9px;background:var(--accent);display:grid;place-items:center;font-size:16px;flex:none}' +
     '.cf-sub2{display:block;font-size:12.5px;color:var(--text2)}' +
     '.cf-case{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 14px;display:grid;gap:7px}' +
-    '.cf-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.cf-dt{font-size:12px;color:var(--text3)}' +
+    '.cf-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.cf-dt{font-size:12px;color:var(--text3)}.cf-src{font-size:12px;color:var(--text3);margin:4px 0 2px;line-height:1.45}' +
     '.cf-sc{font-size:12.5px;font-weight:800;border-radius:999px;padding:2px 11px;white-space:nowrap}.cf-sc.hi{background:var(--red-light);color:var(--red)}.cf-sc.md{background:#FEF3C7;color:#B45309}.cf-sc.fb{background:var(--blue-light);color:var(--blue)}' +
     '.cf-q{font-size:14.5px;line-height:1.5;color:var(--text);white-space:pre-line;overflow-wrap:anywhere}' +
     '.cf-t{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;justify-content:space-between;background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:8px 10px 8px 12px}' +
@@ -24402,7 +24412,7 @@ function cfOvTopic(i) {
   const body = '<div style="font-size:13px;color:var(--text2);margin-bottom:12px">' + _escH((MODULES[mid] || {}).name || mid) + ' · <b>' + total + ' เคส</b> · <b>' + groups.length + ' สาขา</b> · ' + _cfOvw.days + ' วันล่าสุด</div>' +
     groups.map(([code, list]) => '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap"><b style="font-size:14px">' + _escH(_cfOvName(code)) + '</b><span style="font-size:12px;color:var(--text3)">' + _escH(_cfOvZone(code)) + ' · ' + list.length + ' เคส</span></div>' +
       list.map(r => {
-        const c = String(r.c || '').replace(/\s+/g, ' ').trim(), tag = r.channel === 'facebook' ? 'Facebook' : 'ลูกค้าให้ ' + r.s + '/10';
+        const c = String(r.c || '').replace(/\s+/g, ' ').trim(), tag = _cfTag(r);
         const others = (r.modules || []).filter(x => MODULES[x.id]).map(x => (x.subs || []).filter(sb => !(x.id === mid && sb === sub))).flat();
         return '<div style="background:var(--surface2);border-radius:9px;padding:8px 11px;margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)"><b style="color:#C2410C">' + _escH(tag) + '</b><span>' + _escH(fmtDate(r.d)) + '</span></div>' +
           '<div style="font-size:13.5px;line-height:1.5;margin-top:3px">“' + _escH(c) + '”</div>' +
@@ -24469,8 +24479,8 @@ function renderCfOverview() {
     const cases = open ? '<div class="cfo-cs">' + b.rows.map(r => {
       const dis = Array.isArray(r.dismissed) ? r.dismissed : [], cd = dis.find(x => !x.module), dm = new Set(dis.filter(x => x.module).map(x => x.module));
       const mods = (r.modules || []).filter(x => MODULES[x.id] && !dm.has(x.id) && !CF_GENERIC.has(x.id));
-      const tag = r.channel === 'facebook' ? 'Facebook' : 'ลูกค้าให้ ' + r.s + '/10', c = String(r.c || '').replace(/\s+/g, ' ').trim();
-      return '<div class="cfo-c"' + (cd ? ' style="opacity:.65"' : '') + '><div class="cfo-ch"><b>' + _escH(tag) + '</b><span>' + _escH(fmtDate(r.d)) + '</span></div><div class="cfo-q">“' + _escH(c.length > 200 ? c.slice(0, 200) + '…' : c) + '”</div>' +
+      const tag = _cfTag(r), c = String(r.c || '').replace(/\s+/g, ' ').trim();
+      return '<div class="cfo-c"' + (cd ? ' style="opacity:.65"' : '') + '><div class="cfo-ch"><b>' + _escH(tag) + '</b><span>' + _escH(fmtDate(r.d)) + '</span></div><div style="font-size:11.5px;color:var(--text3);margin:2px 0">' + _escH(_cfSrcLine(r)) + '</div><div class="cfo-q">“' + _escH(c.length > 200 ? c.slice(0, 200) + '…' : c) + '”</div>' +
         (cd ? '<div class="cfo-gn">ลบแล้ว: ' + _escH(cd.reason) + (cd.by ? ' · ' + _escH(cd.by) : '') + '</div>'
           : (!r.modules ? '<div class="cfo-tm">⏳ ยังไม่ได้วิเคราะห์</div>' : mods.map(x => '<div class="cfo-sb">สอน: ' + _escH((x.subs || []).join(' · ') || MODULES[x.id].name) + ' <span style="color:var(--text3);font-weight:500">(' + _escH(MODULES[x.id].name) + ')</span></div>').join(''))) + '</div>';
     }).join('') + '</div>' : '';
