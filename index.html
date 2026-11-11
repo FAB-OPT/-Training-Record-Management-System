@@ -7113,6 +7113,46 @@ function _chatLogMessage(role, content, isErr) {
   DB.chatLogs.push(rec);
   // บันทึกขึ้นเซิร์ฟเวอร์แบบไม่รอผล — แชตไม่ควรค้างเพราะรอบันทึก log
   try { gsSave('chatLogs', rec.id, rec); } catch (_) {}
+  return rec.id;
+}
+/* เก็บภาพย่อของข้อความแชตไว้ในตาราง chat_images (แยกจาก chat_logs ไม่ให้โหลดประวัติหนัก · ไม่ส่งเข้า Google Sheets)
+   ผูกกับแถวแชตด้วย id เดียวกัน ถ้าแถวแชตยังไม่ขึ้นฐาน (FK ยังไม่ผ่าน) รอแล้วลองใหม่ · ยังไม่มีตาราง = ข้ามเงียบๆ แชตใช้งานได้ตามปกติ */
+const _chatImgCache = {};
+async function _chatSaveImage(id, url, tries) {
+  if (!id || !url) return;
+  _chatImgCache[id] = url;
+  tries = tries || 0;
+  try {
+    await sbAuthReady();
+    const sb = _initSb(); if (!sb) return;
+    const r = await sb.from('chat_images').upsert({ id, img: url });
+    if (r && r.error) {
+      if (r.error.code === '23503' && tries < 4) { setTimeout(() => _chatSaveImage(id, url, tries + 1), 1500); return; }
+      console.warn('chat_images save', r.error.code || '', r.error.message || r.error);
+    }
+  } catch (e) { console.warn('chat_images save', e); }
+}
+function _chatPicZoom(src) {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+  d.innerHTML = '<img style="max-width:100%;max-height:100%;border-radius:10px;background:#fff" alt="รูปที่แนบ">';
+  d.querySelector('img').src = src; d.onclick = () => d.remove(); document.body.appendChild(d);
+}
+async function _chatLoadPics(ids) {
+  const fill = (id, url) => document.querySelectorAll('[data-pid="' + id + '"]').forEach(el => {
+    el.innerHTML = url ? '<img alt="รูปที่แนบ" style="display:block;max-width:100%;max-height:220px;border-radius:10px;cursor:zoom-in;margin-bottom:6px;background:#fff">' : '<span style="font-size:12px;opacity:.85">🖼 (ไม่มีรูปเก็บไว้ในประวัติ)</span>';
+    if (url) { const im = el.querySelector('img'); im.src = url; im.onclick = () => _chatPicZoom(url); }
+  });
+  const need = [];
+  ids.forEach(id => { if (_chatImgCache[id]) fill(id, _chatImgCache[id]); else need.push(id); });
+  if (!need.length) return;
+  try {
+    await sbAuthReady();
+    const sb = _initSb();
+    const r = sb ? await sb.from('chat_images').select('id,img').in('id', need) : null;
+    const got = {}; ((r && r.data) || []).forEach(x => { got[x.id] = x.img; _chatImgCache[x.id] = x.img; });
+    need.forEach(id => fill(id, got[id]));
+  } catch (e) { need.forEach(id => fill(id, null)); }
 }
 
 function openChatbot() {
@@ -7895,7 +7935,13 @@ async function _chatImgSet(file) {
     let q = 0.82, url = cv.toDataURL('image/jpeg', q);
     while (url.length > 420000 && q > 0.4) { q -= 0.1; url = cv.toDataURL('image/jpeg', q); }
     if (url.length > 700000) throw new Error('big');
-    _chatImg = { url, mime: 'image/jpeg', b64: url.slice(url.indexOf(',') + 1) };
+    /* ภาพย่อสำหรับเก็บในประวัติแชต (แอดมินเปิดดูภายหลัง) — เล็กกว่าที่ส่งให้บอท */
+    const ts = Math.min(1, 800 / Math.max(cv.width, cv.height)), tc = document.createElement('canvas');
+    tc.width = Math.max(1, Math.round(cv.width * ts)); tc.height = Math.max(1, Math.round(cv.height * ts));
+    tc.getContext('2d').drawImage(cv, 0, 0, tc.width, tc.height);
+    let tq = 0.6, thumb = tc.toDataURL('image/jpeg', tq);
+    while (thumb.length > 140000 && tq > 0.3) { tq -= 0.1; thumb = tc.toDataURL('image/jpeg', tq); }
+    _chatImg = { url, thumb, mime: 'image/jpeg', b64: url.slice(url.indexOf(',') + 1) };
     _chatImgPaint(); document.getElementById('chatbot-input')?.focus();
   } catch (e) { notify('อ่านรูปนี้ไม่ได้ค่ะ ลองใช้ภาพหน้าจอหรือรูป JPG/PNG', 'error'); }
 }
@@ -7918,7 +7964,8 @@ async function sendChatMessage() {
   _renderChatMessage('user', text, img && img.url);
   _chatHistory.push({ role: 'user', content: (img ? '🖼 [แนบรูป] ' : '') + text });
   _saveChatHistory();
-  _chatLogMessage('user', (img ? '🖼 [แนบรูป] ' : '') + text, false);
+  const _logId = _chatLogMessage('user', (img ? '🖼 [แนบรูป] ' : '') + text, false);
+  if (img) _chatSaveImage(_logId, img.thumb);
   input.value = '';
   _chatImg = null; _chatImgPaint();
   if (btn) btn.disabled = true;
@@ -24102,9 +24149,10 @@ function openChatLogSession(sid) {
     const col = isUser ? 'white' : (m.err ? '#991B1B' : 'var(--text)');
     const align = isUser ? 'flex-end' : 'flex-start';
     const radius = isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
-    const body = isBotFmt ? _chatFormat(m.content) : esc(m.content);
+    const hasPic = isUser && /^🖼 \[แนบรูป\] /.test(String(m.content || ''));
+    const body = isBotFmt ? _chatFormat(m.content) : esc(hasPic ? String(m.content).replace(/^🖼 \[แนบรูป\] /, '') : m.content);
     return `<div style="align-self:${align};max-width:86%">
-      <div class="${isBotFmt?'cb-fmt':''}" style="background:${bg};color:${col};padding:9px 13px;border-radius:${radius};font-size:14px;line-height:1.55;${isBotFmt?'':'white-space:pre-wrap;'}word-wrap:break-word">${body}</div>
+      <div class="${isBotFmt?'cb-fmt':''}" style="background:${bg};color:${col};padding:9px 13px;border-radius:${radius};font-size:14px;line-height:1.55;${isBotFmt?'':'white-space:pre-wrap;'}word-wrap:break-word">${hasPic ? `<div data-pid="${esc(m.id)}" style="min-width:120px;font-size:12px;opacity:.85">🖼 กำลังโหลดรูป…</div>` : ''}${body}</div>
       <div style="font-size:10.5px;color:var(--text4);margin-top:2px;text-align:${isUser?'right':'left'}">${fmtDateTime(m.ts)}${lat.has(m.id) ? ' · ⏱ <b style="color:' + _latColor(lat.get(m.id)) + '">ใช้เวลา ' + _latTxt(lat.get(m.id)) + '</b>' : ''}${m.err?' · ⚠ error':''}</div>
     </div>`;
   }).join('');
@@ -24115,6 +24163,8 @@ function openChatLogSession(sid) {
   </div>`;
   showModal('💬 บทสนทนา', header + `<div style="max-height:62vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px">${bubbles}</div>`, null, null, 'ปิด');
   const mo = document.querySelector('#modal-overlay .modal'); if (mo) mo.style.maxWidth = '620px';
+  const picIds = msgs.filter(m => m.role === 'user' && /^🖼 \[แนบรูป\] /.test(String(m.content || ''))).map(m => m.id);
+  if (picIds.length) _chatLoadPics(picIds);
 }
 
 /* ล้างประวัติแชตบอท — เฉพาะ Admin
