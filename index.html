@@ -7295,6 +7295,7 @@ function _chatPickSections(q) {
     recent:      has('ล่าสุด', 'ประวัติ', 'เมื่อไหร่', 'ที่ผ่านมา', 'สอนไปแล้ว', 'บันทึกการสอน', 'ย้อนหลัง'),
     empRules:    has('ลาออก', 'ไล่ออก', 'ย้าย', 'ปิดใช้งาน', 'สถานะ', 'พักงาน', 'เปิดใช้งาน'),
     plans:       has('แผน'),
+    evalMethods: has('วิธีประเมิน', 'วิธีการประเมิน', 'แบบประเมิน', 'สังเกต', 'สัมภาษณ์', 'ตรวจงาน', 'การทดสอบ', 'แบบ a', 'แบบ b', 'แบบ c', 'แบบ d'),
   };
   /* คำถามแนว "ทำยังไง" ต้องการขั้นตอน ไม่ใช่ข้อมูล
      "พนักงานลาออกทำยังไง" มีคำว่าพนักงานก็จริง แต่ไม่ต้องใช้รายชื่อ 80 คน
@@ -7468,6 +7469,22 @@ function _chatBuildContext(question) {
     .map(m => `- ${m.name} (${m.group}): สอน${m.sessions} · ประเมิน${m.eval}/ผ่าน${m.pass}${m.eval?` · อัตราผ่าน ${Math.round(m.pass/m.eval*100)}%`:''}`)
     .join('\n');
 
+  /* นับตามวิธีประเมิน (A สังเกตการณ์ / B สัมภาษณ์ / C ตรวจงาน / D การทดสอบ)
+     นับ 2 แบบ: ใบบันทึกการสอน (1 ใบ = 1 ครั้ง ตามวิธีระดับบน) และการประเมินรายคน (ใบที่มีผลรายคนนับทีละคน) */
+  const _mCnt = {}, _mPer = {};
+  EVAL_METHODS.forEach(m => { _mCnt[m] = { n: 0, pass: 0 }; _mPer[m] = { n: 0, pass: 0 }; });
+  let _mOther = 0, _mOtherPer = 0;
+  trains.forEach(t => {
+    if (!t.eval) return;
+    const m = t.eval.method;
+    if (m && _mCnt[m]) { _mCnt[m].n++; if (isEvalPass(t.eval.result)) _mCnt[m].pass++; } else _mOther++;
+    const bp = t.eval.byPerson && Object.keys(t.eval.byPerson).length ? Object.values(t.eval.byPerson) : [t.eval];
+    bp.forEach(x => { const mm = x && x.method; if (mm && _mPer[mm]) { _mPer[mm].n++; if (isEvalPass(x.result)) _mPer[mm].pass++; } else _mOtherPer++; });
+  });
+  const evalMethodLines = EVAL_METHODS.map(m => `- ${m}: ${_mCnt[m].n} ครั้ง (ผ่าน ${_mCnt[m].pass}) · นับรายคน ${_mPer[m].n} คน (ผ่าน ${_mPer[m].pass})`).join('\n')
+    + (_mOther || _mOtherPer ? `\n- ไม่ได้ระบุวิธี: ${_mOther} ครั้ง · ${_mOtherPer} คน` : '')
+    + `\n(ครั้ง = จำนวนใบบันทึกการสอนที่ประเมินด้วยวิธีนั้น · รายคน = นับการประเมินของผู้เรียนแต่ละคน)`;
+
   const modules = Object.values(MODULES || {}).map(m => `- ${m.name} (${m.group||''}) → หัวข้อ: ${(m.subtopics||[]).join(' / ')}`).join('\n');
 
   // ===== Recent trainings (with trainees) =====
@@ -7504,6 +7521,7 @@ function _chatBuildContext(question) {
   add(sec.branches,    'สาขา (เรียงตามจำนวนการสอน)', branchLines || '(ไม่มีข้อมูล)');
   add(sec.trainers,    'ผู้สอน (Top 10)', trainerLines || '(ยังไม่มี)');
   add(sec.moduleStats, 'สถิติแยกตาม Module', moduleStatsLines || '(ยังไม่มีการสอน)');
+  add(sec.evalMethods, 'จำนวนครั้งแยกตามวิธีประเมิน (ในขอบเขตของผู้ใช้)', evalMethodLines);
   add(sec.modules,     'Modules ที่มีในระบบ (พร้อมหัวข้อย่อย)', modules);
   add(sec.employees,   'พนักงานทั้งหมดในขอบเขต (ชื่อ | ตำแหน่ง | สาขา | อายุงาน | ถูกสอนกี่ครั้ง | สอนล่าสุด)', empListStr);
   add(sec.untrained,   'พนักงานที่ยังไม่ได้รับการสอน', untrainedSection);
