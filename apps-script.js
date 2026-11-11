@@ -21,7 +21,7 @@ function keepWarm() {
   return 1;
 }
 
-const GS_VERSION = 'chat-speed-2026-09-28';   /* อัปเดตทุกครั้งที่แก้ไฟล์นี้ ใช้ตรวจว่า deploy ตัวใหม่แล้วหรือยัง */
+const GS_VERSION = 'chat-image-2026-11-11';   /* อัปเดตทุกครั้งที่แก้ไฟล์นี้ ใช้ตรวจว่า deploy ตัวใหม่แล้วหรือยัง */
 
 function doGet(e) {
   const action = (e.parameter && e.parameter.action) || 'load';
@@ -264,6 +264,15 @@ function chatWithClaude(req) {
   return { error: 'ยังไม่ได้ตั้ง GEMINI_API_KEY หรือ ANTHROPIC_API_KEY ใน Script Properties' };
 }
 
+/* รูปแนบ: รับเฉพาะข้อความสุดท้ายของผู้ใช้ · ชนิด jpeg/png/webp · base64 เท่านั้น · ไม่เกิน ~1.1MB */
+function _chatImgOf(m) {
+  var im = m && m.image;
+  if (!im || typeof im.data !== 'string' || typeof im.mime !== 'string') return null;
+  if (['image/jpeg', 'image/png', 'image/webp'].indexOf(im.mime) < 0) return null;
+  if (im.data.length < 100 || im.data.length > 1500000 || !/^[A-Za-z0-9+\/=]+$/.test(im.data)) return null;
+  return { mime: im.mime, data: im.data };
+}
+
 function _chatViaGemini(req, apiKey) {
   try {
     const messages = (req.messages || []).slice(-20);
@@ -272,11 +281,14 @@ function _chatViaGemini(req, apiKey) {
 
     // Convert Anthropic-style messages → Gemini format
     // (role 'assistant' → 'model'; content string → parts:[{text}])
-    const contents = messages.map(function(m) {
-      return {
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: String(m.content || '') }]
-      };
+    var _img = null;
+    const contents = messages.map(function(m, i) {
+      var parts = [{ text: String(m.content || '') }];
+      if (i === messages.length - 1 && m.role !== 'assistant') {
+        _img = _chatImgOf(m);
+        if (_img) parts.unshift({ inline_data: { mime_type: _img.mime, data: _img.data } });
+      }
+      return { role: m.role === 'assistant' ? 'model' : 'user', parts: parts };
     });
 
     /* thinkingBudget: 0 = ไม่ต้องคิดก่อนตอบ
@@ -401,7 +413,7 @@ function _chatViaGemini(req, apiKey) {
     try { if (mi > 0 || lastOk !== models[mi]) props2.setProperty('GEMINI_LAST_OK', models[mi]); } catch (e) {}
     // ส่งชื่อรุ่นที่ตอบจริงกลับไปด้วย — ไว้ตรวจว่าใช้รุ่นที่ตั้งใจหรือตกไปตัวสำรอง
     // (หน้าเว็บไม่ได้ใช้ฟิลด์นี้ แต่ดูได้จาก Network tab / สคริปต์ทดสอบ)
-    return { reply: text, model: models[mi], tried: mi + 1 };
+    return { reply: text, model: models[mi], tried: mi + 1, imageSeen: !!_img };
   } catch (err) {
     return { error: 'Server error: ' + err.message };
   }
@@ -414,11 +426,20 @@ function _chatViaClaude(req, apiKey) {
     const system = req.system || 'คุณคือผู้ช่วย AI ตอบเป็นภาษาไทย กระชับและตรงประเด็น';
 
     const _cm = _chatCfgOf(req).claudeModel;
+    var _img = null;
+    const cmsgs = messages.map(function(m, i) {
+      var content = String(m.content || '');
+      if (i === messages.length - 1 && m.role !== 'assistant') {
+        _img = _chatImgOf(m);
+        if (_img) content = [{ type: 'image', source: { type: 'base64', media_type: _img.mime, data: _img.data } }, { type: 'text', text: content }];
+      }
+      return { role: m.role === 'assistant' ? 'assistant' : 'user', content: content };
+    });
     const payload = JSON.stringify({
       model: _cm,
       max_tokens: 1024,
       system: system,
-      messages: messages,
+      messages: cmsgs,
     });
 
     var resp, code, body;
@@ -440,7 +461,7 @@ function _chatViaClaude(req, apiKey) {
     const data = JSON.parse(body);
     const text = (data.content && data.content[0] && data.content[0].text) || '';
     if (!text) return { error: 'Claude ไม่ได้ตอบกลับ' };
-    return { reply: text, model: _cm };
+    return { reply: text, model: _cm, imageSeen: !!_img };
   } catch (err) {
     return { error: 'Server error: ' + err.message };
   }
