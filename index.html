@@ -7508,12 +7508,16 @@ function _chatBuildContext(question) {
   /* ประกอบเฉพาะก้อนที่คำถามนี้ต้องใช้
      "สรุปภาพรวม" ส่งไปทุกครั้งเพราะสั้นแค่ 3 บรรทัด และตอบคำถามนับจำนวนได้เลย
      โดยไม่ต้องแนบรายชื่อพนักงานทั้งหมดไปด้วย */
+  /* ช่วงวันที่จริงของข้อมูล (ตอบคำถามแนว "ตั้งแต่วันไหนถึงวันไหน") · ใช้วันที่สอนของบันทึกในขอบเขตผู้ใช้ */
+  const _tds = trains.map(t => new Date(t.date)).filter(d => !isNaN(d)).sort((x, y) => x - y);
+  const trainDateRange = _tds.length ? `${fmtDate(_tds[0])} ถึง ${fmtDate(_tds[_tds.length - 1])} (วันที่สอนของบันทึกแรกและล่าสุด)` : '(ยังไม่มีบันทึกการสอน)';
   const parts = [
     `${userInfo}\nวันที่ปัจจุบัน: ${fmtDate(today.toISOString())}`,
     `═══ สรุปภาพรวม ═══
 - พนักงานเปิดใช้งาน: ${emps.length} คน (ถูกสอนแล้ว ${trainedEmps.length} · ยังไม่ถูกสอน ${untrainedEmps.length})
 - ประเภทการจ้าง: ประจำ ${emps.length - partTimeCount} คน · พาร์ทไทม์ ${partTimeCount} คน (พาร์ทไทม์ = ตำแหน่งลงท้าย "P/T")
-- บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)`,
+- บันทึกการสอน: ${trains.length} ครั้ง · ประเมินแล้ว ${evaluated.length} · ผ่าน ${passed.length} (${passRate}%)
+- ช่วงวันที่ของบันทึกการสอนที่มีในระบบ: ${trainDateRange}`,
   ];
   const add = (on, title, body) => { if (on) parts.push(`═══ ${title} ═══\n${body}`); };
 
